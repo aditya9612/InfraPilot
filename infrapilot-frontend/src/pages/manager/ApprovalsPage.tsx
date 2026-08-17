@@ -6,7 +6,7 @@ import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { Eye, Check, X, Search, RotateCcw, Plus } from "lucide-react";
+import { Eye, Check, X, Search, RotateCcw, Plus, Download } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
@@ -326,6 +326,12 @@ const ApprovalsPage = () => {
                     </div>
                     <div className="flex gap-2">
                         <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+                        >
+                            <Download className="w-4 h-4" /> Export CSV
+                        </button>
+                        <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
@@ -513,7 +519,7 @@ const ApprovalsPage = () => {
                         </table>
                     </div>
                     {/* Pagination Controls */}
-                    {filteredApprovals.length > ITEMS_PER_PAGE && (
+                    {filteredApprovals.length > 0 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                                 Page {currentPage + 1} of {Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE)}
@@ -528,9 +534,35 @@ const ApprovalsPage = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                                     </svg>
                                 </button>
-                                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
-                                    {currentPage + 1}
-                                </div>
+                                {Array.from({ length: Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                                    // Show first, last, current, and adjacent pages
+                                    const totalPages = Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE);
+                                    if (
+                                        i === 0 || 
+                                        i === totalPages - 1 || 
+                                        (i >= currentPage - 1 && i <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={() => setCurrentPage(i)}
+                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+                                                    currentPage === i
+                                                        ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                        : "text-slate-500 hover:bg-slate-100"
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        );
+                                    } else if (
+                                        i === currentPage - 2 || 
+                                        i === currentPage + 2
+                                    ) {
+                                        return <span key={i} className="text-slate-400 font-bold px-1">...</span>;
+                                    }
+                                    return null;
+                                })}
                                 <button
                                     onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) - 1, p + 1))}
                                     disabled={currentPage >= Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) - 1}

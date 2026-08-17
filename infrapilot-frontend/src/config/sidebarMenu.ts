@@ -261,6 +261,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ]
     },
     {
+      label: "Issues",
+      path: "/manager/issues",
+      icon: "alert-circle",
+    },
+    {
       label: "Documents",
       path: "/manager/documents",
       icon: "folder",

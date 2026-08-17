@@ -116,7 +116,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
               <h4 className="text-lg font-bold text-slate-800">{activity.activity_name}</h4>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs font-bold text-slate-500">Current: {(activity.completion_percentage || 0).toFixed(1)}%</span>
+                <span className="text-xs font-bold text-slate-500">Current: {Number(activity.completion_percentage || 0).toFixed(1)}%</span>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{activity.unit}</span>
               </div>
             </div>

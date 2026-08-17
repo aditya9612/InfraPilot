@@ -14,6 +14,7 @@ export interface ActivityItem {
   status: string;
   end_date: string;
   work_order_id?: number | null;
+  boq_item_id?: number | null;
   discipline?: string | null;
   updated_at?: string;
 }
@@ -56,13 +57,11 @@ export interface CreateActivityRequest {
 }
 
 export interface UpdateActivityRequest {
-  activity_name: string;
-  planned_quantity: number;
-  unit: string;
+  boq_item_id?: number | null;
+  work_order_id?: number | null;
+  engineer_id?: number | null;
   start_date: string;
   end_date: string;
-  status: string;
-  engineer_id?: number | null;
 }
 
 export interface DailyProgressRequest {

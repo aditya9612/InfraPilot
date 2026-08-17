@@ -465,7 +465,7 @@ const ManagerProcurementPage = () => {
                                                     {selectedProject?.project_name || "Unknown Project"}
                                                 </span>
                                                 <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                                                    {item.purchase_type}
+                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string,string>)[item.purchase_type] || item.purchase_type}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

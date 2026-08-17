@@ -1036,7 +1036,7 @@ const ManagerBOQPage = () => {
                                             </div>
                                             <p className="text-sm text-slate-500 mb-3">{task.description || "No description provided."}</p>
                                             {task.milestone_id && (
-                                                <div className="text-xs text-slate-400 font-medium">Milestone ID: {task.milestone_id}</div>
+                                                <div className="text-xs text-slate-400 font-medium">Milestone: {milestonesList.find(m => Number(m.id) === Number(task.milestone_id))?.milestone_name || milestonesList.find(m => Number(m.id) === Number(task.milestone_id))?.name || task.milestone_id}</div>
                                             )}
                                         </div>
                                     ))}

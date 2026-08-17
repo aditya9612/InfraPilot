@@ -40,11 +40,28 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
             boqService.getBoqsByProject(projectId),
             masterService.getEntities('activity-types'),
           ]);
-          const masterBoqs = items.filter((i: any) => i.approval_status !== 'Draft');
-          setAvailableBoqs(masterBoqs);
+
+          // Step 1: Filter out items belonging to APPROVED BOQ groups
+          const nonApproved = items.filter((i: any) =>
+            i.approval_status !== 'APPROVED' && i.approval_status !== 'Approved'
+          );
+
+          // Step 2: Deduplicate by boq_group_id (true_group_id preferred), keeping first occurrence
+          const seenGroupIds = new Set<number>();
+          const uniqueGroups: BoqItem[] = [];
+          for (const item of nonApproved) {
+            const groupId = (item as any).true_group_id ?? item.boq_group_id ?? item.id;
+            if (!seenGroupIds.has(Number(groupId))) {
+              seenGroupIds.add(Number(groupId));
+              uniqueGroups.push(item);
+            }
+          }
+
+          setAvailableBoqs(uniqueGroups);
           setActivityTypes(types);
-          if (masterBoqs.length > 0) {
-            setSelectedBoqId(String(masterBoqs[0].boq_group_id ?? masterBoqs[0].id));
+          if (uniqueGroups.length > 0) {
+            const firstGroupId = (uniqueGroups[0] as any).true_group_id ?? uniqueGroups[0].boq_group_id ?? uniqueGroups[0].id;
+            setSelectedBoqId(String(firstGroupId));
             setIsCreatingNew(false);
           } else {
             setIsCreatingNew(true);
@@ -240,11 +257,14 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                       {availableBoqs.length === 0 && !isLoadingBoqs && (
                         <option value="__new__">➕ No BOQs found — Create new group</option>
                       )}
-                      {availableBoqs.map((boq) => (
-                        <option key={boq.boq_group_id ?? boq.id} value={String(boq.boq_group_id ?? boq.id)}>
-                          {boq.item_name}
-                        </option>
-                      ))}
+                      {availableBoqs.map((boq) => {
+                          const gid = (boq as any).true_group_id ?? boq.boq_group_id ?? boq.id;
+                          return (
+                            <option key={gid} value={String(gid)}>
+                              {boq.item_name}
+                            </option>
+                          );
+                        })}
                       <option value="__new__">➕ Create new BOQ group...</option>
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

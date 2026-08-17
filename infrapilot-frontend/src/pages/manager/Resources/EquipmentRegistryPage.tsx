@@ -331,7 +331,8 @@ const EquipmentRegistryPage = () => {
     });
 
     const filteredUsage = (usageReport || []).filter(u => (!validEquipmentIds || validEquipmentIds.has(Number(u.equipment_id))) && (u.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    const filteredMaintenance = (maintenanceAlerts || []).filter(m => (!validEquipmentIds || validEquipmentIds.has(Number(m.equipment_id))) && (m.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const filteredMaintenanceLogs = (selectedEquipment ? selectedEquipmentLogs.maint : allMaintenanceLogs).filter((log: any) => (!validEquipmentIds || validEquipmentIds.has(Number(log.equipment_id))) && (!searchTerm || (log.description || "").toLowerCase().includes(searchTerm.toLowerCase()) || (equipmentList.find(e => e.id === log.equipment_id)?.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase())));
     const filteredRental = (rentalCostReport || []).filter(r => (!validEquipmentIds || validEquipmentIds.has(Number(r.equipment_id))) && (r.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
     const filteredAlerts = (equipmentAlerts || []).filter(a => (!effectiveProjectId || (a.project_id && String(a.project_id) === String(effectiveProjectId)) || (!a.project_id && validEquipmentIds?.has(Number(a.equipment_id)))) && ((a.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()) || (a.equipment_name || "").toLowerCase().includes(searchTerm.toLowerCase())));
 
@@ -341,7 +342,7 @@ const EquipmentRegistryPage = () => {
     const currentListData = activeTab === "Machinery & Equipment List" ? filteredEquipment :
         activeTab === "Usage" ? filteredUsage :
             activeTab === "Transfer Equipment" ? filteredEquipment :
-                activeTab === "Maintenance" ? filteredMaintenance :
+                activeTab === "Maintenance" ? filteredMaintenanceLogs :
                     activeTab === "Rental" ? filteredRental :
                         activeTab === "Reports & Alerts" ? filteredAlerts : [];
 
@@ -360,9 +361,11 @@ const EquipmentRegistryPage = () => {
             allocated: useBackendKpi ? kpiData.allocated : activeEquipmentList.filter(item => item.project_id).length,
             maintenanceAlerts: useBackendKpi ? kpiData.maintenance : maintList.length,
             equipmentAlerts: useBackendKpi ? kpiData.damaged : alertList.length,
-            rentalCost: useBackendKpi ? kpiData.total_rental_revenue : rentalList.reduce((sum, item) => sum + (item.total_cost || 0), 0)
+            rentalCost: useBackendKpi ? kpiData.total_rental_revenue : rentalList.reduce((sum, item) => sum + (item.total_cost || 0), 0),
+            utilizationRate: useBackendKpi ? (kpiData as any).utilization_rate : (filteredUtilization.length > 0 ? (filteredUtilization.reduce((sum, item) => sum + (item.utilization_rate || 0), 0) / filteredUtilization.length) / 100 : 0),
+            maintenanceCost: useBackendKpi ? (kpiData as any).total_maintenance_cost : allMaintenanceLogs.reduce((sum, log) => sum + (log.cost || 0), 0)
         };
-    }, [activeEquipmentList, maintenanceAlerts, equipmentAlerts, rentalCostReport, kpiData, availability, effectiveProjectId, validEquipmentIds, filteredAvailability]);
+    }, [activeEquipmentList, maintenanceAlerts, equipmentAlerts, rentalCostReport, kpiData, availability, effectiveProjectId, validEquipmentIds, filteredAvailability, filteredUtilization, allMaintenanceLogs]);
 
     // Reset page on tab or search change
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, conditionFilter, effectiveProjectId, showDeleted]);
@@ -670,12 +673,10 @@ const EquipmentRegistryPage = () => {
 
         setIsLoading(true);
         try {
-            await equipmentService.transferEquipment({
-                equipment_id: Number(transferForm.equipment_id),
-                to_project_id: Number(transferForm.to_project_id),
-                transfer_date: transferForm.transfer_date,
-                condition_notes: transferForm.condition_notes || ''
-            });
+            await equipmentService.transferEquipment(
+                Number(transferForm.equipment_id),
+                Number(transferForm.to_project_id)
+            );
             toast.success('Equipment transfer initiated');
             setIsTransferModalOpen(false);
             fetchData();
@@ -1142,7 +1143,7 @@ const EquipmentRegistryPage = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm">
-                                {filteredEquipment.map((item: any) => (
+                                {pagedData.map((item: any) => (
                                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <p className="font-bold text-slate-800">{item.equipment_name}</p>
@@ -1254,7 +1255,7 @@ const EquipmentRegistryPage = () => {
                         <tbody className="divide-y divide-slate-100">
                             {isLoading ? (
                                 <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading maintenance records...</td></tr>
-                            ) : (selectedEquipment ? selectedEquipmentLogs.maint : allMaintenanceLogs).length > 0 ? (selectedEquipment ? selectedEquipmentLogs.maint : allMaintenanceLogs).map((logItem: any) => {
+                            ) : pagedData.length > 0 ? pagedData.map((logItem: any) => {
                                 const log = logItem as any;
                                 return (
                                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
@@ -1324,7 +1325,7 @@ const EquipmentRegistryPage = () => {
                             setSelectedEquipment(eq || null);
                         }} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none bg-white">
                             <option value="">Select equipment</option>
-                            {activeEquipmentList.map(eq => (
+                            {activeEquipmentList.filter(eq => !eq.project_id).map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
                             ))}
                         </select>
@@ -1418,7 +1419,7 @@ const EquipmentRegistryPage = () => {
                                     <tr><td colSpan={9} className="p-8 text-center text-slate-400">Loading rental history...</td></tr>
                                 ) : allRentalLogs.length > 0 ? allRentalLogs.map((r: any) => (
                                     <tr key={r.id} className="hover:bg-slate-50">
-                                        <td className="p-3 font-bold">{equipmentList.find(eq => eq.id === r.equipment_id)?.equipment_name || equipmentList.find(eq => eq.id === r.equipment_id)?.equipment_code || `EQ-${r.equipment_id}`}</td>
+                                        <td className="p-3 font-bold">{(() => { const eq = equipmentList.find(e => e.id === r.equipment_id); return eq ? eq.equipment_name || 'Equipment' : `EQ-${r.equipment_id}`; })()}</td>
                                         <td className="p-3">{r.start_date}</td>
                                         <td className="p-3">{r.end_date}</td>
                                         <td className="p-3">₹{(r.rental_cost || 0).toLocaleString()}</td>
@@ -1497,7 +1498,7 @@ const EquipmentRegistryPage = () => {
                                                 {a.is_available ? 'Available' : 'Allocated'}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-slate-500 font-medium">{a.project_id ? ((a as any).project_name || projects.find(p => Number(p.id) === Number(a.project_id))?.project_name || projects.find(p => Number(p.id) === Number(a.project_id))?.name || assignedProjects.find(p => Number(p.id) === Number(a.project_id))?.project_name || assignedProjects.find(p => Number(p.id) === Number(a.project_id))?.name || `Project #${a.project_id}`) : '-'}</td>
+                                        <td className="p-4 text-slate-500 font-medium">{a.project_id ? ((a as any).project_name || projects.find(p => Number(p.id) === Number(a.project_id))?.project_name || (projects.find(p => Number(p.id) === Number(a.project_id)) as any)?.name || assignedProjects.find(p => Number(p.id) === Number(a.project_id))?.project_name || (assignedProjects.find(p => Number(p.id) === Number(a.project_id)) as any)?.name || `Project #${a.project_id}`) : '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1519,7 +1520,9 @@ const EquipmentRegistryPage = () => {
                         { title: "Allocated", value: dashStats.allocated.toString(), sub: "Deployed to projects", accent: "text-blue-500" },
                         { title: "Maintenance Alerts", value: dashStats.maintenanceAlerts.toString(), sub: "Pending checks", accent: "text-amber-500" },
                         { title: "Equipment Alerts", value: dashStats.equipmentAlerts.toString(), sub: "Critical issues", accent: "text-rose-500" },
-                        { title: "Rental Cost", value: `₹${dashStats.rentalCost.toLocaleString()}`, sub: "Current period", accent: "text-purple-500" }
+                        { title: "Rental Cost", value: `₹${dashStats.rentalCost.toLocaleString()}`, sub: "Current period", accent: "text-purple-500" },
+                        { title: "Utilization Rate", value: `${Math.round((dashStats.utilizationRate || 0) * 100)}%`, sub: "Average usage", accent: "text-indigo-500" },
+                        { title: "Maintenance Cost", value: `₹${(dashStats.maintenanceCost || 0).toLocaleString()}`, sub: "Total spent", accent: "text-orange-500" }
                     ].map((stat) => (
                         <div key={stat.title} className="bg-slate-50 border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400 mb-3">{stat.title}</p>
@@ -1643,8 +1646,10 @@ const EquipmentRegistryPage = () => {
                 onClose={() => setIsEquipmentModalOpen(false)}
                 onSave={async (data) => {
                     try {
-                        if (data.id) await equipmentService.updateEquipment(data.id, data);
-                        else await equipmentService.createEquipment(data);
+                        if (data.id) {
+                            const { equipment_code, ...updatePayload } = data;
+                            await equipmentService.updateEquipment(data.id, updatePayload);
+                        } else await equipmentService.createEquipment(data);
                         toast.success("Registry updated");
                         setIsEquipmentModalOpen(false);
                         fetchData();
@@ -1813,7 +1818,7 @@ const EquipmentRegistryPage = () => {
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                             <select required disabled={isRentalViewOnly} value={formData.equipment_id || selectedEquipment?.id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                                 <option value="">-- Choose equipment --</option>
-                                {activeEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                                {activeEquipmentList.filter(eq => !eq.project_id || eq.id === formData.equipment_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                             </select>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

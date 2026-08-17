@@ -1,8 +1,9 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, UpdateActivityRequest } from "../../types/workProgress";
-import { masterService } from "../../services/masterService";
 import { projectService } from "../../services/projectService";
+import { boqService } from "../../services/boqService";
+import api from "../../services/api";
 
 interface EditActivityModalProps {
   isOpen: boolean;
@@ -14,37 +15,57 @@ interface EditActivityModalProps {
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
   return arr.filter(item => {
-    const id = item.id || item.user_id || item.name;
+    const id = item.id || item.boq_id || item.user_id || item.boq_code;
     if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 };
 
-
 const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivityModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<UpdateActivityRequest>({
-    activity_name: "",
-    planned_quantity: 0,
-    unit: "CUM",
+    boq_item_id: undefined,
+    work_order_id: undefined,
     start_date: "",
     end_date: "",
-    status: "NOT_STARTED",
     engineer_id: undefined
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [unitList, setUnitList] = useState<any[]>([]);
+  const [allBoqs, setAllBoqs] = useState<any[]>([]);
+  const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isOpen) {
-      masterService.getEntities("units")
-        .then(res => setUnitList(uniqueById(Array.isArray(res) ? res : [])))
-        .catch(err => console.error("Failed to fetch units", err));
+    if (isOpen && activity?.project_id) {
+      const pid = activity.project_id;
+      // Fetch BOQs
+      boqService.getBoqs({ limit: 100, project_id: pid })
+        .then(boqs => {
+          const items = Array.isArray(boqs.items) ? boqs.items : [];
+          setAllBoqs(uniqueById(items));
+        })
+        .catch(err => {
+          console.error("Failed to fetch all BOQs", err);
+          setAllBoqs([]);
+        });
+      // Fetch Work Orders
+      const woParams: any = { project_id: pid };
+      if (formData.boq_item_id) {
+        woParams.boq_id = formData.boq_item_id;
+      }
+      api.get(`/work-orders`, { params: woParams })
+        .then(woRes => {
+          const items = Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []);
+          setAllWorkOrders(uniqueById(items));
+        })
+        .catch(err => {
+          console.error("Failed to fetch all Work Orders", err);
+          setAllWorkOrders([]);
+        });
     }
-  }, [isOpen]);
+  }, [isOpen, activity?.project_id, formData.boq_item_id]);
 
   useEffect(() => {
     if (isOpen && activity?.project_id) {
@@ -66,28 +87,17 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
   useEffect(() => {
     if (activity) {
       setFormData({
-        activity_name: activity.activity_name,
-        planned_quantity: activity.planned_quantity,
-        unit: activity.unit,
-        start_date: activity.start_date,
-        end_date: activity.end_date,
-        status: activity.status,
-        engineer_id: activity.engineer_id
+        boq_item_id: activity.boq_item_id || undefined,
+        work_order_id: activity.work_order_id || undefined,
+        start_date: activity.start_date || "",
+        end_date: activity.end_date || "",
+        engineer_id: activity.engineer_id || undefined
       });
     }
   }, [activity]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!formData.activity_name?.trim()) {
-      errs.activity_name = "Activity name is required";
-    } else if (/[0-9]/.test(formData.activity_name)) {
-      errs.activity_name = "Activity name must be alphabetic only (no numbers)";
-    }
-
-    if (!formData.planned_quantity || formData.planned_quantity <= 0) {
-      errs.planned_quantity = "Planned quantity must be greater than 0";
-    }
 
     if (!formData.start_date) errs.start_date = "Start date is required";
     if (!formData.end_date) errs.end_date = "End date is required";
@@ -105,7 +115,6 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     if (!activity || !validate()) return;
     setIsSubmitting(true);
     try {
-      // Status is already in backend enum format (NOT_STARTED, ON_TRACK, DELAY, COMPLETED)
       await onSubmit(activity.id, formData);
       setErrors({});
     } catch (err) {
@@ -117,13 +126,17 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setFormData(prev => {
+      const parsedValue = (name === "boq_item_id" || name === "work_order_id" || name === "engineer_id") && value
+        ? Number(value)
+        : value;
 
-    if (name === "activity_name" && /[0-9]/.test(value)) {
-      setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
-      return;
-    }
-
-    setFormData(prev => ({ ...prev, [name]: value }));
+      const newData = { ...prev, [name]: parsedValue };
+      if (name === "boq_item_id") {
+        newData.work_order_id = undefined;
+      }
+      return newData;
+    });
     if (errors[name]) {
       setErrors(prev => {
         const { [name]: _, ...rest } = prev;
@@ -163,78 +176,73 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Modify Activity Registry" footer={modalFooter} maxWidth="max-w-2xl">
       <form id="edit-activity-form" onSubmit={handleSubmit} className="space-y-6">
+        
         {/* Core Identity Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Activity Identity
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Activity Name*</label>
-              <input
-                required type="text" name="activity_name"
-                className={inputClasses(errors.activity_name)}
-                value={formData.activity_name} onChange={handleChange}
-              />
-              {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
-            </div>
-
-          </div>
-        </div>
-
-        {/* Logistics & Metrics Section */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Logistics & Metrics
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+            Activity Mapping
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Provisioned Quantity*</label>
-              <input
-                required type="number" name="planned_quantity" min="0" step="any"
-                className={inputClasses(errors.planned_quantity)}
-                value={formData.planned_quantity} onChange={e => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
-              />
-              {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
+              <label className={labelClasses}>BOQ Item</label>
+              <select
+                name="boq_item_id"
+                className={inputClasses()}
+                value={formData.boq_item_id || ""}
+                onChange={handleChange}
+              >
+                <option value="">Select BOQ Item</option>
+                {allBoqs.map(b => (
+                  <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
+                    {b.item_name || `BOQ #${b.id}`}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className={labelClasses}>Unit of Measure*</label>
-              <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
-                <option value="">Select Unit</option>
-                {unitList.map(u => {
-                  const unitCode = u.name?.match(/\(([^)]+)\)/)?.[1]?.toUpperCase() || u.name?.toUpperCase() || "";
-                  return <option key={u.id || u.unique_code || u.name} value={unitCode}>{u.name}</option>;
-                })}
+              <label className={labelClasses}>Work Order</label>
+              <select
+                name="work_order_id"
+                className={inputClasses()}
+                value={formData.work_order_id || ""}
+                onChange={handleChange}
+              >
+                <option value="">Select Work Order</option>
+                {allWorkOrders.map(w => (
+                  <option key={w.id} value={w.id}>
+                    {w.work_description || w.work_order_number || `Work Order #${w.id}`}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
+        </div>
 
-          {/* Assignment Section */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
-              Re-Assignment
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
-            </h3>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className={labelClasses}>Assigned Site Engineer</label>
-                <select
-                  name="engineer_id"
-                  className={inputClasses()}
-                  value={formData.engineer_id || ""}
-                  onChange={(e) => setFormData({ ...formData, engineer_id: Number(e.target.value) || undefined })}
-                >
-                  <option value="">No Assignment (Select to Assign)</option>
-                  {siteEngineers.map(eng => (
-                    <option key={eng.id} value={eng.id}>
-                      {eng.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-slate-400 font-medium ml-1 italic font-inter">
-                  Update the engineer responsible for this activity.
-                </p>
-              </div>
+        {/* Assignment Section */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+            Re-Assignment
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
+          </h3>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelClasses}>Assigned Site Engineer</label>
+              <select
+                name="engineer_id"
+                className={inputClasses()}
+                value={formData.engineer_id || ""}
+                onChange={(e) => setFormData({ ...formData, engineer_id: e.target.value ? Number(e.target.value) : undefined })}
+              >
+                <option value="">No Assignment (Select to Assign)</option>
+                {siteEngineers.map(eng => (
+                  <option key={eng.id} value={eng.id}>
+                    {eng.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[10px] text-slate-400 font-medium ml-1 italic font-inter">
+                Update the engineer responsible for this activity.
+              </p>
             </div>
           </div>
         </div>

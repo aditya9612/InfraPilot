@@ -68,7 +68,7 @@ const LabourRegistryPage = () => {
     const [_fiscalSummary, setFiscalSummary] = useState<any>(null);
     const [_payrollMomentum, setPayrollMomentum] = useState<any[]>([]);
     const [_aggregateReport, setAggregateReport] = useState<any[]>([]);
-    const [contractorFilter, setContractorFilter] = useState("All");
+
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter] = useState("All");
@@ -363,11 +363,18 @@ const LabourRegistryPage = () => {
         if (!projectId) return;
         setIsGeneratingPayroll(true);
         try {
-            await paymentService.generatePayroll({ month: payrollMonth, year: payrollYear });
+            await paymentService.generatePayroll({ month: payrollMonth, year: payrollYear, project_id: Number(projectId) });
             toast.success("Payroll generated successfully.");
             fetchPayrollData();
         } catch (err: any) {
-            toast.error(err?.response?.data?.detail || "Failed to generate payroll.");
+            let errorMsg = "Failed to generate payroll.";
+            const detail = err?.response?.data?.detail;
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errorMsg = detail.map((d: any) => d.msg).join(', ');
+            }
+            toast.error(errorMsg);
         } finally {
             setIsGeneratingPayroll(false);
         }
@@ -515,14 +522,12 @@ const LabourRegistryPage = () => {
         if (searchTerm) return (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase());
         return true;
     });
-    const showPayrollContractorFilter = useMemo(() => payrollList.some((item: any) => item.contractor_id || item.contractor_name), [payrollList]);
     const filteredPayrollList = useMemo(() => {
         return payrollList.filter((item: any) => {
             const matchesSearch = !searchTerm || (item.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || String(item.labour_id || item.worker_code || "").toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesContractor = !showPayrollContractorFilter || contractorFilter === "All" || String(item.contractor_id) === contractorFilter || String(item.contractor_name || "").toLowerCase() === contractorFilter.toLowerCase();
-            return matchesSearch && matchesContractor;
+            return matchesSearch;
         });
-    }, [payrollList, searchTerm, contractorFilter, showPayrollContractorFilter]);
+    }, [payrollList, searchTerm]);
     const currentListData = activeTab === "Registry"
         ? filteredLaborers
         : activeTab === "Attendance"
@@ -546,7 +551,7 @@ const LabourRegistryPage = () => {
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 sticky top-0 z-10">
                 <tr>
                     <th className="px-6 py-4">Worker</th><th className="px-6 py-4">Skill Type</th>
-                    <th className="px-6 py-4">Contractor</th><th className="px-6 py-4">Assigned Task</th><th className="px-6 py-4">Assigned Site Engg</th><th className="px-6 py-4 text-right">Daily Wage</th>
+                    <th className="px-6 py-4">Assigned Task</th><th className="px-6 py-4">Assigned Site Engg</th><th className="px-6 py-4 text-right">Daily Wage</th>
                     <th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th>
                 </tr>
             </thead>
@@ -573,7 +578,6 @@ const LabourRegistryPage = () => {
                                 </div>
                             </td>
                             <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.skill_category || labor.labour_type_name || labor.skill_type || "—"}</td>
-                            <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || (labor.contractor && labor.contractor.name) || "—"}</td>
                             <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
                             <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
                             <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
@@ -615,7 +619,7 @@ const LabourRegistryPage = () => {
                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
                         <tr>
                             <th className="px-6 py-4">Date</th><th className="px-6 py-4">Labour Name</th>
-                            <th className="px-6 py-4">Contractor</th><th className="px-6 py-4">Department</th>
+                            <th className="px-6 py-4">Department</th>
                             <th className="px-6 py-4 text-center">Check In</th><th className="px-6 py-4 text-center">Check Out</th>
                             <th className="px-6 py-4 text-center">Hours</th><th className="px-6 py-4">Location</th>
                             <th className="px-6 py-4">Status</th><th className="px-6 py-4 text-center">Actions</th>
@@ -633,7 +637,6 @@ const LabourRegistryPage = () => {
                                                 <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{lab.labour_name || "Unknown"}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor_name || "—"}</span></td>
                                         <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department || lab.skill_type || "—"}</span></td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col items-center gap-1">
@@ -832,7 +835,7 @@ const LabourRegistryPage = () => {
                                 </button>
                             </div>
                         )}
-                        {activeTab !== "Site Engineers" && (
+                        {activeTab === "Attendance" && (
                             <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
                                 <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
                             </div>
@@ -874,24 +877,7 @@ const LabourRegistryPage = () => {
                                     </div>
                                 </>
                             )}
-                            {activeTab === "Payroll" && showPayrollContractorFilter && (
-                                <div className="relative">
-                                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                    <select value={contractorFilter} onChange={e => setContractorFilter(e.target.value)} className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none bg-white">
-                                        <option value="All">All Contractors</option>
-                                        {(_contractorLiability && _contractorLiability.length > 0)
-                                            ? _contractorLiability.map((c: any) => (
-                                                <option key={c.contractor_id ?? 'independent'} value={c.contractor_name || c.contractor_id || 'Independent'}>
-                                                    {c.contractor_name || (c.contractor_id ? `Contractor ${c.contractor_id}` : 'Independent')}
-                                                </option>
-                                              ))
-                                            : Array.from(new Set(payrollList.map((item: any) => item.contractor_name || item.contractor_id))).map((value: any) => (
-                                                <option key={value} value={value}>{typeof value === 'number' ? `Contractor ${value}` : value}</option>
-                                              ))
-                                        }
-                                    </select>
-                                </div>
-                            )}
+
                             {activeTab === "Payroll" && (
                                 <div className="flex items-center gap-2">
                                     <select value={payrollMonth} onChange={e => setPayrollMonth(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -1133,7 +1119,7 @@ const LabourRegistryPage = () => {
                             </div>
                             <div><label className={labelCls}>Custom Daily Wage (₹)</label><input type="number" value={formData.custom_daily_wage_rate} onChange={e => setFormData(p => ({ ...p, custom_daily_wage_rate: e.target.value }))} placeholder="900" min={0} className={inputCls} /></div>
                             <div><label className={labelCls}>Custom OT Rate / Hour (₹)</label><input type="number" value={formData.custom_ot_rate_per_hour} onChange={e => setFormData(p => ({ ...p, custom_ot_rate_per_hour: e.target.value }))} placeholder="120" min={0} className={inputCls} /></div>
-                            <div><label className={labelCls}>Contractor ID</label><input type="number" value={formData.contractor_id} onChange={e => setFormData(p => ({ ...p, contractor_id: e.target.value }))} placeholder="1" className={inputCls} /></div>
+
                             <div><label className={labelCls}>Status</label>
                                 <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls}>
                                     <option value="Active">Active</option><option value="Inactive">Inactive</option>

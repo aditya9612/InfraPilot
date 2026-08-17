@@ -70,10 +70,14 @@ const ActivityListPage = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadActivities = useCallback(async () => {
+    if (!projectId) {
+      setActivities([]);
+      return;
+    }
     try {
       setLoading(true);
       // Pass project_id from Settings page to API — backend returns only that project's activities
-      const data = await workProgressService.listActivities(projectId ?? undefined, undefined, 100, 0);
+      const data = await workProgressService.listActivities(projectId, undefined, 100, 0);
       // Keep raw API status values — no normalization needed
       const normalizedData = data.map((a: any) => ({
         ...a,

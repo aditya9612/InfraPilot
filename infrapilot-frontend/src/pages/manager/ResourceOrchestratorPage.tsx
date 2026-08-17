@@ -141,11 +141,11 @@ const ResourceOrchestratorPage = () => {
                 } else if (activeTab === "supply-chain") {
                     const [stockRes, transRes] = await Promise.all([
                         materialService.getInventory(projId ? Number(projId) : undefined),
-                        materialService.listTransfers(0, 50)
+                        materialService.listTransfers(0, 50, projId ? Number(projId) : undefined)
                     ]);
                     setSupplyChainData({
-                        stock: stockRes || [],
-                        transfers: Array.isArray(transRes) ? transRes : transRes.items || []
+                        stock: Array.isArray(stockRes) ? stockRes : (stockRes as any)?.data || (stockRes as any)?.items || [],
+                        transfers: Array.isArray(transRes) ? transRes : (transRes as any)?.data || (transRes as any)?.items || []
                     });
                 }
             } catch (err) {

@@ -162,11 +162,15 @@ const ActivityListPage = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadActivities = useCallback(async () => {
+    if (!projectId) {
+      setActivities([]);
+      return;
+    }
     try {
       setLoading(true);
-      // Pass project_id from Settings page to API — backend returns only that project's activities
-      const data = await workProgressService.listActivities(projectId ?? undefined, undefined, 100, 0);
-      // Keep raw API status values — no normalization needed
+      // Pass project_id from Context — backend returns only that project's activities
+      const data = await workProgressService.listActivities(projectId, undefined, 100, 0);
+      
       const normalizedData = data.map((a: any) => ({
         ...a,
         status: a.status || "NOT_STARTED"
@@ -470,7 +474,7 @@ const ActivityListPage = () => {
               >
                 <option value="">ALL WORK ORDERS</option>
                 {workOrdersList.map(w => (
-                  <option key={w.id} value={w.id}>{w.title || w.work_order_no || w.work_order_number || `WO #${w.id}`}</option>
+                  <option key={w.id} value={w.id}>{w.work_description || w.title || w.work_order_no || w.work_order_number || `WO #${w.id}`}</option>
                 ))}
               </select>
             </div>

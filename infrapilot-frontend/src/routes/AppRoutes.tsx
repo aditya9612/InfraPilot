@@ -54,6 +54,7 @@ import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
 import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
 import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
+import ManagerIssuesPage from "../pages/manager/ManagerIssuesPage";
 import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
 import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
 import ManagerMaterialReceiptPage from "../pages/manager/Resources/MaterialManagement/MaterialReceiptPage";
@@ -320,6 +321,7 @@ function AppRoutes() {
                 <Route path="quality" element={<ManagerQualityPage />} />
                 <Route path="quality/:tab" element={<ManagerQualityPage />} />
                 <Route path="safety" element={<ManagerSafetyPage />} />
+                <Route path="issues" element={<ManagerIssuesPage />} />
                 <Route path="safety/:tab" element={<ManagerSafetyPage />} />
                 <Route path="labour" element={<LabourRegistryPage />} />
                 <Route path="labour/:id" element={<LabourTaskDetailPage />} />

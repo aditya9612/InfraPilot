@@ -277,10 +277,45 @@ export const drawingService = {
      */
     async viewDocument(id: number | string) {
         const numericId = typeof id === 'string' ? id.replace(/[^0-9]/g, '') : id;
-        console.log(`GET /api/v1/drawings/documents/view/${numericId}`);
 
-        const response = await api.get(`/drawings/documents/view/${numericId}`);
-        return response.data;
+        try {
+            // First: get the signed URL / metadata from BE
+            const response = await api.get(`/drawings/documents/view/${numericId}`);
+            const data = response.data;
+
+            // BE returns JSON with file_url field
+            const fileUrl = data?.file_url || data?.url || data?.download_url || data?.signed_url;
+
+            if (fileUrl) {
+                try {
+                    // Fetch the actual file as a blob
+                    const fetchRes = await fetch(fileUrl);
+                    const blob = await fetchRes.blob();
+                    let ct = fetchRes.headers.get('content-type') || blob.type || 'image/png';
+                    // Normalise image content type
+                    const ext = fileUrl.toLowerCase().split('?')[0];
+                    if (ext.endsWith('.png')) ct = 'image/png';
+                    else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) ct = 'image/jpeg';
+                    else if (ext.endsWith('.pdf')) ct = 'application/pdf';
+                    else if (ext.endsWith('.svg')) ct = 'image/svg+xml';
+                    return { data: blob, contentType: ct, fileUrl };
+                } catch {
+                    // CORS fallback — return raw URL
+                    return { fileUrl };
+                }
+            }
+
+            // If no file_url in JSON, fallback to returning raw data as blob
+            if (data instanceof Blob || data instanceof ArrayBuffer) {
+                const ct = response.headers?.['content-type'] || 'application/pdf';
+                return { data, contentType: ct };
+            }
+
+            return { fileUrl: '' };
+        } catch (err) {
+            console.error(`viewDocument ${numericId} failed:`, err);
+            return { fileUrl: '' };
+        }
     },
 
     /**

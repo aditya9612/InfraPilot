@@ -275,13 +275,8 @@ export const boqService = {
    */
   async addBoqItem(groupId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      const response = await api.post(`/boq/groups/${groupId}/items/bulk`, { items: [itemData] }, {
-        params: {
-          BOQImportResponse: "",
-          BOQImportError: ""
-        }
-      });
-      return response.data?.items?.[0] || response.data?.[0] || {};
+      const response = await api.post(`/boq/groups/${groupId}/items`, itemData);
+      return response.data;
     } catch (error: any) {
       console.error(
         "Add Item Error:",

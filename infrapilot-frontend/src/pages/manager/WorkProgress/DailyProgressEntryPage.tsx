@@ -51,7 +51,7 @@ const DailyProgressEntryPage = () => {
   const [allEntries, setAllEntries] = useState<DailyEntry[]>([]);
   const [activityHistory, setActivityHistory] = useState<any[]>([]);
   const [globalLogs, setGlobalLogs] = useState<any[]>([]);
-  const [hasLoadedLogs, setHasLoadedLogs] = useState(false);
+
   const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]); // for dropdown
   const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const [projectSummary, setProjectSummary] = useState<any>(null);
@@ -139,7 +139,11 @@ const DailyProgressEntryPage = () => {
         setLoading(true);
       }
       const res = await workProgressService.getTodayProgress(engineer_id, projectId);
-      const entries = res?.data || [];
+      let entries: any[] = [];
+      if (Array.isArray(res)) entries = res;
+      else if (res && Array.isArray((res as any).data)) entries = (res as any).data;
+      else if (res && (res as any).data && Array.isArray((res as any).data.data)) entries = (res as any).data.data;
+      else if (res && Array.isArray((res as any).progress)) entries = (res as any).progress;
       
       setTodayActivities(entries as DailyEntry[]);
       setHasLoadedToday(true);
@@ -186,9 +190,15 @@ const DailyProgressEntryPage = () => {
       const limit = 100;
       while (true) {
         const res = await workProgressService.listDailyEntries(undefined, undefined, projectId, limit, offset);
-        if (!res || res.length === 0) break;
-        allEntriesList = allEntriesList.concat(res);
-        if (res.length < limit) break;
+        
+        let batch: any[] = [];
+        if (Array.isArray(res)) batch = res;
+        else if (res && Array.isArray((res as any).data)) batch = (res as any).data;
+        else if (res && (res as any).data && Array.isArray((res as any).data.data)) batch = (res as any).data.data;
+        
+        if (!batch || batch.length === 0) break;
+        allEntriesList = allEntriesList.concat(batch);
+        if (batch.length < limit) break;
         offset += limit;
       }
       
@@ -228,13 +238,52 @@ const DailyProgressEntryPage = () => {
   }, [hasLoadedAll, projectId]);
 
   const loadActivityHistory = useCallback(async () => {
+    if (!projectId) return;
     try {
       if (!hasLoadedHistory) setLoading(true);
-      const activityId = selectedActivityId === "all"
-        ? (activitiesList[0]?.id || 1)
-        : Number(selectedActivityId);
-      const res = await workProgressService.getActivityHistory(activityId);
-      setActivityHistory(res?.data || []);
+      
+      let historyArr: any[] = [];
+      if (selectedActivityId === "all") {
+        // Fetch history for all activities in parallel
+        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id).catch(() => null));
+        const results = await Promise.all(promises);
+        results.forEach(r => {
+          if (!r) return;
+          let hist: any[] = [];
+          if (Array.isArray(r)) hist = r;
+          else if (r && Array.isArray((r as any).history)) hist = (r as any).history;
+          else if (r && Array.isArray((r as any).activity)) hist = (r as any).activity;
+          else if (r && Array.isArray((r as any).data)) hist = (r as any).data;
+          else if (r && (r as any).data && Array.isArray((r as any).data.data)) hist = (r as any).data.data;
+          
+          if (r && (r as any).activity && (r as any).activity.id) {
+            hist = hist.map((h: any) => ({ ...h, activity_id: (r as any).activity.id, activity: (r as any).activity }));
+          }
+          historyArr = historyArr.concat(hist);
+        });
+      } else {
+        const r = await workProgressService.getActivityHistory(Number(selectedActivityId));
+        let hist: any[] = [];
+        if (Array.isArray(r)) hist = r;
+        else if (r && Array.isArray((r as any).history)) hist = (r as any).history;
+        else if (r && Array.isArray((r as any).activity)) hist = (r as any).activity;
+        else if (r && Array.isArray((r as any).data)) hist = (r as any).data;
+        else if (r && (r as any).data && Array.isArray((r as any).data.data)) hist = (r as any).data.data;
+        
+        if (r && (r as any).activity && (r as any).activity.id) {
+          hist = hist.map((h: any) => ({ ...h, activity_id: (r as any).activity.id, activity: (r as any).activity }));
+        }
+        historyArr = hist;
+      }
+      
+      // Sort by created_at descending if available
+      historyArr.sort((a, b) => {
+        const da = new Date(a.created_at || a.entry_date || 0).getTime();
+        const db = new Date(b.created_at || b.entry_date || 0).getTime();
+        return db - da;
+      });
+
+      setActivityHistory(historyArr);
       setHasLoadedHistory(true);
     } catch (err) {
       console.error("Load History Error:", err);
@@ -242,14 +291,20 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [hasLoadedHistory, selectedActivityId, activitiesList]);
+  }, [hasLoadedHistory, selectedActivityId, activitiesList, projectId]);
 
   const loadDelayReport = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
       const res = await workProgressService.getDelayReport(projectId);
-      setDelayActivities(res?.data || []);
+      
+      let delayArr: any[] = [];
+      if (Array.isArray(res)) delayArr = res;
+      else if (res && Array.isArray((res as any).data)) delayArr = (res as any).data;
+      else if (res && (res as any).data && Array.isArray((res as any).data.data)) delayArr = (res as any).data.data;
+
+      setDelayActivities(delayArr);
     } catch (err) {
       console.error("Load Delay Error:", err);
       toast.error("Failed to load delay report");
@@ -258,20 +313,6 @@ const DailyProgressEntryPage = () => {
     }
   }, [projectId]);
 
-  const loadGlobalLogs = useCallback(async () => {
-    if (!projectId) return;
-    try {
-      if (!hasLoadedLogs) setLoading(true);
-      const res = await workProgressService.getGlobalLogs(projectId);
-      setGlobalLogs(res?.data || []);
-      setHasLoadedLogs(true);
-    } catch (err) {
-      console.error("Load Global Logs Error:", err);
-      toast.error("Failed to load logs");
-    } finally {
-      setLoading(false);
-    }
-  }, [hasLoadedLogs, projectId]);
 
   const loadProjectSummary = useCallback(async () => {
     if (!projectId) return;
@@ -299,7 +340,7 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'history') {
       loadActivityHistory();
     } else if (activeTab === 'logs') {
-      loadGlobalLogs();
+      // noop
     } else if (activeTab === 'summary') {
       loadProjectSummary();
     }
@@ -638,12 +679,6 @@ const DailyProgressEntryPage = () => {
           >
             DELAY REPORT
           </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'logs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            WORK PROGRESS LOGS
-          </button>
         </div>
 
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
@@ -710,21 +745,70 @@ const DailyProgressEntryPage = () => {
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
               {activeTab === 'summary' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    { title: "TOTAL LOGS", value: projectSummary?.total_activities || stats.total.toString(), sub: "Entries Displayed", accent: "text-slate-800" },
-                    { title: "FINISHED LOGS", value: projectSummary?.completed_activities || stats.completed.toString(), sub: "100% Progress Reached", accent: "text-emerald-500" },
-                    { title: "DELAYED LOGS", value: projectSummary?.delayed_activities || stats.delayed.toString(), sub: "Critical Items", accent: "text-rose-500" },
-                    { title: "ON TRACK LOGS", value: projectSummary?.on_track_activities || "0", sub: "Performing as expected", accent: "text-blue-500" },
-                    { title: "NOT STARTED", value: projectSummary?.not_started_activities || "0", sub: "Pending Execution", accent: "text-slate-500" },
-                    { title: "COMPLETION", value: `${projectSummary?.completion_percentage || 0}%`, sub: "Overall Project Progress", accent: "text-indigo-500" },
-                  ].map((s) => (
-                    <div key={s.title} className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 transition-all">
-                      <p className="text-xs font-bold text-slate-400 mb-2 font-inter">{s.title}</p>
-                      <p className={`text-[28px] font-bold ${s.accent}`}>{s.value}</p>
-                      <p className="text-[11px] text-slate-400 mt-1 font-bold font-inter">{s.sub}</p>
+                <div className="flex flex-col gap-8">
+                  {/* Project Details */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Project Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Project Name</p>
+                        <p className="text-2xl font-bold text-slate-800 font-inter truncate">
+                          {projectSummary?.project?.project_name || "N/A"}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Overall Progress</p>
+                        <p className="text-2xl font-bold text-primary font-inter">
+                          {projectSummary?.summary?.overall_progress_percentage || projectSummary?.completion_percentage || "0"}%
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Avg Activity Progress</p>
+                        <p className="text-2xl font-bold text-emerald-600 font-inter">
+                          {projectSummary?.summary?.average_activity_progress || "0"}%
+                        </p>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Activity Stats */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Activity Metrics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {[
+                        { title: "TOTAL", value: projectSummary?.summary?.total_activities || projectSummary?.total_activities || stats.total.toString(), accent: "text-slate-800", bg: "bg-slate-50", border: "border-slate-200" },
+                        { title: "COMPLETED", value: projectSummary?.summary?.completed_activities || projectSummary?.completed_activities || stats.completed.toString(), accent: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+                        { title: "ON TRACK", value: projectSummary?.summary?.on_track_activities || projectSummary?.on_track_activities || "0", accent: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+                        { title: "DELAYED", value: projectSummary?.summary?.delayed_activities || projectSummary?.delayed_activities || stats.delayed.toString(), accent: "text-rose-600", bg: "bg-rose-50", border: "border-rose-200" },
+                        { title: "NOT STARTED", value: projectSummary?.summary?.not_started_activities || projectSummary?.not_started_activities || "0", accent: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+                      ].map((s) => (
+                        <div key={s.title} className={`${s.bg} border ${s.border} rounded-xl p-5 transition-all hover:shadow-md`}>
+                          <p className="text-[10px] font-bold text-slate-500 mb-1 font-inter uppercase tracking-widest">{s.title}</p>
+                          <p className={`text-3xl font-bold ${s.accent} font-inter`}>{s.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quantity Stats */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Quantity Metrics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[
+                        { title: "PLANNED QUANTITY", value: projectSummary?.summary?.planned_quantity || "0.00", icon: "📦" },
+                        { title: "COMPLETED QUANTITY", value: projectSummary?.summary?.completed_quantity || "0.00", icon: "✅" },
+                        { title: "REMAINING QUANTITY", value: projectSummary?.summary?.remaining_quantity || "0.00", icon: "⏳" },
+                      ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">{s.title}</p>
+                            <p className="text-2xl font-bold text-slate-800 font-inter">{s.value}</p>
+                          </div>
+                          <div className="text-4xl opacity-80">{s.icon}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1043,30 +1127,30 @@ const DailyProgressEntryPage = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {paginatedHistoryEntries.length > 0 ? paginatedHistoryEntries.map((e, index) => {
-                          const currentActivity = activitiesList.find(a => a.id === e.activity_id) || activitiesList[index % activitiesList.length];
+                          const currentActivity = activitiesList.find(a => a.id === e.activity_id) || e.activity || activitiesList[index % activitiesList.length];
                           return (
-                            <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                            <tr key={e.id || index} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
-                                {e.created_at ? new Date(e.created_at).toLocaleString() : e.entry_date || "-"}
+                                {e.created_at ? new Date(e.created_at).toLocaleString() : e.start_date || e.entry_date || "-"}
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
-                                {currentActivity?.activity_name || "-"}
+                                {e.activity_name || currentActivity?.activity_name || "-"}
                               </td>
                               <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
-                                  {e.new_value?.status || "DELAY"}
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.status || e.new_value?.status || currentActivity?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
+                                  {e.status || e.new_value?.status || currentActivity?.status || "DELAY"}
                                 </span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
                                   <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
                                   <span className="text-sm font-bold text-primary font-inter">
-                                    {e.new_value?.today_progress || 0} {currentActivity?.unit || ""}
+                                    {e.today_progress || e.new_value?.today_progress || 0} {e.unit || currentActivity?.unit || ""}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
-                                {e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
+                                {e.running_total || e.completed_quantity || e.new_value?.total_completed || 0} {e.unit || currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
                                 {e.action || "DAILY_PROGRESS_UPDATE"}

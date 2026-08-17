@@ -34,9 +34,9 @@ const WorkOrdersPage = () => {
   const paginatedWorkOrders = workOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
-  const [formData, setFormData] = useState({
-    project_id: projectId || 0,
-    contractor_id: 0,
+  const [formData, setFormData] = useState<any>({
+    project_id: projectId || "",
+    contractor_id: "",
     work_description: "",
     total_quantity: 0,
     completed_quantity: 0,
@@ -50,7 +50,7 @@ const WorkOrdersPage = () => {
       const assigned = await projectService.getAssignedProjects(Number(user?.id) || 1);
       setProjects(assigned);
       if (assigned.length > 0 && !formData.project_id) {
-        setFormData(prev => ({ ...prev, project_id: assigned[0].id }));
+        setFormData((prev: any) => ({ ...prev, project_id: assigned[0].id }));
       }
     } catch (err) {
       console.error("Error fetching projects", err);
@@ -88,16 +88,18 @@ const WorkOrdersPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
-      [name]: ["project_id", "contractor_id", "total_quantity", "completed_quantity", "rate"].includes(name) ? Number(value) : value
+      [name]: ["project_id", "contractor_id", "total_quantity", "completed_quantity", "rate"].includes(name) ? (value === "" ? "" : Number(value)) : value
     }));
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await workOrderService.createWorkOrder(formData);
+      const payload = { ...formData };
+      if (!payload.contractor_id) payload.contractor_id = null;
+      await workOrderService.createWorkOrder(payload);
       toast.success("Work order created successfully");
       setIsCreateModalOpen(false);
       loadWorkOrders();
@@ -108,16 +110,11 @@ const WorkOrdersPage = () => {
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrder) return;
     try {
-      await workOrderService.updateWorkOrder(selectedOrder.id, {
-        contractor_id: formData.contractor_id,
-        work_description: formData.work_description,
-        total_quantity: formData.total_quantity,
-        completed_quantity: formData.completed_quantity,
-        rate: formData.rate,
-        status: formData.status
-      });
+      if (!selectedOrder) return;
+      const payload = { ...formData };
+      if (!payload.contractor_id) payload.contractor_id = null;
+      await workOrderService.updateWorkOrder(selectedOrder.id, payload);
       toast.success("Work order updated successfully");
       setIsEditModalOpen(false);
       loadWorkOrders();
@@ -194,42 +191,42 @@ const WorkOrdersPage = () => {
               <table className="w-full text-left font-inter">
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                    <th className="px-6 py-4">Work Order No.</th>
-                    <th className="px-6 py-4">Project</th>
-                    <th className="px-6 py-4">Contractor</th>
-                    <th className="px-6 py-4">Work Description</th>
-                    <th className="px-6 py-4">Total Quantity</th>
-                    <th className="px-6 py-4">Completed Qty</th>
-                    <th className="px-6 py-4">Rate</th>
-                    <th className="px-6 py-4">Total Amount</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Work Order No.</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Project</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Contractor</th>
+                    <th className="px-4 py-3 min-w-[200px]">Work Description</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Total Quantity</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Completed Qty</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Rate</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Total Amount</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-12 text-center text-slate-400 text-sm">Loading work orders...</td>
+                      <td colSpan={10} className="px-4 py-12 text-center text-slate-400 text-sm">Loading work orders...</td>
                     </tr>
                   ) : workOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-12 text-center text-slate-400 text-sm">No work orders found. Create one to get started.</td>
+                      <td colSpan={10} className="px-4 py-12 text-center text-slate-400 text-sm">No work orders found. Create one to get started.</td>
                     </tr>
                   ) : (
                     paginatedWorkOrders.map((order) => {
                       const projectName = projects.find(p => p.id === order.project_id)?.name || `Project #${order.project_id}`;
-                      const contractorName = contractors.find(c => c.id === order.contractor_id)?.name || `Contractor #${order.contractor_id}`;
+                      const contractorName = order.contractor_id ? (contractors.find(c => c.id === order.contractor_id)?.name || `Contractor #${order.contractor_id}`) : <span className="text-slate-400 italic">Unassigned</span>;
                       return (
                         <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{order.work_order_number || `WO-${order.id.toString().padStart(4, '0')}`}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{projectName}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{contractorName}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{order.work_description}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{order.total_quantity}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{order.completed_quantity || 0}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{order.rate}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{order.total_amount || (order.total_quantity * order.rate)}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">{order.work_order_number || `WO-${order.id.toString().padStart(4, '0')}`}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{projectName}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{contractorName}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700">{order.work_description}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.total_quantity}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.completed_quantity || 0}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.rate}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.total_amount || (order.total_quantity * order.rate)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               order.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
                               order.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
@@ -238,7 +235,7 @@ const WorkOrdersPage = () => {
                               {order.status || 'Pending'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-2">
                               <button onClick={() => handleView(order.id)} className="p-1.5 text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors">
                                 <Eye className="w-4 h-4" />
@@ -361,6 +358,7 @@ const WorkOrdersPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
+                  <option value="">Unassigned (Optional)</option>
                   {contractors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -399,6 +397,7 @@ const WorkOrdersPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
+                  <option value="">Unassigned (Optional)</option>
                   {contractors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>

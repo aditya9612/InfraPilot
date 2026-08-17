@@ -171,11 +171,14 @@ export const documentService = {
                 const fetchRes = await fetch(fileUrl);
                 const blob = await fetchRes.blob();
 
-                // Force PDF content type if extension strongly suggests it to prevent auto-downloads
-                let ct = fetchRes.headers.get('content-type') || 'application/pdf';
-                if (fileUrl.toLowerCase().split('?')[0].endsWith('.pdf')) {
-                    ct = 'application/pdf';
-                }
+                let ct = fetchRes.headers.get('content-type') || blob.type || 'application/pdf';
+                const ext = fileUrl.toLowerCase().split('?')[0];
+                if (ext.endsWith('.png')) ct = 'image/png';
+                else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) ct = 'image/jpeg';
+                else if (ext.endsWith('.pdf')) ct = 'application/pdf';
+                else if (ext.endsWith('.svg')) ct = 'image/svg+xml';
+                else if (ext.endsWith('.gif')) ct = 'image/gif';
+                else if (ext.endsWith('.webp')) ct = 'image/webp';
 
                 return {
                     data: blob,

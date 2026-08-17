@@ -92,7 +92,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ variant = 'navbar', h
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm truncate">{project.project_name}</p>
-                                    <p className="text-[10px] opacity-70 font-medium truncate uppercase tracking-tighter">Project ID: #{project.id}</p>
                                 </div>
                             </button>
                         )) : (

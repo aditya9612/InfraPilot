@@ -29,6 +29,7 @@ export interface UpdateIssueRequest {
     status: string;
     assigned_to: number | null;
     resolution: string | null;
+    reported_date?: string;
 }
 
 export interface IssueResponse {

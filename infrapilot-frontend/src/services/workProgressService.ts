@@ -312,7 +312,8 @@ export const workProgressService = {
     }
   },
 
-  async getActivityHistory(id: number): Promise<{ data: any[] }> {
+
+  async getActivityHistory(id: number): Promise<any> {
     try {
       const response = await api.get(`/work-progress/activities/${id}/progress-history`);
       return response.data;

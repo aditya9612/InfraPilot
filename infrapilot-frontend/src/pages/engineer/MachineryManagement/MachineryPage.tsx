@@ -339,7 +339,8 @@ const MachineryPage = () => {
     const handleSaveEquipmentModal = async (submittedData: any) => {
         try {
             if (submittedData.id) {
-                await equipmentService.updateEquipment(submittedData.id, submittedData);
+                const { equipment_code, ...updatePayload } = submittedData;
+                await equipmentService.updateEquipment(submittedData.id, updatePayload);
                 toast.success("Equipment updated successfully!");
             } else {
                 const payload = { ...submittedData };
@@ -425,7 +426,7 @@ const MachineryPage = () => {
         e.preventDefault();
         if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id, transfer_date: new Date().toISOString().split('T')[0] });
+            await equipmentService.transferEquipment(formData.equipment_id, formData.project_id);
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
