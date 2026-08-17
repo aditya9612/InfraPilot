@@ -89,6 +89,7 @@ const TaskRequestsPage: React.FC = () => {
     const [category, setCategory] = useState('New Task');
     const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [description, setDescription] = useState('');
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
     const [attachmentUrl, setAttachmentUrl] = useState('');
     const [attachmentFileName, setAttachmentFileName] = useState('');
     const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
@@ -154,6 +155,7 @@ const TaskRequestsPage: React.FC = () => {
 
     const formatApiError = (err: any, fallback: string): string => {
         if (!err) return fallback;
+        if (typeof err === 'string') return err;
         const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message;
         if (typeof detail === 'string') return detail;
         if (Array.isArray(detail)) {
@@ -161,12 +163,23 @@ const TaskRequestsPage: React.FC = () => {
                 .map((item: any) => {
                     if (typeof item === 'string') return item;
                     const loc = Array.isArray(item?.loc) ? item.loc.filter((l: any) => l !== 'body').join('.') : item?.loc;
-                    return `${loc ? `[${loc}] ` : ''}${item?.msg || item?.message || JSON.stringify(item)}`;
+                    const msg = item?.msg || item?.message || 'Field validation error';
+                    if (loc) {
+                        const formattedField = String(loc).replace(/_/g, ' ');
+                        const capitalized = formattedField.charAt(0).toUpperCase() + formattedField.slice(1);
+                        return `${capitalized}: ${msg}`;
+                    }
+                    return msg;
                 })
+                .filter(Boolean)
                 .join('; ') || fallback;
         }
         if (detail && typeof detail === 'object') {
-            return detail.msg || detail.message || JSON.stringify(detail);
+            try {
+                return JSON.stringify(detail);
+            } catch (_) {
+                return fallback;
+            }
         }
         return fallback;
     };
@@ -180,20 +193,27 @@ const TaskRequestsPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const payload = {
-                title,           // service maps this → `name` for POST /api/v1/projects/
-                description,
-                category,
-                priority,
-                project_id: project ? Number(project) : undefined,
-                attachment_url: attachmentUrl || undefined,
-                attachment_file_name: attachmentFileName || undefined,
-                assigned_to: assignedTo || undefined,
-            };
+            const formData = new FormData();
+            formData.append("project_id", String(project));
+            formData.append("title", title);
+            formData.append("category", category || "New Task");
+            formData.append("priority", priority || "Medium");
+
+            if (description) {
+                formData.append("description", description);
+            }
+
+            if (assignedTo && Number(assignedTo) > 0) {
+                formData.append("assigned_to", String(assignedTo));
+            }
+
+            if (attachmentFile) {
+                formData.append("attachment", attachmentFile);
+            }
 
             if (editingRequest) {
-                // PUT /api/v1/projects/{id}
-                await taskRequestService.updateRequest(editingRequest.id, payload);
+                // PUT /api/v1/projects/task-requests/{id} (multipart/form-data)
+                await taskRequestService.updateRequest(editingRequest.id, formData);
                 if (attachmentUrl) {
                     localStorage.setItem(`task_req_att_${editingRequest.id}`, attachmentUrl);
                     localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
@@ -201,8 +221,8 @@ const TaskRequestsPage: React.FC = () => {
                 }
                 toast.success("Task request updated successfully!");
             } else {
-                // POST /api/v1/projects/
-                const res: any = await taskRequestService.createRequest(payload);
+                // POST /api/v1/projects/task-requests (multipart/form-data)
+                const res: any = await taskRequestService.createRequest(formData);
                 const createdId = res?.id || res?.data?.id || res?.request_id;
                 if (attachmentUrl) {
                     if (createdId) localStorage.setItem(`task_req_att_${createdId}`, attachmentUrl);
@@ -230,6 +250,7 @@ const TaskRequestsPage: React.FC = () => {
         setPriority(req.priority as any);
         setProject(String(req.project_id || ''));
         setAttachmentUrl(req.attachment_url || '');
+        setAttachmentFile(null);
         if (req.attachment_url) {
             setAttachmentPreview(formatImageUrl(req.attachment_url, req.id, req.title));
         } else {
@@ -261,6 +282,7 @@ const TaskRequestsPage: React.FC = () => {
         setDescription('');
         setCategory('New Task');
         setPriority('Medium');
+        setAttachmentFile(null);
         setAttachmentUrl('');
         setAttachmentFileName('');
         setAssignedTo(0);
@@ -378,7 +400,7 @@ const TaskRequestsPage: React.FC = () => {
                                                 <img src={attachmentPreview} alt="attachment preview" className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
-                                                    onClick={() => { setAttachmentPreview(null); setAttachmentUrl(''); }}
+                                                    onClick={() => { setAttachmentPreview(null); setAttachmentUrl(''); setAttachmentFile(null); setAttachmentFileName(''); }}
                                                     className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 transition-all"
                                                 >
                                                     <X className="w-4 h-4" />
@@ -395,6 +417,7 @@ const TaskRequestsPage: React.FC = () => {
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
+                                                        setAttachmentFile(file);
                                                         setAttachmentFileName(file.name);
                                                         const preview = URL.createObjectURL(file);
                                                         setAttachmentPreview(preview);

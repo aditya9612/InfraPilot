@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from "recharts";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import { useAuth } from "../../../context/AuthContext";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import { quotationService } from "../../../services/quotationService";
 import { paymentService } from "../../../services/paymentService";
+import { notificationService } from "../../../services/notificationService";
 import { useParams, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -18,7 +20,7 @@ import {
   ChevronRight, Eye, History, Download, IndianRupee, Clock,
   TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
   ArrowUpRight, Pencil, Trash2, CreditCard, Info, Banknote, Building2,
-  Smartphone, Save, X, Upload,
+  Smartphone, Save, X, Upload, ChevronDown,
 } from "lucide-react";
 
 interface ClientPayment {
@@ -31,17 +33,44 @@ interface ClientPayment {
   dueDate: string;
   amount: number;
   paidAmount: number;
-  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE" | "VERIFICATION_PENDING";
+  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE" | "REJECTED";
   paymentDate: string;
 }
 
-const mapApiPayment = (p: any): ClientPayment => {
-  const statusRaw = (p.payment_status || p.status || p.invoice_status || "PENDING").toUpperCase();
+const mapApiPayment = (p: any, paidInvoicesSet?: Set<string>): ClientPayment => {
+  const statusRaw = String(p.payment_status || p.status || p.invoice_status || "").trim().toUpperCase();
+  const invStatusRaw = String(p.invoice_status || "").trim().toUpperCase();
+  
+  // A payment is PAID if verified/approved by admin, completed, paid, or verified_by/verified_at is set
+  const isVerifiedDirect =
+    statusRaw === "VERIFIED" ||
+    statusRaw === "APPROVED" ||
+    statusRaw === "COMPLETED" ||
+    statusRaw === "PAID" ||
+    statusRaw === "SUCCESS" ||
+    invStatusRaw === "PAID" ||
+    invStatusRaw === "APPROVED" ||
+    Boolean(p.verified_by) ||
+    Boolean(p.verified_at);
+
+  const invNo = String(p.invoice_no || p.invoiceNo || (p.invoice_id ? `INV-${String(p.invoice_id).padStart(6, '0')}` : "")).toUpperCase().trim();
+  const invIdStr = p.invoice_id != null ? String(p.invoice_id).trim() : "";
+  const invDigits = invNo.replace(/\D/g, "");
+
+  const isInvoiceFullyPaid =
+    isVerifiedDirect ||
+    (paidInvoicesSet != null && (
+      (invNo !== "" && paidInvoicesSet.has(invNo)) ||
+      (invIdStr !== "" && paidInvoicesSet.has(invIdStr)) ||
+      (invDigits !== "" && paidInvoicesSet.has(invDigits))
+    ));
+
   let status: ClientPayment["status"] = "PENDING";
-  if (statusRaw.includes("VERIF") || statusRaw === "VERIFICATION_PENDING") {
-    status = "VERIFICATION_PENDING";
-  } else if (statusRaw.includes("PAID")) {
+
+  if (isInvoiceFullyPaid) {
     status = "PAID";
+  } else if (statusRaw === "REJECTED" || statusRaw === "FAILED" || statusRaw === "DECLINED") {
+    status = "REJECTED";
   } else if (statusRaw.includes("PARTIAL")) {
     status = "PARTIAL";
   } else if (statusRaw.includes("OVERDUE")) {
@@ -69,9 +98,62 @@ const mapApiPayment = (p: any): ClientPayment => {
     invoiceDate: formatDate(p.created_at || p.invoiceDate || p.invoice_date || p.payment_date),
     dueDate: formatDate(p.due_date || p.dueDate),
     amount: Number(p.amount ?? p.total_amount ?? 0),
-    paidAmount: Number(p.paid_amount ?? p.paidAmount ?? p.amount ?? 0),
+    paidAmount: Number(p.paid_amount ?? p.paidAmount ?? (isInvoiceFullyPaid ? (p.amount ?? p.total_amount ?? 0) : 0)),
     status,
     paymentDate: formatDate(p.payment_date || p.paymentDate || p.created_at),
+  };
+};
+
+const processPaymentHistory = (historyList: any[]) => {
+  const paidInvoiceIdentifiers = new Set<string>();
+
+  historyList.forEach((p: any) => {
+    const statusRaw = String(p.payment_status || p.status || "").trim().toUpperCase();
+    const invStatusRaw = String(p.invoice_status || "").trim().toUpperCase();
+    const isVerified =
+      statusRaw === "VERIFIED" ||
+      statusRaw === "APPROVED" ||
+      statusRaw === "COMPLETED" ||
+      statusRaw === "PAID" ||
+      statusRaw === "SUCCESS" ||
+      invStatusRaw === "PAID" ||
+      invStatusRaw === "APPROVED" ||
+      Boolean(p.verified_by) ||
+      Boolean(p.verified_at);
+
+    if (isVerified) {
+      if (p.invoice_no) {
+        const invClean = String(p.invoice_no).trim().toUpperCase();
+        paidInvoiceIdentifiers.add(invClean);
+        const digits = invClean.replace(/\D/g, "");
+        if (digits) {
+          paidInvoiceIdentifiers.add(digits);
+          paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
+          paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
+        }
+      }
+      if (p.invoiceNo) {
+        const invClean = String(p.invoiceNo).trim().toUpperCase();
+        paidInvoiceIdentifiers.add(invClean);
+        const digits = invClean.replace(/\D/g, "");
+        if (digits) {
+          paidInvoiceIdentifiers.add(digits);
+          paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
+          paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
+        }
+      }
+      if (p.invoice_id != null) {
+        const idStr = String(p.invoice_id).trim();
+        paidInvoiceIdentifiers.add(idStr);
+        paidInvoiceIdentifiers.add(`INV-${idStr.padStart(6, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${idStr.padStart(3, '0')}`.toUpperCase());
+      }
+    }
+  });
+
+  return {
+    paidInvoiceIdentifiers,
+    mappedPayments: historyList.map(p => mapApiPayment(p, paidInvoiceIdentifiers)),
   };
 };
 
@@ -146,7 +228,7 @@ const generateMockPayments = (): ClientPayment[] => {
       amount,
       paidAmount,
       status,
-      paymentDate: paidAmount > 0 ? `${String(((idx + 2) % 25) + 1).padStart(2, "0")}/${month}/2026` : "-",
+  paymentDate: paidAmount > 0 ? `${String(((idx + 2) % 25) + 1).padStart(2, "0")}/${month}/2026` : "-",
     });
   });
 
@@ -154,6 +236,7 @@ const generateMockPayments = (): ClientPayment[] => {
 };
 
 const ClientPaymentPage = () => {
+  const { user } = useAuth();
   const { tab, paymentId } = useParams();
   const [searchParams] = useSearchParams();
   const { projectId } = useClientProjectId();
@@ -239,6 +322,36 @@ const ClientPaymentPage = () => {
   const [newRemarks, setNewRemarks] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
+  // ── Sync project name ──
+  useEffect(() => {
+    if (!projectId) {
+      setProjectName(user?.project_name || "All Projects");
+      return;
+    }
+    const fetchProjectName = async () => {
+      try {
+        const p = await projectService.getProjectById(Number(projectId));
+        setProjectName(p?.name || p?.project_name || `Project ${projectId}`);
+      } catch {
+        setProjectName(user?.project_name || `Project ${projectId}`);
+      }
+    };
+    fetchProjectName();
+  }, [projectId, user]);
+
+  // ── Close custom dropdowns on outside click ──
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-dropdown]")) {
+        // close dropdowns
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // ── Invoice Summary & Pending Invoices (API) ──
   const generateFallbackAnalytics = () => ({
     monthlyBilledVsReceived: [
@@ -261,6 +374,23 @@ const ClientPaymentPage = () => {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [paymentAnalytics, setPaymentAnalytics] = useState<any>(generateFallbackAnalytics());
   const [apiLoading, setApiLoading] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close download dropdown when clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        downloadDropdownRef.current &&
+        !downloadDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDownloadOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // ── Data fetch (quotation approvals only) ──
   useEffect(() => {
@@ -269,15 +399,93 @@ const ClientPaymentPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await quotationService.getQuotations(100, 0, projectId ? Number(projectId) : undefined);
+        // Fetch all quotations from API and user notifications concurrently
+        const [data, notifs] = await Promise.all([
+          quotationService.getQuotations(100, 0),
+          notificationService.getAllNotifications().catch(() => [])
+        ]);
         const rawList = Array.isArray(data) ? data : ((data as any)?.items || (data as any)?.data || []);
 
-        // Filter by project_id ONLY IF items actually contain project_id field and projectId is valid
-        const projectFiltered = (projectId && rawList.some((q: any) => q.project_id != null))
-          ? rawList.filter((q: any) => q.project_id == null || Number(q.project_id) === Number(projectId))
-          : rawList;
+        // Extract quotation identifiers from notifications received by this client (e.g. QT/2026/0013, 13)
+        const userNotifQuotationIdentifiers = new Set<string>();
+        if (Array.isArray(notifs)) {
+          notifs.forEach((n: any) => {
+            const text = `${n.title || ''} ${n.description || ''} ${n.details || ''} ${n.message || ''}`;
+            const qtMatch = text.match(/QT\/\d{4}\/\d+/gi);
+            if (qtMatch) {
+              qtMatch.forEach(m => userNotifQuotationIdentifiers.add(m.toUpperCase()));
+            }
+            const numMatch = text.match(/quotation\s*(?:#|no\.?|id\.?)?\s*(\d+)/i);
+            if (numMatch && numMatch[1]) {
+              userNotifQuotationIdentifiers.add(numMatch[1]);
+              userNotifQuotationIdentifiers.add(`QT/2026/${String(numMatch[1]).padStart(4, '0')}`.toUpperCase());
+            }
+          });
+        }
 
-        const mapped = projectFiltered.map((q: any) => {
+        // Current logged in user context
+        const isClientRole = (user?.role || '').toLowerCase() === 'client';
+        const currentUserName = (user?.name || '').toLowerCase().trim();
+        const currentUserMobile = (user?.mobile || '').replace(/\D/g, '').trim();
+        const currentUserEmail = (user?.email || (user as any)?.username || '').toLowerCase().trim();
+        const currentUserId = user?.id ? String(user.id).trim() : '';
+
+        // Filter list strictly for the specific client so other clients' quotations are never shown
+        let clientList = rawList;
+        if (isClientRole) {
+          clientList = rawList.filter((q: any) => {
+            const qNo = String(q.quotation_no || q.quotation_number || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : '')).toUpperCase().trim();
+            const qId = String(q.id || '').trim();
+
+            // 1. Direct match with quotations received in this user's notifications
+            if (userNotifQuotationIdentifiers.has(qNo) || userNotifQuotationIdentifiers.has(qId)) {
+              return true;
+            }
+
+            // 2. Client User ID match
+            if (currentUserId && (
+              (q.client_user_id != null && String(q.client_user_id).trim() === currentUserId) ||
+              (q.client_id != null && String(q.client_id).trim() === currentUserId) ||
+              (q.user_id != null && String(q.user_id).trim() === currentUserId)
+            )) {
+              return true;
+            }
+
+            // 3. Exact Mobile Number match (at least 7 digits)
+            const qMobile = String(q.mobile_number || q.mobile || q.phone || '').replace(/\D/g, '').trim();
+            if (currentUserMobile.length >= 7 && qMobile.length >= 7 && (currentUserMobile === qMobile || qMobile.endsWith(currentUserMobile) || currentUserMobile.endsWith(qMobile))) {
+              return true;
+            }
+
+            // 4. Exact Client Name match (full name equality)
+            const qClientName = String(q.client_name || '').toLowerCase().trim();
+            if (currentUserName && qClientName && (qClientName === currentUserName || qClientName.startsWith(currentUserName))) {
+              return true;
+            }
+
+            // 5. Exact Email match
+            const qEmail = String(q.email || '').toLowerCase().trim();
+            if (currentUserEmail && qEmail && qEmail.includes('@') && currentUserEmail.includes('@') && qEmail === currentUserEmail) {
+              return true;
+            }
+
+            return false;
+          });
+
+          // Fallback: If no client-filtered items found but notifications had a quotation id, match only those
+          if (clientList.length === 0 && userNotifQuotationIdentifiers.size > 0) {
+            const matchingFromAll = rawList.filter((q: any) => {
+              const qNo = String(q.quotation_no || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : '')).toUpperCase().trim();
+              const qId = String(q.id || '').trim();
+              return userNotifQuotationIdentifiers.has(qNo) || userNotifQuotationIdentifiers.has(qId);
+            });
+            if (matchingFromAll.length > 0) {
+              clientList = matchingFromAll;
+            }
+          }
+        }
+
+        const mapped = clientList.map((q: any) => {
           const rawStatus = String(q.status || "").toLowerCase();
           let status = "Pending";
           if (q.is_approved === true || rawStatus === "approved" || rawStatus === "converted") {
@@ -289,10 +497,10 @@ const ClientPaymentPage = () => {
           }
 
           const quotationNo = q.quotation_no || q.quotation_number || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : "QT/2026/0001");
-          const companyName = q.company_name || q.client_name || q.requested_by_name || "Company";
-          const projectNameVal = q.project_name || q.remarks_details || "Project";
+          const companyName = q.company_name || q.client_name || q.requested_by_name || user?.name || "Company";
+          const projectNameVal = q.project_name || q.remarks_details || user?.project_name || "Project";
           const createdAt = q.created_at || q.date || q.quotation_date || new Date().toISOString();
-          const approvedBy = q.approved_by_name || q.approved_by || (status === "Approved" ? (q.client_name || "CLIENT") : "-");
+          const approvedBy = q.approved_by_name || q.approved_by || (status === "Approved" ? (q.client_name || user?.name || "CLIENT") : "-");
 
           return {
             ...q,
@@ -311,12 +519,8 @@ const ClientPaymentPage = () => {
             amount: Number(q.grand_total || q.total_amount || q.subtotal || q.amount || 0)
           };
         });
-        const filtered = mapped.filter((q: any) => {
-          const pName = (q.project_name || q.remarks_details || q.project || "").toLowerCase();
-          const qNo = (q.quotation_no || q.entity_id_display || "").toLowerCase();
-          return !pName.includes("residential bungalow") && !qNo.includes("0005");
-        });
-        setQuotations(filtered);
+
+        setQuotations(mapped);
       } catch (error) {
         console.error("Failed to fetch quotation data:", error);
         setQuotations([]);
@@ -325,7 +529,7 @@ const ClientPaymentPage = () => {
       }
     };
     fetchData();
-  }, [projectId, activeTab]);
+  }, [projectId, activeTab, user]);
 
   // ── Fetch Invoice Summary, Pending Invoices, Payment Lists & Analytics when on History tab ──
   useEffect(() => {
@@ -341,12 +545,31 @@ const ClientPaymentPage = () => {
           paymentService.getClientPaymentAnalytics({ project_id: activeProjectId }),
         ]);
         
-        if (summary) setInvoiceSummary(summary);
-        if (pending) setPendingInvoices(pending);
-        
+        let paidSet = new Set<string>();
         if (historyList && historyList.length > 0) {
-          setClientPayments(historyList.map(mapApiPayment));
+          const processed = processPaymentHistory(historyList);
+          paidSet = processed.paidInvoiceIdentifiers;
+          setClientPayments(processed.mappedPayments);
           setPaymentHistory(historyList);
+        }
+        
+        if (summary) setInvoiceSummary(summary);
+        if (pending && Array.isArray(pending)) {
+          const cleanPending = pending.filter((inv: any) => {
+            const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
+            const invIdStr = String(inv.id || inv.invoice_id || "").trim();
+            const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
+            const isPaid =
+              invStatus === "PAID" ||
+              paidSet.has(invNo) ||
+              paidSet.has(invIdStr) ||
+              paidSet.has(`INV-${invIdStr.padStart(6, '0')}`.toUpperCase()) ||
+              paidSet.has(`INV-${invIdStr.padStart(3, '0')}`.toUpperCase());
+            return !isPaid;
+          });
+          setPendingInvoices(cleanPending);
+        } else if (pending) {
+          setPendingInvoices(pending);
         }
         
         if (analytics) {
@@ -362,7 +585,7 @@ const ClientPaymentPage = () => {
       }
     };
     fetchApiData();
-  }, [activeTab]);
+  }, [activeTab, projectId]);
 
   // ── Quotation handlers ──
   const handleApprove = async (id: number) => {
@@ -459,11 +682,8 @@ const ClientPaymentPage = () => {
   // ── Quotation filtered/sorted ──
   const filteredQuotations = quotations
     .filter(q => {
-      const pName = (q.project_name || q.remarks_details || q.project || "").toLowerCase();
-      const qNo = (q.quotation_no || q.entity_id_display || "").toLowerCase();
-      if (pName.includes("residential bungalow") || qNo.includes("0005")) return false;
       const s = searchTerm.toLowerCase();
-      const matchesSearch = (
+      const matchesSearch = !s || (
         (q.entity_title || "") +
         (q.id || "") +
         (q.entity_id_display || "") +
@@ -542,9 +762,9 @@ const ClientPaymentPage = () => {
     switch (status) {
       case "PAID": return "bg-emerald-50 text-emerald-600 border border-emerald-100";
       case "PARTIAL": return "bg-blue-50 text-blue-600 border border-blue-100";
-      case "VERIFICATION_PENDING": return "bg-amber-50 text-amber-600 border border-amber-100";
       case "PENDING": return "bg-amber-50 text-amber-600 border border-amber-100";
       case "OVERDUE": return "bg-rose-50 text-rose-600 border border-rose-100";
+      case "REJECTED": return "bg-rose-50 text-rose-600 border border-rose-100";
       default: return "bg-slate-50 text-slate-600 border border-slate-100";
     }
   };
@@ -763,11 +983,30 @@ const ClientPaymentPage = () => {
         paymentService.getPendingInvoices(activeProjectId).catch(() => []),
         paymentService.getClientPaymentHistory(activeProjectId).catch(() => [])
       ]);
-      if (summary) setInvoiceSummary(summary);
-      if (pending) setPendingInvoices(pending);
+      let paidSet = new Set<string>();
       if (historyList && historyList.length > 0) {
-        setClientPayments(historyList.map(mapApiPayment));
+        const processed = processPaymentHistory(historyList);
+        paidSet = processed.paidInvoiceIdentifiers;
+        setClientPayments(processed.mappedPayments);
         setPaymentHistory(historyList);
+      }
+      if (summary) setInvoiceSummary(summary);
+      if (pending && Array.isArray(pending)) {
+        const cleanPending = pending.filter((inv: any) => {
+          const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
+          const invIdStr = String(inv.id || inv.invoice_id || "").trim();
+          const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
+          const isPaid =
+            invStatus === "PAID" ||
+            paidSet.has(invNo) ||
+            paidSet.has(invIdStr) ||
+            paidSet.has(`INV-${invIdStr.padStart(6, '0')}`.toUpperCase()) ||
+            paidSet.has(`INV-${invIdStr.padStart(3, '0')}`.toUpperCase());
+          return !isPaid;
+        });
+        setPendingInvoices(cleanPending);
+      } else if (pending) {
+        setPendingInvoices(pending);
       }
     } catch (err: any) {
       console.error("Create payment error:", err);
@@ -873,12 +1112,69 @@ const ClientPaymentPage = () => {
               <p className="text-slate-500 text-sm font-medium mt-1">View and track all your payments submitted to the admin for ongoing project invoices.</p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <button onClick={handleExcelExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Excel
-              </button>
-              <button onClick={handlePdfExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-                <FileText className="w-4 h-4 text-rose-500" /> PDF
-              </button>
+              {/* Download Dropdown */}
+              <div className="relative" ref={downloadDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadOpen((prev) => !prev)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-blue-600" />
+                  <span>Download</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      isDownloadOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isDownloadOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handlePdfExport();
+                        setIsDownloadOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-50/60 transition-colors flex items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-rose-600 transition-colors">
+                          Download PDF
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Payment statement (.pdf)
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExcelExport();
+                        setIsDownloadOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-emerald-50/60 transition-colors flex items-center gap-3 group cursor-pointer mt-1"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-emerald-600 transition-colors">
+                          Download Excel
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Spreadsheet data (.xlsx)
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-200 active:scale-95 cursor-pointer">
                 <Plus className="w-4 h-4" /> Pay Payment
               </button>

@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
   Bell, CheckCheck, Eye,
-  CheckCircle, AlertCircle, Info, Search
+  CheckCircle, AlertCircle, Info, Search, ArrowRight
 } from "lucide-react";
 import { notificationService } from "../../services/notificationService";
 import { alertService } from "../../services/alertService";
+import { handleNotificationClick } from "../../utils/notificationNavigator";
 
 /* ─── Helper Date Formatters ─── */
 const formatTableDate = (tsStr: string) => {
@@ -126,6 +128,7 @@ const getSysTypeConfig = (type: string) => {
 };
 
 const LabourNotificationsPage = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<LocalNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTabFilter, setActiveTabFilter] = useState<"All" | "Unread" | "Read" | "Delayed">("All");
@@ -424,7 +427,10 @@ const LabourNotificationsPage = () => {
                             <span className="font-bold text-slate-700">{typeLabel}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td 
+                          className="px-6 py-4 cursor-pointer"
+                          onClick={() => handleNotificationClick(notif, navigate, "Labour")}
+                        >
                           <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-primary transition-colors">{notif.title}</p>
                           <p className="text-xs text-slate-500 max-w-lg truncate">{notif.description}</p>
                         </td>
@@ -434,7 +440,7 @@ const LabourNotificationsPage = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <button
-                            onClick={() => !isRead && handleMarkRead(notif)}
+                            onClick={(e) => { e.stopPropagation(); !isRead && handleMarkRead(notif); }}
                             disabled={isRead}
                             title={isRead ? "Already Read" : "Mark as Read"}
                             className={`mx-auto block transition-colors ${
@@ -480,8 +486,8 @@ const LabourNotificationsPage = () => {
                 {currentPage + 1}
               </div>
               <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={currentPage >= totalPages - 1}
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={(currentPage + 1) * PAGE_SIZE >= filteredNotifs.length}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
@@ -530,12 +536,25 @@ const LabourNotificationsPage = () => {
                   <p className="text-xs font-bold text-slate-700">#{viewingNotif.id}</p>
                 </div>
               </div>
-              <button
-                onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                className="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg cursor-pointer"
-              >
-                Dismiss
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    const notif = viewingNotif;
+                    setIsViewModalOpen(false);
+                    setViewingNotif(null);
+                    handleNotificationClick(notif, navigate, "Labour");
+                  }}
+                  className="py-3 bg-primary hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  Open Page <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
+                  className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           );
         })()}

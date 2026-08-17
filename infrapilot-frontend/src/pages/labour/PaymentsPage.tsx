@@ -174,7 +174,7 @@ const PaymentsPage: React.FC = () => {
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text("Fiscal Payroll Analysis Report", 14, 32);
+        doc.text("Labour Payment History Report", 14, 32);
         
         doc.setTextColor(31, 41, 55);
         doc.setFontSize(14);
@@ -233,38 +233,82 @@ const PaymentsPage: React.FC = () => {
         XLSX.writeFile(wb, `Labour_Payments_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-    const handleExport = async (format: 'excel' | 'pdf') => {
+    const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
         setIsExportMenuOpen(false);
-        const loadingToast = toast.loading(`Preparing ${format.toUpperCase()}...`);
+        const exportFormat: 'csv' | 'pdf' = format === 'pdf' ? 'pdf' : 'csv';
+        const loadingToast = toast.loading(`Preparing ${exportFormat.toUpperCase()}...`);
         try {
-            if (format === 'excel') {
-                try {
-                    // Call backend GET /api/v1/dashboard/labour/payments/export
-                    const blob = await dashboardService.exportLabourPayments({ format: 'excel' });
-                    if (blob && blob.size > 0 && blob.type !== 'application/json') {
-                        const file = new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                        const url = window.URL.createObjectURL(file);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `Labour_Payments_${new Date().toISOString().split('T')[0]}.xlsx`;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        toast.success("Excel exported successfully", { id: loadingToast });
-                        return;
-                    }
-                } catch (apiErr) {
-                    console.warn("Backend Excel export fallback to client-side generation:", apiErr);
+            const now = new Date();
+            let year: number | undefined = now.getFullYear();
+            let month: number | undefined = undefined;
+            let time_filter: string | undefined = undefined;
+
+            // Map UI filterPeriod to backend allowed time_filter enum
+            if (filterPeriod) {
+                const p = filterPeriod.toLowerCase();
+                if (p.includes('daily')) time_filter = 'daily';
+                else if (p.includes('weekly')) time_filter = 'weekly';
+                else if (p.includes('month')) time_filter = 'monthly';
+                else if (p.includes('year')) time_filter = 'yearly';
+            }
+
+            // If date filter is enabled and user picked a date, extract year/month
+            if (showDateFilter && startDate) {
+                const dateObj = new Date(startDate);
+                if (!isNaN(dateObj.getTime())) {
+                    year = dateObj.getFullYear();
+                    month = dateObj.getMonth() + 1;
                 }
-                generateFrontendExcel(displayData);
-                toast.success("Excel exported successfully", { id: loadingToast });
+            }
+
+            // Construct exact params matching backend Swagger contract
+            const params: {
+                export_format: 'csv' | 'pdf';
+                year?: number;
+                month?: number;
+                time_filter?: string;
+            } = {
+                export_format: exportFormat,
+                year: year || 2026,
+            };
+
+            if (month) {
+                params.month = month;
+            }
+
+            if (time_filter) {
+                params.time_filter = time_filter;
+            }
+
+            // Call backend GET /api/v1/dashboard/labour/payments/export
+            const blob = await dashboardService.exportLabourPayments(params);
+
+            if (blob && blob.size > 0 && blob.type !== 'application/json') {
+                const mimeType = exportFormat === 'pdf' ? 'application/pdf' : 'text/csv;charset=utf-8;';
+                const file = new Blob([blob], { type: mimeType });
+                const url = window.URL.createObjectURL(file);
+                const a = document.createElement('a');
+                a.href = url;
+                const ext = exportFormat === 'pdf' ? 'pdf' : 'csv';
+                a.download = `Labour_Payments_${now.toISOString().split('T')[0]}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                toast.success(`${exportFormat.toUpperCase()} downloaded successfully`, { id: loadingToast });
+                return;
             } else {
-                generateFrontendPDF(displayData);
-                toast.success("PDF generated successfully", { id: loadingToast });
+                throw new Error("Empty response received from server");
             }
         } catch (error: any) {
-            console.error(`Error exporting ${format}:`, error);
-            toast.error(`Failed to export ${format}`, { id: loadingToast });
+            console.warn(`Backend ${exportFormat} export fallback to client-side generation:`, error);
+            if (exportFormat === 'pdf') {
+                generateFrontendPDF(displayData);
+                toast.success("PDF generated successfully", { id: loadingToast });
+            } else {
+                generateFrontendExcel(displayData);
+                toast.success("CSV/Excel generated successfully", { id: loadingToast });
+            }
         }
     };
 
@@ -289,15 +333,15 @@ const PaymentsPage: React.FC = () => {
 
     return (
         <>
-            <Navbar title="Financial Intelligence" breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']} />
+            <Navbar title="Labour Payment History" breadcrumb={['Labour', 'Payments', 'Labour Payment History']} />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
-                        <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Labour Payment History</h1>
+                        <p className="text-sm font-bold text-slate-400">Historical wage payments and earnings distribution records.</p>
                     </div>
 
-                    {/* Export Dropdown Button */}
+                    {/* Download Dropdown Button */}
                     <div className="relative" ref={exportDropdownRef}>
                         <button
                             type="button"
@@ -305,7 +349,7 @@ const PaymentsPage: React.FC = () => {
                             className="bg-[#111827] hover:bg-slate-800 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
                         >
                             <Download className="w-4 h-4 text-indigo-400" />
-                            <span>EXPORT REPORT</span>
+                            <span>DOWNLOAD</span>
                             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
 
@@ -327,15 +371,15 @@ const PaymentsPage: React.FC = () => {
 
                                 <button
                                     type="button"
-                                    onClick={() => handleExport('excel')}
+                                    onClick={() => handleExport('csv')}
                                     className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-3 group mt-1"
                                 >
                                     <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
                                         <FileSpreadsheet className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-slate-800 tracking-tight">Export Excel</p>
-                                        <p className="text-[10px] text-slate-400 font-bold">Spreadsheet data (.xlsx)</p>
+                                        <p className="text-xs font-black text-slate-800 tracking-tight">Download CSV</p>
+                                        <p className="text-[10px] text-slate-400 font-bold">Spreadsheet data (.csv)</p>
                                     </div>
                                 </button>
                             </div>
@@ -389,8 +433,8 @@ const PaymentsPage: React.FC = () => {
                             <button onClick={() => setShowDateFilter(!showDateFilter)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
                                 <Calendar className="w-4 h-4" /> Date
                             </button>
-                            <button onClick={() => handleExport('excel')} className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all">
-                                <FileSpreadsheet className="w-4 h-4" /> EXCEL
+                            <button onClick={() => handleExport('csv')} className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all">
+                                <FileSpreadsheet className="w-4 h-4" /> CSV
                             </button>
                         </div>
                     </div>

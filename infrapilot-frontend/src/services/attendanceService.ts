@@ -192,7 +192,14 @@ export const attendanceService = {
                 const stored = localStorage.getItem('mock_self_attendance_global');
                 if (stored) {
                     const list = JSON.parse(stored);
-                    const index = list.findIndex((r: any) => r.id === id);
+                    let index = list.findIndex((r: any) => r.id === id);
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    if (index === -1) {
+                        index = list.findIndex((r: any) => r.attendance_date === todayStr);
+                    }
+                    if (index === -1 && list.length > 0) {
+                        index = 0;
+                    }
                     if (index !== -1) {
                         const outTime = new Date().toISOString();
                         const isFormData = data instanceof FormData;

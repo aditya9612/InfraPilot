@@ -18,31 +18,41 @@ export const chatService = {
     },
 
     async getAllSystemUsers(): Promise<ChatUser[]> {
+        const userRole = (localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
+        if (userRole === "labour" || userRole === "client") {
+            return [];
+        }
+
         const limit = 100;
         let offset = 0;
         let allUsers: any[] = [];
         let hasMore = true;
 
-        while (hasMore) {
-            const response = await api.get<any>("/users", { params: { limit, offset } });
-            const data = Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || response.data.users || []);
-            allUsers = allUsers.concat(data);
-            
-            if (data.length < limit) {
-                hasMore = false;
-            } else {
-                offset += limit;
+        try {
+            while (hasMore) {
+                const response = await api.get<any>("/users", { params: { limit, offset } });
+                const data = Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || response.data.users || []);
+                allUsers = allUsers.concat(data);
+                
+                if (data.length < limit) {
+                    hasMore = false;
+                } else {
+                    offset += limit;
+                }
+                
+                // Safety break to prevent infinite loops (max 1000 users)
+                if (offset >= 1000) break;
             }
-            
-            // Safety break to prevent infinite loops (max 1000 users)
-            if (offset >= 1000) break;
-        }
 
-        return allUsers.map((u: any) => ({
-            ...u,
-            id: u.user_id || u.id || u.ID,
-            name: u.full_name || u.name
-        }));
+            return allUsers.map((u: any) => ({
+                ...u,
+                id: u.user_id || u.id || u.ID,
+                name: u.full_name || u.name
+            }));
+        } catch (e) {
+            console.warn("[chatService] getAllSystemUsers skipped or forbidden for current role:", e);
+            return [];
+        }
     },
 
     async searchUsers(query: string): Promise<ChatUser[]> {

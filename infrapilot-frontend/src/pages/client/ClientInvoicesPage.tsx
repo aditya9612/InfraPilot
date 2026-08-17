@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   Search,
   FileText,
+  FileSpreadsheet,
   Eye,
   Download,
   CheckCircle2,
@@ -10,10 +11,10 @@ import {
   AlertCircle,
   TrendingUp,
   CreditCard,
-  Building2,
   Calendar,
   X,
-  Filter
+  Filter,
+  ChevronDown
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -22,9 +23,10 @@ import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal"
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
 import { paymentService } from "../../services/paymentService";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 import type { Project } from "../../types/project";
 import type { Invoice } from "../../types/invoice";
-import { generateInvoicePDF } from "../../utils/invoicePDFGenerator";
+import { generateInvoicePDF, generateInvoicesReportPDF } from "../../utils/invoicePDFGenerator";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
 import toast from "react-hot-toast";
@@ -43,6 +45,7 @@ const ClientInvoicesPage = () => {
   const { invoiceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { projectId } = useClientProjectId();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -51,9 +54,25 @@ const ClientInvoicesPage = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(0);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close download dropdown when clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        downloadDropdownRef.current &&
+        !downloadDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDownloadOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const PAGE_SIZE = 10;
 
@@ -62,14 +81,38 @@ const ClientInvoicesPage = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [invData, projData, invSummary] = await Promise.all([
+        const [invData, projData, invSummary, paymentHistory] = await Promise.all([
           financeService.getInvoices(200).catch(() => []),
           projectService.getProjects(100, 0).catch(() => []),
-          paymentService.getInvoiceSummary().catch(() => null),
+          paymentService.getInvoiceSummary(projectId || undefined).catch(() => null),
+          paymentService.getClientPaymentHistory(projectId || undefined).catch(() => []),
         ]);
 
-        const invList = Array.isArray(invData) ? invData : (invData as any)?.items || [];
-        setInvoices(invList);
+        const paidInvIds = new Set<string>();
+        if (Array.isArray(paymentHistory)) {
+          paymentHistory.forEach((p: any) => {
+            const s = String(p.payment_status || p.status || "").toUpperCase();
+            if (s === "VERIFIED" || s === "PAID" || s === "APPROVED" || s === "COMPLETED" || s === "SUCCESS" || p.verified_by || p.verified_at) {
+              if (p.invoice_id != null) paidInvIds.add(String(p.invoice_id));
+              if (p.invoice_no) {
+                const digits = String(p.invoice_no).replace(/\D/g, "");
+                if (digits) paidInvIds.add(digits);
+              }
+              if (p.invoiceNo) {
+                const digits = String(p.invoiceNo).replace(/\D/g, "");
+                if (digits) paidInvIds.add(digits);
+              }
+            }
+          });
+        }
+
+        const rawList = Array.isArray(invData) ? invData : (invData as any)?.items || [];
+        const syncedInvoices: Invoice[] = rawList.map((inv: any) => {
+          const invDigits = String(inv.id || "").replace(/\D/g, "");
+          const isPaid = paidInvIds.has(String(inv.id)) || (invDigits && paidInvIds.has(invDigits)) || (inv.status || "").toLowerCase() === "paid";
+          return isPaid ? { ...inv, status: "paid" } : inv;
+        });
+        setInvoices(syncedInvoices);
 
         const projList = Array.isArray(projData)
           ? projData
@@ -88,7 +131,7 @@ const ClientInvoicesPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [projectId]);
 
   // ── Deep Linking: Handle :invoiceId param or ?id= query param ──
   useEffect(() => {
@@ -118,14 +161,20 @@ const ClientInvoicesPage = () => {
     }
   }, [invoiceId, searchParams, invoices, isLoading]);
 
+  // ── Invoices Scoped to Selected Project ──
+  const selectedProjectInvoices = useMemo(() => {
+    if (!projectId) return invoices;
+    return invoices.filter((inv) => Number(inv.project_id) === Number(projectId));
+  }, [invoices, projectId]);
+
   // ── Statistics calculation ──
   const stats = useMemo(() => {
-    const totalCount = invoices.length;
-    const totalBilled = invoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
-    const totalPaid = invoices
+    const totalCount = selectedProjectInvoices.length;
+    const totalBilled = selectedProjectInvoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
+    const totalPaid = selectedProjectInvoices
       .filter((inv) => inv.status?.toLowerCase() === "paid")
       .reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
-    const totalPending = invoices
+    const totalPending = selectedProjectInvoices
       .filter((inv) => inv.status?.toLowerCase() === "pending" || inv.status?.toLowerCase() === "partial")
       .reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
 
@@ -135,15 +184,15 @@ const ClientInvoicesPage = () => {
       totalPaid: summaryData?.paid_amount ?? totalPaid,
       totalPending: summaryData?.pending_amount ?? totalPending,
     };
-  }, [invoices, summaryData]);
+  }, [selectedProjectInvoices, summaryData]);
 
   // ── Filtered & Paginated List ──
   const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
+    return selectedProjectInvoices.filter((inv) => {
       // Search
       const search = searchTerm.toLowerCase().trim();
-      const proj = projects.find((p) => p.id === inv.project_id);
-      const projName = (proj?.name || "").toLowerCase();
+      const proj = projects.find((p) => Number(p.id) === Number(inv.project_id));
+      const projName = (proj?.project_name || (proj as any)?.name || "").toLowerCase();
       const invNum = `inv-${String(inv.id).padStart(3, "0")}`.toLowerCase();
       const desc = (inv.description || "").toLowerCase();
       const amtStr = String(inv.total_amount || "");
@@ -161,13 +210,9 @@ const ClientInvoicesPage = () => {
         statusFilter === "all" ||
         inv.status?.toLowerCase() === statusFilter.toLowerCase();
 
-      // Project
-      const matchesProject =
-        projectFilter === "all" || String(inv.project_id) === projectFilter;
-
-      return matchesSearch && matchesStatus && matchesProject;
+      return matchesSearch && matchesStatus;
     });
-  }, [invoices, projects, searchTerm, statusFilter, projectFilter]);
+  }, [selectedProjectInvoices, projects, searchTerm, statusFilter]);
 
   const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE) || 1;
   const pagedInvoices = filteredInvoices.slice(
@@ -177,12 +222,26 @@ const ClientInvoicesPage = () => {
 
   const handleDownloadPDF = (invoice: Invoice) => {
     try {
-      const proj = projects.find((p) => p.id === invoice.project_id);
+      const proj = projects.find((p) => Number(p.id) === Number(invoice.project_id));
       generateInvoicePDF(invoice, proj);
       toast.success(`Invoice INV-${String(invoice.id).padStart(3, "0")} downloaded`);
     } catch (err) {
       console.error("PDF generation failed:", err);
       toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (filteredInvoices.length === 0) {
+      toast.error("No invoices to export");
+      return;
+    }
+    try {
+      generateInvoicesReportPDF(filteredInvoices, projects, stats);
+      toast.success("Invoices report PDF downloaded");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF report");
     }
   };
 
@@ -192,10 +251,10 @@ const ClientInvoicesPage = () => {
       return;
     }
     const data = filteredInvoices.map((inv) => {
-      const proj = projects.find((p) => p.id === inv.project_id);
+      const proj = projects.find((p) => Number(p.id) === Number(inv.project_id));
       return {
         "Invoice ID": `INV-${String(inv.id).padStart(3, "0")}`,
-        "Project": proj?.name || `Project #${inv.project_id}`,
+        "Project": proj?.project_name || (proj as any)?.name || `Project #${inv.project_id}`,
         "Issue Date": inv.created_at?.split("T")[0] || "—",
         "Due Date": inv.due_date || "—",
         "Amount (INR)": inv.total_amount || 0,
@@ -219,7 +278,7 @@ const ClientInvoicesPage = () => {
       <div className="min-h-screen bg-slate-50/60 pb-16 font-inter">
         <Navbar title="Invoices" breadcrumb={["Client", "Invoices"]} />
 
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -236,13 +295,68 @@ const ClientInvoicesPage = () => {
               </p>
             </div>
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-              >
-                <Download className="w-4 h-4 text-slate-500" />
-                Export CSV
-              </button>
+              {/* Download Dropdown */}
+              <div className="relative" ref={downloadDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadOpen((prev) => !prev)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-primary" />
+                  <span>Download</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      isDownloadOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isDownloadOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportPDF();
+                        setIsDownloadOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-50/60 transition-colors flex items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-rose-600 transition-colors">
+                          Download PDF
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Invoices statement (.pdf)
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportCSV();
+                        setIsDownloadOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-emerald-50/60 transition-colors flex items-center gap-3 group cursor-pointer mt-1"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-emerald-600 transition-colors">
+                          Download CSV
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Spreadsheet data (.csv)
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -303,26 +417,6 @@ const ClientInvoicesPage = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Project Filter */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                <select
-                  value={projectFilter}
-                  onChange={(e) => {
-                    setProjectFilter(e.target.value);
-                    setCurrentPage(0);
-                  }}
-                  className="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer text-xs"
-                >
-                  <option value="all">All Projects</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Status Filter */}
               <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
@@ -334,7 +428,7 @@ const ClientInvoicesPage = () => {
                   }}
                   className="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer text-xs"
                 >
-                  <option value="all">All Statuses</option>
+                  <option value="all">Status</option>
                   <option value="paid">Paid</option>
                   <option value="pending">Pending</option>
                   <option value="partial">Partial</option>
@@ -387,7 +481,7 @@ const ClientInvoicesPage = () => {
                     </tr>
                   ) : (
                     pagedInvoices.map((inv) => {
-                      const proj = projects.find((p) => p.id === inv.project_id);
+                      const proj = projects.find((p) => Number(p.id) === Number(inv.project_id));
                       const statusStyle =
                         STATUS_BADGE[inv.status?.toLowerCase()] || STATUS_BADGE.pending;
 
@@ -408,7 +502,7 @@ const ClientInvoicesPage = () => {
                             </div>
                           </td>
                           <td className="px-5 py-4 text-slate-700 font-semibold max-w-[200px] truncate">
-                            {proj?.name || `Project #${inv.project_id}`}
+                            {proj?.project_name || (proj as any)?.name || `Project #${inv.project_id}`}
                           </td>
                           <td className="px-5 py-4 text-slate-500 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">

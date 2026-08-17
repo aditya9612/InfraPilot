@@ -16,167 +16,188 @@ export function resolveNotificationRoute(
   notification: Partial<Notification> & Record<string, any>,
   userRole: string = "Client"
 ): ResolvedRoute {
-  const isClient = userRole === "Client";
+  const normalizedRole = (userRole || "Client").toLowerCase().trim();
+  const isClient = normalizedRole === "client";
+  const isLabour = normalizedRole === "labour";
+  const isEngineer = normalizedRole === "siteengineer" || normalizedRole === "engineer";
+  const isManager = normalizedRole === "projectmanager" || normalizedRole === "manager";
+  const isAccountant = normalizedRole === "accountant";
 
-  // 1. If backend provided a direct internal link
-  const rawLink = notification.link || notification.url || notification.action_url;
-  if (rawLink && typeof rawLink === "string") {
-    const trimmed = rawLink.trim();
-    // Validate that it is an internal application route
-    if (trimmed.startsWith("/")) {
-      // Normalize any backend legacy links to client routes if role is Client
-      if (isClient) {
-        if (trimmed.startsWith("/invoices/")) {
-          const invId = trimmed.replace("/invoices/", "");
-          return { path: `/client/invoices/${invId}`, targetEntity: "invoice", targetId: invId };
-        }
-        if (trimmed === "/invoices") {
-          return { path: "/client/invoices", targetEntity: "invoice" };
-        }
-        if (trimmed.startsWith("/client-payments/") || trimmed.startsWith("/client/payment/")) {
-          const payId = trimmed.split("/").pop();
-          return { path: `/client/payment/history/${payId}`, targetEntity: "client_payment", targetId: payId };
-        }
-        if (trimmed === "/client-payments" || trimmed === "/client/payments") {
-          return { path: "/client/payment/history", targetEntity: "client_payment" };
-        }
-        if (trimmed.startsWith("/quotations/")) {
-          return { path: "/client/payment/quotation", targetEntity: "quotation" };
-        }
-      }
-      return { path: trimmed };
+  const rawEntity = String(notification.entity || notification.entity_type || notification.notification_type || "").toLowerCase();
+  const title = String(notification.title || "").toLowerCase();
+  const desc = String(notification.description || notification.message || notification.details || "").toLowerCase();
+  const rawLink = String(notification.link || notification.url || notification.action_url || "").toLowerCase().trim();
+  const fullText = `${title} ${desc} ${rawEntity} ${rawLink}`;
+
+  // If explicit internal link is provided and valid for current role
+  if (rawLink && rawLink.startsWith("/")) {
+    if (isLabour && (rawLink.startsWith("/labour/") || rawLink.startsWith("/chat"))) {
+      return { path: rawLink };
+    }
+    if (isClient && (rawLink.startsWith("/client/") || rawLink.startsWith("/chat"))) {
+      return { path: rawLink };
+    }
+    if (isEngineer && (rawLink.startsWith("/engineer/") || rawLink.startsWith("/chat"))) {
+      return { path: rawLink };
+    }
+    if (isAccountant && (rawLink.startsWith("/accountant/") || rawLink.startsWith("/chat"))) {
+      return { path: rawLink };
+    }
+    if (isManager && (rawLink.startsWith("/manager/") || rawLink.startsWith("/chat"))) {
+      return { path: rawLink };
     }
   }
 
-  // 2. Structured entity metadata
-  const rawEntity = (notification.entity || notification.entity_type || notification.notification_type || "").toLowerCase();
-  const entityId = notification.entity_id || notification.reference_id || notification.related_id || notification.task_id;
+  // ── 1. Labour Routes ──
+  if (isLabour) {
+    // Tasks -> /labour/tasks (My Tasks Page)
+    if (fullText.includes("task") || fullText.includes("assigned") || fullText.includes("assign") || fullText.includes("work item")) {
+      return { path: "/labour/tasks", targetEntity: "task" };
+    }
+    // Attendance -> /labour/attendance
+    if (fullText.includes("attend") || fullText.includes("check in") || fullText.includes("check out") || fullText.includes("streak")) {
+      return { path: "/labour/attendance", targetEntity: "attendance" };
+    }
+    // Work Updates -> /labour/work-updates
+    if (fullText.includes("work update") || fullText.includes("photo") || fullText.includes("before") || fullText.includes("after") || fullText.includes("progress")) {
+      return { path: "/labour/work-updates", targetEntity: "work_update" };
+    }
+    // Payments / Wages -> /labour/payments
+    if (fullText.includes("payment") || fullText.includes("wage") || fullText.includes("salary") || fullText.includes("paid")) {
+      return { path: "/labour/payments", targetEntity: "payment" };
+    }
+    // Task Requests -> /labour/task-requests
+    if (fullText.includes("request")) {
+      return { path: "/labour/task-requests", targetEntity: "task_request" };
+    }
+    // Chat -> /labour/chat
+    if (fullText.includes("chat") || fullText.includes("message")) {
+      return { path: "/labour/chat", targetEntity: "chat" };
+    }
 
-  if (rawEntity.includes("invoice")) {
-    const path = isClient
-      ? (entityId ? `/client/invoices/${entityId}` : "/client/invoices")
-      : `/admin/invoices/all${entityId ? `?id=${entityId}` : ""}`;
-    return { path, targetEntity: "invoice", targetId: entityId };
+    // Default for Labour is My Tasks page
+    return { path: "/labour/tasks", targetEntity: "task" };
   }
 
-  if (rawEntity.includes("payment") || rawEntity.includes("client_payment")) {
-    const path = isClient
-      ? (entityId ? `/client/payment/history/${entityId}` : "/client/payment/history")
-      : `/admin/owners/payments`;
-    return { path, targetEntity: "payment", targetId: entityId };
+  // ── 2. Client Routes ──
+  if (isClient) {
+    // 1. Invoice notifications -> /client/invoices
+    if (fullText.includes("invoice")) {
+      return { path: "/client/invoices", targetEntity: "invoice" };
+    }
+
+    // 2. Quotation notifications -> /client/payment/quotation
+    if (fullText.includes("quotation")) {
+      return { path: "/client/payment/quotation", targetEntity: "quotation" };
+    }
+
+    // 3. Payment Approved / Rejected / Approval notifications -> /client/approvals
+    if (
+      fullText.includes("approval") ||
+      (fullText.includes("payment") && (fullText.includes("approv") || fullText.includes("reject") || fullText.includes("status"))) ||
+      title.includes("payment approved") ||
+      title.includes("payment rejected") ||
+      title.includes("approved") ||
+      fullText.includes("approved") ||
+      fullText.includes("rejected")
+    ) {
+      return { path: "/client/approvals", targetEntity: "approval" };
+    }
+
+    // 4. Payment History
+    if (fullText.includes("payment") || fullText.includes("client_payment") || fullText.includes("transaction")) {
+      return { path: "/client/payment/history", targetEntity: "client_payment" };
+    }
+
+    // 5. Work Progress / Tasks
+    if (fullText.includes("task") || fullText.includes("delay") || fullText.includes("progress")) {
+      return { path: "/client/progress", targetEntity: "task" };
+    }
+
+    // 6. Documents & Drawings
+    if (fullText.includes("document") || fullText.includes("drawing") || fullText.includes("blueprint")) {
+      return { path: "/client/documents", targetEntity: "document" };
+    }
+
+    // 7. Site Updates: Photos / DSR
+    if (fullText.includes("photo")) {
+      return { path: "/client/site-updates/photos", targetEntity: "photo" };
+    }
+    if (fullText.includes("dsr") || fullText.includes("daily report") || fullText.includes("site update")) {
+      return { path: "/client/site-updates/dsr", targetEntity: "dsr" };
+    }
+
+    // 8. Issues & Risks
+    if (fullText.includes("issue") || fullText.includes("risk") || fullText.includes("hazard")) {
+      return { path: "/client/issues", targetEntity: "issue" };
+    }
+
+    // 9. Messages / Chat
+    if (fullText.includes("message") || fullText.includes("chat")) {
+      return { path: "/chat", targetEntity: "chat" };
+    }
+
+    // Safe client internal link fallback
+    if (rawLink.startsWith("/client/")) {
+      return { path: rawLink };
+    }
+
+    return { path: "/client/invoices", targetEntity: "invoice" };
   }
 
-  if (rawEntity.includes("quotation")) {
-    const path = isClient ? "/client/payment/quotation" : "/admin/quotations";
-    return { path, targetEntity: "quotation", targetId: entityId };
+  // ── 3. Engineer Routes ──
+  if (isEngineer) {
+    if (fullText.includes("task")) return { path: "/engineer/tasks", targetEntity: "task" };
+    if (fullText.includes("dsr")) return { path: "/engineer/dsr", targetEntity: "dsr" };
+    if (fullText.includes("photo")) return { path: "/engineer/photos", targetEntity: "photo" };
+    if (fullText.includes("material")) return { path: "/engineer/material/receipt", targetEntity: "material" };
+    if (fullText.includes("qc") || fullText.includes("inspection")) return { path: "/engineer/qc/inspection", targetEntity: "qc" };
+    if (fullText.includes("attendance") || fullText.includes("labour")) return { path: "/engineer/labor/attendance", targetEntity: "attendance" };
+    if (fullText.includes("issue")) return { path: "/engineer/issues", targetEntity: "issue" };
+    if (fullText.includes("approval")) return { path: "/engineer/approvals/work", targetEntity: "approval" };
+    return { path: "/engineer/tasks", targetEntity: "task" };
   }
 
-  if (rawEntity.includes("approval")) {
-    const path = isClient ? "/client/approvals" : "/admin/approvals";
-    return { path, targetEntity: "approval", targetId: entityId };
+  // ── 4. Project Manager Routes ──
+  if (isManager) {
+    if (fullText.includes("task")) return { path: "/manager/tasks", targetEntity: "task" };
+    if (fullText.includes("approval")) return { path: "/manager/approvals", targetEntity: "approval" };
+    if (fullText.includes("qc") || fullText.includes("quality")) return { path: "/manager/quality", targetEntity: "quality" };
+    if (fullText.includes("dsr")) return { path: "/manager/dsr-approvals", targetEntity: "dsr" };
+    return { path: "/manager/tasks", targetEntity: "task" };
   }
 
-  if (rawEntity.includes("task") || rawEntity.includes("delay")) {
-    const path = isClient ? "/client/progress" : "/engineer/tasks";
-    return { path, targetEntity: "task", targetId: entityId };
+  // ── 5. Accountant Routes ──
+  if (isAccountant) {
+    if (fullText.includes("invoice") || fullText.includes("bill")) return { path: "/accountant/receivables", targetEntity: "invoice" };
+    if (fullText.includes("payment")) return { path: "/accountant/payments", targetEntity: "payment" };
+    if (fullText.includes("expense")) return { path: "/accountant/expenses", targetEntity: "expense" };
+    if (fullText.includes("payroll")) return { path: "/accountant/payroll", targetEntity: "payroll" };
+    if (fullText.includes("banking")) return { path: "/accountant/banking", targetEntity: "banking" };
+    if (fullText.includes("approval")) return { path: "/accountant/approvals", targetEntity: "approval" };
+    return { path: "/accountant/receivables", targetEntity: "invoice" };
   }
 
-  if (rawEntity.includes("document") || rawEntity.includes("drawing")) {
-    const path = isClient ? "/client/documents" : "/admin/documents";
-    return { path, targetEntity: "document", targetId: entityId };
-  }
+  // ── 6. Admin Fallback ──
+  if (fullText.includes("invoice")) return { path: "/admin/invoices/all", targetEntity: "invoice" };
+  if (fullText.includes("quotation")) return { path: "/admin/quotations", targetEntity: "quotation" };
+  if (fullText.includes("approval") || fullText.includes("approved")) return { path: "/admin/approvals", targetEntity: "approval" };
+  if (fullText.includes("payment")) return { path: "/admin/owners/payments", targetEntity: "payment" };
+  if (fullText.includes("task")) return { path: "/admin/projects", targetEntity: "task" };
 
-  if (rawEntity.includes("dsr") || rawEntity.includes("daily_report") || rawEntity.includes("site_update")) {
-    const path = isClient ? "/client/site-updates/dsr" : "/engineer/progress/entry";
-    return { path, targetEntity: "dsr", targetId: entityId };
-  }
-
-  if (rawEntity.includes("photo")) {
-    const path = isClient ? "/client/site-updates/photos" : "/engineer/photos";
-    return { path, targetEntity: "photo", targetId: entityId };
-  }
-
-  if (rawEntity.includes("issue") || rawEntity.includes("risk")) {
-    const path = isClient ? "/client/issues" : "/engineer/issues";
-    return { path, targetEntity: "issue", targetId: entityId };
-  }
-
-  // 3. Semantic fallback from Title, Message, Description
-  const title = (notification.title || "").toLowerCase();
-  const desc = (notification.description || notification.message || notification.details || "").toLowerCase();
-  const fullText = `${title} ${desc}`;
-
-  // Invoice detection
-  if (fullText.includes("invoice")) {
-    const invMatch = fullText.match(/#(\d+)|inv[ -]?0*(\d+)/i);
-    const extractedId = invMatch ? (invMatch[1] || invMatch[2]) : entityId;
-    const path = isClient
-      ? (extractedId ? `/client/invoices/${extractedId}` : "/client/invoices")
-      : `/admin/invoices/all${extractedId ? `?id=${extractedId}` : ""}`;
-    return { path, targetEntity: "invoice", targetId: extractedId };
-  }
-
-  // Payment detection
-  if (fullText.includes("payment")) {
-    const payMatch = fullText.match(/cp\d+|#(\d+)/i);
-    const extractedId = payMatch ? payMatch[0].toUpperCase() : entityId;
-    const path = isClient
-      ? (extractedId ? `/client/payment/history/${extractedId}` : "/client/payment/history")
-      : `/admin/owners/payments`;
-    return { path, targetEntity: "payment", targetId: extractedId };
-  }
-
-  // Quotation detection
-  if (fullText.includes("quotation")) {
-    return { path: isClient ? "/client/payment/quotation" : "/admin/quotations", targetEntity: "quotation" };
-  }
-
-  // Approval detection
-  if (fullText.includes("approval") || fullText.includes("approved") || fullText.includes("rejected")) {
-    return { path: isClient ? "/client/approvals" : "/admin/approvals", targetEntity: "approval" };
-  }
-
-  // Task / Progress detection
-  if (fullText.includes("task") || fullText.includes("delayed") || fullText.includes("progress")) {
-    return { path: isClient ? "/client/progress" : "/engineer/tasks", targetEntity: "task" };
-  }
-
-  // Documents detection
-  if (fullText.includes("document") || fullText.includes("drawing") || fullText.includes("blueprint")) {
-    return { path: isClient ? "/client/documents" : "/admin/documents", targetEntity: "document" };
-  }
-
-  // Site Updates / Photos / DSR
-  if (fullText.includes("photo") || fullText.includes("site photo")) {
-    return { path: isClient ? "/client/site-updates/photos" : "/engineer/photos", targetEntity: "photo" };
-  }
-  if (fullText.includes("dsr") || fullText.includes("daily report")) {
-    return { path: isClient ? "/client/site-updates/dsr" : "/engineer/progress/entry", targetEntity: "dsr" };
-  }
-
-  // Issues detection
-  if (fullText.includes("issue") || fullText.includes("risk") || fullText.includes("hazard")) {
-    return { path: isClient ? "/client/issues" : "/engineer/issues", targetEntity: "issue" };
-  }
-
-  // Communication / Message
-  if (fullText.includes("message") || fullText.includes("announcement")) {
-    return { path: isClient ? "/client/communication/messages" : "/chat", targetEntity: "message" };
-  }
-
-  // Default fallback to role's Notifications page
   return {
-    path: isClient ? "/client/notifications" : "/admin/notifications",
+    path: userRole === "Admin" ? "/admin/notifications" :
+          userRole === "SiteEngineer" ? "/engineer/notifications" :
+          userRole === "Labour" ? "/labour/notifications" : "/admin/notifications",
     targetEntity: "notification",
   };
 }
 
 /**
  * Centralized Notification Click Handler:
- * 1. Marks notification as read if unread
- * 2. Resolves destination route
- * 3. Navigates to target page
- * 4. Calls optional callbacks (e.g. close dropdown)
+ * 1. Closes dropdown
+ * 2. Resolves destination route and navigates IMMEDIATELY
+ * 3. Marks notification as read asynchronously in the background
  */
 export async function handleNotificationClick(
   notification: Partial<Notification> & Record<string, any>,
@@ -187,26 +208,28 @@ export async function handleNotificationClick(
     onCloseDropdown?: () => void;
   }
 ): Promise<void> {
-  // Mark as read
-  if (!notification.read && !notification.is_read && notification.id) {
-    try {
-      await notificationService.markAsRead(notification.id, notification.source || "system");
-      if (options?.onMarkedRead) {
-        options.onMarkedRead(notification.id);
-      }
-    } catch (err) {
-      console.warn("Failed to mark notification as read on click:", err);
-    }
-  }
-
-  // Close dropdown if open
+  // 1. Close dropdown immediately
   if (options?.onCloseDropdown) {
     options.onCloseDropdown();
   }
 
-  // Resolve and navigate
+  // 2. Resolve route and navigate IMMEDIATELY without waiting for network request
   const resolved = resolveNotificationRoute(notification, userRole);
   if (resolved.path) {
     navigate(resolved.path);
+  }
+
+  // 3. Mark as read asynchronously in the background
+  if (!notification.read && !notification.is_read && notification.id) {
+    notificationService
+      .markAsRead(notification.id, notification.source || "system")
+      .then(() => {
+        if (options?.onMarkedRead) {
+          options.onMarkedRead(notification.id!);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to mark notification as read on click:", err);
+      });
   }
 }

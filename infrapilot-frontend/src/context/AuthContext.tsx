@@ -68,11 +68,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem("infrapilot_user", JSON.stringify(userData));
+    if (userData.project_id) {
+      localStorage.setItem("client_selected_project_id", String(userData.project_id));
+      localStorage.setItem("infrapilot_selected_project_id", String(userData.project_id));
+    }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem("infrapilot_user");
+    localStorage.removeItem("client_selected_project_id");
+    localStorage.removeItem("infrapilot_selected_project_id");
+    localStorage.removeItem("mock_settings");
+    localStorage.removeItem("infrapilot_assigned_projects");
   };
 
   const refreshUser = (updates: Partial<User>) => {

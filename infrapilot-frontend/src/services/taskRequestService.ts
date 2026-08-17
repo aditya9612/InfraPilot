@@ -20,6 +20,18 @@ export interface TaskRequest {
     is_deleted?: boolean;
 }
 
+export interface CreateTaskRequestData {
+    title: string;
+    description?: string;
+    category?: string;
+    priority?: string;
+    project_id: number | string;
+    assigned_to?: number | string;
+    attachment?: File | null;
+    attachment_url?: string;
+    attachment_file_name?: string;
+}
+
 /**
  * Service for the Labour Module → Task Requests page.
  * Uses POST/GET /api/v1/projects/task-requests
@@ -46,80 +58,67 @@ export const taskRequestService = {
 
     /**
      * Submit a new task request
-     * POST /api/v1/projects/task-requests
+     * POST /api/v1/projects/task-requests (multipart/form-data)
      */
-    async createRequest(formData: {
-        title: string;
-        description: string;
-        category: string;
-        priority: string;
-        project_id?: number | string;
-        attachment_url?: string;
-        attachment_file_name?: string;
-        assigned_to?: number;
-    }) {
-        let attachmentUrl = formData.attachment_url;
-        // If attachment_url is a base64 string, don't send huge base64 payload that exceeds backend varchar limit (causing 422)
-        if (attachmentUrl && attachmentUrl.startsWith('data:')) {
-            attachmentUrl = formData.attachment_file_name || "attachment.png";
+    async createRequest(formData: FormData | CreateTaskRequestData) {
+        let payload: FormData;
+
+        if (formData instanceof FormData) {
+            payload = formData;
+        } else {
+            payload = new FormData();
+            payload.append("project_id", String(formData.project_id));
+            payload.append("title", formData.title);
+            payload.append("category", formData.category || "New Task");
+            payload.append("priority", formData.priority || "Medium");
+
+            if (formData.description) {
+                payload.append("description", formData.description);
+            }
+            if (formData.assigned_to && Number(formData.assigned_to) > 0) {
+                payload.append("assigned_to", String(formData.assigned_to));
+            }
+            if (formData.attachment instanceof File) {
+                payload.append("attachment", formData.attachment);
+            }
         }
 
-        const body: Record<string, any> = {
-            title: formData.title,
-            description: formData.description,
-            category: formData.category || "New Task",
-            priority: formData.priority || "Medium",
-        };
-
-        if (formData.project_id !== undefined && formData.project_id !== "") {
-            body.project_id = Number(formData.project_id);
-        }
-        if (attachmentUrl) {
-            body.attachment_url = attachmentUrl;
-        }
-        if (formData.assigned_to && formData.assigned_to > 0) {
-            body.assigned_to = formData.assigned_to;
-        }
-
-        console.log("[taskRequestService] POST /api/v1/projects/task-requests body:", body);
-        const response = await api.post("projects/task-requests", body);
+        console.log("[taskRequestService] POST /api/v1/projects/task-requests (multipart/form-data)");
+        const response = await api.post("projects/task-requests", payload);
         return response.data;
     },
 
     /**
      * Update an existing task request
-     * PUT /api/v1/projects/task-requests/{request_id}
+     * PUT /api/v1/projects/task-requests/{request_id} (multipart/form-data)
      */
     async updateRequest(
         requestId: number | string,
-        formData: Partial<{
-            title: string;
-            description: string;
-            category: string;
-            priority: string;
-            project_id: number | string;
-            attachment_url: string;
-            attachment_file_name: string;
-            assigned_to: number;
-        }>
+        formData: FormData | Partial<CreateTaskRequestData>
     ) {
-        const body: Record<string, any> = {};
-        if (formData.title !== undefined)       body.title       = formData.title;
-        if (formData.description !== undefined) body.description = formData.description;
-        if (formData.category !== undefined)    body.category    = formData.category;
-        if (formData.priority !== undefined)    body.priority    = formData.priority;
-        if (formData.project_id !== undefined)  body.project_id  = Number(formData.project_id);
-        if (formData.attachment_url) {
-            let attUrl = formData.attachment_url;
-            if (attUrl.startsWith('data:')) {
-                attUrl = formData.attachment_file_name || "attachment.png";
-            }
-            body.attachment_url = attUrl;
-        }
-        if (formData.assigned_to && formData.assigned_to > 0) body.assigned_to = formData.assigned_to;
+        let payload: FormData;
 
-        console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId} body:`, body);
-        const response = await api.put(`projects/task-requests/${requestId}`, body);
+        if (formData instanceof FormData) {
+            payload = formData;
+        } else {
+            payload = new FormData();
+            if (formData.project_id !== undefined && formData.project_id !== "") {
+                payload.append("project_id", String(formData.project_id));
+            }
+            if (formData.title !== undefined) payload.append("title", formData.title);
+            if (formData.category !== undefined) payload.append("category", formData.category);
+            if (formData.priority !== undefined) payload.append("priority", formData.priority);
+            if (formData.description !== undefined) payload.append("description", formData.description);
+            if (formData.assigned_to && Number(formData.assigned_to) > 0) {
+                payload.append("assigned_to", String(formData.assigned_to));
+            }
+            if (formData.attachment instanceof File) {
+                payload.append("attachment", formData.attachment);
+            }
+        }
+
+        console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId} (multipart/form-data)`);
+        const response = await api.put(`projects/task-requests/${requestId}`, payload);
         return response.data;
     },
 

@@ -291,9 +291,11 @@ const LabourDashboard: React.FC = () => {
                 }
 
                 // ── Tasks ──
+                const rawDashboardRecentTasks = dashData?.recent_tasks || dashData?.tasks || dashData?.assigned_tasks || [];
                 const rawProjectTasks = Array.isArray(tasksResponse) ? tasksResponse : (tasksResponse?.items || tasksResponse?.data || []);
-                const rawDashboardTasks = dashData?.tasks || dashData?.recent_tasks || dashData?.assigned_tasks || [];
-                const rawTasks = rawProjectTasks.length > 0 ? rawProjectTasks : rawDashboardTasks;
+                const rawTasks = (Array.isArray(rawDashboardRecentTasks) && rawDashboardRecentTasks.length > 0)
+                    ? rawDashboardRecentTasks
+                    : rawProjectTasks;
 
                 const dashTotal = dashData?.overview?.total_tasks ?? dashData?.total_tasks ?? dashData?.total;
                 const dashCompleted = dashData?.overview?.completed_tasks ?? dashData?.completed_tasks ?? dashData?.completed;
@@ -304,7 +306,7 @@ const LabourDashboard: React.FC = () => {
                     setCompletedTasks(Number(dashCompleted ?? 0));
                     setPendingTasks(Number(dashPending ?? 0));
                 } else {
-                    setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (dashData?.total ?? 0));
+                    setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (rawTasks.length || (dashData?.total ?? 0)));
                     setCompletedTasks(rawProjectTasks.length > 0
                         ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length
                         : (dashData?.completed ?? 0));
@@ -313,20 +315,35 @@ const LabourDashboard: React.FC = () => {
                         : (dashData?.pending ?? 0));
                 }
 
-                const mappedTasks: Task[] = rawTasks.map((t: any) => ({
-                    id: t.id || t.task_id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-                    name: t.name || t.title || t.task_name || 'Unnamed Task',
-                    project: t.project_name || t.project || projectName || 'General',
-                    project_id: t.project_id || selectedPid,
-                    assignedTo: t.assigned_to_name || user?.name || 'Self',
-                    assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
-                    description: t.description || 'No description provided.',
-                    status: (t.status === 'in_progress' ? 'In Progress' : (t.status?.charAt(0).toUpperCase() + t.status?.slice(1))) || 'Pending',
-                    priority: t.priority || 'Medium',
-                    startDate: t.start_date || '',
-                    endDate: t.end_date || '',
-                    progress: t.progress_percent || (t.status === 'completed' ? 100 : 0)
-                }));
+                const mappedTasks: Task[] = rawTasks.map((t: any) => {
+                    const rawStatus = t.status || 'Pending';
+                    let formattedStatus = 'Pending';
+                    const sLower = String(rawStatus).toLowerCase();
+                    if (sLower === 'in_progress' || sLower === 'in progress') formattedStatus = 'In Progress';
+                    else if (sLower === 'completed') formattedStatus = 'Completed';
+                    else if (sLower === 'planned') formattedStatus = 'Planned';
+                    else if (sLower === 'cancelled' || sLower === 'canceled') formattedStatus = 'Cancelled';
+                    else formattedStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+
+                    const progVal = t.progress !== undefined 
+                        ? Number(t.progress) 
+                        : (t.progress_percent !== undefined ? Number(t.progress_percent) : (sLower === 'completed' ? 100 : 0));
+
+                    return {
+                        id: String(t.task_id || t.id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`),
+                        name: t.title || t.name || t.task_name || 'Unnamed Task',
+                        project: t.project_name || t.project || projectName || 'Sara City',
+                        project_id: t.project_id || selectedPid || 4,
+                        assignedTo: t.assigned_to_name || t.assignedTo || user?.name || 'Self',
+                        assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
+                        description: t.description || 'No description provided.',
+                        status: formattedStatus as any,
+                        priority: t.priority ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase()) : 'Medium',
+                        startDate: t.start_date || t.startDate || '',
+                        endDate: t.end_date || t.endDate || '',
+                        progress: Math.round(progVal)
+                    };
+                });
                 setTasks(mappedTasks);
 
                 // ── Project name fallback ──
@@ -397,6 +414,7 @@ const LabourDashboard: React.FC = () => {
         if (s === 'in_progress' || s === 'in progress') return { label: 'In Progress', bg: 'bg-blue-500', text: 'text-white' };
         if (s === 'completed') return { label: 'Completed', bg: 'bg-emerald-500', text: 'text-white' };
         if (s === 'planned') return { label: 'Planned', bg: 'bg-slate-100', text: 'text-slate-600' };
+        if (s === 'cancelled' || s === 'canceled') return { label: 'Cancelled', bg: 'bg-rose-100', text: 'text-rose-600' };
         return { label: status || 'Pending', bg: 'bg-slate-100', text: 'text-slate-600' };
     };
 

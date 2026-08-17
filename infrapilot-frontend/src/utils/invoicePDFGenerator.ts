@@ -183,3 +183,130 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project, companyS
   // Download
   doc.save(`Invoice_INV-${String(invoice.id).padStart(3, '0')}.pdf`);
 };
+
+/**
+ * Generates and downloads a consolidated Client Invoices Statement & Report PDF.
+ */
+export const generateInvoicesReportPDF = (
+  invoices: Invoice[],
+  projects: Project[],
+  stats?: { totalCount: number; totalBilled: number; totalPaid: number; totalPending: number },
+  companySettings?: CompanySettings | null
+) => {
+  const doc = new jsPDF({ orientation: "landscape" });
+  const pageWidth = doc.internal.pageSize.width;
+  const dateStr = new Date().toISOString().split("T")[0];
+
+  const primaryColor: [number, number, number] = [37, 99, 235]; // #2563eb
+  const darkColor: [number, number, number] = [15, 23, 42]; // #0f172a
+  const slateColor: [number, number, number] = [100, 116, 139]; // #64748b
+
+  // Header Section
+  const currentLogo = companySettings?.company_logo ? settingsService.resolveUrl(companySettings.company_logo) : logo;
+  try {
+    if (currentLogo) {
+      doc.addImage(currentLogo, 'PNG', 14, 10, 14, 14);
+    }
+  } catch (e) {
+    console.warn("Could not load logo image for PDF", e);
+  }
+
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text(companySettings?.company_name || "InfraPilot", 32, 18);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+  doc.text("Client Invoices Statement & Billing Summary", 32, 24);
+
+  // Date on right
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+  doc.text(`Statement Date: ${dateStr}`, pageWidth - 14, 18, { align: "right" });
+
+  // Divider
+  doc.setDrawColor(226, 232, 240);
+  doc.line(14, 28, pageWidth - 14, 28);
+
+  let y = 34;
+
+  // Summary Metrics Bar
+  if (stats) {
+    autoTable(doc, {
+      startY: y,
+      head: [["Total Invoices", "Total Billed", "Paid Amount", "Pending Amount"]],
+      body: [[
+        String(stats.totalCount),
+        `INR ${stats.totalBilled.toLocaleString("en-IN")}`,
+        `INR ${stats.totalPaid.toLocaleString("en-IN")}`,
+        `INR ${stats.totalPending.toLocaleString("en-IN")}`,
+      ]],
+      headStyles: { fillColor: primaryColor, fontSize: 8, fontStyle: "bold", halign: "center" },
+      bodyStyles: { fontSize: 9, halign: "center", fontStyle: "bold", textColor: [30, 41, 59] },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
+
+  // Invoice Table
+  const tableData = invoices.map((inv) => {
+    const proj = projects.find((p) => p.id === inv.project_id);
+    return [
+      `INV-${String(inv.id).padStart(3, "0")}`,
+      proj?.name || `Project #${inv.project_id}`,
+      inv.created_at ? inv.created_at.split("T")[0] : "—",
+      inv.due_date || "—",
+      inv.description || `${inv.type?.toUpperCase() || "Service"} billing`,
+      `INR ${Number(inv.total_amount || 0).toLocaleString("en-IN")}`,
+      (inv.status || "PENDING").toUpperCase(),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [["Invoice No", "Project", "Issue Date", "Due Date", "Description", "Amount", "Status"]],
+    body: tableData,
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: "bold",
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [30, 41, 59],
+    },
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 28 },
+      1: { cellWidth: 45 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 70 },
+      5: { halign: "right", fontStyle: "bold", cellWidth: 35 },
+      6: { halign: "center", cellWidth: 25 },
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Page ${i} of ${pageCount}  •  Client Invoices Report  •  InfraPilot`,
+      pageWidth / 2,
+      doc.internal.pageSize.height - 8,
+      { align: "center" }
+    );
+  }
+
+  doc.save(`Client_Invoices_${dateStr}.pdf`);
+};
+

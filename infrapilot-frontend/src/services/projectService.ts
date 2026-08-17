@@ -645,11 +645,25 @@ export const projectService = {
   async createTaskRequest(projectId: number, requestData: any) {
     try {
       const endpoint = `projects/task-requests`;
-      const payload = {
-        ...requestData,
-        project_id: projectId
-      };
-      console.log(`Creating task request at: ${endpoint}`, payload);
+      let payload: FormData;
+      if (requestData instanceof FormData) {
+        payload = requestData;
+        if (projectId && !payload.has('project_id')) {
+          payload.append('project_id', String(projectId));
+        }
+      } else {
+        payload = new FormData();
+        payload.append('project_id', String(projectId || requestData.project_id));
+        if (requestData.title) payload.append('title', requestData.title);
+        if (requestData.category) payload.append('category', requestData.category);
+        if (requestData.priority) payload.append('priority', requestData.priority);
+        if (requestData.description) payload.append('description', requestData.description);
+        if (requestData.assigned_to) payload.append('assigned_to', String(requestData.assigned_to));
+        if (requestData.attachment instanceof File) {
+          payload.append('attachment', requestData.attachment);
+        }
+      }
+      console.log(`Creating task request at: ${endpoint} (FormData)`);
       const response = await api.post(endpoint, payload);
       return response.data;
     } catch (error: any) {

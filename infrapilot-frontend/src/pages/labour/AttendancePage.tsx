@@ -116,11 +116,12 @@ const AttendancePage: React.FC = () => {
     const handleCheckIn = async (data: any) => {
         setIsActionLoading(true);
         try {
+            const nowIso = new Date().toISOString();
             const formData = new FormData();
-            formData.append('attendance_date', new Date().toISOString().split('T')[0]);
+            formData.append('attendance_date', nowIso.split('T')[0]);
             formData.append('project_id', (data.project_id || 1).toString());
             formData.append('status', 'present');
-            formData.append('in_time', new Date().toISOString());
+            formData.append('in_time', nowIso);
             formData.append('check_in_latitude', data.latitude?.toString() || '');
             formData.append('check_in_longitude', data.longitude?.toString() || '');
             formData.append('check_in_address', data.resolved_address || data.location_address || '');
@@ -138,11 +139,33 @@ const AttendancePage: React.FC = () => {
                 }
             }
 
+            let checkInRes: any = null;
             try {
-                await attendanceService.checkIn(formData);
+                checkInRes = await attendanceService.checkIn(formData);
             } catch (err) {
                 console.warn('API checkin failed, service handled mock persistence');
             }
+
+            // Immediately set active checked-in state
+            setStatusData({
+                checked_in: true,
+                checked_out: false,
+                running_hours: 0,
+                date: nowIso.split('T')[0],
+                attendance: {
+                    id: checkInRes?.id || statusData?.attendance?.id || Math.floor(Math.random() * 9000) + 1000,
+                    user_id: user?.id || 1,
+                    attendance_date: nowIso.split('T')[0],
+                    in_time: nowIso,
+                    check_in_time: nowIso,
+                    out_time: undefined,
+                    check_out_time: undefined,
+                    working_hours: 0,
+                    check_in_address: data.resolved_address || data.location_address || liveLocation || '',
+                    work_location_type: data.work_location_type || 'wfo',
+                    is_late: false,
+                } as any
+            });
 
             toast.success('Check-in successful!');
             await fetchData(true);
@@ -156,13 +179,13 @@ const AttendancePage: React.FC = () => {
 
 
     const handleCheckOut = async (data: any) => {
-        if (!statusData?.attendance?.id) return;
+        const checkoutId = statusData?.attendance?.id || 1;
         setIsActionLoading(true);
         try {
-            const checkoutId = statusData.attendance.id;
+            const nowIso = new Date().toISOString();
             const formData = new FormData();
 
-            formData.append('out_time', new Date().toISOString());
+            formData.append('out_time', nowIso);
             formData.append('check_out_latitude', data.latitude?.toString() || '');
             formData.append('check_out_longitude', data.longitude?.toString() || '');
             formData.append('check_out_address', data.resolved_address || data.location_address || '');
@@ -186,6 +209,20 @@ const AttendancePage: React.FC = () => {
             } catch (err) {
                 console.warn('API checkout failed, service handled mock persistence');
             }
+
+            setStatusData(prev => ({
+                checked_in: true,
+                checked_out: true,
+                running_hours: prev?.running_hours || 0,
+                date: nowIso.split('T')[0],
+                attendance: {
+                    ...(prev?.attendance || {}),
+                    out_time: nowIso,
+                    check_out_time: nowIso,
+                    check_out_address: data.resolved_address || data.location_address || '',
+                    work_summary: data.work_summary || '',
+                } as any
+            }));
 
             toast.success('Check-out successful!');
             await fetchData(true);
@@ -241,6 +278,20 @@ const AttendancePage: React.FC = () => {
     };
 
     const filteredRecords = getFilteredRecords();
+
+    // Determine current attendance state
+    const hasInTime = Boolean(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time);
+    const hasOutTime = Boolean(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time);
+    const inTimeMs = statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).getTime() : 0;
+    const outTimeMs = (statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
+        ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).getTime()
+        : 0;
+
+    const isCurrentlyCheckedIn =
+        Boolean(statusData?.checked_in || hasInTime) &&
+        (!statusData?.checked_out || !hasOutTime || inTimeMs > outTimeMs);
+
+    const isShiftCompleted = !isCurrentlyCheckedIn && Boolean(statusData?.checked_out || hasOutTime);
 
     if (isLoading) {
         return (
@@ -310,7 +361,7 @@ const AttendancePage: React.FC = () => {
                                 </div>
 
                                  <div className="space-y-6">
-                                    {((statusData?.checked_in || statusData?.attendance?.in_time) && !statusData?.checked_out && !statusData?.attendance?.out_time && !statusData?.attendance?.check_out_time) ? (
+                                    {isCurrentlyCheckedIn ? (
                                         /* Active Session View: Show Check Out (Matches Screenshot Exactly) */
                                         <div className="space-y-6 animate-in fade-in duration-500">
                                             <div className="grid grid-cols-2 gap-12">
@@ -319,16 +370,16 @@ const AttendancePage: React.FC = () => {
                                                         <div className="flex items-center gap-2">
                                                             <LogIn className="w-4 h-4 text-emerald-500" />
                                                             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-In Time</span>
-                                                            {statusData.attendance?.is_late && (
+                                                            {statusData?.attendance?.is_late && (
                                                                 <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-rose-100">Late</span>
                                                             )}
                                                             <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black rounded-full uppercase tracking-widest">
                                                                 <MapPinIcon className="w-2.5 h-2.5" />
-                                                                {statusData.attendance?.work_location_type === 'wfo' || statusData.attendance?.work_location_type === 'office' ? 'Work From Office' : (statusData.attendance?.work_location_type || 'Work From Office')}
+                                                                {statusData?.attendance?.work_location_type === 'wfo' || statusData?.attendance?.work_location_type === 'office' ? 'Work From Office' : (statusData?.attendance?.work_location_type || 'Work From Office')}
                                                             </div>
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {statusData.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                            {statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
                                                         </p>
                                                     </div>
                                                     
@@ -374,7 +425,7 @@ const AttendancePage: React.FC = () => {
                                                 {isActionLoading ? "Processing..." : "Check Out"}
                                             </button>
                                         </div>
-                                    ) : (statusData?.checked_out || statusData?.attendance?.out_time || statusData?.attendance?.check_out_time) ? (
+                                    ) : isShiftCompleted ? (
                                         /* Shift Completed View */
                                         <div className="space-y-6 animate-in fade-in duration-500">
                                             <div className="grid grid-cols-2 gap-12">
@@ -390,7 +441,7 @@ const AttendancePage: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {statusData.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "02:51 PM"}
+                                                            {statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "02:51 PM"}
                                                         </p>
                                                     </div>
                                                     
@@ -410,12 +461,12 @@ const AttendancePage: React.FC = () => {
                                                         <div className="flex items-center gap-2 justify-end">
                                                             <LogOut className="w-4 h-4 text-rose-500" />
                                                             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-out Time</span>
-                                                            {statusData.attendance?.is_early_departure && (
+                                                            {statusData?.attendance?.is_early_departure && (
                                                                 <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-amber-100">Early</span>
                                                             )}
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {(statusData.attendance?.out_time || statusData.attendance?.check_out_time) ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                            {(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time) ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
                                                         </p>
                                                     </div>
                                                 </div>

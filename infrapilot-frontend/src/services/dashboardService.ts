@@ -514,15 +514,21 @@ export const dashboardService = {
    * Labour Payments Export
    * GET /api/v1/dashboard/labour/payments/export
    */
-  async exportLabourPayments(params?: {
-    format?: string;
-    month?: number;
+  async exportLabourPayments(params: {
+    export_format: 'csv' | 'pdf' | string;
     year?: number;
+    month?: number;
     time_filter?: string;
-    project_id?: number;
   }): Promise<Blob> {
+    const cleanParams: any = {
+      export_format: params.export_format === 'pdf' ? 'pdf' : 'csv',
+    };
+    if (params.year) cleanParams.year = Number(params.year);
+    if (params.month) cleanParams.month = Number(params.month);
+    if (params.time_filter) cleanParams.time_filter = String(params.time_filter);
+
     const response = await api.get('dashboard/labour/payments/export', {
-      params,
+      params: cleanParams,
       responseType: 'blob',
     });
     return response.data;

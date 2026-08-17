@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useChat } from "../../context/ChatContext";
+import { useAuth } from "../../context/AuthContext";
 import { chatService } from "../../services/chatService";
 import type { ChatUser } from "../../types/chat";
 import {
@@ -15,6 +16,7 @@ type ChatFilter = "all" | "private" | "group" | "unread";
 type SidebarMode = "list" | "new-chat" | "new-group";
 
 const ChatSidebar: React.FC = () => {
+    const { user } = useAuth();
     const { conversations, activeChatId, setActiveChatId, isLoading, refreshChatList, typingStatus, onlineStatus } = useChat();
     const [filter, setFilter] = useState<ChatFilter>("all");
     const [searchQuery, setSearchQuery] = useState("");
@@ -31,20 +33,30 @@ const ChatSidebar: React.FC = () => {
     const [selectedUsers, setSelectedUsers] = useState<ChatUser[]>([]);
 
     useEffect(() => {
+        const userRole = (user?.role || localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
+        if (userRole === "labour" || userRole === "client") {
+            return;
+        }
         fetchUsers();
         const intervalId = setInterval(() => {
             fetchUsers(true);
         }, 15000);
         return () => clearInterval(intervalId);
-    }, []);
+    }, [user?.role]);
 
     const fetchUsers = async (isBackground = false) => {
+        const userRole = (user?.role || localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
+        if (userRole === "labour" || userRole === "client") {
+            setIsLoadingUsers(false);
+            return;
+        }
+
         if (!isBackground) setIsLoadingUsers(true);
         try {
             const data = await chatService.getAllSystemUsers();
             setUsers(data);
         } catch { 
-            if (!isBackground) toast.error("Could not load users", { position: "top-right" }); 
+            // Do not show toast error for restricted users
         } finally {
             if (!isBackground) setIsLoadingUsers(false);
         }

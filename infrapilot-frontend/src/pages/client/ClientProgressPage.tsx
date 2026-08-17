@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye, FileText, FileSpreadsheet, ChevronDown, Search } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, ChevronDown, Search, Download } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -16,6 +16,8 @@ const ClientProgressPage = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
@@ -23,11 +25,14 @@ const ClientProgressPage = () => {
   const [exportingExcel, setExportingExcel] = useState(false);
   const { projectId } = useClientProjectId();
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(e.target as Node)) {
+        setIsDownloadOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -254,30 +259,81 @@ const ClientProgressPage = () => {
             <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time construction progress tracking</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleExportPdf}
-              disabled={exportingPdf}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {exportingPdf ? (
-                <div className="w-4 h-4 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
-              ) : (
-                <FileText className="w-4 h-4 text-red-500" />
+            {/* Download Dropdown */}
+            <div className="relative" ref={downloadDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDownloadOpen((prev) => !prev)}
+                disabled={exportingPdf || exportingExcel}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {exportingPdf || exportingExcel ? (
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 text-primary" />
+                )}
+                <span>
+                  {exportingPdf
+                    ? "Exporting PDF..."
+                    : exportingExcel
+                    ? "Exporting Excel..."
+                    : "Download"}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                    isDownloadOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {isDownloadOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    disabled={exportingPdf}
+                    onClick={() => {
+                      setIsDownloadOpen(false);
+                      handleExportPdf();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-50/60 transition-colors flex items-center gap-3 group cursor-pointer disabled:opacity-50"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-rose-600 transition-colors">
+                        Download PDF
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Progress report (.pdf)
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={exportingExcel}
+                    onClick={() => {
+                      setIsDownloadOpen(false);
+                      handleExportExcel();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-emerald-50/60 transition-colors flex items-center gap-3 group cursor-pointer mt-1 disabled:opacity-50"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-emerald-600 transition-colors">
+                        Download Excel
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Spreadsheet data (.xlsx)
+                      </p>
+                    </div>
+                  </button>
+                </div>
               )}
-              {exportingPdf ? "Exporting..." : "Download PDF"}
-            </button>
-            <button
-              onClick={handleExportExcel}
-              disabled={exportingExcel}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {exportingExcel ? (
-                <div className="w-4 h-4 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
-              ) : (
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              )}
-              {exportingExcel ? "Exporting..." : "Download Excel"}
-            </button>
+            </div>
           </div>
         </div>
 
