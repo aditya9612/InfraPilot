@@ -105,7 +105,7 @@ export const expenseService = {
    * GET /api/v1/expenses/boq-comparison/{project_id}
    */
   async getBoqComparison(projectId: number): Promise<ExpenseBoqComparison> {
-    const response = await api.get(`/expenses/boq-comparison/${projectId}`);
+    const response = await api.get(`/boq/comparison/${projectId}`);
     return response.data;
   },
 

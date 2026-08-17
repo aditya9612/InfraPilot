@@ -179,18 +179,27 @@ export const accountingService = {
     const response = await api.get("/accountant/gst/summary", { params });
     return response.data;
   },
+
   getBankSummary: async (params?: any) => {
     const response = await api.get("/accountant/bank/summary", { params });
     return response.data;
   },
 
   // Assets
+  getAssets: async (params?: any) => {
+    const response = await api.get("/reports/assets", { params });
+    return response.data;
+  },
   createAsset: async (data: any) => {
     const response = await api.post("/accountant/assets", data);
     return response.data;
   },
   depreciateAsset: async (id: number | string, data: any) => {
     const response = await api.post(`/accountant/assets/${id}/depreciate`, data);
+    return response.data;
+  },
+  generateAssetQR: async (id: number | string) => {
+    const response = await api.get(`/accountant/assets/${id}/qr`, { responseType: 'blob' });
     return response.data;
   },
 

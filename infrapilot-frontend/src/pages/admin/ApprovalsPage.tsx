@@ -62,17 +62,31 @@ const ApprovalsPage = () => {
         let items: { id: number; label: string }[] = [];
         switch (createForm.entity_type) {
           case "boq": {
-            const data = await boqService.getBoqsByProject(0);
-            items = (Array.isArray(data) ? data : []).map((b: any) => ({
-              id: b.id, label: `${b.item_name} (ID: ${b.id})`,
+            const data = await boqService.getBoqs({ limit: 100, offset: 0 });
+            const list = data.items || [];
+            items = list.map((b: any) => ({
+              id: b.id, label: `${b.item_name || b.name || `BOQ Item`} (ID: ${b.id})`,
             }));
             break;
           }
           case "drawing": {
-            const data = await drawingService.getVersions(0);
-            items = (Array.isArray(data) ? data : []).map((d: any) => ({
-              id: d.id, label: `${d.drawing_name || d.title || `Drawing #${d.id}`} (ID: ${d.id})`,
-            }));
+            // Drawings API strictly requires project_id. We fetch projects first to get all drawings.
+            try {
+              const { projectService } = await import("../../services/projectService");
+              const pData = await projectService.getProjects(50, 0);
+              const projects = Array.isArray(pData) ? pData : (pData.items || pData.data || []);
+
+              const allDrawings = await Promise.all(
+                projects.map((p: any) => drawingService.getList({ project_id: p.id, limit: 100 }).catch(() => []))
+              );
+
+              const flatDrawings = allDrawings.flat();
+              items = flatDrawings.map((d: any) => ({
+                id: d.id, label: `${d.drawing_name || d.title || `Drawing #${d.id}`} (Project: ${projects.find((p: any) => p.id === d.project_id)?.project_name || d.project_id}) (ID: ${d.id})`,
+              }));
+            } catch (err) {
+              console.warn("Failed to fetch drawings for approval dropdown:", err);
+            }
             break;
           }
           case "document": {

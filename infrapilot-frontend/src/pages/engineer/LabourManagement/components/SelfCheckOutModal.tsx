@@ -114,8 +114,12 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
                 fd.append("check_out_image", blob, "checkout.jpg");
             }
 
-            const idToUse = attendanceId ? attendanceId.toString() : "2"; // Use passed ID or mock 2
-            await labourService.selfCheckOut(idToUse, fd);
+            if (!attendanceId) {
+                toast.error("Attendance record not found to check out.");
+                setIsSubmitting(false);
+                return;
+            }
+            await labourService.selfCheckOut(attendanceId.toString(), fd);
             toast.success("Successfully Checked Out!");
             onSuccess(new Date());
             onClose();

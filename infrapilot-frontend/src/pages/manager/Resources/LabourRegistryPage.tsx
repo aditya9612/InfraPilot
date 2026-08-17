@@ -68,7 +68,7 @@ const LabourRegistryPage = () => {
     const [_fiscalSummary, setFiscalSummary] = useState<any>(null);
     const [_payrollMomentum, setPayrollMomentum] = useState<any[]>([]);
     const [_aggregateReport, setAggregateReport] = useState<any[]>([]);
-    const [contractorFilter, setContractorFilter] = useState("All");
+
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter] = useState("All");
@@ -98,7 +98,8 @@ const LabourRegistryPage = () => {
     // Image preview
     const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
-    const projectId = selectedProjectId || (user as any)?.project_id;
+    const isGlobalView = selectedProjectId === null;
+    const projectId = isGlobalView ? null : (selectedProjectId || (user as any)?.project_id);
 
     // Delete
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -199,7 +200,7 @@ const LabourRegistryPage = () => {
 
     // ─── Fetch Registry ───────────────────────────────────────────────────────
     const fetchLaborers = useCallback(async () => {
-        if (!projectId) return;
+        if (!isGlobalView && !projectId) return;
         setIsLoading(true);
         try {
             const response = await labourService.getLabours(projectId, { limit: 100, status: statusFilter === "All" ? undefined : statusFilter });
@@ -211,8 +212,26 @@ const LabourRegistryPage = () => {
             const deletedSaved = localStorage.getItem(deletedKey);
             const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
             const existingIds = new Set(items.map((l: any) => l.id));
-            const merged = [...items];
+            let merged = [...items];
             localItems.forEach((l: any) => { if (!existingIds.has(l.id)) merged.unshift(l); });
+            
+            // Strict filtering: ensure we only show labours assigned to this project if a specific project is selected
+            if (projectId && String(projectId) !== "undefined") {
+                merged = merged.filter((l: any) => {
+                    const pidMatch = l.project_id && Number(l.project_id) === Number(projectId);
+                    const arrayMatch = l.projects && Array.isArray(l.projects) && l.projects.some((p: any) => Number(p.id || p.project_id) === Number(projectId));
+                    // If the item explicitly has a project_id or projects array, filter strictly
+                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
+                        return pidMatch || arrayMatch;
+                    }
+                    // If the item explicitly has a project_id or projects array, filter strictly
+                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
+                        return pidMatch || arrayMatch;
+                    }
+                    return true;
+                });
+            }
+
             setLaborers(merged.filter((l: any) => !deletedIds.has(l.id)));
         } catch { toast.error("Failed to sync registry"); }
         finally { setIsLoading(false); }
@@ -269,6 +288,12 @@ const LabourRegistryPage = () => {
                 const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
                 allLabourers = allLabourers.filter((l: any) => !deletedIds.has(l.id));
             } catch { }
+            
+            setDashboardStats(prev => ({
+                ...prev,
+                total_labour: prev.total_labour || allLabourers.length
+            }));
+            
             const data = await labourService.getAttendanceList(projectId, fromDate, toDate);
             const attendances = data.items || [];
             const enriched = allLabourers.map((lab: any) => {
@@ -322,7 +347,7 @@ const LabourRegistryPage = () => {
     }, [projectId, payrollMonth, payrollYear]);
 
     useEffect(() => {
-        if (!isProjectLoading && projectId) {
+        if (!isProjectLoading && (isGlobalView || projectId)) {
             if (activeTab === "Registry") {
                 fetchLaborers();
                 fetchSiteEngineers();
@@ -332,28 +357,35 @@ const LabourRegistryPage = () => {
             else if (activeTab === "Attendance") fetchAttendance();
             else if (activeTab === "Payroll") fetchPayrollData();
         }
-    }, [activeTab, fetchLaborers, fetchSiteEngineers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId]);
+    }, [activeTab, fetchLaborers, fetchSiteEngineers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId, isGlobalView]);
 
     const handleGeneratePayroll = async () => {
         if (!projectId) return;
         setIsGeneratingPayroll(true);
         try {
-            await paymentService.generatePayroll({ month: payrollMonth, year: payrollYear });
+            await paymentService.generatePayroll({ month: payrollMonth, year: payrollYear, project_id: Number(projectId) });
             toast.success("Payroll generated successfully.");
             fetchPayrollData();
         } catch (err: any) {
-            toast.error(err?.response?.data?.detail || "Failed to generate payroll.");
+            let errorMsg = "Failed to generate payroll.";
+            const detail = err?.response?.data?.detail;
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errorMsg = detail.map((d: any) => d.msg).join(', ');
+            }
+            toast.error(errorMsg);
         } finally {
             setIsGeneratingPayroll(false);
         }
     };
 
-    const handleExportPayroll = async () => {
+    const handleExportPayroll = async (format: 'excel' | 'pdf', labourId?: number) => {
         if (!projectId) return;
         setIsExportingPayroll(true);
         try {
-            await paymentService.exportPayroll({ month: payrollMonth, year: payrollYear });
-            toast.success("Payroll export started.");
+            await paymentService.exportPayroll({ month: payrollMonth, year: payrollYear, format, labour_id: labourId });
+            toast.success(`Payroll ${format.toUpperCase()} export started.`);
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to export payroll.");
         } finally {
@@ -434,17 +466,24 @@ const LabourRegistryPage = () => {
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
             } else {
-                const activePId = projectId;
-                const payload = { project_id: activePId, aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null, status: formData.status || "Active", notes: formData.notes || null, profile_image: formData.profile_image || null };
-                const newLaborer = await labourService.createLabour(payload);
-                try { await labourService.assignLabourToProject(newLaborer.id, activePId); } catch (e: any) { await labourService.deleteLabour(newLaborer.id); throw new Error("Failed to assign project. Worker rolled back."); }
-                setLaborers(prev => [newLaborer, ...prev]);
-                const localKey = `created_labourers_${activePId}`;
-                const localSaved = localStorage.getItem(localKey);
-                const localItems = localSaved ? JSON.parse(localSaved) : [];
-                localItems.unshift(newLaborer);
-                localStorage.setItem(localKey, JSON.stringify(localItems));
-                toast.success("Personnel registered successfully!");
+                const payload = { 
+                    project_id: null, 
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, 
+                    labour_name: formData.labour_name, 
+                    mobile_number: formData.mobile_number, 
+                    email: formData.email || null, 
+                    pan_number: formData.pan_number || null, 
+                    address: formData.address || null, 
+                    labour_type_id: Number(formData.labour_type_id), 
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null, 
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null, 
+                    contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null, 
+                    status: formData.status || "Active", 
+                    notes: formData.notes || null, 
+                    profile_image: formData.profile_image || null 
+                };
+                await labourService.createLabour(payload);
+                toast.success("Personnel registered successfully! You can now assign them to a project.");
             }
             setIsFormModalOpen(false); setFormData(initialFormData); setErrors({});
             setTimeout(() => fetchLaborers(), 1000);
@@ -483,14 +522,12 @@ const LabourRegistryPage = () => {
         if (searchTerm) return (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase());
         return true;
     });
-    const showPayrollContractorFilter = useMemo(() => payrollList.some((item: any) => item.contractor_id || item.contractor_name), [payrollList]);
     const filteredPayrollList = useMemo(() => {
         return payrollList.filter((item: any) => {
             const matchesSearch = !searchTerm || (item.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || String(item.labour_id || item.worker_code || "").toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesContractor = !showPayrollContractorFilter || contractorFilter === "All" || String(item.contractor_id) === contractorFilter || String(item.contractor_name || "").toLowerCase() === contractorFilter.toLowerCase();
-            return matchesSearch && matchesContractor;
+            return matchesSearch;
         });
-    }, [payrollList, searchTerm, contractorFilter, showPayrollContractorFilter]);
+    }, [payrollList, searchTerm]);
     const currentListData = activeTab === "Registry"
         ? filteredLaborers
         : activeTab === "Attendance"
@@ -500,7 +537,11 @@ const LabourRegistryPage = () => {
                 : [];
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
-    const getProjectName = () => selectedProject?.project_name || `Project #${projectId}`;
+    const getProjectName = () => {
+        if (selectedProject?.project_name) return selectedProject.project_name;
+        if (projectId && String(projectId) !== "undefined") return `Project #${projectId}`;
+        return "Global / All Projects";
+    };
     const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
     const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
 
@@ -510,7 +551,7 @@ const LabourRegistryPage = () => {
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 sticky top-0 z-10">
                 <tr>
                     <th className="px-6 py-4">Worker</th><th className="px-6 py-4">Skill Type</th>
-                    <th className="px-6 py-4">Contractor</th><th className="px-6 py-4">Assigned Task</th><th className="px-6 py-4">Assigned Site Engg</th><th className="px-6 py-4 text-right">Daily Wage</th>
+                    <th className="px-6 py-4">Assigned Task</th><th className="px-6 py-4">Assigned Site Engg</th><th className="px-6 py-4 text-right">Daily Wage</th>
                     <th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th>
                 </tr>
             </thead>
@@ -536,8 +577,7 @@ const LabourRegistryPage = () => {
                                     <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
                                 </div>
                             </td>
-                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.labour_type_name || labor.skill_type || "—"}</td>
-                            <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || "—"}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.skill_category || labor.labour_type_name || labor.skill_type || "—"}</td>
                             <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
                             <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
                             <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
@@ -579,7 +619,7 @@ const LabourRegistryPage = () => {
                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
                         <tr>
                             <th className="px-6 py-4">Date</th><th className="px-6 py-4">Labour Name</th>
-                            <th className="px-6 py-4">Contractor</th><th className="px-6 py-4">Department</th>
+                            <th className="px-6 py-4">Department</th>
                             <th className="px-6 py-4 text-center">Check In</th><th className="px-6 py-4 text-center">Check Out</th>
                             <th className="px-6 py-4 text-center">Hours</th><th className="px-6 py-4">Location</th>
                             <th className="px-6 py-4">Status</th><th className="px-6 py-4 text-center">Actions</th>
@@ -597,7 +637,6 @@ const LabourRegistryPage = () => {
                                                 <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{lab.labour_name || "Unknown"}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor_name || "—"}</span></td>
                                         <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department || lab.skill_type || "—"}</span></td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col items-center gap-1">
@@ -719,14 +758,14 @@ const LabourRegistryPage = () => {
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{labour.skill_category || "—"}</td>
-                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage?.toLocaleString?.() ?? labour.daily_wage) || "—"}</td>
+                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage_rate?.toLocaleString?.() ?? labour.daily_wage_rate ?? labour.daily_wage) || "—"}</td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : "—"}</span>
+                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : (labour.total_working_hours != null ? `${(labour.total_working_hours / 8).toFixed(1)}` : "—")}</span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : "—"}</span>
+                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : (labour.total_overtime_hours != null ? `${labour.total_overtime_hours}h` : "—")}</span>
                                 </td>
-                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage_earned || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage || labour.total_wage_earned || 0).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center">
                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${labour.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"}`}>
                                         {labour.status || "Inactive"}
@@ -737,8 +776,11 @@ const LabourRegistryPage = () => {
                                         <button onClick={() => handlePaySalary(labour)} disabled={payingId === labour.labour_id || isLoading} className="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
                                             {payingId === labour.labour_id ? "Paying..." : "Pay"}
                                         </button>
-                                        <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                            {isExportingPayroll ? "Exporting..." : "Export"}
+                                        <button onClick={() => handleExportPayroll('excel', labour.labour_id)} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            Excel
+                                        </button>
+                                        <button onClick={() => handleExportPayroll('pdf', labour.labour_id)} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-rose-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            PDF
                                         </button>
                                     </div>
                                 </td>
@@ -793,7 +835,7 @@ const LabourRegistryPage = () => {
                                 </button>
                             </div>
                         )}
-                        {activeTab !== "Site Engineers" && (
+                        {activeTab === "Attendance" && (
                             <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
                                 <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
                             </div>
@@ -835,17 +877,7 @@ const LabourRegistryPage = () => {
                                     </div>
                                 </>
                             )}
-                            {activeTab === "Payroll" && showPayrollContractorFilter && (
-                                <div className="relative">
-                                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                    <select value={contractorFilter} onChange={e => setContractorFilter(e.target.value)} className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none bg-white">
-                                        <option value="All">All Contractors</option>
-                                        {Array.from(new Set(payrollList.map((item: any) => item.contractor_id || item.contractor_name))).map((value: any) => (
-                                            <option key={value} value={value}>{typeof value === 'number' ? `Contractor ${value}` : value}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+
                             {activeTab === "Payroll" && (
                                 <div className="flex items-center gap-2">
                                     <select value={payrollMonth} onChange={e => setPayrollMonth(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -861,14 +893,14 @@ const LabourRegistryPage = () => {
                                     <button onClick={handleGeneratePayroll} disabled={isGeneratingPayroll || isLoading} className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
                                         {isGeneratingPayroll ? "Generating..." : "Generate Payroll"}
                                     </button>
-                                    <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                        {isExportingPayroll ? "Exporting..." : "Export Payroll"}
+                                    <button onClick={() => handleExportPayroll('excel')} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-emerald-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        Export Excel
+                                    </button>
+                                    <button onClick={() => handleExportPayroll('pdf')} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-rose-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        Export PDF
                                     </button>
                                 </div>
                             )}
-                            <div className="text-xs text-slate-400 font-medium">
-                                {activeTab === "Payroll" && `${filteredPayrollList.length} items found`}
-                            </div>
                             <button onClick={() => {
                                 if (activeTab === "Attendance") fetchAttendance();
                                 else if (activeTab === "Payroll") fetchPayrollData();
@@ -1087,7 +1119,7 @@ const LabourRegistryPage = () => {
                             </div>
                             <div><label className={labelCls}>Custom Daily Wage (₹)</label><input type="number" value={formData.custom_daily_wage_rate} onChange={e => setFormData(p => ({ ...p, custom_daily_wage_rate: e.target.value }))} placeholder="900" min={0} className={inputCls} /></div>
                             <div><label className={labelCls}>Custom OT Rate / Hour (₹)</label><input type="number" value={formData.custom_ot_rate_per_hour} onChange={e => setFormData(p => ({ ...p, custom_ot_rate_per_hour: e.target.value }))} placeholder="120" min={0} className={inputCls} /></div>
-                            <div><label className={labelCls}>Contractor ID</label><input type="number" value={formData.contractor_id} onChange={e => setFormData(p => ({ ...p, contractor_id: e.target.value }))} placeholder="1" className={inputCls} /></div>
+
                             <div><label className={labelCls}>Status</label>
                                 <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls}>
                                     <option value="Active">Active</option><option value="Inactive">Inactive</option>

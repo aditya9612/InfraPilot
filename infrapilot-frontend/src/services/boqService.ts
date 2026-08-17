@@ -271,12 +271,12 @@ export const boqService = {
 
   /**
    * Add a single item to a BOQ group
-   * POST /api/v1/boq/groups/{group_id}/items/bulk
+   * POST /api/v1/boq/groups/{group_id}/items
    */
   async addBoqItem(groupId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      const response = await api.post(`/boq/groups/${groupId}/items/bulk`, { items: [itemData] });
-      return response.data?.items?.[0] || response.data?.[0] || {};
+      const response = await api.post(`/boq/groups/${groupId}/items`, itemData);
+      return response.data;
     } catch (error: any) {
       console.error(
         "Add Item Error:",
@@ -303,12 +303,12 @@ export const boqService = {
           const itemRes = await api.get(`/boq/${groupId}`);
           const boqGroupId = itemRes.data?.boq_group_id;
           if (boqGroupId && boqGroupId !== groupId) {
-             const fallbackRes = await api.get(`/boq/groups/${boqGroupId}/items`);
-             const fallbackData = fallbackRes.data;
-             return Array.isArray(fallbackData) ? fallbackData : fallbackData.items || fallbackData.data || [];
+            const fallbackRes = await api.get(`/boq/groups/${boqGroupId}/items`);
+            const fallbackData = fallbackRes.data;
+            return Array.isArray(fallbackData) ? fallbackData : fallbackData.items || fallbackData.data || [];
           }
-        } catch (e) {}
-        
+        } catch (e) { }
+
         // Final Fallback for empty groups or missing endpoint
         return [];
       }
@@ -542,7 +542,7 @@ export const boqService = {
    */
   async generateTasksFromBoq(boqId: number, milestoneId?: number): Promise<any> {
     try {
-      const url = milestoneId 
+      const url = milestoneId
         ? `/boq/${boqId}/generate-tasks?milestone_id=${milestoneId}`
         : `/boq/${boqId}/generate-tasks`;
       // Send POST request with empty body, since parameters are in path and query

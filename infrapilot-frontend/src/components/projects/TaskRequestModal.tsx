@@ -18,7 +18,6 @@ const TaskRequestModal = ({
     isOpen,
     onClose,
     onSubmit,
-    projectMembers,
     editingRequest,
     isLoading = false,
     projectId,
@@ -30,6 +29,7 @@ const TaskRequestModal = ({
         priority: "MEDIUM",
         description: "",
         attachment_url: "",
+        attachment_file: null as File | null,
         assigned_to: "",
         assigned_project: "",
     });
@@ -45,8 +45,9 @@ const TaskRequestModal = ({
                 priority: editingRequest.priority || "MEDIUM",
                 description: editingRequest.description || "",
                 attachment_url: editingRequest.attachment_url || "",
-                assigned_to: editingRequest.assigned_to || "",
-                assigned_project: editingRequest.assigned_project || projectId || "",
+                attachment_file: null,
+                assigned_to: editingRequest.assigned_to ? String(editingRequest.assigned_to) : "",
+                assigned_project: editingRequest.assigned_project ? String(editingRequest.assigned_project) : (projectId ? String(projectId) : ""),
             });
         } else {
             setFormData({
@@ -55,8 +56,9 @@ const TaskRequestModal = ({
                 priority: "MEDIUM",
                 description: "",
                 attachment_url: "",
+                attachment_file: null,
                 assigned_to: "",
-                assigned_project: projectId || "",
+                assigned_project: projectId ? String(projectId) : "",
             });
         }
     }, [editingRequest, isOpen, projectId]);
@@ -112,6 +114,7 @@ const TaskRequestModal = ({
                 priority: "MEDIUM",
                 description: "",
                 attachment_url: "",
+                attachment_file: null,
                 assigned_to: "",
                 assigned_project: "",
             });
@@ -241,15 +244,22 @@ const TaskRequestModal = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">Attachment URL</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Attachment</label>
                     <input
-                        type="url"
-                        name="attachment_url"
-                        value={formData.attachment_url}
-                        onChange={handleChange}
-                        placeholder="https://example.com/attachment"
-                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                        type="file"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                setFormData(prev => ({ ...prev, attachment_file: file as any }));
+                            }
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                     />
+                    {formData.attachment_url && !formData.attachment_file && (
+                         <div className="mt-2 text-[11px] font-medium text-slate-500">
+                             Current Attachment: <a href={formData.attachment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View File</a>
+                         </div>
+                    )}
                 </div>
             </form>
         </Modal>

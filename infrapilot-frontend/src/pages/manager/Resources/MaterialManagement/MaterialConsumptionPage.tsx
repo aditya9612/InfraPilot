@@ -35,7 +35,9 @@ const MaterialConsumptionPage = () => {
     const [projectsList, setProjectsList] = useState<any[]>([]);
     const [tasksList, setTasksList] = useState<any[]>([]);
     const [boqsList, setBoqsList] = useState<any[]>([]);
+    const [allMaterialsList, setAllMaterialsList] = useState<any[]>([]);
     const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
+    const [selectedIssueType, setSelectedIssueType] = useState<string>("");
 
     // Pagination & Filtering
     const [currentPage, setCurrentPage] = useState(1);
@@ -72,6 +74,13 @@ const MaterialConsumptionPage = () => {
         try { const data = await materialService.listTransfers(0, 500, projectId); setTransfers(data.data || data.items || data); }
         catch (e) { toast.error("Failed to load transfers"); }
         finally { setIsLoading(false); }
+    };
+
+    const fetchAllMaterials = async () => {
+        try {
+            const data = await materialService.listMaterials(projectId, 0, 500);
+            setAllMaterialsList(Array.isArray(data) ? data : ((data as any).items || (data as any).data || []));
+        } catch (e) { console.error("Failed to fetch all materials", e); }
     };
 
     const fetchTransactions = async () => {
@@ -164,8 +173,8 @@ const MaterialConsumptionPage = () => {
         setCurrentPage(1);
         if (activeTab === "Usage") { fetchInventory(); fetchTasksAndBoqs(); }
         else if (activeTab === "Transfers") fetchTransfers();
-        else if (activeTab === "Transactions") { fetchTransactions(); fetchInventory(); }
-    }, [activeTab, projectId, selectedMaterialId]);
+        else if (activeTab === "Transactions") { fetchTransactions(); fetchInventory(); fetchAllMaterials(); }
+    }, [activeTab, projectId, selectedMaterialId, selectedIssueType]);
 
     // Derived Data
     const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
@@ -174,7 +183,7 @@ const MaterialConsumptionPage = () => {
     const filteredTransfers = useMemo(() => transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm)), [transfers, searchTerm]);
     const paginatedTransfers = useMemo(() => filteredTransfers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransfers, currentPage, itemsPerPage]);
 
-    const filteredTransactions = useMemo(() => transactions.filter(t => t.type.toLowerCase().includes(searchTerm.toLowerCase()) || t.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [transactions, searchTerm]);
+    const filteredTransactions = useMemo(() => transactions.filter(t => (t.type.toLowerCase().includes(searchTerm.toLowerCase()) || (t.issue_type || '').toLowerCase().includes(searchTerm.toLowerCase())) && (selectedIssueType ? t.issue_type === selectedIssueType || t.type === selectedIssueType : true)), [transactions, searchTerm, selectedIssueType]);
     const paginatedTransactions = useMemo(() => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransactions, currentPage, itemsPerPage]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -314,16 +323,28 @@ const MaterialConsumptionPage = () => {
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
                             {activeTab === "Transactions" && (
-                                <select
-                                    value={selectedMaterialId}
-                                    onChange={e => setSelectedMaterialId(e.target.value)}
-                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
-                                >
-                                    <option value="">All Materials</option>
-                                    {inventory.map(m => (
-                                        <option key={m.material_id} value={m.material_id}>{m.material_name}</option>
-                                    ))}
-                                </select>
+                                <>
+                                    <select
+                                        value={selectedMaterialId}
+                                        onChange={e => setSelectedMaterialId(e.target.value)}
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
+                                    >
+                                        <option value="">All Materials</option>
+                                        {inventory.map(m => (
+                                            <option key={m.material_id} value={m.material_id}>{m.material_name}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={selectedIssueType}
+                                        onChange={e => setSelectedIssueType(e.target.value)}
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600 w-36"
+                                    >
+                                        <option value="">All Issue Types</option>
+                                        {ISSUE_TYPES.map(type => (
+                                            <option key={type} value={type}>{type}</option>
+                                        ))}
+                                    </select>
+                                </>
                             )}
                             <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>
@@ -387,7 +408,7 @@ const MaterialConsumptionPage = () => {
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at).toLocaleString()}</td>
                                                 <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || `Mat-${t.material_id}`}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{inventory.find(m => m.material_id === t.material_id)?.material_name || allMaterialsList.find(m => m.id === t.material_id || m.material_id === t.material_id)?.material_name || t.material_name || `Mat-${t.material_id}`}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
                                                 <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>
@@ -467,8 +488,7 @@ const MaterialConsumptionPage = () => {
                 {viewTransferDetails && (
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Transfer ID</p><p className="text-sm font-bold text-slate-800">#{viewTransferDetails.id}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleString()}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Material</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.material?.name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>

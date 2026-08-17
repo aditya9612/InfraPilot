@@ -19,6 +19,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
 import { projectService } from "../../../services/projectService";
 import { reportService } from "../../../services/reportService";
+import api from "../../../services/api";
 import type { ActivityItem } from "../../../types/workProgress";
 import { useProject } from "../../../context/ProjectContext";
 
@@ -91,16 +92,43 @@ const ActivityListPage = () => {
     }
   };
 
-  const { selectedProjectId } = useProject();
+  const { selectedProjectId, setSelectedProjectId } = useProject();
   const projectId = selectedProjectId || 0;
 
+  const handleProjectChange = (id: number) => {
+    setSelectedProjectId(id);
+  };
+
   const [projectsList, setProjectsList] = useState<any[]>([]);
+  const [workOrdersList, setWorkOrdersList] = useState<any[]>([]);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<number | "">("");
+  const [workOrderSummary, setWorkOrderSummary] = useState<any>(null);
 
   useEffect(() => {
     projectService.getProjects(100, 0).then((data: any) => {
         setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
     }).catch(() => {});
+
+    api.get("/work-orders").then((res: any) => {
+        const items = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        // simple unique filter
+        const unique = Array.from(new Map(items.map((i: any) => [i.id, i])).values());
+        setWorkOrdersList(unique);
+    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (selectedWorkOrder) {
+      workProgressService.getWorkOrderProgressSummary(Number(selectedWorkOrder))
+        .then(data => setWorkOrderSummary(data))
+        .catch(err => {
+          console.error("Failed to load summary", err);
+          setWorkOrderSummary(null);
+        });
+    } else {
+      setWorkOrderSummary(null);
+    }
+  }, [selectedWorkOrder]);
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,11 +162,15 @@ const ActivityListPage = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadActivities = useCallback(async () => {
+    if (!projectId) {
+      setActivities([]);
+      return;
+    }
     try {
       setLoading(true);
-      // Pass project_id from Settings page to API — backend returns only that project's activities
-      const data = await workProgressService.listActivities(projectId ?? undefined, undefined, 100, 0);
-      // Keep raw API status values — no normalization needed
+      // Pass project_id from Context — backend returns only that project's activities
+      const data = await workProgressService.listActivities(projectId, undefined, 100, 0);
+      
       const normalizedData = data.map((a: any) => ({
         ...a,
         status: a.status || "NOT_STARTED"
@@ -188,7 +220,8 @@ const ActivityListPage = () => {
     const filtered = data.filter(a =>
       (searchTerm === "" || a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))) &&
-      (filterStatus === "All Status" || a.status === filterStatus)
+      (filterStatus === "All Status" || a.status === filterStatus) &&
+      (selectedWorkOrder === "" || a.work_order_id === Number(selectedWorkOrder))
     );
     return [...filtered].sort((a, b) => b.id - a.id);
   }, [activities, searchTerm, filterStatus, activeStatFilter]);
@@ -196,7 +229,7 @@ const ActivityListPage = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus, activeStatFilter]);
+  }, [searchTerm, filterStatus, activeStatFilter, selectedWorkOrder]);
 
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -362,7 +395,45 @@ const ActivityListPage = () => {
           ))}
         </div>
 
-        {/* â”€â”€ Filter Bar & Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ─── Work Order Summary Card ───────────────────────────────────────────── */}
+        {selectedWorkOrder && workOrderSummary && (
+          <div className="bg-primary rounded-2xl p-6 mb-6 text-white shadow-xl relative overflow-hidden font-inter">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary-200 mb-1">Work Order Progress</p>
+                <h3 className="text-xl font-bold tracking-tight">Work Order #{selectedWorkOrder} Overview</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-primary-200 mb-1">Total Budget</p>
+                  <p className="text-lg font-bold">₹{workOrderSummary.total_budget?.toLocaleString("en-IN") || 0}</p>
+                </div>
+                <div className="w-px h-8 bg-white/20 mx-2"></div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-1">Amount Certified</p>
+                  <p className="text-lg font-bold">₹{workOrderSummary.amount_certified?.toLocaleString("en-IN") || 0}</p>
+                </div>
+                <div className="w-px h-8 bg-white/20 mx-2"></div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1">Pending Value</p>
+                  <p className="text-lg font-bold">₹{workOrderSummary.pending_value?.toLocaleString("en-IN") || 0}</p>
+                </div>
+              </div>
+            </div>
+            {/* Progress Bar */}
+            <div className="mt-5">
+              <div className="flex justify-between items-center text-xs font-bold mb-1.5">
+                <span className="text-primary-100">Overall Completion</span>
+                <span>{workOrderSummary.progress_percentage || 0}%</span>
+              </div>
+              <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${workOrderSummary.progress_percentage || 0}%` }}></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Filter Bar & Registry Container ───────────────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           {/* Integrated Filter Bar */}
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -390,6 +461,20 @@ const ActivityListPage = () => {
                 <option value="">ALL PROJECTS</option>
                 {projectsList.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
+                ))}
+              </select>
+            </div>
+            {/* Work Order Filter */}
+            <div className="flex items-center gap-3 font-inter">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Work Order:</span>
+              <select
+                value={selectedWorkOrder}
+                onChange={(e) => setSelectedWorkOrder(e.target.value ? Number(e.target.value) : "")}
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter max-w-[200px]"
+              >
+                <option value="">ALL WORK ORDERS</option>
+                {workOrdersList.map(w => (
+                  <option key={w.id} value={w.id}>{w.work_description || w.title || w.work_order_no || w.work_order_number || `WO #${w.id}`}</option>
                 ))}
               </select>
             </div>

@@ -429,6 +429,20 @@ export const quotationService = {
     },
 
     /**
+     * Send a quotation
+     * POST /api/v1/quotations/{id}/send
+     */
+    async sendQuotation(id: number): Promise<any> {
+        try {
+            const response = await api.post(`/quotations/${id}/send`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Send Quotation ${id} Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
      * Download Quotation PDF from backend
      * GET /api/v1/quotations/{id}/pdf
      */

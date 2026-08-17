@@ -10,7 +10,8 @@ import {
   ChevronDown,
   Layers,
   Users,
-  Package
+  Package,
+  Send
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -24,6 +25,7 @@ import { formatCompactCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
+import ClientSelectionModal from "../../components/forms/ClientSelectionModal";
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
 import { ownerService } from "../../services/ownerService";
@@ -63,6 +65,7 @@ const AllInvoicesPage = () => {
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [activeTab, setActiveTab] = useState<"invoices" | "quotations">("invoices");
+  const [sendTarget, setSendTarget] = useState<{ id: number; isQuotation: boolean } | null>(null);
 
   const PAGE_SIZE = 10;
 
@@ -162,6 +165,43 @@ const AllInvoicesPage = () => {
     }
   };
 
+  const handleSendItem = async (id: number, isQuotation: boolean, clientUserId?: number) => {
+    try {
+      if (isQuotation) {
+        await quotationService.sendQuotation(id);
+        toast.success("Quotation sent successfully!");
+      } else {
+        if (!clientUserId) {
+          toast.error("Client selection required to send invoice");
+          return;
+        }
+        await financeService.sendInvoice(id, { client_user_id: clientUserId });
+        toast.success("Invoice sent successfully!");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || "Failed to send item");
+    }
+  };
+
+  const handleDownloadItemPDF = async (id: number) => {
+    const toastId = toast.loading("Downloading PDF...");
+    try {
+      const blob = await financeService.getInvoicePdf(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice_INV-${String(id).padStart(3, "0")}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF Downloaded Successfully", { id: toastId });
+    } catch (error: any) {
+      toast.error("Failed to download PDF", { id: toastId });
+      console.error("PDF Download error:", error);
+    }
+  };
+
   // Filtered data
   const filteredQuotations = useMemo(() => {
     return quotations.filter((q) => {
@@ -236,6 +276,7 @@ const AllInvoicesPage = () => {
     ? filteredQuotations.map(q => ({
       id: q.id,
       isQuotation: true,
+      client_user_id: q.client_user_id,
       invoice_no: q.quotation_no || `QTN-${q.id}`,
       project_name: q.project_name || "Unknown Project",
       client_name: q.client_name,
@@ -525,6 +566,21 @@ const AllInvoicesPage = () => {
                           </td>
                           <td className="px-4 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  if (inv.id) {
+                                    if (inv.isQuotation) {
+                                      handleSendItem(inv.id, true);
+                                    } else {
+                                      setSendTarget({ id: inv.id, isQuotation: false });
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                title={inv.isQuotation ? "Send Quotation" : "Send Invoice"}
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
                               {inv.isQuotation && (
                                 <Link
                                   to={`/admin/quotations/view/${inv.id}`}
@@ -610,6 +666,18 @@ const AllInvoicesPage = () => {
         confirmClass="bg-rose-500 hover:bg-rose-600 shadow-rose-200"
       />
 
+      <ClientSelectionModal
+        isOpen={sendTarget !== null}
+        onClose={() => setSendTarget(null)}
+        onSelect={(clientId) => {
+          if (sendTarget) {
+            handleSendItem(sendTarget.id, sendTarget.isQuotation, clientId);
+            setSendTarget(null);
+          }
+        }}
+        title={`Select Client to Send ${sendTarget?.isQuotation ? 'Quotation' : 'Invoice'}`}
+      />
+
       <CreateInvoiceModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -624,7 +692,7 @@ const AllInvoicesPage = () => {
         invoice={viewingInvoice}
         projects={projects}
         owners={owners}
-        quotations={quotations}
+        quotations={quotations as any}
         onMarkPaid={async (id) => {
           try {
             await financeService.markInvoicePaid(id);
@@ -634,8 +702,10 @@ const AllInvoicesPage = () => {
             setViewingInvoice(null);
           } catch { toast.error("Failed to update status"); }
         }}
-        onDownloadPDF={(id) => {
-          toast("PDF download coming soon for INV-" + String(id).padStart(3, "0"));
+        onDownloadPDF={handleDownloadItemPDF}
+        onSendInvoice={(id) => {
+          setViewingInvoice(null);
+          setSendTarget({ id, isQuotation: false });
         }}
       />
     </>

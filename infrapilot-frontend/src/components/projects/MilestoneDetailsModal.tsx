@@ -108,9 +108,6 @@ const MilestoneDetailsModal = ({
                                     }`}>
                                     {milestone.status || "Pending"}
                                 </span>
-                                <span className="text-xs text-slate-400 font-medium">
-                                    Milestone ID: #{milestone.id}
-                                </span>
                             </div>
 
                             {/* Dates */}

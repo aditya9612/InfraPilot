@@ -18,7 +18,8 @@ import { useProject } from "../../../context/ProjectContext";
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
 const RATE_TYPES = ["FIXED", "VARIABLE"];
-const ISSUE_TYPES = ["SYSTEM", "MANUAL"];
+const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
+
 
 type TabType = "Materials" | "Suppliers" | "Purchase Orders" | "Dashboard";
 
@@ -43,11 +44,11 @@ const MaterialReceiptPage = () => {
     const [inventoryValue, setInventoryValue] = useState(0);
     const [projectsList, setProjectsList] = useState<any[]>([]);
     const [masterUnits, setMasterUnits] = useState<any[]>([]);
+    const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
 
     // Modal Specific Data
     const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
     const [transactions, setTransactions] = useState<MaterialLog[]>([]);
-    const [supplierMaterials, setSupplierMaterials] = useState<MaterialItem[]>([]);
     const [boqs, setBoqs] = useState<any[]>([]);
 
     // Pagination & Filtering
@@ -75,6 +76,13 @@ const MaterialReceiptPage = () => {
             } catch (err) { }
         };
         fetchUnits();
+        const fetchMasterMaterials = async () => {
+            try {
+                const res = await masterService.getEntities("materials");
+                setMasterMaterials(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
+            } catch (err) { }
+        };
+        fetchMasterMaterials();
     }, []);
 
 
@@ -97,18 +105,18 @@ const MaterialReceiptPage = () => {
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ type: 'material' | 'supplier' | 'po', id: number } | null>(null);
 
+
     // Forms
-    const [materialForm, setMaterialForm] = useState<Partial<MaterialItem>>({ category: "Construction", unit: "Bags", rate_type: "FIXED" });
-    const [purchaseForm, setPurchaseForm] = useState({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, issue_type: "SYSTEM" as IssueType });
+    const [materialForm, setMaterialForm] = useState<Partial<MaterialItem & { material_master_id?: number }>>({ category: "Construction", unit: "Bags", rate_type: "FIXED" });
+    const [purchaseForm, setPurchaseForm] = useState<any>({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, supplier_id: 0, boq_item_id: undefined, issue_type: "SYSTEM" as IssueType });
     const [supplierForm, setSupplierForm] = useState<Partial<Supplier>>({});
     const [poForm, setPoForm] = useState<Partial<PurchaseOrder>>({});
 
     // Fetch Methods
     const fetchMaterials = async (pId: number = projectId) => {
-        if (!pId) { setMaterials([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.listMaterials(pId, 0, 500);
+            const raw = await materialService.listMaterials(pId || undefined, 0, 500);
             const data: MaterialItem[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             // Sort by id descending so newest is first
             setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0)));
@@ -118,10 +126,9 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchSuppliers = async (pId: number = projectId) => {
-        if (!pId) { setSuppliers([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.getSuppliers(pId);
+            const raw = await materialService.getSuppliers(pId || undefined);
             const data: Supplier[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             setSuppliers(data);
         }
@@ -130,10 +137,9 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchPOs = async (pId: number = projectId) => {
-        if (!pId) { setPurchaseOrders([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.listPurchaseOrders(pId, 0, 500);
+            const raw = await materialService.listPurchaseOrders(pId || undefined, 0, 500);
             const data: PurchaseOrder[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             setPurchaseOrders(data);
         }
@@ -235,9 +241,16 @@ const MaterialReceiptPage = () => {
     const handleRecordPurchase = async (e: React.FormEvent) => {
         e.preventDefault(); if (!selectedMaterial) return; setIsSubmitting(true);
         try {
-            await materialService.recordPurchase(selectedMaterial.id, { ...purchaseForm, project_id: purchaseForm.project_id || projectId });
-            toast.success("Purchase recorded!");
-            setIsPurchaseModalOpen(false); fetchMaterials();
+            await materialService.createPurchaseOrder({
+                supplier_id: purchaseForm.supplier_id || selectedMaterial.supplier_id,
+                project_id: purchaseForm.project_id || projectId || 1,
+                material_id: selectedMaterial.id,
+                boq_item_id: purchaseForm.boq_item_id,
+                quantity: purchaseForm.quantity,
+                rate: purchaseForm.rate
+            });
+            toast.success("Purchase recorded as a Purchase Order!");
+            setIsPurchaseModalOpen(false); fetchPOs();
         } catch (e) { toast.error("Failed to record purchase"); }
         finally { setIsSubmitting(false); }
     };
@@ -522,104 +535,102 @@ const MaterialReceiptPage = () => {
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading...</td></tr> :
-                                        !projectId ? <tr><td colSpan={10} className="p-8 text-center text-slate-400 font-bold">Please select a project to view data.</td></tr> :
-                                            activeTab === "Materials" ? paginatedMaterials.map(m => (
-                                                <tr key={m.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.category}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.unit}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    const fullM = await materialService.getMaterial(m.id);
-                                                                    setSelectedMaterial(fullM);
-                                                                    setIsViewMaterialOpen(true);
-                                                                } catch (e) { toast.error("Failed to load details"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    const fullM = await materialService.getMaterial(m.id);
-                                                                    setSelectedMaterial(fullM);
-                                                                    setMaterialForm(fullM);
-                                                                    setIsMaterialModalOpen(true);
-                                                                } catch (e) { toast.error("Failed to load details"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    setSelectedMaterial(m);
-                                                                    const res = await materialService.getTransactions(m.id);
-                                                                    setTransactions(res || []);
-                                                                    setIsTransactionsOpen(true);
-                                                                } catch (e) { toast.error("Failed to load transactions"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    setSelectedMaterial(m);
-                                                                    const res = await materialService.getPriceHistory(m.id);
-                                                                    setPriceHistory(res || []);
-                                                                    setIsPriceHistoryOpen(true);
-                                                                } catch (e) { toast.error("Failed to load price history"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
-                                                <tr key={s.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    const fullS = await materialService.getSupplier(s.id);
-                                                                    setSelectedSupplier(fullS);
-                                                                    const mats = await materialService.getSupplierMaterials(fullS.id);
-                                                                    setSupplierMaterials(mats || []);
-                                                                    setIsViewSupplierOpen(true);
-                                                                } catch (e) { toast.error("Failed to load supplier details"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )) : paginatedPOs.map(p => (
-                                                <tr key={p.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <button onClick={async () => {
-                                                                try {
-                                                                    const fullPO = await materialService.getPurchaseOrder(p.id);
-                                                                    setSelectedPO(fullPO);
-                                                                    setIsViewPOOpen(true);
-                                                                } catch (e) { toast.error("Failed to load PO details"); }
-                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View PO"><Eye className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setSelectedPO(p); setPoForm(p); setIsPOModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setDeleteTarget({ type: 'po', id: p.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
+                                            !projectId ? <tr><td colSpan={10} className="p-8 text-center text-slate-400 font-bold">Please select a project to view data.</td></tr> :
+                                                activeTab === "Materials" ? paginatedMaterials.map(m => (
+                                                    <tr key={m.id} className="hover:bg-slate-50/50">
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{m.category}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{(m as any).unit_name || m.unit}</td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        const fullM = await materialService.getMaterial(m.id);
+                                                                        setSelectedMaterial(fullM);
+                                                                        setIsViewMaterialOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load details"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        const fullM = await materialService.getMaterial(m.id);
+                                                                        setSelectedMaterial(fullM);
+                                                                        setMaterialForm(fullM);
+                                                                        setIsMaterialModalOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load details"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        setSelectedMaterial(m);
+                                                                        const res = await materialService.getTransactions(m.id);
+                                                                        setTransactions(res || []);
+                                                                        setIsTransactionsOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load transactions"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        setSelectedMaterial(m);
+                                                                        const res = await materialService.getPriceHistory(m.id);
+                                                                        setPriceHistory(res || []);
+                                                                        setIsPriceHistoryOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load price history"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
+                                                    <tr key={s.id} className="hover:bg-slate-50/50">
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        const fullS = await materialService.getSupplier(s.id);
+                                                                        setSelectedSupplier(fullS);
+                                                                        setIsViewSupplierOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load supplier details"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )) : paginatedPOs.map(p => (
+                                                    <tr key={p.id} className="hover:bg-slate-50/50">
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <button onClick={async () => {
+                                                                    try {
+                                                                        const fullPO = await materialService.getPurchaseOrder(p.id);
+                                                                        setSelectedPO(fullPO);
+                                                                        setIsViewPOOpen(true);
+                                                                    } catch (e) { toast.error("Failed to load PO details"); }
+                                                                }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View PO"><Eye className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedPO(p); setPoForm(p); setIsPOModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setDeleteTarget({ type: 'po', id: p.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
                                         }
                                     </tbody>
                                 </table>
@@ -638,10 +649,12 @@ const MaterialReceiptPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
+                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => { const mId = Number(e.target.value); const mat = masterMaterials.find(m => m.id === mId); setMaterialForm({ ...materialForm, material_master_id: mId, material_name: mat ? (mat.title || mat.name || mat.material_name || materialForm.material_name) : materialForm.material_name }); }} className={inputClasses}><option value="">Select Master Material</option>{masterMaterials.map(m => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}</option>)}</select></div>
                             <div><label className={labelClasses}>Material Name *</label><input required value={materialForm.material_name || ""} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Category *</label><select required value={materialForm.category} onChange={e => setMaterialForm({ ...materialForm, category: e.target.value })} className={inputClasses}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
                             <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{(masterUnits.length > 0 ? masterUnits.map(u => u.name) : UNITS).map(u => <option key={u}>{u}</option>)}</select></div>
                             <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.name}{m.brand ? ` — ${m.brand}` : ""}{m.unique_code ? ` (${m.unique_code})` : ""}</option>)}</select></div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -667,7 +680,7 @@ const MaterialReceiptPage = () => {
                     <div className="p-6 space-y-6">
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_name}</h3>
+                                <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_master_name || selectedMaterial.material_name}</h3>
                                 <p className="text-sm font-bold text-slate-500">{selectedMaterial.material_code} • {selectedMaterial.category}</p>
                             </div>
                             <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
@@ -678,11 +691,14 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{selectedMaterial.unit}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{(selectedMaterial as any).unit_name || selectedMaterial.unit}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_name || "—"}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_brand || "—"}</p></div>
+                                    <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Specification</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_specification || "—"}</p></div>
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
@@ -714,11 +730,13 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>amount_paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>project_id *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div className="md:col-span-2"><label className={labelClasses}>issue_type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier *</label><select required value={purchaseForm.supplier_id || selectedMaterial?.supplier_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Issue Type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Amount Paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -728,7 +746,7 @@ const MaterialReceiptPage = () => {
             <Modal isOpen={isPriceHistoryOpen} onClose={() => setIsPriceHistoryOpen(false)} title={`Price History - ${selectedMaterial?.material_name}`} maxWidth="max-w-lg">
                 <div className="p-4">
                     <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Date</th><th className="p-3 text-right">Rate</th></tr></thead><tbody className="divide-y divide-slate-100">
-                        {priceHistory.map((ph, i) => <tr key={i}> <td className="p-3">{new Date(ph.date).toLocaleString()}</td><td className="p-3 text-right font-bold">{formatINR(ph.rate)}</td></tr>)}
+                        {priceHistory.map((ph, i) => <tr key={i}> <td className="p-3 font-mono text-slate-700">{ph.date}</td><td className="p-3 text-right font-bold">{formatINR(ph.rate)}</td></tr>)}
                         {priceHistory.length === 0 && <tr><td colSpan={2} className="p-4 text-center text-slate-400">No history found</td></tr>}
                     </tbody></table>
                 </div>
@@ -737,13 +755,21 @@ const MaterialReceiptPage = () => {
             {/* Modal F: Transactions */}
             <Modal isOpen={isTransactionsOpen} onClose={() => setIsTransactionsOpen(false)} title={`Transactions - ${selectedMaterial?.material_name}`} maxWidth="max-w-4xl">
                 <div className="p-4 overflow-x-auto">
-                    <table className="w-full text-left text-xs whitespace-nowrap"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3 text-center">Qty</th><th className="p-3 text-right">Rate</th><th className="p-3 text-right">Amount</th><th className="p-3">Issue Type</th></tr></thead><tbody className="divide-y divide-slate-100">
+                    <table className="w-full text-left text-xs whitespace-nowrap"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3 text-center">Qty</th><th className="p-3 text-right">Rate</th><th className="p-3 text-right">Avg Rate</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">Amt Paid</th><th className="p-3 text-right">Pending</th><th className="p-3">Issue Type</th><th className="p-3">Project ID</th><th className="p-3">Task ID</th></tr></thead><tbody className="divide-y divide-slate-100">
                         {transactions.map((t, i) => <tr key={i}>
-                            <td className="p-3">{new Date(t.created_at).toLocaleString()}</td>
+                            <td className="p-3 font-mono">{(t as any).created_at || ''}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
-                            <td className="p-3 text-center font-bold">{t.quantity}</td><td className="p-3 text-right">{formatINR(t.rate)}</td><td className="p-3 text-right">{formatINR(t.total_amount)}</td><td className="p-3">{t.issue_type}</td>
+                            <td className="p-3 text-center font-bold">{t.quantity}</td>
+                            <td className="p-3 text-right">{formatINR(t.rate)}</td>
+                            <td className="p-3 text-right">{formatINR((t as any).avg_rate)}</td>
+                            <td className="p-3 text-right">{formatINR(t.total_amount)}</td>
+                            <td className="p-3 text-right text-emerald-600 font-bold">{formatINR((t as any).amount_paid)}</td>
+                            <td className="p-3 text-right text-rose-500 font-bold">{formatINR((t as any).payment_pending)}</td>
+                            <td className="p-3">{t.issue_type}</td>
+                            <td className="p-3">{projectsList.find((p: any) => p.id === (t as any).project_id)?.project_name || ((t as any).project_id ? `Project #${(t as any).project_id}` : '—')}</td>
+                            <td className="p-3">{(t as any).task_id ?? '—'}</td>
                         </tr>)}
-                        {transactions.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-400">No transactions found</td></tr>}
+                        {transactions.length === 0 && <tr><td colSpan={11} className="p-4 text-center text-slate-400">No transactions found</td></tr>}
                     </tbody></table>
                 </div>
             </Modal>
@@ -784,15 +810,7 @@ const MaterialReceiptPage = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                            <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Supplied Materials</h4>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm whitespace-nowrap"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Material</th><th className="p-3 text-right">Rate</th><th className="p-3 text-center">Qty Purchased</th></tr></thead><tbody className="divide-y divide-slate-100">
-                                    {supplierMaterials.map(m => <tr key={m.id} className="hover:bg-slate-50/50"><td className="p-3 font-bold text-slate-700">{m.material_name}</td><td className="p-3 text-right">{formatINR(m.purchase_rate)}</td><td className="p-3 text-center font-bold">{m.quantity_purchased}</td></tr>)}
-                                    {supplierMaterials.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400 font-bold">No materials linked to this supplier</td></tr>}
-                                </tbody></table>
-                            </div>
-                        </div>
+
                     </div>
                 )}
             </Modal>
@@ -822,7 +840,10 @@ const MaterialReceiptPage = () => {
                                     className={inputClasses}
                                 >
                                     <option value="">Select Material</option>
-                                    {materials.map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)}
+                                    {(poForm.supplier_id
+                                        ? materials.filter(m => m.supplier_id === poForm.supplier_id)
+                                        : materials
+                                    ).map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)}
                                 </select>
                             </div>
                             <div>

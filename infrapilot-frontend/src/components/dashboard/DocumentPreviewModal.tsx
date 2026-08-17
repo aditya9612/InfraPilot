@@ -19,23 +19,27 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   const [isValidPdf, setIsValidPdf] = React.useState<boolean>(true);
 
   React.useEffect(() => {
-    const isPdf = document?.file_url?.toLowerCase().includes('.pdf') || document?.name?.toLowerCase().endsWith('.pdf');
+    const isPdf = document?.contentType === 'application/pdf' || document?.file_url?.toLowerCase().includes('.pdf') || document?.originalFileName?.toLowerCase().endsWith('.pdf') || document?.name?.toLowerCase().endsWith('.pdf');
     if (isOpen && document?.file_url && isPdf) {
-      // Test if the URL actually exists and isn't falling back to the Vite React SPA intercept
-      fetch(document.file_url, { method: "HEAD" })
-        .then(res => {
-          const contentType = res.headers.get("content-type") || "";
-          if (!res.ok || contentType.includes("text/html")) {
-            setIsValidPdf(false);
-          } else {
-            setIsValidPdf(true);
-          }
-        })
-        .catch(() => setIsValidPdf(false));
+      if (document.file_url.startsWith('blob:')) {
+        setIsValidPdf(true);
+      } else {
+        // Test if the URL actually exists and isn't falling back to the Vite React SPA intercept
+        fetch(document.file_url, { method: "HEAD" })
+          .then(res => {
+            const contentType = res.headers.get("content-type") || "";
+            if (!res.ok || contentType.includes("text/html")) {
+              setIsValidPdf(false);
+            } else {
+              setIsValidPdf(true);
+            }
+          })
+          .catch(() => setIsValidPdf(false));
+      }
     } else {
       setIsValidPdf(true); // reset
     }
-  }, [isOpen, document?.file_url, document?.name]);
+  }, [isOpen, document?.file_url, document?.name, document?.contentType]);
 
   if (!document) return null;
 
@@ -65,7 +69,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={document.isFolder ? "Folder Details" : "Document Preview"}
+      title={document.isFolder ? "Folder Details" : (document.isDrawing ? "Preview Drawing" : "Document Preview")}
       footer={footer}
       maxWidth="max-w-3xl"
     >
@@ -128,21 +132,21 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 </div>
               ) : (
                 <>
-                  {((document.file_url?.toLowerCase().includes('.pdf') || document.name?.toLowerCase().endsWith('.pdf')) && isValidPdf) ? (
+                  {((document.contentType === 'application/pdf' || document.file_url?.toLowerCase().includes('.pdf') || document.originalFileName?.toLowerCase().endsWith('.pdf') || document.name?.toLowerCase().endsWith('.pdf')) && isValidPdf) ? (
                     <iframe
                       src={`${document.file_url}#toolbar=0`}
                       className="w-full h-full border-none rounded-2xl"
                       title="PDF Preview"
                     />
-                  ) : (document.file_url?.match(/\.(jpg|jpeg|png|gif|webp)([?#].*)?$/i) || document.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                  ) : (document.contentType?.startsWith('image/') || document.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg)([?#].*)?$/i) || document.originalFileName?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || document.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) ? (
                     <img
                       src={document.file_url}
                       alt={document.name}
                       className="w-full h-full object-contain"
                     />
-                  ) : (document.file_url?.match(/\.(xls|xlsx|csv)([?#].*)?$/i) || document.name?.match(/\.(xls|xlsx|csv)$/i)) ? (
+                  ) : (document.file_url?.match(/\.(xls|xlsx|csv)([?#].*)?$/i) || document.originalFileName?.match(/\.(xls|xlsx|csv)$/i) || document.name?.match(/\.(xls|xlsx|csv)$/i)) ? (
                     <ExcelPreview url={document.file_url} />
-                  ) : (document.file_url?.match(/\.(doc|docx|ppt|pptx)([?#].*)?$/i) || document.name?.match(/\.(doc|docx|ppt|pptx)$/i)) ? (
+                  ) : (document.file_url?.match(/\.(doc|docx|ppt|pptx)([?#].*)?$/i) || document.originalFileName?.match(/\.(doc|docx|ppt|pptx)$/i) || document.name?.match(/\.(doc|docx|ppt|pptx)$/i)) ? (
                     <iframe
                       src={`https://docs.google.com/viewer?url=${encodeURIComponent(document.file_url)}&embedded=true`}
                       className="w-full h-full border-none rounded-2xl"

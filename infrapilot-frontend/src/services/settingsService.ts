@@ -158,9 +158,7 @@ export const settingsService = {
                 console.log(`  ${key}: ${value instanceof File ? `[File: ${value.name}]` : value}`);
             });
 
-            const response = await api.put("/settings/profile", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            const response = await api.put("/settings/profile", formData);
 
             console.log("PUT /api/v1/settings/profile - SUCCESS response data:", response.data);
             const finalProfile = {
@@ -214,9 +212,7 @@ export const settingsService = {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const response = await api.post("/settings/upload-logo", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            const response = await api.post("/settings/upload-logo", formData);
             return response.data;
         } catch (error: any) {
             console.error("Logo Upload Error:", error.message);
@@ -232,9 +228,7 @@ export const settingsService = {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const response = await api.post("/settings/upload-signature", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            const response = await api.post("/settings/upload-signature", formData);
             return response.data;
         } catch (error: any) {
             console.error("Signature Upload Error:", error.message);

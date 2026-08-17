@@ -866,8 +866,9 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task (Optional)</label>
+                                <label className={labelClasses}>Task *</label>
                                 <select
+                                    required
                                     name="task_id"
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}

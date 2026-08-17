@@ -20,10 +20,13 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
 import CreateTaskModal from "../../components/projects/CreateTaskModal";
 import TaskListView from "../../components/projects/TaskListView";
+import TaskRequestListView from "../../components/projects/TaskRequestListView";
+import TaskRequestModal from "../../components/projects/TaskRequestModal";
 import EditTaskModal from "../../components/projects/EditTaskModal";
 import TaskDetailsModal from "../../components/projects/TaskDetailsModal";
 import PassTaskModal from "../../components/projects/PassTaskModal";
-import { LayoutGrid, List as ListIcon } from "lucide-react";
+import UploadPhotoModal from "../../components/forms/UploadPhotoModal";
+import { LayoutGrid, List as ListIcon, Upload, Trash2 } from "lucide-react";
 import PLPeriodModal from "../../components/dashboard/PLPeriodModal";
 import type { PLPeriodSelection } from "../../components/dashboard/PLPeriodModal";
 
@@ -38,7 +41,7 @@ const ProjectDetailsPage = () => {
 
   // State for tabs
   const [activeTab, setActiveTab] = useState<
-    "Overview" | "Milestones" | "Members" | "Tasks" | "Profit & Loss" | "Photos" | "Logs"
+    "Overview" | "Milestones" | "Members" | "Tasks" | "Task Requests" | "Profit & Loss" | "Photos" | "Logs"
   >(initialTab);
 
   // State for data
@@ -54,6 +57,10 @@ const ProjectDetailsPage = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [taskRequests, setTaskRequests] = useState<any[]>([]);
+  const [isLoadingTaskRequests, setIsLoadingTaskRequests] = useState(false);
+  const [isTaskRequestModalOpen, setIsTaskRequestModalOpen] = useState(false);
+  const [selectedTaskRequest, setSelectedTaskRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -75,6 +82,12 @@ const ProjectDetailsPage = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [taskStatusFilter, setTaskStatusFilter] = useState("All");
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+  const [taskRequestToDelete, setTaskRequestToDelete] = useState<number | null>(null);
+
+  // Photo modal state
+  const [isUploadPhotoModalOpen, setIsUploadPhotoModalOpen] = useState(false);
+  const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
@@ -89,6 +102,9 @@ const ProjectDetailsPage = () => {
 
   const [photoViewMode, setPhotoViewMode] = useState<"grid" | "list">("grid");
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+
+  const [logPage, setLogPage] = useState(1);
+  const logsPerPage = 10;
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -185,6 +201,14 @@ const ProjectDetailsPage = () => {
         }));
 
         _setExpenses(mappedExpenses);
+
+        // Fetch task requests independently
+        projectService.getTaskRequests({ project_id: projectId }).then(trData => {
+          setTaskRequests(Array.isArray(trData) ? trData : trData?.items || trData?.data || []);
+        }).catch(err => {
+          console.warn("Task Requests Load Failure:", err);
+          setTaskRequests([]);
+        });
       };
 
       loadSecondaryData();
@@ -283,19 +307,54 @@ const ProjectDetailsPage = () => {
 
       toast.success("Task updated successfully");
       fetchProjectData();
-    } catch (error) {
-      console.error("Task Update Failed:", error);
-      toast.error("Failed to update task");
+    } catch (err: any) {
+      console.error("Task update failed", err);
+      toast.error(err.response?.data?.message || "Failed to update task");
     }
   };
 
-  const handleDeleteTask = async (taskId: number) => {
+  const handleUploadPhotoSubmit = async (formData: FormData) => {
     try {
-      await projectService.deleteTask(projectId, taskId);
+      await sitePhotoService.uploadPhoto(formData);
+      toast.success("Photo uploaded successfully");
+      fetchProjectData();
+    } catch (err) {
+      toast.error("Failed to upload photo");
+      throw err; // throw to modal
+    }
+  };
+
+  const handleDeletePhotoConfirm = async () => {
+    if (!photoToDelete) return;
+    try {
+      await sitePhotoService.deletePhoto(photoToDelete);
+      toast.success("Photo deleted successfully");
+      setPhotoToDelete(null);
+      fetchProjectData();
+    } catch (err) {
+      toast.error("Failed to delete photo");
+    }
+  };
+
+  const handleDeletePhoto = (e: React.MouseEvent, photoId: number) => {
+    e.stopPropagation();
+    setPhotoToDelete(photoId);
+  };
+
+  const handleDeleteTask = (taskId: number) => {
+    setTaskToDelete(taskId);
+  };
+
+  const handleDeleteTaskConfirm = async () => {
+    if (!taskToDelete) return;
+    try {
+      await projectService.deleteTask(projectId, taskToDelete);
       toast.success("Task deleted");
       fetchProjectData();
     } catch (error) {
       toast.error("Failed to delete task");
+    } finally {
+      setTaskToDelete(null);
     }
   };
 
@@ -469,6 +528,55 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  // --- Task Request Handlers ---
+  const handleSaveTaskRequest = async (payload: any) => {
+    try {
+      setIsLoadingTaskRequests(true);
+      if (selectedTaskRequest) {
+        await projectService.updateTaskRequest(selectedTaskRequest.id, payload);
+        toast.success("Task request updated successfully");
+      } else {
+        await projectService.createTaskRequest(projectId, payload);
+        toast.success("Task request created successfully");
+      }
+      setIsTaskRequestModalOpen(false);
+      setSelectedTaskRequest(null);
+      const trData = await projectService.getTaskRequests({ project_id: projectId });
+      setTaskRequests(Array.isArray(trData) ? trData : trData?.items || trData?.data || []);
+    } catch (error) {
+      toast.error(selectedTaskRequest ? "Failed to update task request" : "Failed to create task request");
+      console.error(error);
+    } finally {
+      setIsLoadingTaskRequests(false);
+    }
+  };
+
+  const handleDeleteTaskRequest = (requestId: number) => {
+    setTaskRequestToDelete(requestId);
+  };
+
+  const handleDeleteTaskRequestConfirm = async () => {
+    if (!taskRequestToDelete) return;
+    try {
+      setIsLoadingTaskRequests(true);
+      await projectService.deleteTaskRequest(taskRequestToDelete);
+      toast.success("Task request deleted successfully");
+      const trData = await projectService.getTaskRequests({ project_id: projectId });
+      setTaskRequests(Array.isArray(trData) ? trData : trData?.items || trData?.data || []);
+    } catch (error) {
+      toast.error("Failed to delete task request");
+      console.error(error);
+    } finally {
+      setIsLoadingTaskRequests(false);
+      setTaskRequestToDelete(null);
+    }
+  };
+
+  const handleEditTaskRequest = (request: any) => {
+    setSelectedTaskRequest(request);
+    setIsTaskRequestModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
@@ -599,7 +707,7 @@ const ProjectDetailsPage = () => {
         {/* Tabs Navigation */}
         <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
           {(
-            ["Overview", "Milestones", "Members", "Tasks", "Profit & Loss", "Photos", "Logs"] as const
+            ["Overview", "Milestones", "Members", "Tasks", "Task Requests", "Profit & Loss", "Photos", "Logs"] as const
           ).map((tab) => (
             <button
               key={tab}
@@ -637,7 +745,7 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                   <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
                     <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
@@ -652,19 +760,7 @@ const ProjectDetailsPage = () => {
                   </div>
                   <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-primary/60 uppercase mb-1">Site Progress</p>
-                    <p className="text-sm font-bold text-primary">{displayProgress}% Calculated</p>
-                  </div>
-                  <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 flex flex-col justify-center">
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                      <span>Task Completion</span>
-                      <span className="text-slate-700 font-black">{displayProgress}%</span>
-                    </div>
-                    <div className="relative w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(37,99,235,0.4)]"
-                        style={{ width: `${displayProgress}%` }}
-                      />
-                    </div>
+                    <p className="text-sm font-bold text-primary">{Number(displayProgress).toFixed(2)}% Calculated</p>
                   </div>
                 </div>
               </div>
@@ -848,6 +944,33 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
+          {activeTab === "Task Requests" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Task Requests</h3>
+                  <p className="text-sm text-slate-500">Manage and track material or labor requests for this project.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedTaskRequest(null);
+                    setIsTaskRequestModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-colors shadow-sm"
+                >
+                  + New Request
+                </button>
+              </div>
+
+              <TaskRequestListView
+                taskRequests={taskRequests}
+                isLoading={isLoadingTaskRequests}
+                onEdit={handleEditTaskRequest}
+                onDelete={handleDeleteTaskRequest}
+              />
+            </div>
+          )}
+
           {activeTab === "Profit & Loss" && (
             <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
               <div className="bg-primary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
@@ -928,22 +1051,31 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Photos" && (
             <div className="w-full space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h3 className="font-bold text-slate-800">Site Photos Gallery</h3>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button
+                      onClick={() => setPhotoViewMode("grid")}
+                      className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "grid" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
+                      title="Grid View"
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setPhotoViewMode("list")}
+                      className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "list" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
+                      title="List View"
+                    >
+                      <ListIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
-                    onClick={() => setPhotoViewMode("grid")}
-                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "grid" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
-                    title="Grid View"
+                    onClick={() => setIsUploadPhotoModalOpen(true)}
+                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-primary-dark transition-colors"
                   >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setPhotoViewMode("list")}
-                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "list" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
-                    title="List View"
-                  >
-                    <ListIcon className="w-4 h-4" />
+                    <Upload className="w-4 h-4" />
+                    Upload Photo
                   </button>
                 </div>
               </div>
@@ -954,9 +1086,16 @@ const ProjectDetailsPage = () => {
                     <div
                       key={photo.id}
                       onClick={() => setViewingPhoto(sitePhotoService.resolveUrl(photo.url))}
-                      className="aspect-square bg-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                      className="aspect-square bg-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer relative group"
                     >
                       <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
+                      <button
+                        onClick={(e) => handleDeletePhoto(e, photo.id)}
+                        className="absolute top-1.5 right-1.5 p-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete Photo"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -966,7 +1105,7 @@ const ProjectDetailsPage = () => {
                     <div key={photo.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                       <div
                         onClick={() => setViewingPhoto(sitePhotoService.resolveUrl(photo.url))}
-                        className="w-16 h-16 shrink-0 bg-slate-200 rounded-lg overflow-hidden shadow-sm hover:ring-2 hover:ring-primary/50 cursor-pointer"
+                        className="w-16 h-16 shrink-0 bg-slate-200 rounded-lg overflow-hidden shadow-sm hover:ring-2 hover:ring-primary/50 cursor-pointer relative group"
                       >
                         <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
                       </div>
@@ -974,8 +1113,15 @@ const ProjectDetailsPage = () => {
                         <p className="font-bold text-sm text-slate-800">{photo.title || "Photo"}</p>
                         <p className="text-xs text-slate-500 line-clamp-1">{photo.description || "No description provided."}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex items-center gap-4">
                         <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{photo.created_at ? formatDateBySettings(photo.created_at) : 'N/A'}</p>
+                        <button
+                          onClick={(e) => handleDeletePhoto(e, photo.id)}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Photo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1020,53 +1166,81 @@ const ProjectDetailsPage = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {logs.length > 0 ? logs.map((log: any, i: number) => {
-                    // If the entry is a plain message object (not a log entry)
-                    const isMessageOnly = log.message && !log.action && !log.created_at && !log.timestamp && Object.keys(log).length <= 3;
-                    if (isMessageOnly) {
-                      return (
-                        <div key={i} className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
-                          <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          <div>
-                            <p className="text-sm font-semibold text-amber-800">{log.message}</p>
-                            {log.project_id && <p className="text-[10px] text-amber-600 mt-1">Project ID: {log.project_id}</p>}
+                  {logs.length > 0 ? (
+                    <>
+                      {logs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage).map((log: any, i: number) => {
+                        // If the entry is a plain message object (not a log entry)
+                        const isMessageOnly = log.message && !log.action && !log.created_at && !log.timestamp && Object.keys(log).length <= 3;
+                        if (isMessageOnly) {
+                          return (
+                            <div key={i} className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                              <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              <div>
+                                <p className="text-sm font-semibold text-amber-800">{log.message}</p>
+                                {log.project_id && <p className="text-[10px] text-amber-600 mt-1">Project ID: {log.project_id}</p>}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={i} className="flex gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-50">
+                            <div className="flex flex-col items-center gap-1 shrink-0">
+                              <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
+                              {i < logs.length - 1 && <div className="w-px flex-1 bg-slate-100 min-h-[16px]" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {log.message || log.action || log.description || log.event || "Activity logged"}
+                                </p>
+                                {(log.action_type || log.event_type || log.type) && (
+                                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full shrink-0">
+                                    {log.action_type || log.event_type || log.type}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {(log.user_name || log.performed_by || log.actor || log.created_by) && (
+                                  <span className="text-[10px] font-bold text-primary">
+                                    {log.user_name || log.performed_by || log.actor || log.created_by}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-slate-400">
+                                  {log.created_at || log.timestamp || log.date
+                                    ? new Date(log.created_at || log.timestamp || log.date).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                                    : "—"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {logs.length > logsPerPage && (
+                        <div className="flex items-center justify-between mt-6 p-4 border-t border-slate-100 bg-slate-50/50 rounded-xl">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Showing {(logPage - 1) * logsPerPage + 1} to {Math.min(logPage * logsPerPage, logs.length)} of {logs.length}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                              disabled={logPage === 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <span className="text-xs font-bold text-slate-600 w-8 text-center">{logPage}</span>
+                            <button
+                              onClick={() => setLogPage((p) => Math.min(Math.ceil(logs.length / logsPerPage), p + 1))}
+                              disabled={logPage === Math.ceil(logs.length / logsPerPage)}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
                           </div>
                         </div>
-                      );
-                    }
-                    return (
-                      <div key={i} className="flex gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-50">
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                          <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
-                          {i < logs.length - 1 && <div className="w-px flex-1 bg-slate-100 min-h-[16px]" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {log.message || log.action || log.description || log.event || "Activity logged"}
-                            </p>
-                            {(log.action_type || log.event_type || log.type) && (
-                              <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full shrink-0">
-                                {log.action_type || log.event_type || log.type}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {(log.user_name || log.performed_by || log.actor || log.created_by) && (
-                              <span className="text-[10px] font-bold text-primary">
-                                {log.user_name || log.performed_by || log.actor || log.created_by}
-                              </span>
-                            )}
-                            <span className="text-[10px] text-slate-400">
-                              {log.created_at || log.timestamp || log.date
-                                ? new Date(log.created_at || log.timestamp || log.date).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                                : "—"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }) : (
+                      )}
+                    </>
+                  ) : (
                     <div className="text-center py-16">
                       <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                         <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -1108,10 +1282,46 @@ const ProjectDetailsPage = () => {
           setMemberToDelete(null);
         }}
         onConfirm={handleRemoveMemberConfirm}
-        title="Remove Team Member"
-        message="Are you sure you want to remove this member from the project? They will lose access to all project-related tasks and reports."
-        confirmText="Remove"
+        title="Remove Member"
+        message="Are you sure you want to remove this member from the project? This action cannot be undone."
+        confirmText="Remove Member"
+      />
+
+      <ConfirmModal
+        isOpen={photoToDelete !== null}
+        onClose={() => setPhotoToDelete(null)}
+        onConfirm={handleDeletePhotoConfirm}
+        title="Discard Activity Entry"
+        message="Are you sure you want to delete this activity record? This action will permanently remove the entry and all its progress history from the project ledger."
+        confirmText="Archive Record"
         type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={taskToDelete !== null}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={handleDeleteTaskConfirm}
+        title="Delete Task"
+        message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history from the project ledger."
+        confirmText="Archive Record"
+        type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={taskRequestToDelete !== null}
+        onClose={() => setTaskRequestToDelete(null)}
+        onConfirm={handleDeleteTaskRequestConfirm}
+        title="Delete Task Request"
+        message="Are you sure you want to delete this task request? This action will permanently remove the entry from the project ledger."
+        confirmText="Archive Record"
+        type="danger"
+      />
+
+      <UploadPhotoModal
+        isOpen={isUploadPhotoModalOpen}
+        onClose={() => setIsUploadPhotoModalOpen(false)}
+        onSubmit={handleUploadPhotoSubmit}
+        projectId={projectId}
       />
 
       <AssignMemberModal
@@ -1183,6 +1393,20 @@ const ProjectDetailsPage = () => {
           setIsPLPeriodModalOpen(false);
           handlePLPeriodConfirm(selection);
         }}
+      />
+
+      <TaskRequestModal
+        isOpen={isTaskRequestModalOpen}
+        onClose={() => {
+          setIsTaskRequestModalOpen(false);
+          setSelectedTaskRequest(null);
+        }}
+        onSubmit={handleSaveTaskRequest}
+        projectMembers={members}
+        editingRequest={selectedTaskRequest}
+        isLoading={isLoadingTaskRequests}
+        projectId={projectId || undefined}
+        assignedProjects={[{ id: projectId, project_name: project.project_name }]}
       />
     </>
   );

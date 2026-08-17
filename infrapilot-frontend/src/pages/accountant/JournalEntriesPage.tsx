@@ -714,7 +714,7 @@ const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: 
             <input type="date" name="next_run_date" value={formData.next_run_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Data (String)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Data</label>
             <textarea name="template_data" value={formData.template_data} onChange={handleChange} rows={4} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"></textarea>
           </div>
         </div>

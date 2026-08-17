@@ -21,7 +21,6 @@ export interface BoqItem {
   created_at?: string;
   updated_at?: string;
   activity_type_id?: number;
-  true_group_id?: number;
 }
 
 export interface BoqGroupItem {
@@ -71,6 +70,8 @@ export interface BoqLog {
   action: string;
   message: string;
   user_id: number;
+  user_name?: string;
+  username?: string;
   timestamp: string;
   changes: Record<string, { new: any; old: any }> | null;
 }

@@ -84,29 +84,43 @@ const MilestoneTimeline = ({
 
       <div className="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
         {milestones.map((milestone) => {
-          const isCompleted = milestone.status?.toLowerCase() === "completed";
-          const isInProgress = milestone.status?.toLowerCase() === "in progress";
+          const statusLower = (milestone.status || "").toLowerCase();
+          const isCompleted = statusLower === "completed";
+          const isInProgress = statusLower === "in progress" || statusLower === "ongoing";
+          const isDelayed = statusLower === "delayed";
 
           return (
             <div key={milestone.id} className="relative group">
               {/* Dot */}
-              <div className={`absolute -left-[28px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white ring-4 ring-white z-10 transition-all ${isCompleted ? 'bg-success' : isInProgress ? 'bg-primary animate-pulse' : 'bg-slate-200'
+              <div className={`absolute -left-[28px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white ring-4 ring-white z-10 transition-all ${
+                isCompleted ? 'bg-emerald-500' : 
+                isInProgress ? 'bg-blue-500 animate-pulse' : 
+                isDelayed ? 'bg-rose-500' :
+                'bg-slate-300'
                 }`} />
 
-              <div className={`p-4 rounded-xl border transition-all ${isCompleted ? 'bg-green-50/20 border-green-100/50' :
+              <div className={`p-4 rounded-xl border transition-all ${
+                isCompleted ? 'bg-emerald-50/20 border-emerald-100/50' :
                 isInProgress ? 'bg-blue-50/20 border-blue-100/50 shadow-sm' :
-                  'bg-slate-50/30 border-slate-100/50'
+                isDelayed ? 'bg-rose-50/20 border-rose-100/50 shadow-sm' :
+                'bg-slate-50/50 border-slate-200/50'
                 }`}>
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex-1">
-                    <h4 className={`text-sm font-bold ${isCompleted ? 'text-green-800' : 'text-slate-800'}`}>
+                    <h4 className={`text-sm font-bold ${
+                      isCompleted ? 'text-emerald-800' : 
+                      isDelayed ? 'text-rose-800' :
+                      'text-slate-800'
+                    }`}>
                       {milestone.title}
                     </h4>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${isCompleted ? 'bg-green-100 text-success' :
-                      isInProgress ? 'bg-blue-100 text-primary' :
-                        'bg-slate-100 text-slate-400'
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                      isCompleted ? 'bg-emerald-100 text-emerald-700' :
+                      isInProgress ? 'bg-blue-100 text-blue-700' :
+                      isDelayed ? 'bg-rose-100 text-rose-700' :
+                      'bg-slate-100 text-slate-500'
                       }`}>
                       {milestone.status || 'Pending'}
                     </span>

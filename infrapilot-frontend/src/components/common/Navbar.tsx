@@ -6,8 +6,6 @@ import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
-import { alertService } from "../../services/alertService";
-import { projectService } from "../../services/projectService";
 import { getFullImageUrl } from "../../utils/imageUtils";
 import { handleNotificationClick } from "../../utils/notificationNavigator";
 import api from "../../services/api";

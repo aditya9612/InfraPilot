@@ -110,10 +110,10 @@ const ManagerProcurementPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId, currentPage, itemsPerPage, activeTab]);
+    }, [selectedProjectId, currentPage, itemsPerPage, activeTab, purchaseType, assetId, boqItemId, purchaseDateFrom, purchaseDateTo]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter, purchaseType, purchaseDateFrom, purchaseDateTo]);
 
     // ── Computed Stats ────────────────────────────────────────────
     const stats = useMemo(() => {
@@ -121,7 +121,7 @@ const ManagerProcurementPage = () => {
         const approvedReq = materialRequests.filter(r => r.status === "Approved").length;
         const pendingReq = materialRequests.filter(r => r.status === "Pending").length;
         const fulfillment = totalReq > 0 ? Math.round((approvedReq / totalReq) * 100) : 0;
-        
+
         return {
             totalReq,
             approvedReq,
@@ -225,19 +225,34 @@ const ManagerProcurementPage = () => {
             let data = purchaseOrders;
             if (activeStatFilter === "Open") data = data.filter(po => po.status !== "COMPLETED" && po.status !== "CANCELLED");
             if (filterStatus !== "All") data = data.filter(po => po.status === filterStatus);
+            if (purchaseType) {
+                data = data.filter(po => (po.purchase_type || "").toUpperCase() === purchaseType.toUpperCase());
+            }
+            if (purchaseDateFrom) {
+                data = data.filter(po => po.purchase_date >= purchaseDateFrom);
+            }
+            if (purchaseDateTo) {
+                data = data.filter(po => po.purchase_date <= purchaseDateTo);
+            }
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
-                data = data.filter(po => po.material_name.toLowerCase().includes(s) || String(po.id).includes(s));
+                data = data.filter(po =>
+                    (po.asset_name || "").toLowerCase().includes(s) ||
+                    (po.vendor_name || "").toLowerCase().includes(s) ||
+                    (po.invoice_number || "").toLowerCase().includes(s) ||
+                    (po.purchase_type || "").toLowerCase().includes(s) ||
+                    String(po.id).includes(s)
+                );
             }
             return data.sort((a, b) => b.id - a.id);
         }
-    }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter, requestTypeFilter]);
+    }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter, requestTypeFilter, purchaseType, purchaseDateFrom, purchaseDateTo]);
 
     const paginatedData = useMemo(() => {
-        if (activeTab === "purchase-order") return purchaseOrders; // Already paginated server-side
+        if (activeTab === "purchase-order") return activeTabData; // Return filtered purchase orders (already page-sized from BE, or filtered locally)
         const start = (currentPage - 1) * itemsPerPage;
         return activeTabData.slice(start, start + itemsPerPage);
-    }, [activeTab, activeTabData, purchaseOrders, currentPage, itemsPerPage]);
+    }, [activeTab, activeTabData, currentPage, itemsPerPage]);
 
     const getStatusBadge = (status: string) => {
         const s = status.toUpperCase();
@@ -288,17 +303,15 @@ const ManagerProcurementPage = () => {
                 <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6">
                     <button
                         onClick={() => { setActiveTab("material"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                            activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                            }`}
                     >
                         Site Requisitions
                     </button>
                     <button
                         onClick={() => { setActiveTab("purchase-order"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); setPurchaseType(""); setAssetId(""); setPurchaseDateFrom(""); setPurchaseDateTo(""); setBoqItemId(""); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                            activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                            }`}
                     >
                         Purchase Orders
                     </button>
@@ -335,24 +348,15 @@ const ManagerProcurementPage = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
-                                <option value="All">All Status</option>
-                                {activeTab === "material" ? (
-                                    <>
-                                        <option value="Pending">Pending</option>
-                                        <option value="Approved">Approved</option>
-                                        <option value="Rejected">Rejected</option>
-                                    </>
-                                ) : (
-                                    <>
-                                        <option value="CREATED">Created</option>
-                                        <option value="PENDING">In Transit</option>
-                                        <option value="COMPLETED">Fulfilled</option>
-                                        <option value="CANCELLED">Cancelled</option>
-                                    </>
-                                )}
-                            </select>
+                            {activeTab === "material" && (
+                                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
+                                    <option value="All">All Status</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rejected">Rejected</option>
+                                </select>
+                            )}
                             {activeTab === "material" && (
                                 <select value={requestTypeFilter} onChange={e => setRequestTypeFilter(e.target.value)}
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
@@ -364,6 +368,7 @@ const ManagerProcurementPage = () => {
                                     <option value="Bill">Bill</option>
                                     <option value="Equipment">Equipment</option>
                                     <option value="Labour">Labour</option>
+                                    <option value="Work">Work</option>
                                 </select>
                             )}
                             {activeTab === "purchase-order" && (
@@ -372,7 +377,8 @@ const ManagerProcurementPage = () => {
                                         <option value="">Type</option>
                                         <option value="NEW">New</option>
                                         <option value="USED">Used</option>
-                                        <option value="RENTAL">Rental</option>
+                                        <option value="RENT">Rental</option>
+                                        <option value="SPARE_PART">Spare Part</option>
                                     </select>
                                     <input type="date" value={purchaseDateFrom} onChange={e => setPurchaseDateFrom(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none shadow-sm" title="Date From" />
                                     <input type="date" value={purchaseDateTo} onChange={e => setPurchaseDateTo(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none shadow-sm" title="Date To" />
@@ -459,7 +465,7 @@ const ManagerProcurementPage = () => {
                                                     {selectedProject?.project_name || "Unknown Project"}
                                                 </span>
                                                 <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                                                    {item.purchase_type}
+                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string,string>)[item.purchase_type] || item.purchase_type}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -637,6 +643,7 @@ const ManagerProcurementPage = () => {
                                 <option value="Material">Material</option>
                                 <option value="Labour">Labour</option>
                                 <option value="Equipment">Equipment</option>
+                                <option value="Work">Work</option>
                             </select>
                         </div>
 

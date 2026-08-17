@@ -138,9 +138,9 @@ const NewDSREntryModal = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: (name === "contractor_id" || name === "project_id" || name === "task_id") ? (value ? Number(value) : null) : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: (name === "contractor_id" || name === "project_id" || name === "task_id") ? (value ? Number(value) : null) : value
     }));
     if (errors[name]) {
       setErrors((prev) => {

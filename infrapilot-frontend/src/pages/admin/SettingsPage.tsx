@@ -190,6 +190,7 @@ const SettingsPage: React.FC = () => {
         const toastId = toast.loading("Saving company profile...");
         try {
             await settingsService.updateCompanySettings(companySettings);
+            window.dispatchEvent(new Event('company_logo_updated'));
             toast.success("Company settings updated!", { id: toastId });
         } catch (error: any) {
             toast.error(error.message || "Failed to save company settings", { id: toastId });
@@ -207,10 +208,15 @@ const SettingsPage: React.FC = () => {
             const fullUrl = settingsService.resolveUrl(res.file_path);
             if (type === 'logo') {
                 setCompanyLogo(fullUrl);
-                setCompanySettings(prev => prev ? ({ ...prev, company_logo: res.file_path }) : null);
+                const updated = companySettings ? { ...companySettings, company_logo: res.file_path } : null;
+                setCompanySettings(updated);
+                if (updated) await settingsService.updateCompanySettings(updated);
+                window.dispatchEvent(new Event('company_logo_updated'));
             } else {
                 setSignatureImage(fullUrl);
-                setCompanySettings(prev => prev ? ({ ...prev, signature_image: res.file_path }) : null);
+                const updated = companySettings ? { ...companySettings, signature_image: res.file_path } : null;
+                setCompanySettings(updated);
+                if (updated) await settingsService.updateCompanySettings(updated);
             }
             toast.success(`${type === 'logo' ? 'Logo' : 'Signature'} updated!`, { id: toastId });
         } catch (error: any) {

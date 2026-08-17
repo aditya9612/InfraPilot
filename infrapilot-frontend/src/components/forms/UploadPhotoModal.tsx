@@ -178,7 +178,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         >
             <form id="site-photo-form" onSubmit={handleFormSubmit} className="space-y-6">
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact</h3>
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact <span className="text-rose-500">*</span></h3>
                     <div
                         onClick={() => fileInputRef.current?.click()}
                         className={`w-full h-40 rounded-[2rem] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${selectedFile ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 hover:border-primary/40'}`}

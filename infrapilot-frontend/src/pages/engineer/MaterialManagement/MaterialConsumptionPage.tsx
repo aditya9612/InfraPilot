@@ -387,7 +387,7 @@ const MaterialConsumptionPage = () => {
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at).toLocaleString()}</td>
                                                 <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || `Mat-${t.material_id}`}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || inventory.find(i => i.material_id === t.material_id)?.material_name || `Mat-${t.material_id}`}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
                                                 <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>

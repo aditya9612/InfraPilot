@@ -11,8 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit2,
-  Trash2,
-  ScrollText
+  Trash2
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
@@ -47,12 +46,15 @@ const DailyProgressEntryPage = () => {
   useEffect(() => {
     // Fetch projects for the dropdown
     projectService.getProjects(100, 0).then((data: any) => {
-      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+      const list = Array.isArray(data) ? data : (data.items || data.data || []);
+      setProjectsList(list);
+      if (list.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(list[0].id || list[0].project_id);
+      }
     }).catch(() => { });
-  }, []);
+  }, [selectedProjectId, setSelectedProjectId]);
 
-  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay' | 'logs'>('all');
-  const [globalLogs, setGlobalLogs] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
@@ -70,13 +72,13 @@ const DailyProgressEntryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeStatFilter, setActiveStatFilter] = useState("All Logs");
 
   useEffect(() => {
     if (activeTab === 'all' || activeTab === 'today') setActiveStatFilter("All Logs");
     else if (activeTab === 'history') setActiveStatFilter("All History");
     else if (activeTab === 'delay') setActiveStatFilter("All Delayed");
-    else if (activeTab === 'logs') setActiveStatFilter("All Global Logs");
   }, [activeTab]);
 
   // Input states for Tab 1 cards
@@ -169,7 +171,7 @@ const DailyProgressEntryPage = () => {
       setLoading(true);
       const res = await workProgressService.getDelayReport(projectId || undefined);
       const data = res?.data || [];
-      const filtered = data.filter((a: any) => String(a.project_id) === String(projectId || 0));
+      const filtered = data.filter((a: any) => a.project_id === undefined || String(a.project_id) === String(projectId || 0));
       setDelayActivities(filtered);
     } catch (err) {
       console.error("Load Delay Error:", err);
@@ -178,20 +180,6 @@ const DailyProgressEntryPage = () => {
       setLoading(false);
     }
   }, [projectId]);
-
-  const loadGlobalLogs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await workProgressService.getGlobalLogs();
-      setGlobalLogs(res?.data || []);
-    } catch (err) {
-      console.error("Load Global Logs Error:", err);
-      toast.error("Failed to load global logs");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
 
   const loadProjectSummary = useCallback(async () => {
     if (!projectId) return;
@@ -219,10 +207,8 @@ const DailyProgressEntryPage = () => {
       loadDelayReport();
     } else if (activeTab === 'summary') {
       loadProjectSummary();
-    } else if (activeTab === 'logs') {
-      loadGlobalLogs();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries, loadActivityHistory, loadDelayReport, loadProjectSummary, loadGlobalLogs, projectId]);
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadActivityHistory, loadDelayReport, loadProjectSummary, projectId]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {
@@ -268,7 +254,7 @@ const DailyProgressEntryPage = () => {
 
   const baseTodayActivities = useMemo(() => {
     return todayActivities.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -280,7 +266,7 @@ const DailyProgressEntryPage = () => {
   const filteredTodayActivities = useMemo(() => {
     if (activeStatFilter === "All Logs") return baseTodayActivities;
     return baseTodayActivities.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
       const s = (a?.status || "Not Started").toLowerCase().replace("_", " ");
       if (activeStatFilter === "On Track Logs") return s === "on track";
       if (activeStatFilter === "Completed Logs") return s === "completed";
@@ -295,19 +281,20 @@ const DailyProgressEntryPage = () => {
       list = list.filter(e => e.entry_date === filterDate);
     }
     return list.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      const matchesStatus = statusFilter === "all" || (a?.status || "Not Started").toUpperCase().replace(/ /g, "_") === statusFilter.toUpperCase().replace(/ /g, "_");
+      return matchesSearch && matchesActivity && matchesStatus;
     });
-  }, [allEntries, filterDate, searchTerm, activitiesList, selectedActivityId]);
+  }, [allEntries, filterDate, searchTerm, activitiesList, selectedActivityId, statusFilter]);
 
   const filteredAllEntries = useMemo(() => {
     if (activeStatFilter === "All Logs") return baseAllEntries;
     return baseAllEntries.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
       const s = (a?.status || "Not Started").toLowerCase().replace("_", " ");
       if (activeStatFilter === "On Track Logs") return s === "on track";
       if (activeStatFilter === "Completed Logs") return s === "completed";
@@ -326,7 +313,7 @@ const DailyProgressEntryPage = () => {
       });
     }
     return list.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -373,7 +360,7 @@ const DailyProgressEntryPage = () => {
       const total = list.length;
 
       const delayedCount = list.filter(e => {
-        const a = activitiesList.find(act => act.id === e.activity_id);
+        const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
         return a?.status === "Delay" || a?.status === "DELAY";
       }).length;
 
@@ -441,9 +428,9 @@ const DailyProgressEntryPage = () => {
       const base = activeTab === 'today' ? baseTodayActivities : baseAllEntries;
       cards = [
         { label: "All Logs", count: base.length, colorClass: "text-slate-800", sub: "Total Entries" },
-        { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
-        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
-        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "delay"; }).length, colorClass: "text-rose-500", sub: "Critical Items" }
+        { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
+        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
+        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "delay"; }).length, colorClass: "text-rose-500", sub: "Critical Items" }
       ];
     } else if (activeTab === 'history') {
       cards = [
@@ -457,12 +444,6 @@ const DailyProgressEntryPage = () => {
         { label: "Critical (< 25%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) < 25).length, colorClass: "text-red-600", sub: "High Risk" },
         { label: "Moderate (25% - 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) >= 25 && Number(e.completion_percentage || 0) <= 75).length, colorClass: "text-amber-500", sub: "At Risk" },
         { label: "Almost Done (> 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) > 75).length, colorClass: "text-emerald-500", sub: "Near Completion" }
-      ];
-    } else if (activeTab === 'logs') {
-      cards = [
-        { label: "All Global Logs", count: globalLogs.length, colorClass: "text-slate-800", sub: "Total Activity Logs" },
-        { label: "Progress Updates", count: globalLogs.filter(l => l.action === "DAILY_PROGRESS_UPDATE").length, colorClass: "text-blue-500", sub: "Daily Progress Added" },
-        { label: "Status Changes", count: globalLogs.filter(l => l.action === "STATUS_CHANGE").length, colorClass: "text-amber-500", sub: "Lifecycle Events" },
       ];
     }
 
@@ -554,13 +535,6 @@ const DailyProgressEntryPage = () => {
           >
             DELAY REPORT
           </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative flex items-center gap-1.5 ${activeTab === 'logs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            <ScrollText className="w-3.5 h-3.5" />
-            GLOBAL LOGS
-          </button>
         </div>
 
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
@@ -628,6 +602,23 @@ const DailyProgressEntryPage = () => {
                   </div>
                 )}
 
+                {/* 5. Status Filter */}
+                {(activeTab === 'all' || activeTab === 'history') && (
+                  <div className="flex items-center gap-2 font-inter shrink-0">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
+                    >
+                      <option value="all">ALL STATUS</option>
+                      <option value="NOT_STARTED">NOT STARTED</option>
+                      <option value="ON_TRACK">ON TRACK</option>
+                      <option value="DELAY">DELAY</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                    </select>
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -674,14 +665,16 @@ const DailyProgressEntryPage = () => {
                             </td>
                           </tr>
                         ) : (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).length > 0 ? (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).map((e) => {
-                          const currentActivity = activitiesList.find(a => a.id === e.activity_id);
+                          const currentActivity = activitiesList.find(a => Number(a.id) === Number(e.activity_id));
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
                                 {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
-                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">{e.entry_date}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">
+                                {currentActivity?.start_date ? new Date(currentActivity.start_date).toLocaleDateString() : "-"}
+                              </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
@@ -820,7 +813,7 @@ const DailyProgressEntryPage = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {paginatedHistoryEntries.length > 0 ? paginatedHistoryEntries.map((e, index) => {
-                          const currentActivity = activitiesList.find(a => a.id === e.activity_id) || activitiesList[index % activitiesList.length];
+                          const currentActivity = activitiesList.find(a => Number(a.id) === Number(e.activity_id)) || activitiesList[index % activitiesList.length];
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
@@ -1075,68 +1068,6 @@ const DailyProgressEntryPage = () => {
                 </>
               )}
 
-              {/* ─── Global Logs Tab ──────────────────────────────────────────── */}
-              {activeTab === 'logs' && (
-                <>
-                  <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                    <table className="w-full text-left font-inter min-w-[900px]">
-                      <thead>
-                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Date &amp; Time</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Action</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Total Completed</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 font-inter">
-                        {loading ? (
-                          <tr>
-                            <td colSpan={6} className="py-20 text-center font-inter">
-                              <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
-                              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Logs...</p>
-                            </td>
-                          </tr>
-                        ) : globalLogs.length > 0 ? globalLogs.map((log: any, idx: number) => {
-                          const act = activitiesList.find(a => a.id === log.activity_id);
-                          return (
-                            <tr key={log.id || idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                              <td className="px-6 py-5 font-inter text-sm font-medium text-slate-500">{log.created_at ? new Date(log.created_at).toLocaleString() : "-"}</td>
-                              <td className="px-6 py-5 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
-                                {act?.activity_name || log.activity_name || `Activity #${log.activity_id}`}
-                                {act?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-0.5">{act.boq_code}</span>}
-                              </td>
-                              <td className="px-6 py-5 font-inter">
-                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase bg-blue-50 text-blue-600 font-inter">
-                                  {log.action || "DAILY_PROGRESS_UPDATE"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-5 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[log.new_value?.status || ""] || "bg-slate-50 text-slate-500"} font-inter`}>
-                                  {log.new_value?.status || "-"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-5 font-inter text-sm font-bold text-primary">
-                                {log.new_value?.today_progress || 0} {act?.unit || ""}
-                              </td>
-                              <td className="px-6 py-5 font-inter text-sm font-medium text-slate-600">
-                                {log.new_value?.total_completed || 0} {act?.unit || ""}
-                              </td>
-                            </tr>
-                          );
-                        }) : (
-                          <tr>
-                            <td colSpan={6} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
-                              No global logs found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>

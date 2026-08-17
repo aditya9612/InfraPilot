@@ -22,7 +22,7 @@ const saveAttachmentLocally = (msgId: number, attachments: any[]) => {
         const stored = JSON.parse(localStorage.getItem('chat_attachments') || '{}');
         stored[msgId] = attachments;
         localStorage.setItem('chat_attachments', JSON.stringify(stored));
-    } catch {}
+    } catch { }
 };
 
 const getLocalAttachments = (msgId: number) => {
@@ -39,7 +39,7 @@ const removeLocalAttachment = (msgId: number) => {
         const stored = JSON.parse(localStorage.getItem('chat_attachments') || '{}');
         delete stored[msgId];
         localStorage.setItem('chat_attachments', JSON.stringify(stored));
-    } catch {}
+    } catch { }
 };
 
 const ChatView: React.FC = () => {
@@ -70,8 +70,8 @@ const ChatView: React.FC = () => {
 
             let members: any[] = [];
             if (membersRes) {
-                members = Array.isArray(membersRes) 
-                    ? membersRes 
+                members = Array.isArray(membersRes)
+                    ? membersRes
                     : (membersRes as any).members || (membersRes as any).data || (membersRes as any).items || (membersRes as any).group_members || [];
             }
 
@@ -210,7 +210,7 @@ const ChatView: React.FC = () => {
                     const existing = prev.find(p => p.id === incoming.id);
                     const localAtts = getLocalAttachments(incoming.id);
                     const finalAttachments = incoming.attachments?.length ? incoming.attachments : (existing?.attachments?.length ? existing.attachments : localAtts);
-                    
+
                     if (finalAttachments && finalAttachments.length > 0) {
                         saveAttachmentLocally(incoming.id, finalAttachments);
                     }
@@ -224,7 +224,7 @@ const ChatView: React.FC = () => {
             });
             setActiveChatFetched(chatInfo);
             const otherUserId = chatInfo.other_user_id || activeChatFromContext?.other_user_id || conversations.find(c => c.id === activeChatId)?.other_user_id;
-            
+
             if (chatInfo.type !== 'group' && otherUserId) {
                 chatService.getUserStatus(otherUserId)
                     .then(setUserStatus)
@@ -301,7 +301,7 @@ const ChatView: React.FC = () => {
         try {
             await chatService.removeMember(activeChatId, userId);
             toast.success("Member removed");
-            
+
             setSelectedProfile(prev => {
                 if (!prev || !prev.members) return prev;
                 const updatedMembers = prev.members.filter(m => m.user_id !== userId);
@@ -319,7 +319,7 @@ const ChatView: React.FC = () => {
         try {
             await chatService.transferAdmin(activeChatId, userId);
             toast.success("Admin rights transferred");
-            
+
             setSelectedProfile(prev => {
                 if (!prev || !prev.members) return prev;
                 const updatedMembers = prev.members.map(m => {
@@ -356,7 +356,7 @@ const ChatView: React.FC = () => {
                             const existing = prev.find(p => p.id === incoming.id);
                             const localAtts = getLocalAttachments(incoming.id);
                             const finalAttachments = incoming.attachments?.length ? incoming.attachments : (existing?.attachments?.length ? existing.attachments : localAtts);
-                            
+
                             if (finalAttachments && finalAttachments.length > 0) {
                                 saveAttachmentLocally(incoming.id, finalAttachments);
                             }
@@ -379,7 +379,7 @@ const ChatView: React.FC = () => {
                     const activeRes = await chatService.getActiveUsers(activeChatId);
                     if (activeRes && activeRes.active_users) setActiveUsers(activeRes.active_users);
                 } catch { }
-                
+
                 try {
                     if (activeChat?.type !== 'group' && activeChat?.other_user_id) {
                         const status = await chatService.getUserStatus(activeChat.other_user_id);
@@ -469,7 +469,7 @@ const ChatView: React.FC = () => {
                 attachment_url,
                 mention_user_ids: mentionedUserIds
             });
-            
+
             if (uploadRes && (!response.attachments || response.attachments.length === 0)) {
                 const newAttachments = [{
                     id: uploadRes.attachment_id,
@@ -683,11 +683,11 @@ const ChatView: React.FC = () => {
                                             const d = new Date(userStatus.last_seen);
                                             const now = new Date();
                                             const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                                            
+
                                             const yesterday = new Date();
                                             yesterday.setDate(yesterday.getDate() - 1);
                                             const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
-                                            
+
                                             const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                             if (isToday) return `today at ${time}`;
                                             if (isYesterday) return `yesterday at ${time}`;
@@ -846,42 +846,42 @@ const ChatView: React.FC = () => {
                                         {activeChat?.is_pinned ? "Unpin Chat" : "Pin Chat"}
                                     </button>
 
-                                        <button
-                                            onClick={async () => {
-                                                if (!window.confirm("Restore this chat?")) return;
-                                                setShowMoreMenu(false);
-                                                if (activeChatId) {
-                                                    try {
-                                                        await chatService.restoreChat(activeChatId);
-                                                        updateConversation(activeChatId, { is_deleted: false });
-                                                        toast.success("Chat restored");
-                                                    } catch { toast.error("Failed to restore chat"); }
-                                                }
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                                        >
-                                            <RotateCcw className="w-4 h-4" />
-                                            Restore Chat
-                                        </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm("Restore this chat?")) return;
+                                            setShowMoreMenu(false);
+                                            if (activeChatId) {
+                                                try {
+                                                    await chatService.restoreChat(activeChatId);
+                                                    updateConversation(activeChatId, { is_deleted: false });
+                                                    toast.success("Chat restored");
+                                                } catch { toast.error("Failed to restore chat"); }
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                    >
+                                        <RotateCcw className="w-4 h-4" />
+                                        Restore Chat
+                                    </button>
 
-                                        <button
-                                            onClick={async () => {
-                                                if (!window.confirm("Are you sure you want to delete this chat history?")) return;
-                                                setShowMoreMenu(false);
-                                                if (activeChatId) {
-                                                    try {
-                                                        await chatService.softDeleteChat(activeChatId);
-                                                        updateConversation(activeChatId, { is_deleted: true });
-                                                        setActiveChatId(null);
-                                                        toast.success("Chat deleted");
-                                                    } catch { toast.error("Failed to delete chat"); }
-                                                }
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                        >
-                                            <X className="w-4 h-4" />
-                                            Delete Chat
-                                        </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm("Are you sure you want to delete this chat history?")) return;
+                                            setShowMoreMenu(false);
+                                            if (activeChatId) {
+                                                try {
+                                                    await chatService.softDeleteChat(activeChatId);
+                                                    updateConversation(activeChatId, { is_deleted: true });
+                                                    setActiveChatId(null);
+                                                    toast.success("Chat deleted");
+                                                } catch { toast.error("Failed to delete chat"); }
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Delete Chat
+                                    </button>
 
                                     <div className="h-px bg-slate-50 my-1 mx-2" />
 
@@ -1077,7 +1077,7 @@ const ChatView: React.FC = () => {
                                                             </div>
                                                         );
                                                     })()}
-                                                    
+
                                                     {msg.message ? (
                                                         <div className="text-[15px] leading-relaxed px-1">
                                                             {msg.message.split(/(@[^\s]+)/g).map((part, i) =>
@@ -1093,7 +1093,7 @@ const ChatView: React.FC = () => {
                                                         const fileUrl = attachment?.file_url || msg.attachment_url;
                                                         const fileType = attachment?.file_type || fileUrl?.split('.').pop() || "";
                                                         const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileUrl || "") || fileType.startsWith("image/");
-                                                        
+
                                                         if (fileUrl && !isImage) {
                                                             return (
                                                                 <div className="flex items-center gap-6 pt-3 mt-1 border-t border-slate-200/50 px-1 pb-1">
@@ -1133,7 +1133,7 @@ const ChatView: React.FC = () => {
                                             <Smile className="w-3.5 h-3.5" />
                                         </button>
                                         <button onClick={() => { setMessageToForward(msg); setIsForwardModalOpen(true); }} className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-white rounded-lg transition-all text-xs" title="Forward Message">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-forward"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-forward"><polyline points="15 17 20 12 15 7" /><path d="M4 18v-2a4 4 0 0 1 4-4h12" /></svg>
                                         </button>
                                         <button onClick={() => setReplyTo(msg)} className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-white rounded-lg transition-all text-xs" title="Reply">↩</button>
                                         {activeChat?.type !== "group" && (
@@ -1252,25 +1252,25 @@ const ChatView: React.FC = () => {
                     </div>
 
                     <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
-                         {selectedFile.type.startsWith("image/") ? (
-                             <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="max-w-full max-h-full object-contain rounded-2xl shadow-lg border border-slate-200" />
-                         ) : (
-                             <div className="bg-white p-10 rounded-2xl flex flex-col items-center justify-center min-w-[320px] shadow-xl border border-slate-100">
-                                 <div className="w-20 h-24 bg-slate-50 rounded-md mb-6 shadow-sm border border-slate-200 flex items-center justify-center">
-                                     <FileText className="w-10 h-10 text-slate-400" />
-                                 </div>
-                                 <p className="text-slate-800 text-lg font-bold mb-1">No preview available</p>
-                                 <p className="text-slate-500 text-sm font-medium">
-                                     {Math.round(selectedFile.size / 1024)} kB - {selectedFile.name.split('.').pop()?.toUpperCase()}
-                                 </p>
-                             </div>
-                         )}
+                        {selectedFile.type.startsWith("image/") ? (
+                            <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="max-w-full max-h-full object-contain rounded-2xl shadow-lg border border-slate-200" />
+                        ) : (
+                            <div className="bg-white p-10 rounded-2xl flex flex-col items-center justify-center min-w-[320px] shadow-xl border border-slate-100">
+                                <div className="w-20 h-24 bg-slate-50 rounded-md mb-6 shadow-sm border border-slate-200 flex items-center justify-center">
+                                    <FileText className="w-10 h-10 text-slate-400" />
+                                </div>
+                                <p className="text-slate-800 text-lg font-bold mb-1">No preview available</p>
+                                <p className="text-slate-500 text-sm font-medium">
+                                    {Math.round(selectedFile.size / 1024)} kB - {selectedFile.name.split('.').pop()?.toUpperCase()}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="p-6 flex flex-col items-center gap-6 bg-white border-t border-slate-200 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
                         <div className="w-full max-w-3xl bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 focus-within:ring-2 focus-within:border-primary ring-primary/10 transition-all">
                             <Smile className="w-6 h-6 text-slate-400 shrink-0" />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Type a message..."
                                 value={inputText}
@@ -1280,7 +1280,7 @@ const ChatView: React.FC = () => {
                                 className="flex-1 bg-transparent text-slate-800 font-medium text-[15px] outline-none placeholder:text-slate-400"
                             />
                         </div>
-                        
+
                         <div className="w-full max-w-3xl flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-14 h-14 bg-slate-50 rounded-lg flex flex-col items-center justify-center border-2 border-primary overflow-hidden shadow-sm">
@@ -1375,8 +1375,8 @@ const ChatView: React.FC = () => {
 
                                     {!selectedProfile.isGroup && selectedProfile.id === Number(user?.id) && (
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <input 
-                                                type="file" 
+                                            <input
+                                                type="file"
                                                 id="profile-pic-upload"
                                                 accept="image/*"
                                                 className="hidden"
@@ -1393,14 +1393,14 @@ const ChatView: React.FC = () => {
                                                     }
                                                 }}
                                             />
-                                            <label 
+                                            <label
                                                 htmlFor="profile-pic-upload"
                                                 className="w-8 h-8 rounded-full bg-white/20 hover:bg-primary text-white flex items-center justify-center cursor-pointer transition-colors"
                                                 title="Upload Picture"
                                             >
                                                 <Plus className="w-4 h-4" />
                                             </label>
-                                            
+
                                             {selectedProfile.profile_image && (
                                                 <button
                                                     onClick={async () => {
@@ -1476,7 +1476,7 @@ const ChatView: React.FC = () => {
                                     <h2 className="text-white font-black text-lg tracking-tight flex items-center gap-2">
                                         {selectedProfile.name}
                                         {selectedProfile.isGroup && (
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setEditGroupName(selectedProfile.name);
                                                     setIsEditingGroupName(true);
@@ -1722,58 +1722,58 @@ const ChatView: React.FC = () => {
                         <button onClick={() => setIsAddMemberModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl">Cancel</button>
                         <button
                             onClick={async () => {
-                                        if (selectedUserIds.length === 0 || !activeChatId) return;
-                                        setIsAddingMembers(true);
-                                        try {
-                                            if (selectedUserIds.length === 1) {
-                                                await chatService.addMember(activeChatId, selectedUserIds[0]);
-                                                toast.success("Member added!");
-                                            } else {
-                                                await chatService.addMultipleMembers(activeChatId, selectedUserIds);
-                                                toast.success("Members added!");
-                                            }
-                                            
-                                            // Update local state manually to ensure they show up immediately
-                                            const newlyAdded = availableUsers.filter(u => selectedUserIds.includes(Number(u.id))).map(u => ({
-                                                user_id: Number(u.id),
-                                                name: u.name || u.full_name || "User",
-                                                role: "member",
-                                                profile_image: u.profile_image
-                                            }));
-                                            
-                                            if (newlyAdded.length > 0) {
-                                                setSelectedProfile(prev => {
-                                                    if (!prev) return prev;
-                                                    const existingIds = new Set(prev.members?.map(m => m.user_id) || []);
-                                                    const filteredNew = newlyAdded.filter(m => !existingIds.has(m.user_id));
-                                                    const updatedMembers = [...(prev.members || []), ...filteredNew];
-                                                    return {
-                                                        ...prev,
-                                                        members: updatedMembers,
-                                                        memberCount: prev.memberCount ? prev.memberCount + filteredNew.length : updatedMembers.length
-                                                    };
-                                                });
-                                                
-                                                setActiveChatFetched(prev => {
-                                                    if (!prev) return prev;
-                                                    const existingIds = new Set((prev as any).members?.map((m: any) => m.user_id) || []);
-                                                    const filteredNew = newlyAdded.filter(m => !existingIds.has(m.user_id));
-                                                    const updatedMembers = [...((prev as any).members || []), ...filteredNew];
-                                                    return {
-                                                        ...prev,
-                                                        members: updatedMembers,
-                                                        member_count: (prev.member_count || 0) + filteredNew.length
-                                                    };
-                                                });
-                                            }
+                                if (selectedUserIds.length === 0 || !activeChatId) return;
+                                setIsAddingMembers(true);
+                                try {
+                                    if (selectedUserIds.length === 1) {
+                                        await chatService.addMember(activeChatId, selectedUserIds[0]);
+                                        toast.success("Member added!");
+                                    } else {
+                                        await chatService.addMultipleMembers(activeChatId, selectedUserIds);
+                                        toast.success("Members added!");
+                                    }
 
-                                            setIsAddMemberModalOpen(false);
-                                        } catch {
-                                            toast.error("Failed to add members");
-                                        } finally {
-                                            setIsAddingMembers(false);
-                                        }
-                                    }}
+                                    // Update local state manually to ensure they show up immediately
+                                    const newlyAdded = availableUsers.filter(u => selectedUserIds.includes(Number(u.id))).map(u => ({
+                                        user_id: Number(u.id),
+                                        name: u.name || u.full_name || "User",
+                                        role: "member",
+                                        profile_image: u.profile_image
+                                    }));
+
+                                    if (newlyAdded.length > 0) {
+                                        setSelectedProfile(prev => {
+                                            if (!prev) return prev;
+                                            const existingIds = new Set(prev.members?.map(m => m.user_id) || []);
+                                            const filteredNew = newlyAdded.filter(m => !existingIds.has(m.user_id));
+                                            const updatedMembers = [...(prev.members || []), ...filteredNew];
+                                            return {
+                                                ...prev,
+                                                members: updatedMembers,
+                                                memberCount: prev.memberCount ? prev.memberCount + filteredNew.length : updatedMembers.length
+                                            };
+                                        });
+
+                                        setActiveChatFetched(prev => {
+                                            if (!prev) return prev;
+                                            const existingIds = new Set((prev as any).members?.map((m: any) => m.user_id) || []);
+                                            const filteredNew = newlyAdded.filter(m => !existingIds.has(m.user_id));
+                                            const updatedMembers = [...((prev as any).members || []), ...filteredNew];
+                                            return {
+                                                ...prev,
+                                                members: updatedMembers,
+                                                member_count: (prev.member_count || 0) + filteredNew.length
+                                            };
+                                        });
+                                    }
+
+                                    setIsAddMemberModalOpen(false);
+                                } catch {
+                                    toast.error("Failed to add members");
+                                } finally {
+                                    setIsAddingMembers(false);
+                                }
+                            }}
                             disabled={selectedUserIds.length === 0 || isAddingMembers}
                             className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-xl disabled:opacity-50"
                         >
@@ -1817,7 +1817,7 @@ const ChatView: React.FC = () => {
                                     await chatService.removeMultipleMembers(activeChatId, selectedToRemoveIds);
                                     toast.success("Members removed!");
                                     setIsRemoveMemberModalOpen(false);
-                                    
+
                                     // Update local state directly instead of requiring refresh
                                     setSelectedProfile(prev => {
                                         if (!prev || !prev.members) return prev;
@@ -1855,8 +1855,8 @@ const ChatView: React.FC = () => {
                         >
                             {isDeletingMessage ? "Deleting..." : "Delete for everyone"}
                         </button>
-                        <button 
-                            onClick={() => setMessageToDelete(null)} 
+                        <button
+                            onClick={() => setMessageToDelete(null)}
                             disabled={isDeletingMessage}
                             className="w-full px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
                         >

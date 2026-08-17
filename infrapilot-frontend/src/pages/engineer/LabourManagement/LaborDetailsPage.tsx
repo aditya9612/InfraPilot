@@ -527,9 +527,9 @@ const LaborDetailsPage = () => {
     });
 
     const stats = {
-        total: sortedLaborers.length,
-        active: sortedLaborers.filter(l => l.status === "Active").length,
-        skilled: sortedLaborers.filter(l => l.skill_type === "Skilled").length,
+        total: laborers.length,
+        active: laborers.filter(l => l.status === "Active").length,
+        skilled: skillSummary.find((s: any) => (s.skill_category || s.skill_type || s.skill || "").toLowerCase() === "skilled")?.count || 0,
     };
 
     const filteredLaborers = sortedLaborers.filter(l => {

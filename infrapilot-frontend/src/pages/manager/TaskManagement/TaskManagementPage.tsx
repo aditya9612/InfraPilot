@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Navbar from '../../../components/common/Navbar';
-import ProjectSelector from '../../../components/common/ProjectSelector';
 import { useProject } from '../../../context/ProjectContext';
 import PageTransition from '../../../components/common/PageTransition';
 import toast from 'react-hot-toast';
@@ -19,7 +18,7 @@ import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
 import { workProgressService } from '../../../services/workProgressService';
-import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
+import type { Task, ProjectMember } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
     priority: "LOW" | "MEDIUM" | "HIGH";
@@ -408,7 +407,7 @@ const TaskManagementPage = () => {
                 console.log(`Fetching assigned projects for user ${userId}`);
                 const projects = await projectService.getAssignedProjects(userId);
                 console.log("Assigned projects fetched:", projects);
-                setAssignedProjects(Array.isArray(projects) ? projects : (projects?.items || projects?.data || []));
+                setAssignedProjects(Array.isArray(projects) ? projects : ((projects as any)?.items || (projects as any)?.data || []));
             } catch (error) {
                 console.error("Failed to fetch assigned projects:", error);
                 setAssignedProjects([]);
@@ -418,9 +417,22 @@ const TaskManagementPage = () => {
         fetchUserAssignedProjects();
     }, []);
 
+    // Default to the first assigned project if no project is selected
+    useEffect(() => {
+        if (!projectId && assignedProjects.length > 0) {
+            const firstProjectId = assignedProjects[0].id || assignedProjects[0].project_id;
+            if (firstProjectId) {
+                setProjectId(firstProjectId);
+            }
+        }
+    }, [projectId, assignedProjects]);
+
     useEffect(() => {
         if (projectId) {
             fetchData();
+        } else {
+            setLoading(false);
+            setTasks([]);
         }
     }, [projectId, activeTab, fetchData]);
 
@@ -875,11 +887,6 @@ const TaskManagementPage = () => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredTasks, currentPage, itemsPerPage]);
-
-    const currentProjectName = useMemo(() => {
-        const found = assignedProjects.find(p => (p.id || p.project_id) === projectId);
-        return found ? (found.project_name || found.name) : 'Current Project';
-    }, [assignedProjects, projectId]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -1762,14 +1769,14 @@ const TaskManagementPage = () => {
                                                                                 <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
                                                                                 <div className="flex items-center gap-3 flex-wrap">
                                                                                     <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
-                                                                                            request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                                                                                                'bg-emerald-100 text-emerald-700'
+                                                                                        request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                                                                            'bg-emerald-100 text-emerald-700'
                                                                                         }`}>
                                                                                         {request.priority || 'MEDIUM'}
                                                                                     </span>
                                                                                     <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                                                            request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                                'bg-rose-100 text-rose-700'
+                                                                                        request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                            'bg-rose-100 text-rose-700'
                                                                                         }`}>
                                                                                         {request.status || 'PENDING'}
                                                                                     </span>

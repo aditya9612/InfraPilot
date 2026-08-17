@@ -2,12 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import CreateAccountModal from "../../components/forms/accounting/CreateAccountModal";
 import LedgerModal from "../../components/forms/accounting/LedgerModal";
 import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import type { ChartAccount, AccountType } from "../../types/accounting";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // We will fetch from API instead of mock
 const MOCK_COA: ChartAccount[] = [];
@@ -46,8 +48,21 @@ const mapBackendAccount = (acc: any): ChartAccount => {
     is_active: acc.status === "Active" || acc.is_active === true,
     opening_balance: acc.opening_balance || 0,
     current_balance: acc.current_balance || 0,
+    created_at: acc.created_at,
     children: acc.children ? acc.children.map(mapBackendAccount) : undefined
   };
+};
+
+const sortAccountsDesc = (accounts: ChartAccount[]): ChartAccount[] => {
+  return [...accounts].sort((a, b) => {
+    if (a.created_at && b.created_at) {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+    return (Number(b.id) || 0) - (Number(a.id) || 0);
+  }).map(acc => ({
+    ...acc,
+    children: acc.children ? sortAccountsDesc(acc.children) : undefined
+  }));
 };
 
 const ChartOfAccountsPage = () => {
@@ -73,9 +88,31 @@ const ChartOfAccountsPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewData, setViewData] = useState<any | null>(null);
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
+
+  // Pagination states
+  const [hierarchyPage, setHierarchyPage] = useState(1);
+  const [hierarchyItemsPerPage] = useState(10);
+  const [tablePage, setTablePage] = useState(1);
+  const [tableItemsPerPage] = useState(10);
+
+  // Reset pagination when tab/category changes
+  useEffect(() => {
+    setHierarchyPage(1);
+    setTablePage(1);
+  }, [activeTab]);
+
   const handleExportCOA = async () => {
     try {
-      await accountingService.exportAccounts();
+      const response = await accountingService.exportAccounts();
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'chart_of_accounts.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
       toast.success("Chart of Accounts exported successfully!");
     } catch (e) {
       toast.error("Failed to export Chart of Accounts");
@@ -102,7 +139,8 @@ const ChartOfAccountsPage = () => {
       const data = isListView ? await accountingService.getAccounts() : await accountingService.getAccountsTree();
       // Ensure backend array format and map it
       const rawArray = Array.isArray(data) ? data : data?.data || [];
-      setCoa(rawArray.map(mapBackendAccount));
+      const mappedArray = rawArray.map(mapBackendAccount);
+      setCoa(sortAccountsDesc(mappedArray));
     } catch (err) {
       toast.error("Failed to fetch chart of accounts");
     }
@@ -142,15 +180,22 @@ const ChartOfAccountsPage = () => {
     setEditingAccount(null);
   };
 
-  const handleDeleteAccount = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this account?")) return;
-    
+  const confirmDelete = (id: string) => {
+    setAccountToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!accountToDelete) return;
     try {
-      await accountingService.deleteAccount(id);
+      await accountingService.deleteAccount(accountToDelete);
       toast.success("Account deleted!");
       fetchAccounts();
     } catch (err) {
       toast.error("Failed to delete account");
+    } finally {
+      setDeleteModalOpen(false);
+      setAccountToDelete(null);
     }
   };
 
@@ -181,6 +226,10 @@ const ChartOfAccountsPage = () => {
 
   const filteredCOA = activeTab === "All" ? coa : coa.filter((acc) => acc.account_type === activeTab);
 
+  // Pagination for Left Side (Hierarchy)
+  const totalHierarchyItems = filteredCOA.length;
+  const paginatedHierarchy = filteredCOA.slice((hierarchyPage - 1) * hierarchyItemsPerPage, hierarchyPage * hierarchyItemsPerPage);
+
   // For the right side table, if a folder is selected, show its children, otherwise show flattened filtered COA
   const rawTableData = selectedFolder
     ? (selectedFolder.children || [])
@@ -190,6 +239,10 @@ const ChartOfAccountsPage = () => {
     acc.account_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     acc.account_code.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Pagination for Right Side (Table)
+  const totalTableItems = tableData.length;
+  const paginatedTable = tableData.slice((tablePage - 1) * tableItemsPerPage, tablePage * tableItemsPerPage);
 
   const renderTree = (accounts: ChartAccount[], level = 0) => {
     return (
@@ -315,7 +368,34 @@ const ChartOfAccountsPage = () => {
                 </button>
               )}
             </div>
-            {renderTree(filteredCOA)}
+            <div className="flex-1 overflow-y-auto mb-4">
+              {renderTree(paginatedHierarchy)}
+            </div>
+            
+            {/* Pagination Controls for Hierarchy */}
+            {totalHierarchyItems > 0 && (
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {Math.min((hierarchyPage - 1) * hierarchyItemsPerPage + 1, totalHierarchyItems)}–{Math.min(hierarchyPage * hierarchyItemsPerPage, totalHierarchyItems)} of {totalHierarchyItems}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => setHierarchyPage(p => Math.max(1, p - 1))}
+                    disabled={hierarchyPage === 1}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setHierarchyPage(p => Math.min(Math.ceil(totalHierarchyItems / hierarchyItemsPerPage), p + 1))}
+                    disabled={hierarchyPage >= Math.ceil(totalHierarchyItems / hierarchyItemsPerPage)}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Side: Account Details Table */}
@@ -343,8 +423,8 @@ const ChartOfAccountsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {tableData.length > 0 ? (
-                    tableData.map((acc, idx) => (
+                  {paginatedTable.length > 0 ? (
+                    paginatedTable.map((acc, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-5 py-3.5">
                           <span className="inline-block text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
@@ -384,7 +464,7 @@ const ChartOfAccountsPage = () => {
                             <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">👁</button>
                             <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">📒</button>
                             <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">✏️</button>
-                            <button onClick={() => handleDeleteAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">🗑</button>
+                            <button onClick={() => confirmDelete(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">🗑</button>
                           </div>
                         </td>
                       </tr>
@@ -399,6 +479,32 @@ const ChartOfAccountsPage = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls for Table */}
+            {totalTableItems > 0 && (
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+                <div className="text-[11px] font-bold text-slate-500">
+                  Showing {Math.min((tablePage - 1) * tableItemsPerPage + 1, totalTableItems)} to {Math.min(tablePage * tableItemsPerPage, totalTableItems)} of {totalTableItems} entries
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                    disabled={tablePage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-slate-50"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-bold text-slate-700 w-8 text-center">{tablePage}</span>
+                  <button
+                    onClick={() => setTablePage(p => Math.min(Math.ceil(totalTableItems / tableItemsPerPage), p + 1))}
+                    disabled={tablePage >= Math.ceil(totalTableItems / tableItemsPerPage)}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-slate-50"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </PageTransition>
@@ -421,6 +527,17 @@ const ChartOfAccountsPage = () => {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         accountData={viewData}
+      />
+
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => { setDeleteModalOpen(false); setAccountToDelete(null); }}
+        onConfirm={executeDelete}
+        title="Delete Account"
+        message="Are you sure you want to delete this record?"
+        confirmText="Confirm Deletion"
+        cancelText="Cancel"
+        type="danger"
       />
     </>
   );

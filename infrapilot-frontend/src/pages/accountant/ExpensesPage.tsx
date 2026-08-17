@@ -26,6 +26,7 @@ const ExpenseEntrySection = () => {
   const [activeStat, setActiveStat] = useState("TOTAL EXPENSE");
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hoveredPieIndex, setHoveredPieIndex] = useState<number | null>(null);
 
   const fmt = (num: number) => `₹${Number(num).toLocaleString("en-IN")}`;
 
@@ -44,11 +45,11 @@ const ExpenseEntrySection = () => {
   }, []);
 
   const statCards = [
-    { label: "TOTAL EXPENSE",   value: stats ? fmt(stats.total_expense)   : "—" },
-    { label: "MONTHLY EXPENSE", value: stats ? fmt(stats.monthly_expense)  : "—" },
-    { label: "PROJECT EXPENSE", value: stats ? fmt(stats.project_expense)  : "—" },
-    { label: "DIRECT EXPENSE",  value: stats ? fmt(stats.direct_expense)   : "—" },
-    { label: "INDIRECT EXPENSE",value: stats ? fmt(stats.indirect_expense) : "—" },
+    { label: "TOTAL EXPENSE", value: stats ? fmt(stats.total_expense) : "—" },
+    { label: "MONTHLY EXPENSE", value: stats ? fmt(stats.monthly_expense) : "—" },
+    { label: "PROJECT EXPENSE", value: stats ? fmt(stats.project_expense) : "—" },
+    { label: "DIRECT EXPENSE", value: stats ? fmt(stats.direct_expense) : "—" },
+    { label: "INDIRECT EXPENSE", value: stats ? fmt(stats.indirect_expense) : "—" },
     {
       label: "PENDING APPRVL",
       value: stats ? String(stats.pending_approval_count) : "—",
@@ -62,12 +63,15 @@ const ExpenseEntrySection = () => {
 
   const pieData = categorySummary.map((c, i) => ({
     name: c.category,
-    value: c.percentage,
+    value: c.total_amount > 0 ? c.total_amount : 1, // Avoid 0 for rendering
+    percentage: c.percentage || 0,
     amount: c.total_amount,
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
   }));
 
-  const topCategory = pieData[0];
+  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex] 
+    ? pieData[hoveredPieIndex] 
+    : (pieData.length > 0 ? [...pieData].sort((a, b) => b.amount - a.amount)[0] : null);
 
   // Trend: use API data if available, else empty
   const trendData: { day: string; amount: number }[] =
@@ -85,9 +89,8 @@ const ExpenseEntrySection = () => {
             <div
               key={k.label}
               onClick={() => setActiveStat(k.label)}
-              className={`bg-white rounded-xl p-4 shadow-sm border ${
-                isActive ? 'border-rose-500' : 'border-slate-100 hover:border-rose-300'
-              } relative overflow-hidden cursor-pointer transition-colors`}
+              className={`bg-white rounded-xl p-4 shadow-sm border ${isActive ? 'border-rose-500' : 'border-slate-100 hover:border-rose-300'
+                } relative overflow-hidden cursor-pointer transition-colors`}
             >
               {isActive && <div className="absolute bottom-0 left-0 w-full h-1 bg-rose-500" />}
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{k.label}</p>
@@ -154,20 +157,22 @@ const ExpenseEntrySection = () => {
                         stroke="none"
                         startAngle={90}
                         endAngle={-270}
+                        onMouseEnter={(_, index) => setHoveredPieIndex(index)}
+                        onMouseLeave={() => setHoveredPieIndex(null)}
                       >
                         {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none' }} />
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(val: any, name: any) => [`${val.toFixed(1)}%`, name]}
+                        formatter={(_val: any, name: any, props: any) => [`${props.payload.percentage.toFixed(2)}%`, name]}
                         contentStyle={{ fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid #e2e8f0' }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   {topCategory && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-lg font-black text-slate-800">{topCategory.value.toFixed(0)}%</span>
+                      <span className="text-lg font-black text-slate-800">{topCategory.percentage.toFixed(1)}%</span>
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight text-center px-1">{topCategory.name}</span>
                     </div>
                   )}
@@ -191,7 +196,7 @@ const ExpenseEntrySection = () => {
                         className="text-[10px] font-black px-1.5 py-0.5 rounded-md"
                         style={{ backgroundColor: cat.color + '20', color: cat.color }}
                       >
-                        {cat.value.toFixed(1)}%
+                        {cat.percentage.toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -285,10 +290,21 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
 
 const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
   const [formData, setFormData] = useState<any>(null);
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     if (expense) setFormData({ ...expense });
   }, [expense]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        setProjects(Array.isArray(data) ? data : (data as any).items || []);
+      } catch (err) {}
+    };
+    if (isOpen) fetchProjects();
+  }, [isOpen]);
 
   if (!formData) return null;
 
@@ -302,6 +318,15 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Expense" maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="p-6 space-y-4 font-inter h-full overflow-y-auto">
         <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
+            <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+              ))}
+              {projects.length === 0 && <option value={formData.project_id}>{formData.project_id}</option>}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
             <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
@@ -351,6 +376,21 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
 
 const CreateExpenseModal = ({ isOpen, onClose }: any) => {
   const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: 1, amount: 0, description: "" });
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        const list = Array.isArray(data) ? data : (data as any).items || [];
+        setProjects(list);
+        if (list.length > 0) {
+          setFormData(f => ({ ...f, project_id: list[0].id }));
+        }
+      } catch (err) {}
+    };
+    if (isOpen) fetchProjects();
+  }, [isOpen]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -376,8 +416,9 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Project *</label>
               <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
-                <option value="1">Wing A</option>
-                <option value="4">Metro</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -440,7 +481,7 @@ const ExpenseListSection = () => {
         const data = await projectService.getProjects(100, 0);
         const list = Array.isArray(data) ? data : (data as any).items || [];
         setProjects(list);
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchProjects();
   }, []);
@@ -633,7 +674,12 @@ const ExpenseListSection = () => {
                   <td className="px-5 py-4 text-xs font-bold">
                     <span onClick={() => handleCategoryClick(e.category)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors">{e.category}</span>
                   </td>
-                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{projects.find(p => String(p.id) === String(e.project_id))?.project_name || e.project_id}</td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-600">
+                    {(() => {
+                      const p = projects.find(x => String(x.id) === String(e.project_id));
+                      return p ? (p.project_name || p.name || e.project_id) : e.project_id;
+                    })()}
+                  </td>
                   <td className="px-5 py-4 text-xs font-semibold text-slate-500 max-w-[200px] truncate">{e.description}</td>
                   <td className="px-5 py-4 text-sm font-black text-rose-500">{fmt(e.amount)}</td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">{e.payment_mode}</td>
@@ -666,8 +712,8 @@ const ExpenseListSection = () => {
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select 
-              value={recordsPerPage} 
+            <select
+              value={recordsPerPage}
               onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
             >
@@ -678,7 +724,7 @@ const ExpenseListSection = () => {
             Showing {filteredExpenses.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredExpenses.length)} of {filteredExpenses.length} records
           </span>
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -688,7 +734,7 @@ const ExpenseListSection = () => {
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
               {currentPage}
             </span>
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -752,8 +798,8 @@ const ProjectCostAllocationSection = () => {
         {data.projects?.map((p, i) => {
           const isSelected = selectedProjectIndex === i;
           return (
-            <div 
-              key={p.project_name} 
+            <div
+              key={p.project_name}
               onClick={() => setSelectedProjectIndex(i)}
               className={`bg-white rounded-2xl shadow-sm border p-5 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : 'border-slate-100 hover:border-primary/40'}`}
             >
@@ -833,8 +879,8 @@ const ProjectCostAllocationSection = () => {
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select 
-              value={recordsPerPage} 
+            <select
+              value={recordsPerPage}
               onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
             >
@@ -845,7 +891,7 @@ const ProjectCostAllocationSection = () => {
             Showing {(!data.recent || data.recent.length === 0) ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, data.recent?.length || 0)} of {data.recent?.length || 0} records
           </span>
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -855,7 +901,7 @@ const ProjectCostAllocationSection = () => {
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
               {currentPage}
             </span>
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -892,7 +938,7 @@ const ExpenseLedgerSection = () => {
     fetchData();
   }, []);
 
-  const filteredData = data.filter(row => 
+  const filteredData = data.filter(row =>
     (row.particular && row.particular.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (row.date && row.date.includes(searchQuery))
   );
@@ -920,10 +966,10 @@ const ExpenseLedgerSection = () => {
         <div className="p-5 border-b border-slate-100 flex justify-between items-center">
           <h3 className="font-bold text-slate-800">Expense Ledger Entries</h3>
           <div className="flex gap-3">
-            <input 
-              type="text" 
-              placeholder="Search ledger..." 
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 w-64 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20" 
+            <input
+              type="text"
+              placeholder="Search ledger..."
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 w-64 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -964,8 +1010,8 @@ const ExpenseLedgerSection = () => {
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -976,7 +1022,7 @@ const ExpenseLedgerSection = () => {
               Showing {filteredData.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredData.length)} of {filteredData.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -986,7 +1032,7 @@ const ExpenseLedgerSection = () => {
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -1115,34 +1161,29 @@ const BOQComparisonSection = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["BOQ Item", "Unit", "BOQ Qty", "BOQ Rate", "BOQ Amount", "Actual Amount", "Variance", "Var %"].map(h => (
+                  {["BOQ Item", "Estimated Amount", "Actual Amount", "Variance"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paginatedItems.map((item, i) => {
-                  const boqAmt = item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0);
-                  const actualAmt = item.actual_amount ?? item.actual_expense ?? 0;
+                  const boqAmt = item.estimated ?? item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0);
+                  const actualAmt = item.actual ?? item.actual_amount ?? item.actual_expense ?? 0;
                   const variance = item.variance ?? (boqAmt - actualAmt);
-                  const varPct = boqAmt !== 0 ? ((variance / boqAmt) * 100).toFixed(1) : "0.0";
                   const isOver = variance < 0;
                   return (
                     <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-4 text-xs font-bold text-slate-800">{item.item_name || item.boq_item || item.description || "-"}</td>
-                      <td className="px-4 py-4 text-xs text-slate-500">{item.unit || "-"}</td>
-                      <td className="px-4 py-4 text-xs font-bold text-slate-800">{item.boq_qty ?? "-"}</td>
-                      <td className="px-4 py-4 text-xs text-slate-500">{item.boq_rate ? fmt(item.boq_rate) : "-"}</td>
                       <td className="px-4 py-4 text-xs font-bold text-slate-800">{fmt(boqAmt)}</td>
                       <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{fmt(actualAmt)}</td>
                       <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{isOver ? `-${fmt(Math.abs(variance))}` : fmt(variance)}</td>
-                      <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{isOver ? `-${varPct}%` : `${varPct}%`}</td>
                     </tr>
                   );
                 })}
                 {filteredItems.length === 0 && !loadingBoq && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm font-semibold">
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-400 text-sm font-semibold">
                       {selectedProjectId ? "No BOQ comparison data found for this project." : "Select a project to view BOQ comparison."}
                     </td>
                   </tr>
@@ -1155,8 +1196,8 @@ const BOQComparisonSection = () => {
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -1167,7 +1208,7 @@ const BOQComparisonSection = () => {
               Showing {filteredItems.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredItems.length)} of {filteredItems.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -1177,7 +1218,7 @@ const BOQComparisonSection = () => {
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"

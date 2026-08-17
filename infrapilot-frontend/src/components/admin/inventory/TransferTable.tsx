@@ -1,15 +1,17 @@
 import React from "react";
-import { ArrowRight, CheckCircle, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle, XCircle, Eye } from "lucide-react";
 import type { Transfer } from "../../../types/material";
 
 interface TransferTableProps {
   transfers: Transfer[];
   onStatusUpdate?: (id: number, status: Transfer["status"]) => void;
+  onView?: (transfer: Transfer) => void;
 }
 
 const TransferTable: React.FC<TransferTableProps> = ({
   transfers,
   onStatusUpdate,
+  onView,
 }) => {
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -25,7 +27,7 @@ const TransferTable: React.FC<TransferTableProps> = ({
       <table className="w-full text-left">
         <thead>
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-            <th className="px-6 py-4">Transfer ID & Date</th>
+            <th className="px-6 py-4">Transfer ID</th>
             <th className="px-6 py-4">Material</th>
             <th className="px-6 py-4">From Site → To Site</th>
             <th className="px-6 py-4">Quantity</th>
@@ -38,11 +40,6 @@ const TransferTable: React.FC<TransferTableProps> = ({
             <tr key={tr.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-800">TR-{tr.id.toString().padStart(4, '0')}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  {tr.created_at && !isNaN(new Date(tr.created_at).getTime())
-                    ? new Date(tr.created_at).toLocaleDateString("en-IN")
-                    : "—"}
-                </p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-700">
                 {tr.material.name}
@@ -82,9 +79,13 @@ const TransferTable: React.FC<TransferTableProps> = ({
                       </button>
                     </>
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                      {tr.status === "COMPLETED" ? "Completed" : "Cancelled"}
-                    </span>
+                    <button
+                      onClick={() => onView?.(tr)}
+                      className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                      title="View Details"
+                    >
+                      <Eye className="w-4 h-4" strokeWidth={1.5} />
+                    </button>
                   )}
                 </div>
               </td>

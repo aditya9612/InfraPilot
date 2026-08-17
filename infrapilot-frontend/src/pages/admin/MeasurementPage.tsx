@@ -336,7 +336,6 @@ const MeasurementPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-8 py-6">ID</th>
                   <th className="px-8 py-6">Final Area (sq.ft)</th>
                   <th className="px-8 py-6">Approved Rate</th>
                   <th className="px-8 py-6">Extra (Area/Rate)</th>
@@ -360,7 +359,6 @@ const MeasurementPage = () => {
                     const lineTotal = (m.final_area * m.approved_rate) + (m.extra_area * m.extra_rate);
                     return (
                       <tr key={`meas-${m.id}-${index}`} className="hover:bg-slate-50/50 transition-all group">
-                        <td className="px-8 py-6 font-black text-slate-400 text-xs">#{m.id}</td>
                         <td className="px-8 py-6">
                           <p className="text-sm font-black text-slate-700">{m.final_area.toLocaleString()} <span className="text-[10px] text-slate-300 font-bold uppercase tracking-tight">Units</span></p>
                         </td>

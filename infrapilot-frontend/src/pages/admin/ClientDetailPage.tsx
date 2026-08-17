@@ -507,6 +507,7 @@ const ClientDetailPage = () => {
                     project_id: inferredProjectId,
                     name: u.full_name,
                     company: u.designation || "N/A",
+                    role: typeof u.role === "string" ? u.role : (u.role?.name || "Client"),
                     email: u.email,
                     mobile: u.mobile_number,
                     project: (inferredProjectName && inferredProjectName.trim() !== "")
@@ -521,7 +522,7 @@ const ClientDetailPage = () => {
                     notes: "VIP client. Prefers WhatsApp updates.",
                     portalEnabled: u.is_active,
                     pan_number: (u as any).pan_number || (u as any).pan || "—",
-                    aadhar_number: (u as any).aadhar_number || (u as any).aadhaar_number || (u as any).aadhaar || (u as any).aadhar || "—",
+                    aadhar_number: (u as any).aadhaar_number || (u as any).aadhaar_number || (u as any).aadhaar || (u as any).aadhar || "—",
                     joining_date: (u as any).joining_date || (u as any).created_at || null,
                     invoices: allLedgerRows,
                     documents: [],
@@ -593,11 +594,9 @@ const ClientDetailPage = () => {
                                         {client.status}
                                     </span>
                                 </div>
-                                {client.company && client.company !== "N/A" && (
-                                    <p className="text-white/90 text-sm font-semibold">{client.company}</p>
-                                )}
-                                {client.project && client.project !== "No Project Linked" && (
-                                    <p className="text-white/60 text-xs mt-1">{client.project}</p>
+                                <p className="text-white/90 text-sm font-semibold">{client.role || "Client"}</p>
+                                {client.address && client.address !== "No Address Provided" && (
+                                    <p className="text-white/60 text-xs mt-1">{client.address}</p>
                                 )}
                             </div>
                         </div>

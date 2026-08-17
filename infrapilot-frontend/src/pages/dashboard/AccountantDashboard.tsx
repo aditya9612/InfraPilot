@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { RefreshCw, ArrowUpRight, ArrowDownRight, IndianRupee, Wallet, FileText, PieChart, Activity, Bell } from 'lucide-react';
+=======
+import { RefreshCw, ArrowUpRight, ArrowDownRight, DollarSign, Wallet, FileText, PieChart, Activity, Bell, Download } from 'lucide-react';
+>>>>>>> testing
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
@@ -42,6 +46,25 @@ export default function AccountantDashboard() {
 
   const handleAction = (actionName: string) => {
     alert(`${actionName} action triggered successfully!`);
+  };
+
+  const handleExport = async () => {
+    try {
+      const toastId = toast.loading('Exporting dashboard...');
+      const blob = await dashboardService.exportAccountantDashboard();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Accountant_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Dashboard exported successfully!', { id: toastId });
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export dashboard');
+    }
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -93,7 +116,11 @@ export default function AccountantDashboard() {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Financial Dashboard</h1>
           </div>
           <div className="flex gap-3">
-            <button onClick={handleRefresh} disabled={isRefreshing} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-bold shadow-sm disabled:opacity-50">
+            <button onClick={handleExport} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm font-bold shadow-sm shadow-indigo-600/20 active:scale-95">
+              <Download className="w-4 h-4" />
+              Export Dashboard Report
+            </button>
+            <button onClick={handleRefresh} disabled={isRefreshing} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-bold shadow-sm disabled:opacity-50 active:scale-95">
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
               Refresh
             </button>

@@ -14,6 +14,13 @@ const api = axios.create({
 // Request interceptor for attaching tokens
 api.interceptors.request.use(
   (config) => {
+    // If the data is FormData, remove the global application/json so Axios can auto-set multipart boundary natively
+    if (config.data instanceof FormData) {
+      if (config.headers && config.headers['Content-Type']) {
+        delete config.headers['Content-Type'];
+      }
+    }
+
     const userString = localStorage.getItem("infrapilot_user");
     if (userString) {
       try {
@@ -40,6 +47,8 @@ api.interceptors.request.use(
       config.url = config.url.substring(1);
     }
 
+
+
     return config;
   },
   (error) => Promise.reject(error),
@@ -62,21 +71,32 @@ api.interceptors.response.use(
     if (status === 401) {
       // Ignore 401s from known buggy or sensitive endpoints to prevent aggressive logouts
       const isIgnored =
-        url.includes("/invoices") ||
-        url.includes("/communication") ||
-        url.includes("/alerts") ||
-        url.includes("/projects/alerts") ||
-        url.includes("/chats") ||
-        url.includes("/chat") ||
-        url.includes("/settings") ||
-        url.includes("/notifications") ||
-        url.includes("/dashboard");
+        url.includes("invoices") ||
+        url.includes("communication") ||
+        url.includes("alerts") ||
+        url.includes("chats") ||
+        url.includes("chat") ||
+        url.includes("settings") ||
+        url.includes("notifications") ||
+        url.includes("dashboard") ||
+        url.includes("billing") ||
+        url.includes("contractors") ||
+        url.includes("work-orders") ||
+        url.includes("quotations") ||
+        url.includes("measurements") ||
+        url.includes("accountant/") ||
+        url.includes("labour/payroll") ||
+        url.includes("labour/attendance") ||
+        url.includes("projects/module-summary") ||
+        url.includes("health-score") ||
+        url.includes("resource-summary") ||
+        url.includes("users/me");
 
       if (!isIgnored) {
         const path = window.location.pathname;
         // Don't logout if we're already on login or home
         if (path !== '/login' && path !== '/') {
-          console.warn("Auth Interceptor: 401 Unauthorized. Redirecting to login...", url);
+          console.error("Auth Interceptor: 401 Unauthorized on endpoint:", url, " - Token expired. Logging out.");
           localStorage.removeItem('infrapilot_user');
           window.location.href = '/login?expired=true';
         }

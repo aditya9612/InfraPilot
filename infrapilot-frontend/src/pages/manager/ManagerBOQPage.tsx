@@ -73,7 +73,7 @@ const ManagerBOQPage = () => {
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
 
     // Modal States
@@ -110,7 +110,7 @@ const ManagerBOQPage = () => {
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
     const [generatedTasksList, setGeneratedTasksList] = useState<any[]>([]);
-    
+
     // Select Milestone for Generate Tasks
     const [isSelectMilestoneModalOpen, setIsSelectMilestoneModalOpen] = useState(false);
     const [milestonesList, setMilestonesList] = useState<any[]>([]);
@@ -173,9 +173,9 @@ const ManagerBOQPage = () => {
         if (!selectedProjectId) { setBoqGroups([]); return; }
         boqService.getBoqsByProject(Number(selectedProjectId))
             .then(async (items: any[]) => {
-                // Filter out draft items as per user requirement to not show added items in BOQ list
-                const masters = items.filter((i: any) => i.approval_status !== 'Draft');
-                
+                // Removed draft filter so newly created BOQs show up
+                const masters = items;
+
                 // Fetch details for each master to get the correct internal boq_group_id to avoid 404s
                 const enrichedMasters = await Promise.all(masters.map(async (m: any) => {
                     try {
@@ -185,7 +185,7 @@ const ManagerBOQPage = () => {
                         return { ...m, true_group_id: m.boq_group_id || m.id };
                     }
                 }));
-                
+
                 setBoqGroups(enrichedMasters);
             })
             .catch(() => { setBoqGroups([]); });
@@ -207,8 +207,8 @@ const ManagerBOQPage = () => {
 
             const res = await boqService.getBoqs(filters);
 
-            // Filter out draft items from BOQ list
-            const masterItems = res.items.filter((item: any) => item.approval_status !== 'Draft');
+            // Removed draft filter so newly created BOQs show up
+            const masterItems = res.items;
             setBoqData(masterItems);
             setTotalItems(masterItems.length);
 
@@ -538,7 +538,7 @@ const ManagerBOQPage = () => {
     const openSelectMilestoneModal = async (item: BoqItem) => {
         setPendingGenerateTaskBoqId(item.id);
         setPendingGenerateTaskBoqName(item.item_name);
-        
+
         if (selectedProjectId) {
             try {
                 const ms = await projectService.getMilestones(Number(selectedProjectId));
@@ -558,9 +558,22 @@ const ManagerBOQPage = () => {
             toast.dismiss(loadingToast);
             toast.success("Tasks generated successfully!");
             setIsSelectMilestoneModalOpen(false);
-            
-            // Expected result to have a list of tasks. Handle array or object wrapping an array.
-            const tasks = Array.isArray(result) ? result : (result.tasks || result.data || []);
+
+            // Expected result to have a list of tasks. Handle array or object wrapping an array, or single task details object
+            let tasks = [];
+            if (Array.isArray(result)) {
+                tasks = result;
+            } else if (result && (result.tasks || result.data)) {
+                const inner = result.tasks || result.data;
+                tasks = Array.isArray(inner) ? inner : [inner];
+            } else if (result && (result.task_id || result.message)) {
+                tasks = [{
+                    task_name: result.message || "Task generated from BOQ",
+                    id: result.task_id,
+                    milestone_id: result.milestone_id,
+                    status: "Pending"
+                }];
+            }
             setGeneratedTasksList(tasks);
             setIsTasksModalOpen(true);
         } catch (error) {
@@ -599,7 +612,7 @@ const ManagerBOQPage = () => {
     };
 
     const tabs = [
-        { id: "boq-list", label: `BOQ List (${totalItems})`, icon: <List className="w-4 h-4" /> },
+        { id: "boq-list", label: "BOQ List", icon: <List className="w-4 h-4" /> },
         { id: "item-list", label: "BOQ Item List", icon: <Layers className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
@@ -622,7 +635,7 @@ const ManagerBOQPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <ProjectSelector variant="page" />
+                        <ProjectSelector variant="page" hideAllProjects={true} />
 
                         <button
                             onClick={() => setIsBulkImportModalOpen(true)}
@@ -846,9 +859,9 @@ const ManagerBOQPage = () => {
                                                             <td className="px-6 py-5 text-xs font-black text-slate-600 tabular-nums">
                                                                 {parseFloat(item.quantity?.toString() || "0").toLocaleString()} <span className="text-[10px] text-slate-400 font-bold ml-1">{item.unit}</span>
                                                             </td>
-                                                            <td className="px-6 py-5 text-xs font-black text-slate-700 tabular-nums">{formatCompactCurrency(Number(item.unit_cost) || 0)}</td>
-                                                            <td className="px-6 py-5 text-xs font-black text-blue-600 tabular-nums">{formatCompactCurrency(Number(item.total_cost) || 0)}</td>
-                                                            <td className="px-6 py-5 text-xs font-black text-rose-500 tabular-nums">
+                                                            <td className="px-6 py-5 text-xs font-black text-slate-700 tabular-nums whitespace-nowrap">{formatCompactCurrency(Number(item.unit_cost) || 0)}</td>
+                                                            <td className="px-6 py-5 text-xs font-black text-blue-600 tabular-nums whitespace-nowrap">{formatCompactCurrency(Number(item.total_cost) || 0)}</td>
+                                                            <td className="px-6 py-5 text-xs font-black text-rose-500 tabular-nums whitespace-nowrap">
                                                                 {Number(item.variance_cost) > 0 ? `+${formatCompactCurrency(Number(item.variance_cost))}` : formatCompactCurrency(Number(item.variance_cost) || 0)}
                                                             </td>
                                                             <td className="px-6 py-5 text-center">
@@ -912,6 +925,8 @@ const ManagerBOQPage = () => {
                                     totalItems={totalItems}
                                     pageSize={itemsPerPage}
                                     onPageChange={(page) => setCurrentPage(page + 1)}
+                                    onPageSizeChange={setItemsPerPage}
+                                    label="BOQs"
                                 />
                             </div>
                         )}
@@ -1002,8 +1017,12 @@ const ManagerBOQPage = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                             {generatedTasksList.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500 font-medium">
-                                    No tasks were returned. The generation process might be incomplete or the BOQ has no detailed sub-items to generate tasks for.
+                                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex flex-col items-center">
+                                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-800 mb-1">Tasks Generated Successfully!</h4>
+                                    <p className="text-xs text-slate-500 text-center max-w-sm">The BOQ tasks have been created successfully on the server.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -1017,7 +1036,7 @@ const ManagerBOQPage = () => {
                                             </div>
                                             <p className="text-sm text-slate-500 mb-3">{task.description || "No description provided."}</p>
                                             {task.milestone_id && (
-                                                <div className="text-xs text-slate-400 font-medium">Milestone ID: {task.milestone_id}</div>
+                                                <div className="text-xs text-slate-400 font-medium">Milestone: {milestonesList.find(m => Number(m.id) === Number(task.milestone_id))?.milestone_name || milestonesList.find(m => Number(m.id) === Number(task.milestone_id))?.name || task.milestone_id}</div>
                                             )}
                                         </div>
                                     ))}
@@ -1053,7 +1072,7 @@ const ManagerBOQPage = () => {
                             </button>
                         </div>
                         <div className="p-6 bg-slate-50/30 max-h-[60vh] overflow-y-auto space-y-6">
-                            
+
                             {/* BOQ Selection (Read-only since it's selected from row) */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target BOQ</label>
@@ -1091,7 +1110,7 @@ const ManagerBOQPage = () => {
                                                 </div>
                                             </button>
                                         ))}
-                                        
+
                                         <div className="pt-4 mt-4 border-t border-slate-100">
                                             <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl border border-dashed border-slate-300 text-slate-500 font-bold text-sm hover:border-slate-400 hover:text-slate-700 transition-colors bg-white">
                                                 Skip & Generate Without Milestone
@@ -1130,7 +1149,7 @@ const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | 
     const [comparisonData, setComparisonData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     useEffect(() => {
         if (!projectId) {
@@ -1236,6 +1255,8 @@ const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | 
                         totalItems={totalItems}
                         pageSize={itemsPerPage}
                         onPageChange={(page) => setCurrentPage(page + 1)}
+                        onPageSizeChange={setItemsPerPage}
+                        label="records"
                     />
                 )}
             </div>
@@ -1259,8 +1280,8 @@ const ItemListView = ({
     const [loading, setLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-    const itemsPerPage = 10;
-    
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     // Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<any | null>(null);
@@ -1282,7 +1303,7 @@ const ItemListView = ({
             setItems([]);
             return;
         }
-        
+
         const fetchItems = async () => {
             setLoading(true);
             try {
@@ -1395,6 +1416,8 @@ const ItemListView = ({
                             totalItems={items.length}
                             pageSize={itemsPerPage}
                             onPageChange={setCurrentPage}
+                            onPageSizeChange={setItemsPerPage}
+                            label="items"
                         />
                     </div>
                 )}

@@ -10,5 +10,6 @@ export interface ChartAccount {
   current_balance: number;
   description?: string;
   is_active: boolean;
+  created_at?: string;
   children?: ChartAccount[];
 }

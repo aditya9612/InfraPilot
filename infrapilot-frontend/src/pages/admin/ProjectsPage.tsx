@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { exportToCSV } from "../../utils/csvExport";
 import { formatDateBySettings } from "../../utils/dateUtils";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/common/Navbar";
@@ -22,6 +21,7 @@ const statusBadge: Record<ProjectStatus, string> = {
   Delayed: "bg-red-100 text-red-600",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
+  "On Track": "bg-emerald-100 text-emerald-600",
 };
 
 const progressFill: Record<ProjectStatus, string> = {
@@ -30,6 +30,7 @@ const progressFill: Record<ProjectStatus, string> = {
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
+  "On Track": "bg-emerald-500",
 };
 
 const statusDot: Record<ProjectStatus, string> = {
@@ -38,6 +39,7 @@ const statusDot: Record<ProjectStatus, string> = {
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
+  "On Track": "bg-emerald-500",
 };
 
 const backendStatusMap: Record<string, string> = {
@@ -45,7 +47,15 @@ const backendStatusMap: Record<string, string> = {
   "Ongoing": "ONGOING",
   "Completed": "COMPLETED",
   "On Hold": "ON_HOLD",
+  "On Track": "ON_TRACK",
   "Delayed": "" // Backend filter doesn't support DELAYED yet, so we fetch all and filter client-side
+};
+
+const formatProgress = (val: number | string | undefined | null) => {
+  if (val === undefined || val === null) return "0";
+  const num = Number(val);
+  if (isNaN(num)) return "0";
+  return parseFloat(num.toFixed(2)).toString();
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -290,25 +300,6 @@ const ProjectsPage = () => {
     }
   };
 
-  const handleDownloadCSV = () => {
-    const csvData = filtered.map(p => ({
-      id: `PRJ-${p.id}`,
-      project_name: p.project_name,
-      start_date: p.start_date,
-      end_date: p.end_date,
-      status: p.status,
-      percentage: `${p.completion_percentage}%`
-    }));
-
-    exportToCSV(csvData, "projects_export.csv", {
-      id: "Project ID",
-      project_name: "Project Name",
-      start_date: "Start Date",
-      end_date: "End Date",
-      status: "Status",
-      percentage: "Completion (%)"
-    });
-  };
 
   return (
     <>
@@ -325,13 +316,6 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleDownloadCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span>Export CSV</span>
-            </button>
             {user?.role !== "ProjectManager" && (
               <button
                 onClick={() => setShowConvertModal(true)}
@@ -503,7 +487,7 @@ const ProjectsPage = () => {
                               </p>
                             </div>
                             <span className="text-[10px] font-bold text-slate-400">
-                              {p.completion_percentage}%
+                              {formatProgress(p.completion_percentage)}%
                             </span>
                           </div>
 
@@ -663,7 +647,7 @@ const ProjectsPage = () => {
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div className={`h-full ${progressFill[p.status] || "bg-slate-300"}`} style={{ width: `${p.completion_percentage}%` }} />
                             </div>
-                            <span className="text-xs font-bold text-slate-400">{p.completion_percentage}%</span>
+                            <span className="text-xs font-bold text-slate-400">{formatProgress(p.completion_percentage)}%</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">

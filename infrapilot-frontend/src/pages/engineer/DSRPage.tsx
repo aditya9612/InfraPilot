@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewDSREntryModal from "../../components/dashboard/NewDSREntryModal";
 import EditDSRModal from "../../components/dashboard/EditDSRModal";
 import Modal from "../../components/common/Modal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     FileText,
@@ -22,7 +23,8 @@ import {
     ChevronLeft,
     ChevronRight,
     CheckCircle,
-    Trash2
+    Trash2,
+    Upload
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
@@ -62,6 +64,10 @@ const DSRPage = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [loadingId, setLoadingId] = useState<number | null>(null);
+    const photoUploadRef = useRef<HTMLInputElement>(null);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
+    const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
 
     // Layout State
     const [activeTab, setActiveTab] = useState<"list" | "analytics">("list");
@@ -144,17 +150,24 @@ const DSRPage = () => {
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(apiData.length);
 
-            // Use photos already included in the DSR list response
-            // (Removed per-item getDsrPhotos() calls that were causing N duplicate network requests)
-            const itemsWithPhotos = apiData.map((item: any) => {
-                const photos = item.photos?.map((p: any) => ({
-                    id: p.id,
-                    url: p.url || p.file_url
-                })) || [];
-                return { ...item, photos };
-            });
+            // The list endpoint returns photos: [] — fetch actual photos via the dedicated API
+            const itemsWithPhotos = await Promise.all(
+                apiData.map(async (item: any) => {
+                    try {
+                        const photoData = await dsrService.getDsrPhotos(item.id);
+                        const photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
+                            id: p.id,
+                            url: p.url || p.file_url
+                        })) : [];
+                        return { ...item, photos };
+                    } catch {
+                        return { ...item, photos: [] };
+                    }
+                })
+            );
 
             setDsrList(itemsWithPhotos);
+
         } catch (error) {
             console.error("Fetch DSR Error:", error);
             toast.error("Failed to sync DSR logs");
@@ -263,24 +276,52 @@ const DSRPage = () => {
 
 
 
-    const handleDeletePhoto = async (photoId: number) => {
-        if (!window.confirm("Are you sure you want to delete this photo?")) return;
-        const tid = toast.loading("Deleting photo...");
+    const handleUploadPhotoToExisting = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!selectedDsr || !e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        setIsUploadingPhoto(true);
+        const tid = toast.loading("Uploading photo...");
         try {
-            await dsrService.deleteDsrPhoto(photoId);
-            toast.success("Photo deleted successfully", { id: tid });
+            await dsrService.uploadDsrPhoto(selectedDsr.id, file);
+            toast.success("Photo uploaded!", { id: tid });
+            // Refresh photos for this DSR
+            const fresh = await dsrService.getDsrPhotos(selectedDsr.id);
+            const photos = Array.isArray(fresh) ? fresh.map((p: any) => ({ id: p.id, url: p.url || p.file_url })) : [];
+            setSelectedDsr(prev => prev ? { ...prev, photos } : prev);
+            // Also refresh list
+            fetchDsr();
+        } catch (error) {
+            console.error("Upload photo error", error);
+            toast.error("Failed to upload photo", { id: tid });
+        } finally {
+            setIsUploadingPhoto(false);
+            if (photoUploadRef.current) photoUploadRef.current.value = "";
+        }
+    };
 
+    const handleDeletePhoto = (photoId: number) => {
+        setPhotoToDelete(photoId);
+    };
+
+    const handleDeletePhotoConfirm = async () => {
+        if (!photoToDelete) return;
+        setIsDeletingPhoto(true);
+        try {
+            await dsrService.deleteDsrPhoto(photoToDelete);
+            toast.success("Photo deleted successfully");
             if (selectedDsr && selectedDsr.photos) {
-                const updatedPhotos = selectedDsr.photos.filter((p: any) => p.id !== photoId);
+                const updatedPhotos = selectedDsr.photos.filter((p: any) => p.id !== photoToDelete);
                 setSelectedDsr({ ...selectedDsr, photos: updatedPhotos });
             }
             fetchDsr();
         } catch (error) {
             console.error("Delete photo error", error);
-            toast.error("Failed to delete photo", { id: tid });
+            toast.error("Failed to delete photo");
+        } finally {
+            setIsDeletingPhoto(false);
+            setPhotoToDelete(null);
         }
     };
-
     const handleSubmitDsr = async (id: number) => {
         const toastId = toast.loading("Submitting report to audit...");
         try {
@@ -880,18 +921,39 @@ const DSRPage = () => {
                             </div>
                         </div>
 
-                        {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
-                            <div className="mb-8">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation ({selectedDsr.photos.length})</p>
+                        {/* Site Documentation — always show with upload button */}
+                        <div className="mb-8">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Site Documentation {selectedDsr.photos && selectedDsr.photos.length > 0 ? `(${selectedDsr.photos.length})` : ""}
+                                </p>
+                                <button
+                                    onClick={() => photoUploadRef.current?.click()}
+                                    disabled={isUploadingPhoto}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-60 shadow-sm"
+                                >
+                                    <Upload className="w-3 h-3" />
+                                    {isUploadingPhoto ? "Uploading..." : "Add Photo"}
+                                </button>
+                                <input
+                                    ref={photoUploadRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleUploadPhotoToExisting}
+                                />
+                            </div>
+
+                            {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {selectedDsr.photos.map((photo, idx) => (
-                                        <div key={idx} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100 aspect-square">
+                                        <div key={photo.id ?? idx} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100 aspect-square">
                                             <img
                                                 src={sitePhotoService.resolveUrl(photo.url) || ""}
                                                 alt={`Documentation ${idx + 1}`}
                                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
-                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                                 <a
                                                     href={sitePhotoService.resolveUrl(photo.url) || ""}
                                                     target="_blank"
@@ -902,7 +964,7 @@ const DSRPage = () => {
                                                 </a>
                                                 <button
                                                     onClick={() => handleDeletePhoto(photo.id)}
-                                                    className="w-10 h-10 ml-2 bg-rose-500/80 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-rose-600 transition-colors shadow-lg"
+                                                    className="w-10 h-10 bg-rose-500/80 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-rose-600 transition-colors shadow-lg"
                                                 >
                                                     <Trash2 className="w-5 h-5" />
                                                 </button>
@@ -910,15 +972,16 @@ const DSRPage = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        ) : selectedDsr.dsr_image && (
-                            <div className="mb-8">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation</p>
+                            ) : selectedDsr.dsr_image ? (
                                 <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
                                     <img src={sitePhotoService.resolveUrl(selectedDsr.dsr_image) || ""} alt="Site Documentation" className="w-full h-full object-cover" />
                                 </div>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="flex items-center justify-center h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50">
+                                    <p className="text-xs text-slate-400 font-medium">No photos yet — click <strong>Add Photo</strong> to upload</p>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="space-y-8 mb-10">
                             {/* Operational Intelligence style section */}
@@ -1185,6 +1248,19 @@ const DSRPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── Delete Photo Confirm Modal (same as Labour delete pattern) ── */}
+            <ConfirmModal
+                isOpen={photoToDelete !== null}
+                onClose={() => setPhotoToDelete(null)}
+                onConfirm={handleDeletePhotoConfirm}
+                title="Delete Site Photo"
+                message="Are you sure you want to delete this photo? This action cannot be undone."
+                confirmText="Delete Photo"
+                cancelText="Cancel"
+                type="danger"
+                isLoading={isDeletingPhoto}
+            />
         </>
     );
 };

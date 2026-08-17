@@ -26,15 +26,19 @@ const MOCK_PAYMENTS = [
 
 // 2. Receipts Section (Receive Payment)
 const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
-    (initialSubTab as any) || "create"
+  const [activeSubTab, setActiveSubTab] = useState<"list" | "approval">(
+    (initialSubTab as any) === "approval" ? "approval" : "list"
   );
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   const [receipts, setReceipts] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
-  const [search, setSearch] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
@@ -62,10 +66,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   }, [activeSubTab]);
 
-  const handleDelete = (id: string) => {
-    setReceipts(prev => prev.filter(r => r.id !== id));
-    toast.success("Receipt deleted! (Mock)");
-  };
+
 
   const handleApprove = (id: string) => {
     setReceipts(prev => prev.map(r => r.id === id ? { ...r, status: "Cleared" } : r));
@@ -88,7 +89,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
       });
       toast.success("Receipt recorded!");
       fetchReceipts();
-      setActiveSubTab("list");
+      setIsCreateModalOpen(false);
       e.currentTarget.reset();
     } catch (err) {
       toast.error("Failed to create receipt");
@@ -97,35 +98,20 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-  const filtered = receipts.filter(r => 
-    (r.reference?.toLowerCase() || "").includes(search.toLowerCase()) || 
-    (r.id?.toString().toLowerCase() || "").includes(search.toLowerCase())
-  );
-
-  const subTabs = [
-    { key: "create", label: "Record Receipt" },
-    { key: "list", label: "Receipts List" },
-  ] as const;
+  const filtered = receipts;
+  
+  const totalPages = Math.ceil(filtered.length / recordsPerPage);
+  const paginatedItems = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
-          {subTabs.map(t => (
-            <button key={t.key} onClick={() => setActiveSubTab(t.key)}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <h2 className="text-lg font-bold text-slate-800">Receipts</h2>
         <div className="flex items-center gap-3">
-          <input 
-            type="text" 
-            placeholder="Search receipts..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500/20 w-44 bg-white" 
-          />
+
+          <button onClick={() => setIsCreateModalOpen(true)} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-sm shadow-emerald-500/20 active:scale-95 whitespace-nowrap">
+            + Create Receipt
+          </button>
         </div>
       </div>
 
@@ -158,11 +144,11 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                   <th className="px-4 py-3 font-semibold text-slate-500">Amount</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Reference</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Dates</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-right">Actions</th>
+
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map(r => (
+                {paginatedItems.map(r => (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-slate-700 capitalize">{r.type || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
@@ -175,24 +161,58 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                       <div><span className="text-slate-400">Cre:</span> {r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
                       <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? new Date(r.updated_at).toLocaleString() : '-'}</div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="View">👁</button>
-                        <button onClick={() => setActiveSubTab("create")} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
-                      </div>
-                    </td>
+
                   </tr>
                 ))}
+                {paginatedItems.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">No receipts found.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
+          </div>
+          
+          {/* Pagination Controls */}
+          <div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={recordsPerPage} 
+                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all"
+              >
+                Prev
+              </button>
+              <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold">
+                {currentPage}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {activeSubTab === "create" && (
-        <form onSubmit={handleFormSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-3xl animate-in fade-in slide-in-from-bottom-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Create New Receipt</h3>
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create New Receipt" maxWidth="max-w-2xl">
+        <form onSubmit={handleFormSubmit} className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Project</label>
@@ -210,10 +230,11 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Mode</label>
               <select name="mode" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
-                <option>Cash</option>
-                <option>Bank Transfer</option>
-                <option>Cheque</option>
-                <option>UPI</option>
+                <option value="Cash">Cash</option>
+                <option value="BankTransfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+                <option value="UPI">UPI</option>
+                <option value="Adjustment">Adjustment</option>
               </select>
             </div>
             <div>
@@ -223,12 +244,13 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
           </div>
           
           <div className="flex justify-end pt-4 border-t border-slate-100">
+            <button type="button" onClick={() => setIsCreateModalOpen(false)} className="mr-3 px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
             <button disabled={isLoading} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-emerald-500/20 active:scale-95 disabled:opacity-50">
               {isLoading ? "Saving..." : "Save Receipt"}
             </button>
           </div>
         </form>
-      )}
+      </Modal>
 
       {activeSubTab === "approval" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -264,7 +286,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   );
   
   const [payments, setPayments] = useState<any[]>(MOCK_PAYMENTS);
-  const [search, setSearch] = useState("");
+
   const [editingPayment, setEditingPayment] = useState<any>(null);
 
   useEffect(() => {
@@ -301,10 +323,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     setActiveSubTab("list");
   };
 
-  const filtered = payments.filter(p => 
-    (p.party?.toLowerCase() || "").includes(search.toLowerCase()) || 
-    (p.id?.toLowerCase() || "").includes(search.toLowerCase())
-  );
+  const filtered = payments;
 
   const subTabs = [
     { key: "create", label: "Make Payment" },
@@ -322,15 +341,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3">
-          <input 
-            type="text" 
-            placeholder="Search payments..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-rose-500/20 w-44 bg-white" 
-          />
-        </div>
+
       </div>
 
       {activeSubTab === "list" && (
@@ -415,8 +426,12 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable Amount *</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" /></div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
-                  <select name="mode" defaultValue={editingPayment?.mode || "Bank Transfer"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option value="Bank Transfer">Bank Transfer</option><option value="RTGS">RTGS</option><option value="NEFT">NEFT</option><option value="Cheque">Cheque</option><option value="Cash">Cash</option>
+                  <select name="mode" defaultValue={editingPayment?.mode || "BankTransfer"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="BankTransfer">Bank Transfer</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Adjustment">Adjustment</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -482,31 +497,45 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 4. Petty Cash Section
-const PettyCashSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-      <div>
-        <h3 className="font-bold text-slate-800">Petty Cash Management</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Record daily cash in / out for minor site expenses</p>
+const PettyCashSection = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50/50 gap-4">
+        <div>
+          <h3 className="font-bold text-slate-800">Petty Cash Management</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Record daily cash in / out for minor site expenses</p>
+        </div>
+        <div className="flex items-center gap-6">
+
+          <button onClick={() => setIsModalOpen(true)} className="px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-500/20 active:scale-95 whitespace-nowrap">
+            + Create Petty Cash
+          </button>
+        </div>
       </div>
-      <div className="text-right">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Balance</p>
-        <p className="text-xl font-black text-indigo-600">₹24,500</p>
-      </div>
-    </div>
-    <div className="p-6 border-b border-slate-100 bg-white">
-      <h4 className="text-sm font-bold text-slate-800 mb-4">Record New Transaction</h4>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Cash Out (Expense)</option><option>Cash In (Top-up)</option></select></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="">Select...</option>{PETTY_CASH_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" placeholder="Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><input type="text" placeholder="Manager Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Description..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-      </div>
-      <div className="mt-5 flex justify-end">
-        <button onClick={() => toast.success("Petty Cash transaction added")} className="bg-indigo-500 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-600 transition-all">Save Transaction</button>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record New Transaction" maxWidth="max-w-2xl">
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Cash Out (Expense)</option><option>Cash In (Top-up)</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="">Select...</option>{PETTY_CASH_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹)</label><input type="number" placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><input type="text" placeholder="Manager Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          </div>
+          <div className="flex justify-end pt-4 border-t border-slate-100 gap-3">
+            <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+            <button onClick={() => { toast.success("Petty Cash transaction added"); setIsModalOpen(false); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95">Save Transaction</button>
+          </div>
+        </div>
+      </Modal>
+    <div className="p-5 border-b border-slate-100">
+      <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl inline-block min-w-[200px]">
+        <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Current Balance</p>
+        <p className="text-2xl font-black text-indigo-600">₹24,500</p>
       </div>
     </div>
     <div className="overflow-x-auto p-0">
@@ -533,7 +562,8 @@ const PettyCashSection = () => (
       </table>
     </div>
   </div>
-);
+  );
+};
 
 
 

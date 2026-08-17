@@ -2,7 +2,6 @@ import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
-import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 interface AddActivityModalProps {
@@ -16,6 +15,7 @@ interface AddActivityModalProps {
 import { boqService } from "../../services/boqService";
 import api from "../../services/api";
 import { masterService } from "../../services/masterService";
+import { workProgressService } from "../../services/workProgressService";
 
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
@@ -49,6 +49,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
   const [unitList, setUnitList] = useState<any[]>([]);
   const [activityTypes, setActivityTypes] = useState<any[]>([]);
+  const [existingActivities, setExistingActivities] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,24 +69,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           console.error("Failed to fetch projects", err);
         }
 
-        try {
-          const boqs = await boqService.getBoqs({ limit: 100 });
-          const items = Array.isArray(boqs.items) ? boqs.items : [];
-          setAllBoqs(uniqueById(items));
-        } catch (err) {
-          console.error("Failed to fetch all BOQs", err);
-          setAllBoqs([]);
-        }
 
-
-        try {
-          const woRes = await api.get(`/work-orders`).catch(() => ({ data: [] }));
-          const items = Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []);
-          setAllWorkOrders(uniqueById(items));
-        } catch (err) {
-          console.error("Failed to fetch all Work Orders", err);
-          setAllWorkOrders([]);
-        }
 
         try {
           const unitsRes = await masterService.getEntities("units");
@@ -108,13 +92,37 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   }, [isOpen]);
 
   useEffect(() => {
-    const fetchSiteEngineers = async () => {
+    const fetchProjectSpecificData = async () => {
+      const projectIdToFetch = Number(formData.project_id) || projectId;
+      if (!projectIdToFetch) {
+        setSiteEngineers([]);
+        setAllBoqs([]);
+        setAllWorkOrders([]);
+        setExistingActivities([]);
+        return;
+      }
+
+      // Fetch existing activities to prevent duplicates
+      workProgressService.listActivities(projectIdToFetch, undefined, 100)
+        .then(acts => setExistingActivities(acts || []))
+        .catch(err => { console.error("Failed to fetch existing activities", err); setExistingActivities([]); });
+
+      // Fetch BOQs for this project
+      boqService.getBoqs({ limit: 100, project_id: projectIdToFetch })
+        .then(boqs => setAllBoqs(uniqueById(Array.isArray(boqs.items) ? boqs.items : [])))
+        .catch(err => { console.error("Failed to fetch BOQs", err); setAllBoqs([]); });
+
+      // Fetch Work Orders for this project (and boq item if selected)
+      const woParams: any = { project_id: projectIdToFetch };
+      if (formData.boq_code) {
+        woParams.boq_id = formData.boq_code;
+      }
+      api.get(`/work-orders`, { params: woParams })
+        .then(woRes => setAllWorkOrders(uniqueById(Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []))))
+        .catch(err => { console.error("Failed to fetch Work Orders", err); setAllWorkOrders([]); });
+
+      // Fetch Site Engineers
       try {
-        const projectIdToFetch = Number(formData.project_id) || projectId;
-        if (!projectIdToFetch) {
-          setSiteEngineers([]);
-          return;
-        }
         const res = await projectService.getProjectMembers(projectIdToFetch);
         const allUsers = Array.isArray(res) ? res : (res.items || res.data || []);
         const engineers = allUsers
@@ -123,9 +131,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             const normalizedRole = role.toLowerCase().replace(/\s/g, '');
             const isEngineerRole = normalizedRole === 'siteengineer' || normalizedRole === 'engineer' || normalizedRole === 'member';
 
-            // Ensure the user is assigned to the project. projectService.getProjectMembers
-            // usually returns project-specific members, but add extra safety checks
-            // for common shapes of member objects.
             const belongsToProject = (() => {
               try {
                 if (!projectIdToFetch) return false;
@@ -141,7 +146,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               } catch (e) {
                 return false;
               }
-              // fallback: if projectService returned members, assume they belong
               return true;
             })();
 
@@ -159,12 +163,42 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     };
 
     if (isOpen) {
-      fetchSiteEngineers();
+      fetchProjectSpecificData();
     }
-  }, [isOpen, formData.project_id, projectId]);
+  }, [isOpen, formData.project_id, projectId, formData.boq_code]);
+
+  const isCombinationUsed = (boqId: any, actName: any, woId: any) => {
+    return existingActivities.some(a => 
+      (a.boq_item_id == boqId || a.boq_code == boqId) && 
+      a.activity_name === actName && 
+      (a.work_order_id == woId || (!a.work_order_id && !woId))
+    );
+  };
 
   const displayedBoqs = allBoqs;
-  const displayedWorkOrders = allWorkOrders;
+  
+  const displayedWorkOrders = (() => {
+    let wos = allWorkOrders;
+    if (formData.boq_code && formData.activity_name) {
+      wos = wos.filter(w => !isCombinationUsed(formData.boq_code, formData.activity_name, w.id));
+    }
+    return wos;
+  })();
+
+  const displayedActivityTypes = (() => {
+    let types = activityTypes;
+    if (formData.boq_code) {
+      const selectedBoq = allBoqs.find(b => (b.id || b.boq_id) == formData.boq_code);
+      if (selectedBoq && selectedBoq.activity_type_id) {
+        const filtered = activityTypes.filter(a => a.id == selectedBoq.activity_type_id);
+        if (filtered.length > 0) types = filtered;
+      }
+    }
+    if (formData.boq_code) {
+      types = types.filter(t => !isCombinationUsed(formData.boq_code, t.name, formData.work_order_id || null));
+    }
+    return types;
+  })();
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -209,6 +243,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         project_id: Number(formData.project_id) || projectId,
         planned_quantity: Number(formData.planned_quantity),
         boq_code: formData.boq_code ? Number(formData.boq_code) : null,
+        boq_item_id: formData.boq_code ? Number(formData.boq_code) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
@@ -240,7 +275,26 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       return;
     }
 
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // Reset dependent fields when project changes
+      if (name === "project_id") {
+        newData.boq_code = "";
+        newData.work_order_id = "";
+        newData.engineer_id = "";
+        newData.activity_name = "";
+      }
+      
+      // Reset dependent fields when BOQ changes
+      if (name === "boq_code") {
+        newData.work_order_id = "";
+        newData.activity_name = "";
+      }
+      
+      return newData;
+    });
+
     if (errors[name]) {
       setErrors(prev => {
         const { [name]: _, ...rest } = prev;
@@ -312,7 +366,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 required
               >
                 <option value="">Select Activity Name</option>
-                {activityTypes.map((act) => (
+                {displayedActivityTypes.map((act) => (
                   <option key={act.id || act.name} value={act.name}>
                     {act.name}
                   </option>
@@ -347,7 +401,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 <option value="">Select Work Order</option>
                 {displayedWorkOrders.map(w => (
                   <option key={w.id} value={w.id}>
-                    {w.title || w.work_order_no || "Work Order"}
+                    {w.work_description || w.work_order_number || `Work Order #${w.id}`}
                   </option>
                 ))}
               </select>

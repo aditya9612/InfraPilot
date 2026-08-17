@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import ConfirmModal from "../../../components/common/ConfirmModal";
@@ -14,7 +14,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw, RotateCcw, QrCode
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 import { useProject } from "../../../context/ProjectContext";
@@ -47,6 +47,18 @@ const MachineryPage = () => {
 
     // ─── Data States ──────────────────────────────────────────────────
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+    const [unallocatedEquipmentList, setUnallocatedEquipmentList] = useState<Equipment[]>([]);
+
+    const modalEquipmentList = useMemo(() => {
+        const combined = [...equipmentList];
+        unallocatedEquipmentList.forEach(eq => {
+            if (!combined.find(e => e.id === eq.id)) {
+                combined.push(eq);
+            }
+        });
+        return combined;
+    }, [equipmentList, unallocatedEquipmentList]);
+
     const [availability, setAvailability] = useState<AvailabilityReport[]>([]);
     const [maintenanceAlerts, setMaintenanceAlerts] = useState<MaintenanceAlert[]>([]);
     const [equipmentAlerts, setEquipmentAlerts] = useState<EquipmentAlert[]>([]);
@@ -54,13 +66,15 @@ const MachineryPage = () => {
     // Tab 3: Usage
     const [usageReport, setUsageReport] = useState<UsageReport[]>([]);
     const [boqsList, setBoqsList] = useState<any[]>([]);
-    const [selectedEquipmentLogs, setSelectedEquipmentLogs] = useState<{ usage: UsageItem[], maint: MaintenanceItem[], rental: RentalItem[] }>({ usage: [], maint: [], rental: [] });
+    const [selectedEquipmentLogs, setSelectedEquipmentLogs] = useState<{ usage: UsageItem[], maint: MaintenanceItem[], rental: RentalItem[], transfer?: any[] }>({ usage: [], maint: [], rental: [] });
 
     // Tab 5: Rental
     const [costReport, setCostReport] = useState<CostReport[]>([]);
     const [allRentals, setAllRentals] = useState<RentalItem[]>([]);
     const [rentalCurrentPage, setRentalCurrentPage] = useState(1);
     const [rentalItemsPerPage, setRentalItemsPerPage] = useState(10);
+
+    const [transferHistory, setTransferHistory] = useState<any[]>([]);
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
@@ -102,6 +116,17 @@ const MachineryPage = () => {
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
+    
+    // View Modals for Usage and Maintenance
+    const [viewUsageItem, setViewUsageItem] = useState<any>(null);
+    const [isViewUsageModalOpen, setIsViewUsageModalOpen] = useState(false);
+    const [viewMaintenanceItem, setViewMaintenanceItem] = useState<any>(null);
+    const [isViewMaintenanceModalOpen, setIsViewMaintenanceModalOpen] = useState(false);
+
+    // QR Modal
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [qrCodeUrl, setQrCodeUrl] = useState("");
+    const [qrEquipmentCode, setQrEquipmentCode] = useState("");
 
     // Form Data
     const [formData, setFormData] = useState<any>({});
@@ -150,19 +175,29 @@ const MachineryPage = () => {
 
     // ─── Data Fetching ─────────────────────────────────────────────────
 
-    // Helper to wrap API calls
-    const withLoading = async (fn: () => Promise<void>) => {
-        setIsLoading(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const withLoading = async (fn: () => Promise<void>, silent = false) => {
+        if (!silent) setIsLoading(true);
         try { await fn(); }
-        catch (err) { console.error(err); toast.error("Failed to load data"); }
-        finally { setIsLoading(false); }
+        catch (err) { console.error(err); if (!silent) toast.error("Failed to load data"); }
+        finally { if (!silent) setIsLoading(false); }
     };
 
-    // Load data based on active tab
-    useEffect(() => {
+    const fetchTabData = useCallback(async (silent = false) => {
         const eqParams = { limit: 100, ...(selectedProjectId ? { project_id: selectedProjectId } : {}), ...(showDeleted ? { is_deleted: true } : {}) };
         const pIdObj = selectedProjectId ? { project_id: selectedProjectId } : undefined;
-        withLoading(async () => {
+        await withLoading(async () => {
+            if (selectedProjectId) {
+                equipmentService.listEquipment({ limit: 100 }).then(res => {
+                    const unalloc = (res.items || []).filter((e: Equipment) => e.project_id === null);
+                    setUnallocatedEquipmentList(unalloc);
+                }).catch(() => setUnallocatedEquipmentList([]));
+            } else {
+                setUnallocatedEquipmentList([]);
+            }
+
+
             if (activeTab === "Dashboard") {
                 const [eqRes, avail, mAlerts, eAlerts, cost] = await Promise.all([
                     equipmentService.listEquipment(eqParams),
@@ -228,6 +263,16 @@ const MachineryPage = () => {
                 setEquipmentList(eqList);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
             }
+            else if (activeTab === "Transfer Equipment") {
+                const [res, history] = await Promise.all([
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.listTransferHistory(pIdObj).catch(() => [])
+                ]);
+                const eqList = res.items || [];
+                setEquipmentList(eqList);
+                setTransferHistory(history);
+                if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+            }
             else if (activeTab === "Reports & Alerts") {
                 const [avail, util, eqRes, purchaseRes] = await Promise.all([
                     equipmentService.getAvailabilityReport(pIdObj),
@@ -240,8 +285,19 @@ const MachineryPage = () => {
                 setEquipmentList(eqRes.items || []);
                 setPurchaseReport(purchaseRes || []);
             }
-        });
+        }, silent);
     }, [activeTab, selectedProjectId, showDeleted]);
+
+    useEffect(() => {
+        fetchTabData();
+    }, [fetchTabData, refreshTrigger]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchTabData(true);
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [fetchTabData]);
 
     // Fetch equipment specific logs when selected in Usage/Maintenance/Rental/Logs tabs
     useEffect(() => {
@@ -253,6 +309,8 @@ const MachineryPage = () => {
             equipmentService.listMaintenance(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, maint: res })));
         } else if (activeTab === "Rental") {
             equipmentService.listRental(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, rental: res })));
+        } else if (activeTab === "Transfer Equipment") {
+            equipmentService.getTransferHistory(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, transfer: res })));
         } else if (activeTab === "Reports & Alerts" || isLogsModalOpen) {
             equipmentService.getAuditLogs(selectedEquipment.id, { limit: 20, offset: 0 }).then(res => setAuditLogs(res.items || []));
         }
@@ -281,7 +339,8 @@ const MachineryPage = () => {
     const handleSaveEquipmentModal = async (submittedData: any) => {
         try {
             if (submittedData.id) {
-                await equipmentService.updateEquipment(submittedData.id, submittedData);
+                const { equipment_code, ...updatePayload } = submittedData;
+                await equipmentService.updateEquipment(submittedData.id, updatePayload);
                 toast.success("Equipment updated successfully!");
             } else {
                 const payload = { ...submittedData };
@@ -367,7 +426,7 @@ const MachineryPage = () => {
         e.preventDefault();
         if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id, transfer_date: new Date().toISOString().split('T')[0] });
+            await equipmentService.transferEquipment(formData.equipment_id, formData.project_id);
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -382,6 +441,7 @@ const MachineryPage = () => {
         try {
             if (formData.usage_id) {
                 await equipmentService.updateUsage(formData.usage_id, {
+                    equipment_id: formData.equipment_id,
                     working_hours: Number(formData.working_hours),
                     fuel_used: Number(formData.fuel_used),
                     usage_date: formData.usage_date || new Date().toISOString().split('T')[0],
@@ -535,6 +595,50 @@ const MachineryPage = () => {
         } catch (error: any) {
             const errorMsg = error.response?.data?.detail || "Failed to add rental";
             toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+        }
+    };
+
+    const handleCompleteRental = async (rental_id: number, equipment_id: number) => {
+        try {
+            await equipmentService.completeRental(rental_id);
+            toast.success("Rental marked as completed successfully");
+            const logs = await equipmentService.listRental(equipment_id);
+            setSelectedEquipmentLogs(prev => ({ ...prev, rental: logs }));
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error) {
+            toast.error("Failed to mark rental as completed");
+        }
+    };
+
+    const handleGenerateQR = async (equipment_id: number, code: string) => {
+        try {
+            const toastId = toast.loading("Generating QR Code...");
+            const res = await equipmentService.generateQR(equipment_id);
+            toast.dismiss(toastId);
+            
+            // Handle if the response is a blob or base64
+            let url = "";
+            if (typeof res === "string" && res.startsWith("data:image")) {
+                url = res;
+            } else if (res && res.qr_code_url) {
+                url = res.qr_code_url;
+            } else if (res && res.qr_code) {
+                url = res.qr_code.startsWith("data:image") ? res.qr_code : `data:image/png;base64,${res.qr_code}`;
+            } else if (res instanceof Blob) {
+                url = window.URL.createObjectURL(res);
+            }
+
+            if (url) {
+                setQrCodeUrl(url);
+                setQrEquipmentCode(code);
+                setIsQrModalOpen(true);
+                toast.success("QR Code generated successfully!");
+            } else {
+                toast.error("Invalid QR Code response");
+            }
+        } catch (error) {
+            toast.dismiss();
+            toast.error("Failed to generate QR Code");
         }
     };
 
@@ -749,9 +853,14 @@ const MachineryPage = () => {
                             <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
                         </div>
                     </div>
-                    <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
-                        <Plus className="w-4 h-4" /> Add Equipment
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={() => setRefreshTrigger(prev => prev + 1)} className="px-5 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all shrink-0">
+                            <RotateCcw className="w-4 h-4" /> Refresh
+                        </button>
+                        <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
+                            <Plus className="w-4 h-4" /> Add Equipment
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-auto">
@@ -801,6 +910,7 @@ const MachineryPage = () => {
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
                                                     <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
@@ -906,13 +1016,63 @@ const MachineryPage = () => {
                     <ExternalLink className="w-4 h-4" /> Create Transfer
                 </button>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 flex flex-col items-center justify-center min-h-[400px]">
-                <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                    <ExternalLink className="w-10 h-10" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
+                    <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
+                    <button onClick={() => setSelectedEquipment(null)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${!selectedEquipment ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
+                        All Equipment
+                    </button>
+                    {modalEquipmentList.map(eq => (
+                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
+                            {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
+                        </button>
+                    ))}
                 </div>
-                <div className="text-center">
-                    <h3 className="text-2xl font-bold text-slate-800 mb-2">Initiate Equipment Transfer</h3>
-                    <p className="text-slate-500 text-sm max-w-sm mx-auto">Click the Create Transfer button at the top right to seamlessly transfer equipment between active projects or return it to the central yard.</p>
+                
+                <div className="lg:col-span-3">
+                    {(selectedEquipment ? (selectedEquipmentLogs.transfer?.length || 0) > 0 : transferHistory.length > 0) ? (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 bg-slate-50"><h3 className="font-bold text-sm text-slate-800">Transfer History {selectedEquipment ? `— ${selectedEquipment.equipment_name}` : ''}</h3></div>
+                            <div className="overflow-x-auto max-h-[400px]">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                        <tr>
+                                            <th className="p-4">Equipment</th>
+                                            <th className="p-4">From Project</th>
+                                            <th className="p-4">To Project</th>
+                                            <th className="p-4">Transferred By</th>
+                                            <th className="p-4">Transferred Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {(selectedEquipment ? (selectedEquipmentLogs.transfer || []) : transferHistory).map((t: any, i: number) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                <td className="p-4 font-bold text-slate-800">{t.equipment_name || t.equipment?.equipment_name || selectedEquipment?.equipment_name || '-'}</td>
+                                                <td className="p-4 text-slate-600">{t.from_project_name || t.from_project?.project_name || t.from_project?.name || 'Central Yard'}</td>
+                                                <td className="p-4 text-indigo-600 font-medium">{t.to_project_name || t.to_project?.project_name || t.to_project?.name || 'Central Yard'}</td>
+                                                <td className="p-4 text-slate-600">{t.transferred_by_name || '-'}</td>
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <div className="text-slate-500">{t.transferred_at ? new Date(t.transferred_at).toLocaleString() : (t.transfer_date ? new Date(t.transfer_date).toLocaleDateString() : 'N/A')}</div>
+                                                    {t.ip_address && <div className="text-slate-400 text-[10px] mt-0.5 font-mono">IP: {t.ip_address}</div>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 flex flex-col items-center justify-center min-h-[400px]">
+                            <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <ExternalLink className="w-10 h-10" />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">{selectedEquipment ? 'No Transfers Found' : 'Initiate Equipment Transfer'}</h3>
+                                <p className="text-slate-500 text-sm max-w-sm mx-auto">{selectedEquipment ? 'This equipment has not been transferred yet.' : 'Click the Create Transfer button at the top right to seamlessly transfer equipment between active projects or return it to the central yard.'}</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -982,6 +1142,11 @@ const MachineryPage = () => {
                                         <span className="text-xs font-bold text-slate-600">{log.usage_date}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold text-emerald-600">{log.working_hours} hrs</span>
+                                            <button onClick={async () => {
+                                                const item = await equipmentService.getUsage(log.id);
+                                                setViewUsageItem(item);
+                                                setIsViewUsageModalOpen(true);
+                                            }} className="p-1 text-slate-400 hover:text-indigo-500 rounded"><Eye className="w-3 h-3" /></button>
                                             <button onClick={() => { setFormData({ ...log, usage_id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsUsageModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-500 rounded"><Edit2 className="w-3 h-3" /></button>
                                             <button onClick={() => handleDeleteUsage(log.id, log.equipment_id || selectedEquipment?.id || 0)} className="p-1 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
                                         </div>
@@ -1027,7 +1192,7 @@ const MachineryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    {equipmentList.map(eq => (
+                    {modalEquipmentList.map(eq => (
                         <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
                             {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
                         </button>
@@ -1076,6 +1241,13 @@ const MachineryPage = () => {
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-1">
+                                                    <button onClick={async () => {
+                                                        const item = await equipmentService.getMaintenance(log.id);
+                                                        setViewMaintenanceItem(item);
+                                                        setIsViewMaintenanceModalOpen(true);
+                                                    }} className="p-1.5 text-slate-400 hover:text-indigo-500 rounded hover:bg-slate-50 transition-colors" title="View Details">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
                                                     <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Complete Maintenance">
                                                         <Check className="w-4 h-4" />
                                                     </button>
@@ -1147,7 +1319,7 @@ const MachineryPage = () => {
                                         if (eq) setSelectedEquipment(eq);
                                     }}
                                 >
-                                    {equipmentList.map(eq => (
+                                    {modalEquipmentList.map(eq => (
                                         <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
                                     ))}
                                 </select>
@@ -1191,6 +1363,9 @@ const MachineryPage = () => {
                                                         setIsRentalViewModalOpen(true);
                                                     }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
                                                         <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleCompleteRental(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
+                                                        <Check className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
@@ -1253,6 +1428,9 @@ const MachineryPage = () => {
                                                             setIsRentalViewModalOpen(true);
                                                         }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
                                                             <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleCompleteRental(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
+                                                            <Check className="w-4 h-4" />
                                                         </button>
                                                         <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
                                                             <Edit2 className="w-4 h-4" />
@@ -1659,7 +1837,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1701,7 +1879,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
@@ -1736,6 +1914,7 @@ const MachineryPage = () => {
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
                         </select>
                     </div>
+
                     <div className="flex justify-end gap-3 mt-6">
                         <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20">Schedule</button>
@@ -1750,7 +1929,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -2045,7 +2224,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Choose equipment --</option>
-                            {equipmentList.map(eq => (
+                            {modalEquipmentList.map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
                             ))}
                         </select>
@@ -2086,6 +2265,75 @@ const MachineryPage = () => {
                     </div>
                     <div className="flex gap-3">
                         <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* View Usage Modal */}
+            <Modal isOpen={isViewUsageModalOpen} onClose={() => setIsViewUsageModalOpen(false)} title="Usage Log Details" maxWidth="max-w-md">
+                <div className="p-6 font-inter bg-slate-50">
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4 space-y-3 text-sm">
+                        {viewUsageItem ? (
+                            <>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Date</span><span className="font-bold text-slate-800">{viewUsageItem.usage_date}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Project</span><span className="font-bold text-slate-800">{projects.find(p => p.id === viewUsageItem.project_id)?.project_name || projects.find(p => p.id === viewUsageItem.project_id)?.name || viewUsageItem.project_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">BOQ Item</span><span className="font-bold text-slate-800">{boqsList.find(b => b.id === viewUsageItem.boq_item_id)?.item_name || viewUsageItem.boq_item_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Equipment</span><span className="font-bold text-slate-800">{equipmentList.find(e => e.id === viewUsageItem.equipment_id)?.equipment_name || viewUsageItem.equipment_name || `ID: ${viewUsageItem.equipment_id}`}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Working Hours</span><span className="font-bold text-emerald-600">{viewUsageItem.working_hours} hrs</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Fuel Used</span><span className="font-bold text-orange-600">{viewUsageItem.fuel_used} L</span></div>
+                                <div><span className="text-slate-500 font-medium block mb-2">Notes</span><p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-xs">{viewUsageItem.notes || 'No notes provided.'}</p></div>
+                                <div className="text-xs text-slate-400 mt-5 text-center">
+                                    <p>Created: {viewUsageItem.created_at ? new Date(viewUsageItem.created_at).toLocaleString() : 'N/A'}</p>
+                                    <p>Updated: {viewUsageItem.updated_at ? new Date(viewUsageItem.updated_at).toLocaleString() : 'N/A'}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center text-slate-400 py-4">Loading details...</div>
+                        )}
+                    </div>
+                    <button onClick={() => setIsViewUsageModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                </div>
+            </Modal>
+
+            {/* View Maintenance Modal */}
+            <Modal isOpen={isViewMaintenanceModalOpen} onClose={() => setIsViewMaintenanceModalOpen(false)} title="Maintenance Details" maxWidth="max-w-md">
+                <div className="p-6 font-inter bg-slate-50">
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4 space-y-3 text-sm">
+                        {viewMaintenanceItem ? (
+                            <>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Status</span><span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${viewMaintenanceItem.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{viewMaintenanceItem.is_completed ? 'COMPLETED' : 'PENDING'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Project</span><span className="font-bold text-slate-800">{projects.find(p => p.id === viewMaintenanceItem.project_id)?.project_name || projects.find(p => p.id === viewMaintenanceItem.project_id)?.name || viewMaintenanceItem.project_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">BOQ Item</span><span className="font-bold text-slate-800">{boqsList.find(b => b.id === viewMaintenanceItem.boq_item_id)?.item_name || viewMaintenanceItem.boq_item_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Equipment</span><span className="font-bold text-slate-800">{equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_name || viewMaintenanceItem.equipment_name || `ID: ${viewMaintenanceItem.equipment_id}`}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Maintenance Date</span><span className="font-bold text-slate-800">{viewMaintenanceItem.maintenance_date}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Cost</span><span className="font-bold text-indigo-600">₹{viewMaintenanceItem.cost?.toLocaleString() || '0'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Next Maintenance</span><span className="font-bold text-slate-800">{viewMaintenanceItem.next_maintenance_date || 'Not set'}</span></div>
+                                <div><span className="text-slate-500 font-medium block mb-2">Description</span><p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-xs">{viewMaintenanceItem.description || 'No description provided.'}</p></div>
+                                <div className="text-xs text-slate-400 mt-5 text-center">
+                                    <p>Created: {viewMaintenanceItem.created_at ? new Date(viewMaintenanceItem.created_at).toLocaleString() : 'N/A'}</p>
+                                    <p>Completed: {viewMaintenanceItem.completed_at ? new Date(viewMaintenanceItem.completed_at).toLocaleString() : 'N/A'}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center text-slate-400 py-4">Loading details...</div>
+                        )}
+                    </div>
+                    <button onClick={() => setIsViewMaintenanceModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                </div>
+            </Modal>
+
+            {/* QR Code Modal */}
+            <Modal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} title="Equipment QR Code" maxWidth="max-w-xs">
+                <div className="p-6 font-inter bg-slate-50 flex flex-col items-center">
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col items-center">
+                        <img src={qrCodeUrl} alt={`QR for ${qrEquipmentCode}`} className="w-48 h-48 object-contain mb-3" />
+                        <span className="text-sm font-bold text-slate-800 tracking-widest">{qrEquipmentCode}</span>
+                    </div>
+                    <div className="flex gap-3 w-full">
+                        <button onClick={() => setIsQrModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                        <a href={qrCodeUrl} download={`QR_${qrEquipmentCode}.png`} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center text-center">
+                            Download
+                        </a>
                     </div>
                 </div>
             </Modal>

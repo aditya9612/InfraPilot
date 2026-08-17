@@ -296,7 +296,7 @@ export default function PaymentTracker() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="p-4">Owner Ref</th>
+              <th className="p-4">Owner</th>
               <th className="p-4">Project</th>
               <th className="p-4">Date</th>
               <th className="p-4">Description</th>
@@ -320,7 +320,6 @@ export default function PaymentTracker() {
                 <tr key={txn.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <p className="text-sm font-semibold text-slate-800">{txn.ownerName}</p>
-                    <p className="text-xs text-slate-500">{txn.ownerId}</p>
                   </td>
                   <td className="p-4">
                     <p className="text-sm font-semibold text-slate-700">
@@ -332,9 +331,7 @@ export default function PaymentTracker() {
                       new Date(txn.date).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
+                        year: "numeric"
                       })
                     ) : (
                       <span className="text-slate-400 italic">No Date Provided</span>
@@ -342,9 +339,6 @@ export default function PaymentTracker() {
                   </td>
                   <td className="p-4 text-sm text-slate-600">
                     {txn.description}
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Ref: {txn.reference}
-                    </p>
                   </td>
                   <td className="p-4 text-sm font-semibold text-slate-800 text-right">
                     {txn.type === "Credit" ? "▲" : "▼"} {txn.amount.toLocaleString()}

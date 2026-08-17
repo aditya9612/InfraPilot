@@ -37,7 +37,7 @@ export const paymentService = {
      * Generate payroll for a given month
      * POST /api/v1/labour/payroll/generate
      */
-    async generatePayroll(payload: { month: number; year: number }): Promise<any> {
+    async generatePayroll(payload: { month: number; year: number; project_id?: number }): Promise<any> {
         console.log("POST /api/v1/labour/payroll/generate Request Body:", payload);
         const response = await api.post<any>("labour/payroll/generate", payload);
         console.log("POST /api/v1/labour/payroll/generate Raw Response Body:", response.data);

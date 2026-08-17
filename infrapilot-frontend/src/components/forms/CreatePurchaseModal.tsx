@@ -24,7 +24,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     const [boqItems, setBoqItems] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         purchase_type: "NEW",
-        asset_id: 1,
+        asset_id: 0,
         purchase_date: new Date().toISOString().split('T')[0],
         vendor_name: "",
         invoice_number: "",
@@ -54,11 +54,23 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.asset_id || formData.asset_id === 0) {
+            toast.error("Please select an asset.");
+            return;
+        }
+        if (!projectId || projectId === 0) {
+            toast.error("No project selected. Please select a project first.");
+            return;
+        }
         setIsSubmitting(true);
         try {
             await equipmentService.createPurchase({
                 ...formData,
-                project_id: projectId
+                project_id: projectId,
+                // send null when no BOQ item selected (0 fails BE validation)
+                boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : undefined,
+                // send null when no warranty date
+                warranty_end_date: formData.warranty_end_date || undefined,
             });
             toast.success("Purchase created successfully!");
             onSuccess();
@@ -113,7 +125,8 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                 >
                                     <option value="NEW">New</option>
                                     <option value="USED">Used</option>
-                                    <option value="RENTAL">Rental</option>
+                                    <option value="RENT">Rental</option>
+                                    <option value="SPARE_PART">Spare Part</option>
                                 </select>
                             </div>
 

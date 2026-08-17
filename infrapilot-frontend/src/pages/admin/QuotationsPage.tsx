@@ -10,7 +10,8 @@ import {
     Clock,
     XCircle,
     Download,
-    Zap
+    Zap,
+    Send
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -164,6 +165,17 @@ const QuotationsPage = () => {
         } finally {
             setIsRejecting(false);
             setRejectTarget(null);
+        }
+    };
+
+    const handleSendQuotation = async (id: number) => {
+        const toastId = toast.loading("Sending quotation...");
+        try {
+            await quotationService.sendQuotation(id);
+            toast.success("Quotation sent successfully", { id: toastId });
+            fetchQuotations();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to send quotation", { id: toastId });
         }
     };
 
@@ -362,6 +374,13 @@ const QuotationsPage = () => {
                                                             <Zap className="w-4 h-4 text-emerald-500" />
                                                         </button>
                                                     )}
+                                                    <button
+                                                        onClick={() => q.id && handleSendQuotation(q.id)}
+                                                        className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                                                        title="Send Quotation"
+                                                    >
+                                                        <Send className="w-4 h-4" />
+                                                    </button>
                                                     <button
                                                         onClick={() => navigate(`/admin/quotations/view/${q.id}`)}
                                                         className="p-2 text-slate-400 hover:text-primary transition-colors"

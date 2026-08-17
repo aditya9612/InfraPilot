@@ -40,9 +40,15 @@ const ViewAccountModal: React.FC<ViewAccountModalProps> = ({ isOpen, onClose, ac
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
-              <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${accountData.is_active || accountData.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                {accountData.is_active || accountData.status === 'active' ? 'Active' : 'Inactive'}
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${accountData.is_active || accountData.status?.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                {accountData.is_active || accountData.status?.toLowerCase() === 'active' ? 'Active' : 'Inactive'}
               </span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Opening Balance</p>
+              <p className="text-sm font-semibold text-slate-800">
+                ₹ {accountData.opening_balance ? accountData.opening_balance.toLocaleString() : "0.00"}
+              </p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Balance</p>

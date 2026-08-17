@@ -6,7 +6,7 @@ import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { Eye, Check, X, Search, RotateCcw, Plus } from "lucide-react";
+import { Eye, Check, X, Search, RotateCcw, Plus, Download } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
@@ -25,6 +25,9 @@ const ApprovalsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [entityFilter, setEntityFilter] = useState("all");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+    const [currentPage, setCurrentPage] = useState(0);
+    const ITEMS_PER_PAGE = 10;
+
     const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [viewingApproval, setViewingApproval] = useState<ApprovalItem | null>(null);
@@ -203,6 +206,10 @@ const ApprovalsPage = () => {
         );
     }, [approvals, searchTerm, entityFilter, sortOrder, activeTab, usersMap]);
 
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [searchTerm, entityFilter, sortOrder, activeTab]);
+
     const uniqueEntityTypes = useMemo(() => {
         const types = new Set(approvals.map(a => a.entity_type).filter(Boolean));
         return Array.from(types).sort();
@@ -319,6 +326,12 @@ const ApprovalsPage = () => {
                     </div>
                     <div className="flex gap-2">
                         <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+                        >
+                            <Download className="w-4 h-4" /> Export CSV
+                        </button>
+                        <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
@@ -368,8 +381,8 @@ const ApprovalsPage = () => {
                                         key={tab}
                                         onClick={() => { setActiveTab(tab); setSelectedIds([]); }}
                                         className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
-                                                ? "bg-white text-primary shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700"
+                                            ? "bg-white text-primary shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
                                             }`}
                                     >
                                         {tab}
@@ -380,8 +393,8 @@ const ApprovalsPage = () => {
                                 value={entityFilter}
                                 onChange={e => setEntityFilter(e.target.value)}
                                 className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${entityFilter !== "all"
-                                        ? "bg-primary/10 border-primary/30 text-primary"
-                                        : "bg-slate-50 border-slate-200 text-slate-600"
+                                    ? "bg-primary/10 border-primary/30 text-primary"
+                                    : "bg-slate-50 border-slate-200 text-slate-600"
                                     }`}
                             >
                                 <option value="all">All Types</option>
@@ -432,7 +445,7 @@ const ApprovalsPage = () => {
                                         </td>
                                     </tr>
                                 ) : filteredApprovals.length > 0 ? (
-                                    filteredApprovals.map((item) => (
+                                    filteredApprovals.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE).map((item) => (
                                         <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(item.id) ? "bg-primary/[0.02]" : ""}`}>
                                             <td className="px-6 py-4">
                                                 {item.status === "Pending" && (
@@ -505,6 +518,63 @@ const ApprovalsPage = () => {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination Controls */}
+                    {filteredApprovals.length > 0 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Page {currentPage + 1} of {Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE)}
+                            </span>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                    disabled={currentPage === 0}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                {Array.from({ length: Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                                    // Show first, last, current, and adjacent pages
+                                    const totalPages = Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE);
+                                    if (
+                                        i === 0 || 
+                                        i === totalPages - 1 || 
+                                        (i >= currentPage - 1 && i <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={() => setCurrentPage(i)}
+                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+                                                    currentPage === i
+                                                        ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                        : "text-slate-500 hover:bg-slate-100"
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        );
+                                    } else if (
+                                        i === currentPage - 2 || 
+                                        i === currentPage + 2
+                                    ) {
+                                        return <span key={i} className="text-slate-400 font-bold px-1">...</span>;
+                                    }
+                                    return null;
+                                })}
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) - 1, p + 1))}
+                                    disabled={currentPage >= Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE) - 1}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 

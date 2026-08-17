@@ -197,10 +197,14 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
                 >
-                  <option value="SITE">Site Usage</option>
-                  <option value="SYSTEM">System Adjustment</option>
-                  <option value="DAMAGE">Damaged / Lost</option>
-                  <option value="TRANSFER">Transfer Out</option>
+                  <option value="SYSTEM">SYSTEM</option>
+                  <option value="SITE">SITE</option>
+                  <option value="DAMAGE">DAMAGE</option>
+                  <option value="LOSS">LOSS</option>
+                  <option value="VENDOR">VENDOR</option>
+                  <option value="TRANSFER">TRANSFER</option>
+                  <option value="ADJUSTMENT">ADJUSTMENT</option>
+                  <option value="PURCHASE">PURCHASE</option>
                 </select>
               </div>
             </div>

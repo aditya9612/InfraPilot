@@ -249,18 +249,19 @@ const GSTInvoicesWrapperSection = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
 
+  const fetchInvoices = async () => {
+    setIsLoading(true);
+    try {
+      const res = await accountingService.getGstInvoiceRegister();
+      setInvoices(res.data || res || []);
+    } catch (err) {
+      console.error("Failed to fetch GST invoices", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchInvoices = async () => {
-      setIsLoading(true);
-      try {
-        const res = await accountingService.getGstInvoiceRegister();
-        setInvoices(res.data || res || []);
-      } catch (err) {
-        console.error("Failed to fetch GST invoices", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchInvoices();
   }, []);
 
@@ -291,6 +292,7 @@ const GSTInvoicesWrapperSection = () => {
       try {
         await accountingService.importGst(file);
         toast.success("GST Invoices imported successfully!");
+        fetchInvoices();
       } catch (err) {
         toast.error("Failed to import GST Invoices");
       }
@@ -476,7 +478,7 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Create GST Return (${initialReturnType})`} maxWidth="max-w-2xl" footer={
+    <Modal isOpen={isOpen} onClose={onClose} title="Create GST Return" maxWidth="max-w-2xl" footer={
       <>
         <button type="button" onClick={handleGenerate} disabled={isGenerating || !formData.filing_period} className="mr-auto px-6 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-50">
           {isGenerating ? "Generating..." : "⚡ Auto-Generate Values"}
@@ -494,8 +496,14 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
             <input type="month" required value={formData.filing_period} onChange={(e) => setFormData({...formData, filing_period: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">return_type *</label>
-            <input type="text" value={formData.return_type} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">return_type</label>
+            <select value={formData.return_type} onChange={(e) => setFormData({...formData, return_type: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="">Select Return Type...</option>
+              <option value="GSTR-1">GSTR-1</option>
+              <option value="GSTR-3B">GSTR-3B</option>
+              <option value="GSTR-2A Recon">GSTR-2A Recon</option>
+              <option value="GSTR-2B Recon">GSTR-2B Recon</option>
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">taxable_value *</label>
@@ -534,8 +542,8 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
 };
 
 // 3. GST Returns
-const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "gstr1");
+const GSTReturnsWrapperSection = () => {
+
   const [returnsList, setReturnsList] = useState<GSTReturn[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -559,12 +567,7 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
     fetchReturns();
   }, []);
 
-  const tabs = [
-    { key: "gstr1", label: "GSTR-1" },
-    { key: "gstr3b", label: "GSTR-3B" },
-    { key: "gstr2a", label: "GSTR-2A Recon" },
-    { key: "gstr2b", label: "GSTR-2B Recon" }
-  ];
+
 
   const handleSuccess = async () => {
     const res = await accountingService.getGstReturns();
@@ -575,16 +578,9 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-        <div className="flex gap-2 overflow-x-auto">
-          {tabs.map(t => (
-            <button key={t.key} onClick={() => setActiveSubTab(t.key)}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <div></div>
         <button onClick={() => setIsModalOpen(true)} className="bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-primary/90 transition-all">
-          Create {tabs.find(t=>t.key===activeSubTab)?.label}
+          Create GST Return
         </button>
       </div>
 
@@ -592,7 +588,7 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSuccess={handleSuccess} 
-        initialReturnType={tabs.find(t=>t.key===activeSubTab)?.label || "GSTR-1"} 
+        initialReturnType="" 
       />
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6">
@@ -618,7 +614,6 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {returnsList
-                  .filter((r) => r.return_type.toLowerCase().replace("-", "") === activeSubTab.toLowerCase())
                   .map((ret, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-bold text-slate-700">{ret.filing_period}</td>
@@ -653,10 +648,10 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
                       <td className="px-5 py-3.5 text-sm text-slate-500 tabular-nums text-right">{ret.filing_date}</td>
                     </tr>
                   ))}
-                {returnsList.filter((r) => r.return_type.toLowerCase().replace("-", "") === activeSubTab.toLowerCase()).length === 0 && (
+                {returnsList.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
-                      No returns found for {tabs.find((t) => t.key === activeSubTab)?.label}
+                      No returns found
                     </td>
                   </tr>
                 )}
@@ -683,8 +678,8 @@ const CreateTdsDeductionModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
     tds_amount: 0,
     deposit_date: new Date().toISOString().split('T')[0],
     status: "Pending",
-    vendor_bill_id: 0,
-    ra_bill_id: 0
+    vendor_bill_id: null as number | null,
+    ra_bill_id: null as number | null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -731,8 +726,8 @@ const CreateTdsDeductionModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_amount</label><input type="number" required value={formData.tds_amount || ""} onChange={(e) => setFormData({...formData, tds_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date} onChange={(e) => setFormData({...formData, deposit_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><input type="text" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor_bill_id</label><input type="number" value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({...formData, vendor_bill_id: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra_bill_id</label><input type="number" value={formData.ra_bill_id || ""} onChange={(e) => setFormData({...formData, ra_bill_id: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor_bill_id</label><input type="number" value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra_bill_id</label><input type="number" value={formData.ra_bill_id || ""} onChange={(e) => setFormData({...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
         </div>
       </form>
     </Modal>
@@ -937,7 +932,7 @@ const TaxationPage = () => {
         {activeTab === "dashboard"      && <DashboardSection />}
         {activeTab === "gst"            && <GSTInvoicesWrapperSection />}
         {activeTab === "tds"            && <TDSManagementSection />}
-        {activeTab === "returns"        && <GSTReturnsWrapperSection initialSubTab={subTab} key={subTab || "gstr1"} />}
+        {activeTab === "returns"        && <GSTReturnsWrapperSection key={subTab || "gstr1"} />}
         {activeTab === "reconciliation" && <TaxReconciliationSection />}
       </PageTransition>
     </>

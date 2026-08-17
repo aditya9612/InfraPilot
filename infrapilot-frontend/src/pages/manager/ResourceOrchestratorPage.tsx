@@ -15,7 +15,7 @@ import {
 import toast from "react-hot-toast";
 
 const StatCard = ({ title, value, sub, icon, accent = "text-slate-900" }: any) => (
-    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group w-full flex-1">
         <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary/5 transition-colors">
                 {icon}
@@ -141,11 +141,11 @@ const ResourceOrchestratorPage = () => {
                 } else if (activeTab === "supply-chain") {
                     const [stockRes, transRes] = await Promise.all([
                         materialService.getInventory(projId ? Number(projId) : undefined),
-                        materialService.listTransfers(0, 50)
+                        materialService.listTransfers(0, 50, projId ? Number(projId) : undefined)
                     ]);
                     setSupplyChainData({
-                        stock: stockRes || [],
-                        transfers: Array.isArray(transRes) ? transRes : transRes.items || []
+                        stock: Array.isArray(stockRes) ? stockRes : (stockRes as any)?.data || (stockRes as any)?.items || [],
+                        transfers: Array.isArray(transRes) ? transRes : (transRes as any)?.data || (transRes as any)?.items || []
                     });
                 }
             } catch (err) {
@@ -172,7 +172,7 @@ const ResourceOrchestratorPage = () => {
             <Navbar title="Resource Orchestrator" breadcrumb={["Manager", "Resource Hub"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-                <div className="max-w-[1600px] mx-auto space-y-8">
+                <div className="w-full mx-auto space-y-8">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -181,13 +181,13 @@ const ResourceOrchestratorPage = () => {
                             </div>
                             <h1 className="text-3xl font-black text-slate-900 tracking-tight text-left uppercase">Resource Hub</h1>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-1 shadow-sm">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex flex-wrap sm:flex-nowrap gap-1 shadow-sm w-full sm:w-auto">
                                 {tabs.map(t => (
                                     <button
                                         key={t.id}
                                         onClick={() => setActiveTab(t.id as any)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === t.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-500 hover:bg-slate-50"}`}
+                                        className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-1 sm:flex-none ${activeTab === t.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-500 hover:bg-slate-50"}`}
                                     >
                                         {t.icon}
                                         {t.label}
@@ -197,7 +197,7 @@ const ResourceOrchestratorPage = () => {
                             <select
                                 value={selectedProjectId}
                                 onChange={(e) => setSelectedProjectId(e.target.value === "all" ? "all" : Number(e.target.value))}
-                                className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
+                                className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all w-full sm:w-auto"
                             >
                                 <option value="all">ALL ACTIVE PROJECTS</option>
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.project_name.toUpperCase()}</option>)}
@@ -263,7 +263,7 @@ const ResourceOrchestratorPage = () => {
 
 const WorkforceView = ({ data, engineers, subTab, onSubTabChange, onMobilize, labourPage, onLabourPageChange, engineerPage, onEngineerPageChange, pageSize }: { data: { labours: any[], attendance: any[] }, engineers: any[], subTab: "labour" | "engineer", onSubTabChange: (tab: "labour" | "engineer") => void, onMobilize: (d: any) => void, labourPage: number, onLabourPageChange: (p: number) => void, engineerPage: number, onEngineerPageChange: (p: number) => void, pageSize: number }) => (
     <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard title="Total Personnel" value={data.labours.length.toString()} sub="Registered Workforce" icon={<Users className="w-5 h-5 text-primary" />} />
             <StatCard title="Active Today" value={data.attendance.length.toString()} sub="Site Attendance" icon={<Activity className="w-5 h-5 text-emerald-500" />} />
             <StatCard title="Deployment" value={`${data.labours.length > 0 ? Math.round((data.attendance.length / data.labours.length) * 100) : 0}%`} sub="Utilization Rate" icon={<TrendingUp className="w-5 h-5 text-blue-500" />} />
@@ -274,20 +274,20 @@ const WorkforceView = ({ data, engineers, subTab, onSubTabChange, onMobilize, la
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
                     <div>
                         <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Deployment Registry</h2>
-                        <div className="mt-3 inline-flex rounded-2xl bg-slate-100 p-1">
+                        <div className="mt-3 flex flex-wrap rounded-2xl bg-slate-100 p-1">
                             <button
                                 onClick={() => onSubTabChange("labour")}
-                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all ${subTab === "labour" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
+                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all flex-1 text-center whitespace-nowrap ${subTab === "labour" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
                                 Labour
                             </button>
                             <button
                                 onClick={() => onSubTabChange("engineer")}
-                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all ${subTab === "engineer" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
+                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all flex-1 text-center whitespace-nowrap ${subTab === "engineer" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
                                 Site Engineers
                             </button>
                         </div>
                     </div>
-                    <button className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all">Audit Logs</button>
+                    <button className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all w-full md:w-auto">Audit Logs</button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -419,8 +419,8 @@ const WorkforceView = ({ data, engineers, subTab, onSubTabChange, onMobilize, la
 
 const AssetsView = ({ data, onMobilize, viewMode, onViewModeChange, currentPage, onPageChange, pageSize }: { data: { equipment: any[], utilization: any[] }, onMobilize: (d: any) => void, viewMode: "grid" | "list", onViewModeChange: (m: "grid" | "list") => void, currentPage: number, onPageChange: (p: number) => void, pageSize: number }) => (
     <div className="space-y-6">
-        <div className="flex items-center justify-between">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-1">
+        <div className="w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
                 <StatCard title="Fleet Size" value={data.equipment.length.toString()} sub="Total Heavy Assets" icon={<Truck className="w-5 h-5 text-primary" />} />
                 <StatCard title="Active" value={data.equipment.filter((e: any) => e.condition === "GOOD").length.toString()} sub="Operational Units" icon={<Activity className="w-5 h-5 text-emerald-500" />} />
                 <StatCard title="Maintenance" value={data.equipment.filter((e: any) => e.condition === "REPAIR").length.toString()} sub="Service Pipeline" icon={<Wrench className="w-5 h-5 text-rose-500" />} />
@@ -446,7 +446,7 @@ const AssetsView = ({ data, onMobilize, viewMode, onViewModeChange, currentPage,
         </div>
 
         {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {data.equipment.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((e, idx) => (
                     <div key={idx} className="group p-6 bg-white rounded-[2.5rem] border border-slate-100 hover:border-primary/20 transition-all shadow-sm hover:shadow-xl">
                         <div className="flex items-start justify-between mb-6">
@@ -546,7 +546,7 @@ const AssetsView = ({ data, onMobilize, viewMode, onViewModeChange, currentPage,
 
 const SupplyChainView = ({ data, onMobilize, currentPage, onPageChange, pageSize }: { data: { stock: any[], transfers: any[] }, onMobilize: (d: any) => void, currentPage: number, onPageChange: (p: number) => void, pageSize: number }) => (
     <div className="space-y-6 text-left">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard title="Inventory" value={data.stock.length.toString()} sub="Unique SKUs" icon={<Package className="w-5 h-5 text-primary" />} />
             <StatCard title="Stock Value" value="₹28.4L" sub="Current On-Site" icon={<TrendingUp className="w-5 h-5 text-emerald-500" />} />
             <StatCard title="Low Level" value="14" sub="Below Safety Norms" icon={<AlertCircle className="w-5 h-5 text-rose-500" />} />

@@ -236,10 +236,8 @@ export const labourService = {
      */
     async assignLabourToProject(labourId: number | string, projectId: number | string) {
         try {
-            console.log(`Assigning Labour ${labourId} to Project ${projectId} via PUT /labour/${labourId}`);
-            const response = await api.put(`labour/${labourId}`, {
-                project_id: Number(projectId),
-            });
+            console.log(`Assigning Labour ${labourId} to Project ${projectId} via POST /projects/${projectId}/members/${labourId}`);
+            const response = await api.post(`projects/${projectId}/members/${labourId}`);
             console.log("labourService.assignLabourToProject Success (200 OK):", response.data);
             return response.data;
         } catch (err: any) {

@@ -3,29 +3,31 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateUserModal from "../../components/forms/CreateUserModal";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
+import { dsrService } from "../../services/dsrService";
+import { labourService } from "../../services/labourService";
+import { workProgressService } from "../../services/workProgressService";
+
 import SortDropdown from "../../components/common/SortDropdown";
 import { getFullImageUrl } from "../../utils/imageUtils";
 
 const ProjectManagersPage = () => {
+    const navigate = useNavigate();
     const [managers, setManagers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingManager, setEditingManager] = useState<any>(null);
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [viewingManager, setViewingManager] = useState<any>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [managerToDelete, setManagerToDelete] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
     const PAGE_SIZE = 10;
-    const [allProjects, setAllProjects] = useState<any[]>([]);
 
     const fetchManagers = async () => {
         try {
@@ -54,7 +56,6 @@ const ProjectManagersPage = () => {
 
             const projectsRes = await projectService.getProjects(100, 0);
             const projectList = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
-            setAllProjects(projectList);
 
             const managerRecords = userList.filter((u: any) => {
                 const role = typeof u.role === "string" ? u.role : u.role?.name || "";
@@ -84,13 +85,54 @@ const ProjectManagersPage = () => {
                 }));
             }
 
-            const mapped = managerRecords.map((u: any) => {
+            const projectVitalsCache = new Map<number, any>();
+
+            const mapped = await Promise.all(managerRecords.map(async (u: any) => {
                 const assigned = userProjectMap.get(u.user_id) || [];
                 if (u.address) {
                     const byAddr = projectList.filter((p: any) => p.project_name === u.address);
                     byAddr.forEach((pa: any) => {
                         if (!assigned.find((a: any) => a.id === pa.id)) assigned.push(pa);
                     });
+                }
+
+                const primaryProject = assigned[0];
+                let vitals = { laborCount: 0, weather: "Syncing...", activeTask: "General Management", lastDsr: u.updated_at };
+
+                if (primaryProject) {
+                    if (projectVitalsCache.has(primaryProject.id)) {
+                        vitals = projectVitalsCache.get(primaryProject.id);
+                    } else {
+                        try {
+                            const today = new Date().toISOString().split('T')[0];
+                            const [attendanceRes, registryRes, activitiesRes, dsrsRes] = await Promise.all([
+                                labourService.getAttendanceList(primaryProject.id, today, today).catch(() => ({ items: [] })),
+                                labourService.getLabours(primaryProject.id, { limit: 1 }).catch(() => ({ meta: { total: 0 } })),
+                                workProgressService.listActivities(primaryProject.id).catch(() => []),
+                                dsrService.getDsrByProject(primaryProject.id).catch(() => ({ items: [] }))
+                            ]);
+
+                            const attendanceItems = (attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []);
+                            const registryTotal = (registryRes as any)?.meta?.total || (registryRes as any)?.total || 0;
+                            const activities = activitiesRes as any[];
+                            const dsrs = ((dsrsRes as any)?.items || []) as any[];
+                            const sortedDsrs = [...dsrs].sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+                            const latestDsr = sortedDsrs[0];
+
+                            const activeLabour = attendanceItems.length > 0 ? attendanceItems.length : registryTotal;
+                            const weatherStr = latestDsr?.weather ? (latestDsr.weather_temp ? `${latestDsr.weather}, ${latestDsr.weather_temp}°C` : latestDsr.weather) : "Cloudy, 28°C";
+
+                            vitals = {
+                                laborCount: activeLabour,
+                                weather: weatherStr,
+                                activeTask: activities.find(a => a.status !== "COMPLETED")?.activity_name || latestDsr?.work_done?.split('.')[0] || "Management",
+                                lastDsr: latestDsr?.report_date || null
+                            };
+                            projectVitalsCache.set(primaryProject.id, vitals);
+                        } catch (e) {
+                            console.warn(`Vitals fetch failed for project ${primaryProject.id}`, e);
+                        }
+                    }
                 }
 
                 return {
@@ -112,8 +154,9 @@ const ProjectManagersPage = () => {
                     joiningDate: u.joining_date,
                     joining_date: u.joining_date,
                     profile_image: u.profile_image,
+                    ...vitals
                 };
-            });
+            }));
 
             setManagers(mapped);
         } catch (error) {
@@ -127,6 +170,18 @@ const ProjectManagersPage = () => {
     useEffect(() => {
         fetchManagers();
     }, []);
+
+
+    const getWeatherIcon = (weather: string) => {
+        const w = weather?.toLowerCase() || "";
+        if (w.includes("sun") || w.includes("clear")) return "☀️";
+        if (w.includes("rain") || w.includes("drizzle") || w.includes("shower")) return "🌧️";
+        if (w.includes("cloud") || w.includes("overcast")) return "☁️";
+        if (w.includes("thunder")) return "⛈️";
+        if (w.includes("fog") || w.includes("mist")) return "🌫️";
+        if (w.includes("snow")) return "❄️";
+        return "⛅";
+    };
 
     const filteredManagers = useMemo(() => {
         const list = managers.filter((m) =>
@@ -201,24 +256,7 @@ const ProjectManagersPage = () => {
         }
     };
 
-    const handleViewDetails = async (manager: any) => {
-        try {
-            const toastId = toast.loading("Loading details...");
-            const freshUser = await userService.getUserById(manager.id);
-            toast.dismiss(toastId);
-            setViewingManager({
-                ...manager,
-                ...freshUser
-            });
-            setIsViewModalOpen(true);
-        } catch (error) {
-            toast.dismiss();
-            console.error("Failed to fetch fresh user details:", error);
-            // Fallback
-            setViewingManager(manager);
-            setIsViewModalOpen(true);
-        }
-    };
+
 
     return (
         <>
@@ -237,36 +275,45 @@ const ProjectManagersPage = () => {
                             Manage system project managers, assign roles, and track active project counts.
                         </p>
                     </div>
-                    <button
-                        onClick={() => {
-                            setEditingManager(null);
-                            setIsModalOpen(true);
-                        }}
-                        className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
-                    >
-                        + Add Project Manager
-                    </button>
+                    <div className="flex gap-2">
+
+                        <button
+                            onClick={() => {
+                                setEditingManager(null);
+                                setIsModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                        >
+                            + Add Project Manager
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <StatCard
-                        title="Total Project Managers"
+                        title="Total Managers"
                         value={managers.length.toString()}
-                        sub="Registered accounts"
+                        sub="Registered profiles"
                         accent="text-primary"
                     />
                     <StatCard
-                        title="Active Managers"
-                        value={managers.filter(m => m.status === "Active").length.toString()}
-                        sub={`${managers.filter(m => m.status === "Inactive").length} Inactive profiles`}
+                        title="Active Assignments"
+                        value={managers.reduce((sum, m) => sum + (m.assignedProjectsCount || 0), 0).toString()}
+                        sub="Total projects managed"
+                        accent="text-violet-500"
+                    />
+                    <StatCard
+                        title="DSR Compliance"
+                        value={`${managers.length > 0 ? Math.round((managers.filter(m => m.lastDsr && m.lastDsr.split('T')[0] === new Date().toISOString().split('T')[0]).length / managers.length) * 100) : 0}%`}
+                        sub="Based on today's submissions"
                         accent="text-emerald-500"
                     />
                     <StatCard
-                        title="Assigned Projects"
-                        value={managers.reduce((sum, m) => sum + (m.assignedProjectsCount || 0), 0).toString()}
-                        sub="Total assignments count"
-                        accent="text-violet-500"
+                        title="Pending Reviews"
+                        value={managers.filter(m => m.status === "Active" && (!m.lastDsr || m.lastDsr.split('T')[0] !== new Date().toISOString().split('T')[0])).length.toString()}
+                        sub="Missing reports for today"
+                        accent="text-rose-500"
                     />
                 </div>
 
@@ -312,97 +359,129 @@ const ProjectManagersPage = () => {
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                         <th className="px-6 py-4">Manager Info</th>
-                                        <th className="px-6 py-4">Role</th>
-                                        <th className="px-6 py-4">Assigned Projects</th>
-                                        <th className="px-6 py-4">Joined Date</th>
+                                        <th className="px-6 py-4">Assigned Projects & Weather</th>
+                                        <th className="px-6 py-4">Role & Labour</th>
+                                        <th className="px-6 py-4">Active Supervision</th>
+                                        <th className="px-6 py-4">Daily Report (DSR)</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {pagedManagers.map((m) => (
-                                        <tr
-                                            key={m.id}
-                                            className="hover:bg-slate-50/50 transition-colors group"
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase overflow-hidden">
-                                                        {m.profile_image ? (
-                                                            <img src={getFullImageUrl(m.profile_image)} alt={m.name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            m.name.split(' ').map((n: string) => n[0]).join('')
-                                                        )}
+                                    {pagedManagers.map((m) => {
+                                        const todayStr = new Date().toISOString().split('T')[0];
+                                        const isDsrToday = !!(m.lastDsr && m.lastDsr.split('T')[0] === todayStr);
+                                        return (
+                                            <tr
+                                                key={m.id}
+                                                className="hover:bg-slate-50/50 transition-colors group"
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase overflow-hidden">
+                                                            {m.profile_image ? (
+                                                                <img src={getFullImageUrl(m.profile_image)} alt={m.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                m.name.split(' ').map((n: string) => n[0]).join('')
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-slate-700 group-hover:text-primary transition-colors text-sm">
+                                                                {m.name}
+                                                            </p>
+                                                            <p className="text-slate-400 text-[10px]">
+                                                                {m.mobile} | {m.email}
+                                                            </p>
+                                                        </div>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4">
                                                     <div>
-                                                        <p className="font-bold text-slate-700 group-hover:text-primary transition-colors text-sm">
-                                                            {m.name}
+                                                        <p className="text-xs text-slate-600 font-bold max-w-[250px] truncate" title={m.projects}>
+                                                            {m.projects}
                                                         </p>
-                                                        <p className="text-slate-400 text-[10px]">
-                                                            {m.mobile} | {m.email}
+                                                        <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                                                            <span className="text-[10px]">{getWeatherIcon(m.weather)}</span>
+                                                            <span className="text-[10px] font-medium">{m.weather || "Syncing..."}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div>
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider block w-fit">
+                                                            {m.role || "ProjectManager"}
+                                                        </span>
+                                                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
+                                                            Workforce: <span className="text-primary">{m.laborCount || 0} Staff</span>
                                                         </p>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                                                {m.role || "ProjectManager"}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className="text-xs text-slate-600 font-bold max-w-[250px] truncate" title={m.projects}>
-                                                        {m.projects}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
-                                                        Active projects: <span className="text-primary">{m.assignedProjectsCount}</span>
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-xs text-slate-500">
-                                                {m.joiningDate ? new Date(m.joiningDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : "Not Specified"}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span
-                                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${m.status === "Active"
-                                                        ? "bg-emerald-100 text-emerald-600"
-                                                        : "bg-slate-100 text-slate-600"
-                                                        }`}
-                                                >
-                                                    {m.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <button
-                                                        onClick={() => handleViewDetails(m)}
-                                                        className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                                                        title="View Profile"
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${m.status === "Active" ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
+                                                        <p className="text-xs font-bold text-slate-700 truncate max-w-[140px]" title={m.activeTask}>
+                                                            {m.activeTask || "None"}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full ${isDsrToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                                                        <span
+                                                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isDsrToday
+                                                                ? "bg-emerald-50 text-emerald-600"
+                                                                : "bg-amber-50 text-amber-600"
+                                                                }`}
+                                                        >
+                                                            {isDsrToday ? "Live: Submitted" : "Pending Today"}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase whitespace-nowrap ${m.status === "Active"
+                                                            ? "bg-emerald-100 text-emerald-700"
+                                                            : "bg-slate-100 text-slate-500"
+                                                            }`}
                                                     >
-                                                        <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingManager(m);
-                                                            setIsModalOpen(true);
-                                                        }}
-                                                        className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                                                        title="Edit Manager"
-                                                    >
-                                                        <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setManagerToDelete(m.id);
-                                                            setIsDeleteModalOpen(true);
-                                                        }}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                                                        title="Delete Manager"
-                                                    >
-                                                        <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                                                        {m.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-3">
+                                                        <button
+                                                            onClick={() => navigate(`/admin/managers/${m.id}`)}
+                                                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                                                            title="View Profile"
+                                                        >
+                                                            <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingManager(m);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                                                            title="Edit Manager"
+                                                        >
+                                                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setManagerToDelete(m.id);
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                                                            title="Delete Manager"
+                                                        >
+                                                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -444,6 +523,7 @@ const ProjectManagersPage = () => {
                 )}
             </PageTransition>
 
+
             <CreateUserModal
                 isOpen={isModalOpen}
                 onClose={() => {
@@ -454,14 +534,7 @@ const ProjectManagersPage = () => {
                 initialData={editingManager}
             />
 
-            <UserDetailsModal
-                isOpen={isViewModalOpen}
-                onClose={() => {
-                    setIsViewModalOpen(false);
-                    setViewingManager(null);
-                }}
-                user={viewingManager}
-            />
+
 
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
@@ -475,6 +548,9 @@ const ProjectManagersPage = () => {
                 confirmText="Remove Record"
                 type="danger"
             />
+
+            {/* Daily Logs Drawer */}
+
         </>
     );
 };

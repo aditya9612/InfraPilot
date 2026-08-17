@@ -78,11 +78,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "clipboard",
       subNav: [
         { label: "BOQ Setup", path: "/admin/boq/setup", icon: "list" },
-        {
-          label: "Activity List",
-          path: "/admin/boq/activities",
-          icon: "activity",
-        },
       ],
     },
     {
@@ -202,6 +197,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       subNav: [
         { label: "Activity List", path: "/manager/work-progress/activities", icon: "list" },
         { label: "Daily Progress Entry", path: "/manager/work-progress/entry", icon: "clipboard" },
+        { label: "Work Orders", path: "/manager/work-progress/work-orders", icon: "file-text" },
       ]
     },
     {
@@ -263,6 +259,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Safety Checklist", path: "/manager/safety/incidents", icon: "alert-triangle" },
         { label: "Incident Report", path: "/manager/safety/actions", icon: "check-square" },
       ]
+    },
+    {
+      label: "Issues",
+      path: "/manager/issues",
+      icon: "alert-circle",
     },
     {
       label: "Documents",
