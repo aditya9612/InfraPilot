@@ -68,7 +68,6 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
 
     if (!formData.name.trim()) newErrors.name = "Activity name is required.";
     if (!formData.category.trim()) newErrors.category = "Category is required.";
-    if (!formData.default_unit_id) newErrors.default_unit_id = "Default unit is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -77,7 +76,11 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
     }
 
     setErrors({});
-    onSubmit(formData);
+    const submitData = { ...formData };
+    if (submitData.default_unit_id === "") {
+      delete (submitData as any).default_unit_id;
+    }
+    onSubmit(submitData);
   };
 
   const modalFooter = (
@@ -137,26 +140,26 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           </div>
 
           <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Default Unit <span className="text-rose-500">*</span>
-              </label>
-              <select
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_unit_id ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
-                value={formData.default_unit_id}
-                onChange={(e) => setFormData({ ...formData, default_unit_id: e.target.value })}
-                disabled={isLoadingUnits}
-              >
-                <option value="">Select Unit</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
-                ))}
-              </select>
-              {errors.default_unit_id && (
-                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_unit_id}</p>
-              )}
-            </div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Default Unit
+            </label>
+            <select
+              className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_unit_id ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
+              value={formData.default_unit_id}
+              onChange={(e) => setFormData({ ...formData, default_unit_id: e.target.value })}
+              disabled={isLoadingUnits}
+            >
+              <option value="">Select Unit</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+            {errors.default_unit_id && (
+              <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_unit_id}</p>
+            )}
+          </div>
         </div>
       </form>
     </Modal>

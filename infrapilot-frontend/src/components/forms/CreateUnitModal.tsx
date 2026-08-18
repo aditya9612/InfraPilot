@@ -44,17 +44,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const newErrors: Record<string, string> = {};
-
-        if (!formData.name.trim()) newErrors.name = "Unit name is required.";
-        if (!formData.category.trim()) newErrors.category = "Category is required.";
-
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            toast.error("Please fill in all required fields.");
-            return;
-        }
-
         setErrors({});
         onSubmit(formData);
     };
@@ -89,7 +78,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                 <div className="space-y-4">
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                            Unit Name <span className="text-rose-500">*</span>
+                            Unit Name
                         </label>
                         <input
                             type="text"
@@ -103,7 +92,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
 
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                            Category <span className="text-rose-500">*</span>
+                            Category
                         </label>
                         <input
                             type="text"

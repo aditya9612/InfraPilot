@@ -6,7 +6,8 @@ export interface ActivityItem {
   completion_percentage: number;
   start_date: string;
   created_at: string;
-  boq_code: number | null;
+  boq_code?: number | null;
+  boq_item_id?: number | null;
   project_id: number;
   planned_quantity: number;
   engineer_id: number | null;
@@ -14,7 +15,6 @@ export interface ActivityItem {
   status: string;
   end_date: string;
   work_order_id?: number | null;
-  boq_item_id?: number | null;
   discipline?: string | null;
   updated_at?: string;
 }
@@ -44,7 +44,6 @@ export interface ProjectSummary {
 
 export interface CreateActivityRequest {
   project_id: number;
-  boq_code?: number | null;
   boq_item_id?: number | null;
   activity_name: string;
   planned_quantity: number;

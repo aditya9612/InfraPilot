@@ -685,7 +685,7 @@ const TaskManagementPage = () => {
     const openTaskModal = async (task: FrontendTask) => {
         if (!projectId) return;
         try {
-            const fetchedTask = await projectService.getTask(projectId, task.id);
+            const fetchedTask = await projectService.getTask(task.project_id || projectId, task.id || (task as any).task_id);
             setSelectedTask({
                 ...task,
                 ...fetchedTask,

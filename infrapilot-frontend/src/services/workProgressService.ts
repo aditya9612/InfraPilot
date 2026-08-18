@@ -168,7 +168,7 @@ export const workProgressService = {
       if (project_id) params.project_id = project_id;
       else if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
       if (!params.project_id) return [];
-      
+
       if (limit !== undefined) params.limit = limit;
       if (offset !== undefined) params.offset = offset;
 

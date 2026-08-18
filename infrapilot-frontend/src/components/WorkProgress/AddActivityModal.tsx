@@ -20,7 +20,7 @@ import { workProgressService } from "../../services/workProgressService";
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
   return arr.filter(item => {
-    const id = item.id || item.boq_id || item.user_id || item.boq_code;
+    const id = item.id || item.boq_id || item.user_id || item.boq_item_id || item.boq_code;
     if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
@@ -34,7 +34,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [formData, setFormData] = useState({
     project_id: "",
     activity_name: "",
-    boq_code: "" as any,
+    boq_item_id: "" as any,
     planned_quantity: "" as any,
     unit: "CUM",
     start_date: "",
@@ -114,8 +114,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
       // Fetch Work Orders for this project (and boq item if selected)
       const woParams: any = { project_id: projectIdToFetch };
-      if (formData.boq_code) {
-        woParams.boq_id = formData.boq_code;
+      if (formData.boq_item_id) {
+        woParams.boq_id = formData.boq_item_id;
       }
       api.get(`/work-orders`, { params: woParams })
         .then(woRes => setAllWorkOrders(uniqueById(Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []))))
@@ -165,37 +165,40 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     if (isOpen) {
       fetchProjectSpecificData();
     }
-  }, [isOpen, formData.project_id, projectId, formData.boq_code]);
+  }, [isOpen, formData.project_id, projectId, formData.boq_item_id]);
 
   const isCombinationUsed = (boqId: any, actName: any, woId: any) => {
-    return existingActivities.some(a => 
-      (a.boq_item_id == boqId || a.boq_code == boqId) && 
-      a.activity_name === actName && 
+    return existingActivities.some(a =>
+      (a.boq_item_id == boqId || a.boq_code == boqId) &&
+      a.activity_name === actName &&
       (a.work_order_id == woId || (!a.work_order_id && !woId))
     );
   };
 
-  const displayedBoqs = allBoqs;
-  
+  const displayedBoqs = formData.project_id ? allBoqs.filter(b => b.project_id == formData.project_id || !b.project_id) : allBoqs;
+
   const displayedWorkOrders = (() => {
     let wos = allWorkOrders;
-    if (formData.boq_code && formData.activity_name) {
-      wos = wos.filter(w => !isCombinationUsed(formData.boq_code, formData.activity_name, w.id));
+    if (formData.project_id) {
+      wos = wos.filter(w => w.project_id == formData.project_id || !w.project_id);
+    }
+    if (formData.boq_item_id && formData.activity_name) {
+      wos = wos.filter(w => !isCombinationUsed(formData.boq_item_id, formData.activity_name, w.id));
     }
     return wos;
   })();
 
   const displayedActivityTypes = (() => {
     let types = activityTypes;
-    if (formData.boq_code) {
-      const selectedBoq = allBoqs.find(b => (b.id || b.boq_id) == formData.boq_code);
+    if (formData.boq_item_id) {
+      const selectedBoq = allBoqs.find(b => (b.id || b.boq_id) == formData.boq_item_id);
       if (selectedBoq && selectedBoq.activity_type_id) {
         const filtered = activityTypes.filter(a => a.id == selectedBoq.activity_type_id);
         if (filtered.length > 0) types = filtered;
       }
     }
-    if (formData.boq_code) {
-      types = types.filter(t => !isCombinationUsed(formData.boq_code, t.name, formData.work_order_id || null));
+    if (formData.boq_item_id) {
+      types = types.filter(t => !isCombinationUsed(formData.boq_item_id, t.name, formData.work_order_id || null));
     }
     return types;
   })();
@@ -242,15 +245,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         ...formData,
         project_id: Number(formData.project_id) || projectId,
         planned_quantity: Number(formData.planned_quantity),
-        boq_code: formData.boq_code ? Number(formData.boq_code) : null,
-        boq_item_id: formData.boq_code ? Number(formData.boq_code) : null,
+        boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
       setFormData({
         project_id: "",
         activity_name: "",
-        boq_code: "",
+        boq_item_id: "",
         planned_quantity: "",
         unit: "CUM",
         start_date: "",
@@ -277,21 +279,21 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
-      
+
       // Reset dependent fields when project changes
       if (name === "project_id") {
-        newData.boq_code = "";
+        newData.boq_item_id = "";
         newData.work_order_id = "";
         newData.engineer_id = "";
         newData.activity_name = "";
       }
-      
+
       // Reset dependent fields when BOQ changes
-      if (name === "boq_code") {
+      if (name === "boq_item_id") {
         newData.work_order_id = "";
         newData.activity_name = "";
       }
-      
+
       return newData;
     });
 
@@ -377,9 +379,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>BOQ Item</label>
               <select
-                name="boq_code"
-                className={inputClasses(errors.boq_code)}
-                value={formData.boq_code}
+                name="boq_item_id"
+                className={inputClasses(errors.boq_item_id)}
+                value={formData.boq_item_id}
                 onChange={handleChange}
               >
                 <option value="">Select BOQ Item</option>
