@@ -69,6 +69,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem("infrapilot_user", JSON.stringify(userData));
+    if (userData.project_id) {
+      localStorage.setItem("client_selected_project_id", String(userData.project_id));
+      localStorage.setItem("infrapilot_selected_project_id", String(userData.project_id));
+    }
   };
 
   const logout = async () => {

@@ -443,6 +443,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
     { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
+    { label: "Invoice", path: "/client/invoices", icon: "file-text" },
     {
       label: "Payment",
       path: "/client/payment",

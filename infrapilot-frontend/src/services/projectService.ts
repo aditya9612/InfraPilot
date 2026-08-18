@@ -331,7 +331,22 @@ export const projectService = {
     try {
       const requestId = arg3 !== undefined ? arg2 : arg1;
       const data = arg3 !== undefined ? arg3 : arg2;
-      const response = await api.put(`projects/task-requests/${requestId}`, data);
+
+      let payload: any;
+      if (data instanceof FormData) {
+        payload = data;
+      } else {
+        payload = new FormData();
+        for (const [key, value] of Object.entries(data)) {
+          if (value !== undefined && value !== null) {
+            payload.append(key, String(value));
+          }
+        }
+      }
+
+      const response = await api.put(`projects/task-requests/${requestId}`, payload, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       return response.data;
     } catch (error) {
       console.error("Update Task Request API Error:", error);
@@ -645,12 +660,26 @@ export const projectService = {
   async createTaskRequest(projectId: number, requestData: any) {
     try {
       const endpoint = `projects/task-requests`;
-      const payload = {
-        ...requestData,
-        project_id: projectId
-      };
-      console.log(`Creating task request at: ${endpoint}`, payload);
-      const response = await api.post(endpoint, payload);
+      let payload: any;
+      if (requestData instanceof FormData) {
+        payload = requestData;
+        if (projectId && !payload.has('project_id')) {
+          payload.append('project_id', String(projectId));
+        }
+      } else {
+        payload = new FormData();
+        payload.append('project_id', String(requestData.project_id || projectId));
+        for (const [key, value] of Object.entries(requestData)) {
+          if (value !== undefined && value !== null && key !== 'project_id' && value !== "") {
+            payload.append(key, typeof value === 'object' && !(value instanceof File) ? JSON.stringify(value) : String(value));
+          }
+        }
+      }
+
+      console.log(`Creating task request at: ${endpoint}`);
+      const response = await api.post(endpoint, payload, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       return response.data;
     } catch (error: any) {
       console.error("Create Task Request API Error:", {

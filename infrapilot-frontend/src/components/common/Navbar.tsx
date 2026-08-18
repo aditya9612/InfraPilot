@@ -7,6 +7,7 @@ import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-rea
 import Modal from "./Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { handleNotificationClick } from "../../utils/notificationNavigator";
 import api from "../../services/api";
 interface BreadcrumbItem {
   label: string;
@@ -26,6 +27,11 @@ const routeMap: Record<string, string> = {
   Admin: "/admin",
   Users: "/admin/users",
   Roles: "/admin/users/roles",
+  Permissions: "/admin/users/permissions",
+  Projects: "/admin/projects",
+  Clients: "/admin/clients",
+  Invoices: "/client/invoices",
+  Payment: "/client/payment/history",
   Permissions: "/admin/users/permissions",
   Projects: "/admin/projects",
   Contractors: "/admin/contractors",
@@ -82,18 +88,29 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
           try { taskReadIds = JSON.parse(localStorage.getItem(TASK_READ_KEY) || "[]"); } catch { /**/ }
 
           const mappedSys = sysItems.map((n: any) => ({
+            ...n,
             id: n.id,
             title: n.title || n.alert_type || "Notification",
             description: n.message || n.description || n.content || "",
-            details: n.message || "",
+            details: n.message || n.details || "",
+            message: n.message || "",
             type: n.type || "Info",
             timestamp: n.created_at || n.timestamp || new Date().toISOString(),
             read: !!(n.is_read || n.read),
             source: "system",
+            link: n.link || n.url || n.action_url || null,
+            entity: n.entity || n.entity_type || null,
+            entity_type: n.entity_type || n.entity || null,
+            entity_id: n.entity_id || n.reference_id || n.related_id || null,
+            reference_id: n.reference_id || n.related_id || null,
+            project_id: n.project_id || null,
           }));
 
           const mappedTasks = taskItems.map((t: any) => ({
+            ...t,
             id: `task-${t.task_id}`,
+            task_id: t.task_id,
+            project_id: t.project_id,
             title: t.title || "Delayed Task",
             description: `Delayed Status: ${t.status || "Delayed"}. Due Date: ${t.end_date || "N/A"}`,
             details: `Due: ${t.end_date || 'N/A'}`,
@@ -101,6 +118,9 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
             timestamp: t.end_date || new Date().toISOString(),
             read: taskReadIds.includes(`task-${t.task_id}`),
             source: "task",
+            entity: "task",
+            entity_type: "task",
+            entity_id: t.task_id,
           }));
 
           data = [...mappedSys, ...mappedTasks];
@@ -127,30 +147,13 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const bellBadgeCount = user?.role === "Client" ? clientTotalCount : unreadCount;
 
   const handleNotifClick = async (notif: Notification) => {
-    // Mark as read first
-    if (!notif.read) {
-      await notificationService.markAsRead(notif.id, notif.source);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-    }
-
-    // Detect quotation-related notifications and navigate to the approval page
-    const titleLower = (notif.title || "").toLowerCase();
-    const typeLower = (notif.type || "").toLowerCase();
-    const descLower = (notif.description || "").toLowerCase();
-    const isQuotationNotif =
-      titleLower.includes("quotation") ||
-      typeLower.includes("quotation") ||
-      descLower.includes("quotation");
-
-    if (isQuotationNotif && user?.role === "Client") {
-      setIsNotificationOpen(false);
-      navigate("/client/payment/quotation");
-      return;
-    }
-
-    setSelectedNotif(notif);
-    setIsDetailOpen(true);
     setIsNotificationOpen(false);
+    await handleNotificationClick(notif, navigate, user?.role || "Client", {
+      onMarkedRead: (id) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      },
+      onCloseDropdown: () => setIsNotificationOpen(false),
+    });
   };
 
   const markAllRead = async () => {
@@ -403,11 +406,23 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
               </div>
             </div>
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-6">
-              <p className="text-sm text-slate-700 leading-relaxed font-medium">{selectedNotif.details}</p>
+              <p className="text-sm text-slate-700 leading-relaxed font-medium">{selectedNotif.details || selectedNotif.description}</p>
             </div>
-            <button onClick={() => setIsDetailOpen(false)} className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs">
-              Dismiss
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  const notif = selectedNotif;
+                  setIsDetailOpen(false);
+                  handleNotificationClick(notif, navigate, user?.role || "Client");
+                }}
+                className="py-2.5 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl transition-all uppercase tracking-widest text-xs shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
+              >
+                Open Page
+              </button>
+              <button onClick={() => setIsDetailOpen(false)} className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs cursor-pointer">
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
       </Modal>

@@ -13,9 +13,10 @@ export const documentService = {
      * Get document statistics
      * GET /api/v1/documents/stats
      */
-    async getStats(): Promise<DocumentStats> {
-        const response = await api.get("/documents/stats");
-        return response.data;
+    async getStats(params?: { project_id?: number }): Promise<DocumentStats> {
+        const response = await api.get("/documents/stats", { params });
+        const res = response.data;
+        return res?.data || res;
     },
 
     /**
@@ -147,7 +148,13 @@ export const documentService = {
             responseType: 'blob'
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // Ensure we preserve the MIME type so the OS knows what to do with the file natively
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        const blob = response.data instanceof Blob
+            ? new Blob([response.data], { type: contentType })
+            : new Blob([response.data], { type: contentType });
+
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', fileName || `document_${id}`);

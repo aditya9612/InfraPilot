@@ -18,6 +18,8 @@ export interface ClientDashboardData {
   days_remaining: number;
 
   // ── Extended fields (may be returned by backend) ──
+  actual_progress?: number;        // actual project progress %
+  expense_trend?: any[];           // monthly expense trend
   project_health?: string;         // e.g. "Good", "At Risk", "Critical"
   health?: string;                 // alias for project_health
   timeline_progress?: number;      // % of timeline elapsed
@@ -223,12 +225,22 @@ export const dashboardService = {
       status:                raw.status       ?? project.status       ?? "",
       start_date:            raw.start_date   ?? project.start_date   ?? "",
       end_date:              raw.end_date     ?? project.end_date     ?? "",
+      expense_trend:         Array.isArray(raw.expense_trend) ? raw.expense_trend : (Array.isArray(budget.expense_trend) ? budget.expense_trend : []),
 
       // ── Progress ──────────────────────────────────────────────────────
+      actual_progress: Number(
+        raw.actual_progress           ??
+        schedule.actual_progress      ??
+        progress.actual_progress      ??
+        raw.progress_percent          ??
+        progress.progress_percent     ??
+        0
+      ),
       progress_percent: Number(
+        raw.actual_progress           ??
+        schedule.actual_progress      ??
         raw.progress_percent          ??
         raw.progress                  ??
-        raw.actual_progress           ??
         raw.overall_progress          ??
         raw.completion_percent        ??
         progress.progress_percent     ??
@@ -236,6 +248,9 @@ export const dashboardService = {
         progress.completion_percent   ??
         progress.actual_progress      ??
         progress.overall_progress     ??
+        schedule.progress             ??
+        schedule.progress_percent     ??
+        schedule.actual_percent       ??
         overview.progress             ??
         overview.progress_percent     ??
         overview.overall_progress     ??
@@ -349,6 +364,7 @@ export const dashboardService = {
         timeline.timeline_progress    ??
         timeline.time_elapsed_percent ??
         timeline.progress_percent     ??
+        schedule.expected_progress    ??
         0
       ),
 
@@ -363,6 +379,7 @@ export const dashboardService = {
         raw.variance_percent          ??
         schedule.variance_percent     ??
         schedule.schedule_variance    ??
+        schedule.variance             ??
         0
       ),
 
@@ -486,50 +503,41 @@ export const dashboardService = {
    * GET /api/v1/dashboard/labour/payments
    */
   async getLabourPayments(params?: {
-    month?: number;
-    year?: number;
-    time_filter?: string;
     page?: number;
     page_size?: number;
-    project_id?: number;
+    [key: string]: any;
   }): Promise<any> {
-    try {
-      const response = await api.get<any>('dashboard/labour/payments', { params });
-      const raw = response.data;
-      console.log('GET /api/v1/dashboard/labour/payments RAW Response:', JSON.stringify(raw, null, 2));
-      return raw?.data || raw;
-    } catch (error: any) {
-      console.warn("getLabourPayments API error, using fallback dataset:", error.message);
-      return {
-        items: [
-          { id: 101, period: "07 Aug", skill: "Mason", daily_wage: 850, ot_hours: 2, total_earned: 1100, remarks: "Foundation Work", status: "PAID" },
-          { id: 102, period: "06 Aug", skill: "Carpenter", daily_wage: 900, ot_hours: 0, total_earned: 900, remarks: "Shuttering", status: "PAID" },
-          { id: 103, period: "05 Aug", skill: "Electrician", daily_wage: 950, ot_hours: 3, total_earned: 1300, remarks: "Conduit Layout", status: "PENDING" },
-          { id: 104, period: "04 Aug", skill: "Helper", daily_wage: 600, ot_hours: 1, total_earned: 700, remarks: "Material Transfer", status: "PAID" },
-          { id: 105, period: "03 Aug", skill: "Plumber", daily_wage: 900, ot_hours: 0, total_earned: 900, remarks: "Piping Phase 1", status: "PAID" },
-        ],
-        summary: {
-          total_payout: 4900,
-          high_payouts: 0,
-          ot_intensive: 2,
-          advance_adjusted: 500
-        },
-        meta: { total: 5, page: 1, page_size: 20 }
-      };
-    }
+    const cleanParams: any = {};
+    if (params?.page) cleanParams.page = params.page;
+    if (params?.page_size) cleanParams.page_size = params.page_size;
+
+    const response = await api.get<any>('dashboard/labour/payments', {
+      params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,
+    });
+    const raw = response.data;
+    console.log('GET /api/v1/dashboard/labour/payments RAW Response:', JSON.stringify(raw, null, 2));
+    return raw?.data || raw;
   },
 
   /**
    * Labour Payments Export
-   * GET /api/v1/dashboard/labour/payments/export/{format}
+   * GET /api/v1/dashboard/labour/payments/export
    */
-  async exportLabourPayments(format: 'pdf' | 'excel', params?: {
-    month?: number;
+  async exportLabourPayments(params: {
+    export_format: 'csv' | 'pdf' | string;
     year?: number;
+    month?: number;
     time_filter?: string;
   }): Promise<Blob> {
-    const response = await api.get(`/dashboard/labour/payments/export/${format}`, {
-      params,
+    const cleanParams: any = {
+      export_format: params.export_format === 'pdf' ? 'pdf' : 'csv',
+    };
+    if (params.year) cleanParams.year = Number(params.year);
+    if (params.month) cleanParams.month = Number(params.month);
+    if (params.time_filter) cleanParams.time_filter = String(params.time_filter);
+
+    const response = await api.get('dashboard/labour/payments/export', {
+      params: cleanParams,
       responseType: 'blob',
     });
     return response.data;

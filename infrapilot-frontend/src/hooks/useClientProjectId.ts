@@ -10,7 +10,18 @@ import { projectService } from "../services/projectService";
  */
 export function useClientProjectId() {
   const [projectId, setProjectId] = useState<number | null>(() => {
-    // 1. Synchronous initial check so initial render is never null if a project was selected
+    // Check currently logged in user first
+    const userStr = localStorage.getItem("infrapilot_user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u?.project_id && Number(u.project_id) > 0) {
+          return Number(u.project_id);
+        }
+      } catch (e) {}
+    }
+
+    // 1. Synchronous initial check if a project was selected
     const clientSaved = localStorage.getItem("client_selected_project_id");
     if (clientSaved && clientSaved !== "null" && clientSaved !== "undefined") {
       const pid = Number(clientSaved);
@@ -41,7 +52,50 @@ export function useClientProjectId() {
 
   const resolve = useCallback(async () => {
     try {
-      // 1. Check dedicated selection keys
+      // Check currently logged in user first
+      const userStr = localStorage.getItem("infrapilot_user");
+      let currentUser: any = null;
+      if (userStr) {
+        try {
+          currentUser = JSON.parse(userStr);
+          if (currentUser?.project_id && Number(currentUser.project_id) > 0) {
+            const pid = Number(currentUser.project_id);
+            setProjectId(pid);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // 1. Dynamic API Fallback: Automatically fetch the user's projects list from server
+      try {
+        const response = await projectService.getProjects(10, 0);
+        const items = Array.isArray(response) ? response : (response?.items || response?.data || []);
+        if (items.length > 0) {
+          const selectedId = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
+          const hasSavedMatch = selectedId && items.some((p: any) => String(p.id || p.project_id) === String(selectedId));
+
+          if (hasSavedMatch) {
+            setProjectId(Number(selectedId));
+            setLoading(false);
+            return;
+          }
+
+          const firstProjId = Number(items[0].id || items[0].project_id);
+          if (firstProjId > 0) {
+            console.debug("useClientProjectId: Auto-selecting user project from API:", firstProjId);
+            localStorage.setItem("client_selected_project_id", String(firstProjId));
+            localStorage.setItem("infrapilot_selected_project_id", String(firstProjId));
+            setProjectId(firstProjId);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("useClientProjectId: API project fetch fallback warning:", apiErr);
+      }
+
+      // 2. Check dedicated selection keys
       const selectedId = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
       if (selectedId && selectedId !== "null" && selectedId !== "undefined") {
         const pid = Number(selectedId);
@@ -52,7 +106,7 @@ export function useClientProjectId() {
         }
       }
 
-      // 2. Check settings fallback if selection key is missing
+      // 3. Check settings fallback
       const localSettings = localStorage.getItem("mock_settings");
       if (localSettings) {
         try {
@@ -70,32 +124,10 @@ export function useClientProjectId() {
         } catch (e) {}
       }
 
-      // 3. Dynamic API Fallback: Automatically fetch the user's projects list from server
-      try {
-        const response = await projectService.getProjects(10, 0);
-        const items = Array.isArray(response) ? response : (response?.items || response?.data || []);
-        if (items.length > 0) {
-          const firstProjId = Number(items[0].id || items[0].project_id);
-          if (firstProjId > 0) {
-            console.debug("useClientProjectId: Auto-selecting first project from API:", firstProjId);
-            localStorage.setItem("client_selected_project_id", String(firstProjId));
-            localStorage.setItem("infrapilot_selected_project_id", String(firstProjId));
-            setProjectId(firstProjId);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (apiErr) {
-        console.warn("useClientProjectId: API project fetch fallback warning:", apiErr);
-      }
-
-      // 4. Default fallback to 4 if API returns empty
-      localStorage.setItem("client_selected_project_id", "4");
-      localStorage.setItem("infrapilot_selected_project_id", "4");
-      setProjectId(4);
+      setProjectId(null);
     } catch (err) {
       console.error("useClientProjectId: failed to resolve project:", err);
-      setProjectId(4);
+      setProjectId(null);
     } finally {
       setLoading(false);
     }

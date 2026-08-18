@@ -3,6 +3,7 @@ import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
+import type { DocumentStats } from "../../types/document";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import {
   Loader2,
@@ -49,6 +50,7 @@ const ClientDocumentsPage = () => {
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [apiDrawings, setApiDrawings] = useState<any[]>([]);
   const [apiDocs, setApiDocs] = useState<any[]>([]);
+  const [docStats, setDocStats] = useState<DocumentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalDocsFromApi, setTotalDocsFromApi] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,8 +127,8 @@ const ClientDocumentsPage = () => {
       URL.revokeObjectURL(objectUrl);
       toast.success("Download started", { id: toastId });
     } catch (err: any) {
-      console.error("Download failed:", err);
-      toast.error(`Download failed: ${err.message}`, { id: toastId });
+      console.error(">>> Download Error:", err);
+      toast.error("Failed to download file", { id: toastId });
     }
   };
 
@@ -188,13 +190,13 @@ const ClientDocumentsPage = () => {
     }
   };
 
-  const handleFolderClick = (folder: any) => {
-    setCurrentFolderId(Number(folder.id));
-    setCurrentFolderName(folder.drawing_name);
-    setFolderPath(prev => [...prev, { id: Number(folder.id), name: folder.drawing_name }]);
+  const handleOpenFolder = (folderId: number, folderName: string) => {
+    setCurrentFolderId(folderId);
+    setCurrentFolderName(folderName);
+    setFolderPath(prev => [...prev, { id: folderId, name: folderName }]);
   };
 
-  const handleBreadcrumbClick = (index: number) => {
+  const handleNavigateBreadcrumb = (index: number) => {
     if (index === -1) {
       setCurrentFolderId(null);
       setCurrentFolderName(null);
@@ -224,13 +226,14 @@ const ClientDocumentsPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [versionsResult, docsResult] = await Promise.allSettled([
+      const [versionsResult, docsResult, statsResult] = await Promise.allSettled([
         drawingService.getVersions(projectId),
         documentService.listDocuments({ 
             project_id: projectId,
             parent_id: currentFolderId,
             limit: 100
-        })
+        }),
+        documentService.getStats({ project_id: projectId })
       ]);
 
       if (versionsResult.status === 'fulfilled') {
@@ -248,6 +251,10 @@ const ClientDocumentsPage = () => {
         } else {
           setTotalDocsFromApi(null);
         }
+      }
+
+      if (statsResult.status === 'fulfilled' && statsResult.value) {
+        setDocStats(statsResult.value);
       }
     } catch (err: any) {
       console.error(">>> Failed to fetch vault repo:", err?.message);
@@ -415,47 +422,74 @@ const ClientDocumentsPage = () => {
         </div>
 
         {/* Dynamic Stat Cards */}
-        {activeTab === "Documents" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+        {activeTab === "Drawings" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+            {/* Card 1: ALL FILES */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ALL FILES</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-slate-800 tracking-tight">
-                  {totalDocsFromApi != null ? totalDocsFromApi : stats.documents}
+                  {stats.all || (apiDrawings.length + (docStats?.total_documents ?? (totalDocsFromApi != null ? totalDocsFromApi : stats.documents)))}
                 </span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
+
+            {/* Card 2: DRAWINGS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DRAWINGS</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.pending}</span>
+                <span className="text-3xl font-black text-amber-500 tracking-tight">
+                  {stats.drawings || apiDrawings.length}
+                </span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Approved Approvals</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-500 tracking-tight">{stats.approved}</span>
-              </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Verified & Approved</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Images & CAD</span>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Drawings</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+            {/* Card 1: TOTAL STORAGE BYTES */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL STORAGE BYTES</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.drawings}</span>
+                <span className="text-3xl font-black text-indigo-600 tracking-tight">
+                  {docStats?.total_storage_bytes !== undefined ? docStats.total_storage_bytes : totalStorageBytes}
+                </span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Total Drawings</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
+
+            {/* Card 2: TOTAL STORAGE GB */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL STORAGE GB</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.drawings}</span>
+                <span className="text-3xl font-black text-emerald-500 tracking-tight">
+                  {docStats?.total_storage_gb !== undefined ? docStats.total_storage_gb : 0}
+                </span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Images & CAD</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption GB</span>
+            </div>
+
+            {/* Card 3: PENDING APPROVALS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING APPROVALS</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-amber-500 tracking-tight">
+                  {docStats?.pending_approvals !== undefined ? docStats.pending_approvals : stats.pending}
+                </span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
+            </div>
+
+            {/* Card 4: TOTAL DOCUMENTS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL DOCUMENTS</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-800 tracking-tight">
+                  {docStats?.total_documents !== undefined ? docStats.total_documents : (totalDocsFromApi != null ? totalDocsFromApi : stats.documents)}
+                </span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
             </div>
           </div>
         )}

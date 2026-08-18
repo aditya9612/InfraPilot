@@ -1,33 +1,39 @@
 import api from "./api";
 
-export interface WorkUpdatePayload {
-  project_id?: number;
-  task_id?: number;
-  description: string;
-  category?: string;
-  location?: string;
+export interface CreateWorkUpdatePayload {
+  project_id: number;
+  task_id: number;
+  activity_type_id: number;
+  work_description: string;
+  before_remarks?: string;
   work_date?: string;
   start_time?: string;
+  location?: string;
+}
+
+export interface SubmitWorkUpdatePayload {
   end_time?: string;
-  before_remarks?: string;
   after_remarks?: string;
-  before_images?: string[] | File[];
-  after_images?: string[] | File[];
-  [key: string]: any;
+  total_hours: number | string;
 }
 
 export interface WorkUpdateItem {
   id: number;
+  business_id?: string;
   project_id: number;
   task_id?: number;
-  description: string;
-  category?: string;
-  location?: string;
+  activity_type_id?: number;
+  created_by_id?: number;
+  work_description: string;
+  before_remarks?: string;
+  after_remarks?: string;
   work_date?: string;
   start_time?: string;
   end_time?: string;
-  before_remarks?: string;
-  after_remarks?: string;
+  total_hours?: number;
+  location?: string;
+  status?: string;
+  images?: any[];
   before_images?: string[];
   after_images?: string[];
   created_at?: string;
@@ -48,12 +54,10 @@ export const workUpdateService = {
   /**
    * Create Work Update
    * POST /api/v1/work-updates
+   * Content-Type: application/json
    */
-  async createWorkUpdate(data: WorkUpdatePayload | FormData): Promise<any> {
-    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
-    const response = await api.post("/work-updates", data, {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined
-    });
+  async createWorkUpdate(data: CreateWorkUpdatePayload): Promise<any> {
+    const response = await api.post("/work-updates", data);
     return response.data;
   },
 
@@ -102,11 +106,8 @@ export const workUpdateService = {
    * Update Work Update
    * PUT /api/v1/work-updates/{work_update_id}
    */
-  async updateWorkUpdate(workUpdateId: number, data: Partial<WorkUpdatePayload> | FormData): Promise<any> {
-    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
-    const response = await api.put(`/work-updates/${workUpdateId}`, data, {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined
-    });
+  async updateWorkUpdate(workUpdateId: number, data: Partial<CreateWorkUpdatePayload>): Promise<any> {
+    const response = await api.put(`/work-updates/${workUpdateId}`, data);
     return response.data;
   },
 
@@ -122,83 +123,46 @@ export const workUpdateService = {
   /**
    * Upload Before Image
    * POST /api/v1/work-updates/{work_update_id}/before-image
+   * Content-Type: multipart/form-data
+   * Form field: image
    */
-  async uploadBeforeImage(workUpdateId: number, fileOrData: File | FormData | { image?: string; [key: string]: any }): Promise<any> {
+  async uploadBeforeImage(workUpdateId: number, file: File): Promise<any> {
     if (!workUpdateId) throw new Error("work_update_id is required");
 
-    try {
-      let payload: any;
-      let config: any = {};
+    const formData = new FormData();
+    formData.append("image", file);
 
-      if (typeof FormData !== 'undefined' && fileOrData instanceof FormData) {
-        payload = fileOrData;
-        config.headers = { "Content-Type": "multipart/form-data" };
-      } else if (fileOrData instanceof File) {
-        const formData = new FormData();
-        formData.append("file", fileOrData);
-        formData.append("image", fileOrData);
-        formData.append("before_image", fileOrData);
-        payload = formData;
-        config.headers = { "Content-Type": "multipart/form-data" };
-      } else {
-        payload = fileOrData;
-      }
-
-      const response = await api.post(`/work-updates/${workUpdateId}/before-image`, payload, config);
-      return response.data;
-    } catch (err: any) {
-      console.warn(`POST /work-updates/${workUpdateId}/before-image failed with FormData, trying json fallback:`, err?.message);
-      if (fileOrData && typeof fileOrData === 'object' && !(fileOrData instanceof File) && !(fileOrData instanceof FormData)) {
-        const response = await api.post(`/work-updates/${workUpdateId}/before-image`, fileOrData);
-        return response.data;
-      }
-      throw err;
-    }
+    const response = await api.post(`/work-updates/${workUpdateId}/before-image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data;
   },
 
   /**
    * Upload After Image
    * POST /api/v1/work-updates/{work_update_id}/after-image
+   * Content-Type: multipart/form-data
+   * Form field: image
    */
-  async uploadAfterImage(workUpdateId: number, fileOrData: File | FormData | { image?: string; [key: string]: any }): Promise<any> {
+  async uploadAfterImage(workUpdateId: number, file: File): Promise<any> {
     if (!workUpdateId) throw new Error("work_update_id is required");
 
-    try {
-      let payload: any;
-      let config: any = {};
+    const formData = new FormData();
+    formData.append("image", file);
 
-      if (typeof FormData !== 'undefined' && fileOrData instanceof FormData) {
-        payload = fileOrData;
-        config.headers = { "Content-Type": "multipart/form-data" };
-      } else if (fileOrData instanceof File) {
-        const formData = new FormData();
-        formData.append("file", fileOrData);
-        formData.append("image", fileOrData);
-        formData.append("after_image", fileOrData);
-        payload = formData;
-        config.headers = { "Content-Type": "multipart/form-data" };
-      } else {
-        payload = fileOrData;
-      }
-
-      const response = await api.post(`/work-updates/${workUpdateId}/after-image`, payload, config);
-      return response.data;
-    } catch (err: any) {
-      console.warn(`POST /work-updates/${workUpdateId}/after-image failed with FormData, trying json fallback:`, err?.message);
-      if (fileOrData && typeof fileOrData === 'object' && !(fileOrData instanceof File) && !(fileOrData instanceof FormData)) {
-        const response = await api.post(`/work-updates/${workUpdateId}/after-image`, fileOrData);
-        return response.data;
-      }
-      throw err;
-    }
+    const response = await api.post(`/work-updates/${workUpdateId}/after-image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data;
   },
 
   /**
    * Submit Work Update
    * POST /api/v1/work-updates/{work_update_id}/submit
+   * Content-Type: application/json
    */
-  async submitWorkUpdate(workUpdateId: number, data?: any): Promise<any> {
-    const response = await api.post(`/work-updates/${workUpdateId}/submit`, data || {});
+  async submitWorkUpdate(workUpdateId: number, data: SubmitWorkUpdatePayload): Promise<any> {
+    const response = await api.post(`/work-updates/${workUpdateId}/submit`, data);
     return response.data;
   },
 

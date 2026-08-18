@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, ArrowUpRight, ArrowDownRight, DollarSign, Wallet, FileText, PieChart, Activity, Bell, Download } from 'lucide-react';
+import { RefreshCw, ArrowUpRight, ArrowDownRight, IndianRupee, Wallet, FileText, PieChart, Activity, Bell, Download } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
@@ -90,7 +90,7 @@ export default function AccountantDashboard() {
   const notifications = dashboardData?.notifications || [];
 
   const widgets = [
-    { label: 'Cash', value: dashboardData?.kpi_cards?.cash_balance !== undefined ? `₹${dashboardData.kpi_cards.cash_balance}` : '₹0', icon: <DollarSign className="w-5 h-5 text-emerald-600" />, bg: 'bg-emerald-50 border-emerald-100' },
+    { label: 'Cash', value: dashboardData?.kpi_cards?.cash_balance !== undefined ? `₹${dashboardData.kpi_cards.cash_balance}` : '₹0', icon: <IndianRupee className="w-5 h-5 text-emerald-600" />, bg: 'bg-emerald-50 border-emerald-100' },
     { label: 'Bank', value: dashboardData?.kpi_cards?.bank_balance !== undefined ? `₹${dashboardData.kpi_cards.bank_balance}` : '₹0', icon: <Wallet className="w-5 h-5 text-blue-600" />, bg: 'bg-blue-50 border-blue-100' },
     { label: 'Receivable', value: dashboardData?.kpi_cards?.receivables !== undefined ? `₹${dashboardData.kpi_cards.receivables}` : '₹0', icon: <ArrowDownRight className="w-5 h-5 text-indigo-600" />, bg: 'bg-indigo-50 border-indigo-100' },
     { label: 'Payable', value: dashboardData?.kpi_cards?.payables !== undefined ? `₹${dashboardData.kpi_cards.payables}` : '₹0', icon: <ArrowUpRight className="w-5 h-5 text-rose-600" />, bg: 'bg-rose-50 border-rose-100' },

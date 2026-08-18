@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
     Wallet,
     TrendingUp,
@@ -6,11 +6,13 @@ import {
     Clock,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     FileSpreadsheet,
     FileMinus,
     Calendar,
     Loader2,
-    Search
+    Search,
+    Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
@@ -19,6 +21,24 @@ import toast from 'react-hot-toast';
 import { dashboardService } from '../../services/dashboardService';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+import * as XLSX from 'xlsx';
+
+const parseCurrency = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') return val;
+    const cleaned = String(val).replace(/[^0-9.-]+/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+};
+
+const parseHours = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') return val;
+    const cleaned = String(val).replace(/[^0-9.-]+/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+};
 
 const PaymentsPage: React.FC = () => {
     const { user } = useAuth();
@@ -29,6 +49,8 @@ const PaymentsPage: React.FC = () => {
     const [recordsPerPage, setRecordsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const [showDateFilter, setShowDateFilter] = useState(false);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const exportDropdownRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [payments, setPayments] = useState<any[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -41,44 +63,40 @@ const PaymentsPage: React.FC = () => {
 
     const userName = user?.name || 'Gopal Yadav';
 
+    // Handle outside click for export dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const fetchPayments = useCallback(async () => {
         setIsLoading(true);
         try {
-            let time_filter = "";
-            switch (filterPeriod) {
-                case "Daily Analysis": time_filter = "today"; break;
-                case "Weekly Summary": time_filter = "this_week"; break;
-                case "Monthly Report": time_filter = "this_month"; break;
-                case "3 Months": time_filter = "last_3_months"; break;
-                case "6 Months": time_filter = "last_6_months"; break;
-                case "1 Year": time_filter = "last_year"; break;
-                default: time_filter = "this_month";
-            }
-
-            const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
-            const selectedPid = savedIdStr ? Number(savedIdStr) : undefined;
-
             const params: any = {
                 page: currentPage,
-                page_size: recordsPerPage,
-                time_filter: time_filter,
-                ...(selectedPid ? { project_id: selectedPid } : {})
+                page_size: recordsPerPage
             };
 
             const data = await dashboardService.getLabourPayments(params);
             if (data) {
-                const items = Array.isArray(data)
+                const records = Array.isArray(data)
                     ? data
-                    : (data.items || data.data || data.payments || data.records || []);
+                    : (data.records || data.items || data.data || data.payments || []);
                 
-                setPayments(items);
-                setTotalRecords(data.meta?.total || data.total || data.total_count || items.length);
+                setPayments(records);
+                setTotalRecords(data.total_records || data.meta?.total || data.total || data.total_count || records.length);
                 
+                const sum = data.summary || {};
                 setSummaryStats({
-                    total_payout: data.summary?.total_payout ?? data.total_payout ?? items.reduce((acc: number, curr: any) => acc + Number(curr.total_earned || curr.amount || curr.daily_wage || 0), 0),
-                    high_payouts: data.summary?.high_payouts ?? data.high_payouts ?? items.filter((i: any) => Number(i.total_earned || i.amount || i.daily_wage || 0) > 5000).length,
-                    ot_intensive: data.summary?.ot_intensive ?? data.ot_intensive ?? items.filter((i: any) => Number(i.ot_hours || i.overtime_hours || 0) > 2).length,
-                    advance_adjusted: data.summary?.advance_adjusted ?? data.advance_adjusted ?? 0
+                    total_payout: sum.total_payout !== undefined ? parseCurrency(sum.total_payout) : records.reduce((acc: number, curr: any) => acc + parseCurrency(curr.total_wage_earned || curr.total_earned || curr.amount || curr.daily_wage || 0), 0),
+                    high_payouts: sum.high_payouts !== undefined ? Number(sum.high_payouts) : records.filter((i: any) => parseCurrency(i.total_wage_earned || i.total_earned || i.amount || i.daily_wage || 0) > 5000).length,
+                    ot_intensive: sum.ot_intensive !== undefined ? Number(sum.ot_intensive) : records.filter((i: any) => parseHours(i.ot_hours || i.overtime_hours || 0) > 0).length,
+                    advance_adjusted: sum.advance_adjusted !== undefined ? parseCurrency(sum.advance_adjusted) : 0
                 });
             }
         } catch (error) {
@@ -88,7 +106,7 @@ const PaymentsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [filterPeriod, currentPage, recordsPerPage]);
+    }, [currentPage, recordsPerPage]);
 
     useEffect(() => {
         fetchPayments();
@@ -96,34 +114,49 @@ const PaymentsPage: React.FC = () => {
 
     const displayData = useMemo(() => {
         return payments.map(d => {
-            const dateStr = d.date || d.created_at || d.payment_date || new Date().toISOString();
-            const dateObj = new Date(dateStr);
-            const day = !isNaN(dateObj.getTime()) ? String(dateObj.getDate()).padStart(2, '0') : '';
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const month = !isNaN(dateObj.getTime()) ? months[dateObj.getMonth()] : '';
-            
+            const rawDate = d.date || d.created_at || d.payment_date || d.period || '';
+            let periodDisplay = rawDate;
+            if (rawDate && (rawDate.includes('T') || (rawDate.includes('-') && !rawDate.includes(' ')))) {
+                const dateObj = new Date(rawDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const month = months[dateObj.getMonth()];
+                    periodDisplay = `${day} ${month}`;
+                }
+            }
+
+            const rawWage = d.daily_wage ?? d.dailyWage ?? d.rate ?? d.wage ?? 0;
+            const rawOT = d.ot_hours ?? d.otHours ?? d.overtime_hours ?? 0;
+            const rawTotal = d.total_wage_earned ?? d.total_earned ?? d.totalEarned ?? d.amount ?? d.total_amount ?? 0;
+
             return {
-                period: (day && month) ? `${day} ${month}` : (d.period || dateStr),
-                skill: d.skill || d.skill_type || d.designation || d.labour_type || d.name || 'Labour',
-                dailyWage: Number(d.dailyWage ?? d.daily_wage ?? d.rate ?? d.wage ?? 0),
-                otHours: Number(d.otHours ?? d.ot_hours ?? d.overtime_hours ?? 0),
-                totalEarned: Number(d.totalEarned ?? d.total_earned ?? d.amount ?? d.total_amount ?? 0),
+                period: periodDisplay || '—',
+                skill: d.skill_type || d.skill || d.designation || d.labour_type || d.name || 'Skilled',
+                dailyWage: parseCurrency(rawWage),
+                otHours: parseHours(rawOT),
+                totalEarned: parseCurrency(rawTotal),
                 remarks: d.remarks || d.description || '—',
-                status: (d.status || 'Paid').toUpperCase(),
-                id: d.id || d.payment_id
+                status: (d.status || d.payment_status || 'Paid').toUpperCase(),
+                id: d.id || d.payment_id || Math.random().toString()
             };
         });
     }, [payments]);
 
     const filteredData = useMemo(() => {
-        if (!searchTerm.trim()) return displayData;
-        const q = searchTerm.toLowerCase();
-        return displayData.filter(item =>
-            item.skill.toLowerCase().includes(q) ||
-            item.period.toLowerCase().includes(q) ||
-            item.remarks.toLowerCase().includes(q) ||
-            item.status.toLowerCase().includes(q)
-        );
+        let list = displayData;
+
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            list = list.filter(item =>
+                item.skill.toLowerCase().includes(q) ||
+                item.period.toLowerCase().includes(q) ||
+                item.remarks.toLowerCase().includes(q) ||
+                item.status.toLowerCase().includes(q)
+            );
+        }
+
+        return list;
     }, [displayData, searchTerm]);
 
     const generateFrontendPDF = (data: any[]) => {
@@ -141,7 +174,7 @@ const PaymentsPage: React.FC = () => {
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text("Fiscal Payroll Analysis Report", 14, 32);
+        doc.text("Labour Payment History Report", 14, 32);
         
         doc.setTextColor(31, 41, 55);
         doc.setFontSize(14);
@@ -183,49 +216,99 @@ const PaymentsPage: React.FC = () => {
         doc.save(`Labour_Payments_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
-    const handleExport = async (format: 'excel' | 'pdf') => {
-        const loadingToast = toast.loading(`Preparing ${format.toUpperCase()}...`);
+    const generateFrontendExcel = (data: any[]) => {
+        const rows = data.map(item => ({
+            "Period / Date": item.period,
+            "Skill Type": item.skill,
+            "Daily Wage (₹)": item.dailyWage,
+            "OT Hours": `${item.otHours}h`,
+            "Total Earned (₹)": item.totalEarned,
+            "Status": item.status,
+            "Remarks": item.remarks
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Labour Payments");
+        XLSX.writeFile(wb, `Labour_Payments_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
+        setIsExportMenuOpen(false);
+        const exportFormat: 'csv' | 'pdf' = format === 'pdf' ? 'pdf' : 'csv';
+        const loadingToast = toast.loading(`Preparing ${exportFormat.toUpperCase()}...`);
         try {
-            let time_filter = "";
-            switch (filterPeriod) {
-                case "Daily Analysis": time_filter = "today"; break;
-                case "Weekly Summary": time_filter = "this_week"; break;
-                case "Monthly Report": time_filter = "this_month"; break;
-                default: time_filter = "this_month";
+            const now = new Date();
+            let year: number | undefined = now.getFullYear();
+            let month: number | undefined = undefined;
+            let time_filter: string | undefined = undefined;
+
+            // Map UI filterPeriod to backend allowed time_filter enum
+            if (filterPeriod) {
+                const p = filterPeriod.toLowerCase();
+                if (p.includes('daily')) time_filter = 'daily';
+                else if (p.includes('weekly')) time_filter = 'weekly';
+                else if (p.includes('month')) time_filter = 'monthly';
+                else if (p.includes('year')) time_filter = 'yearly';
             }
 
-            try {
-                const blob = await dashboardService.exportLabourPayments(format, { time_filter });
-                const isError = blob.type === 'application/json' || blob.size < 500;
-                
-                if (isError && format === 'pdf') {
-                    console.log("Server PDF looks invalid, falling back to local generation");
-                    generateFrontendPDF(displayData);
-                    toast.success("PDF generated successfully", { id: loadingToast });
-                    return;
+            // If date filter is enabled and user picked a date, extract year/month
+            if (showDateFilter && startDate) {
+                const dateObj = new Date(startDate);
+                if (!isNaN(dateObj.getTime())) {
+                    year = dateObj.getFullYear();
+                    month = dateObj.getMonth() + 1;
                 }
+            }
 
-                const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            // Construct exact params matching backend Swagger contract
+            const params: {
+                export_format: 'csv' | 'pdf';
+                year?: number;
+                month?: number;
+                time_filter?: string;
+            } = {
+                export_format: exportFormat,
+                year: year || 2026,
+            };
+
+            if (month) {
+                params.month = month;
+            }
+
+            if (time_filter) {
+                params.time_filter = time_filter;
+            }
+
+            // Call backend GET /api/v1/dashboard/labour/payments/export
+            const blob = await dashboardService.exportLabourPayments(params);
+
+            if (blob && blob.size > 0 && blob.type !== 'application/json') {
+                const mimeType = exportFormat === 'pdf' ? 'application/pdf' : 'text/csv;charset=utf-8;';
                 const file = new Blob([blob], { type: mimeType });
                 const url = window.URL.createObjectURL(file);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Labour_Payments_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+                const ext = exportFormat === 'pdf' ? 'pdf' : 'csv';
+                a.download = `Labour_Payments_${now.toISOString().split('T')[0]}.${ext}`;
                 document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                toast.success(`${format.toUpperCase()} exported successfully`, { id: loadingToast });
-            } catch (err) {
-                if (format === 'pdf') {
-                    generateFrontendPDF(displayData);
-                    toast.success("PDF generated locally", { id: loadingToast });
-                } else {
-                    throw err;
-                }
+                toast.success(`${exportFormat.toUpperCase()} downloaded successfully`, { id: loadingToast });
+                return;
+            } else {
+                throw new Error("Empty response received from server");
             }
         } catch (error: any) {
-            console.error(`Error exporting ${format}:`, error);
-            toast.error(`Failed to export ${format}`, { id: loadingToast });
+            console.warn(`Backend ${exportFormat} export fallback to client-side generation:`, error);
+            if (exportFormat === 'pdf') {
+                generateFrontendPDF(displayData);
+                toast.success("PDF generated successfully", { id: loadingToast });
+            } else {
+                generateFrontendExcel(displayData);
+                toast.success("CSV/Excel generated successfully", { id: loadingToast });
+            }
         }
     };
 
@@ -250,16 +333,58 @@ const PaymentsPage: React.FC = () => {
 
     return (
         <>
-            <Navbar title="Financial Intelligence" breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']} />
+            <Navbar title="Labour Payment History" breadcrumb={['Labour', 'Payments', 'Labour Payment History']} />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
-                        <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Labour Payment History</h1>
+                        <p className="text-sm font-bold text-slate-400">Historical wage payments and earnings distribution records.</p>
                     </div>
-                    <button onClick={() => handleExport('pdf')} className="bg-[#111827] hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95">
-                        <FileMinus className="w-4 h-4" /> DOWNLOAD PDF
-                    </button>
+
+                    {/* Download Dropdown Button */}
+                    <div className="relative" ref={exportDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsExportMenuOpen(prev => !prev)}
+                            className="bg-[#111827] hover:bg-slate-800 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
+                        >
+                            <Download className="w-4 h-4 text-indigo-400" />
+                            <span>DOWNLOAD</span>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isExportMenuOpen && (
+                            <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                <button
+                                    type="button"
+                                    onClick={() => handleExport('pdf')}
+                                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-3 group"
+                                >
+                                    <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                                        <FileMinus className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-800 tracking-tight">Download PDF</p>
+                                        <p className="text-[10px] text-slate-400 font-bold">Fiscal report summary</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleExport('csv')}
+                                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-3 group mt-1"
+                                >
+                                    <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                                        <FileSpreadsheet className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-800 tracking-tight">Download CSV</p>
+                                        <p className="text-[10px] text-slate-400 font-bold">Spreadsheet data (.csv)</p>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -308,8 +433,8 @@ const PaymentsPage: React.FC = () => {
                             <button onClick={() => setShowDateFilter(!showDateFilter)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
                                 <Calendar className="w-4 h-4" /> Date
                             </button>
-                            <button onClick={() => handleExport('excel')} className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all">
-                                <FileSpreadsheet className="w-4 h-4" /> EXCEL
+                            <button onClick={() => handleExport('csv')} className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all">
+                                <FileSpreadsheet className="w-4 h-4" /> CSV
                             </button>
                         </div>
                     </div>

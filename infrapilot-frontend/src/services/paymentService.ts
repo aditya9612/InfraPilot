@@ -5,6 +5,24 @@ import type {
 
 export const paymentService = {
     /**
+     * Get Labour Payments from Dashboard API
+     * GET /api/v1/dashboard/labour/payments
+     */
+    async getLabourPayments(params?: {
+        month?: number;
+        year?: number;
+        time_filter?: string;
+        page?: number;
+        page_size?: number;
+        project_id?: number;
+    }): Promise<any> {
+        const response = await api.get<any>('dashboard/labour/payments', { params });
+        const raw = response.data;
+        console.log('GET /api/v1/dashboard/labour/payments RAW Response:', JSON.stringify(raw, null, 2));
+        return raw?.data || raw;
+    },
+
+    /**
      * Pay salary to labour directly
      * POST /api/v1/payments/salary
      */
@@ -332,19 +350,70 @@ export const paymentService = {
     /**
      * Create Client Payment
      * POST /api/v1/client-payments
+     * Always sends FormData (multipart/form-data) to match backend Form(...) parameters
      */
     async createClientPayment(payload: {
-        invoice_id: string;
-        amount: number;
-        paid_amount?: number;
-        project_id?: string | number;
+        invoice_id: number | string;
+        amount: number | string;
+        project_id?: number | string;
         project_name?: string;
         payment_method?: string;
-        bank_name?: string;
+        bank_name?: string | null;
+        cheque_no?: string | null;
+        reference_no?: string | null;
+        remarks?: string | null;
+        receipt?: File | string | null;
+        paid_amount?: number;
         status?: string;
+        payment_status?: string;
+        payment_date?: string;
     }): Promise<any> {
-        const pId = payload.project_id || 4;
-        const response = await api.post("client-payments", { ...payload, project_id: pId });
+        let invId: number = typeof payload.invoice_id === 'number' 
+            ? payload.invoice_id 
+            : parseInt(String(payload.invoice_id).replace(/\D/g, ''), 10);
+        if (isNaN(invId) || invId <= 0) invId = 1;
+
+        const pId: number = payload.project_id ? Number(payload.project_id) : 4;
+        const amt: number = Number(payload.amount);
+        
+        // Exact backend enum values only: 'CASH' | 'CHEQUE' | 'NEFT' | 'RTGS' | 'UPI' | 'ONLINE'
+        const VALID_PAYMENT_METHODS = ["CASH", "CHEQUE", "NEFT", "RTGS", "UPI", "ONLINE"];
+        const rawMethod = (payload.payment_method || "CASH").toUpperCase().trim();
+        const pMethod = VALID_PAYMENT_METHODS.includes(rawMethod) ? rawMethod : "CASH";
+
+        const formData = new FormData();
+        formData.append("invoice_id", String(invId));
+        formData.append("project_id", String(pId));
+        formData.append("amount", String(amt));
+        formData.append("payment_method", pMethod);
+
+        // Append only permitted fields according to payment method rules
+        if (pMethod === "CHEQUE" || pMethod === "NEFT" || pMethod === "RTGS") {
+            if (payload.bank_name) formData.append("bank_name", payload.bank_name);
+        }
+        if (pMethod === "CHEQUE") {
+            if (payload.cheque_no) formData.append("cheque_no", payload.cheque_no);
+        }
+        if (pMethod === "NEFT" || pMethod === "RTGS" || pMethod === "UPI") {
+            if (payload.reference_no) formData.append("reference_no", payload.reference_no);
+        }
+        if (payload.remarks) {
+            formData.append("remarks", payload.remarks);
+        }
+        if ((pMethod === "CHEQUE" || pMethod === "NEFT" || pMethod === "RTGS" || pMethod === "UPI") && payload.receipt instanceof File) {
+            formData.append("receipt", payload.receipt);
+        }
+
+        console.log("POST /api/v1/client-payments (FormData):", {
+            invoice_id: invId,
+            project_id: pId,
+            amount: amt,
+            payment_method: pMethod,
+            hasReceipt: payload.receipt instanceof File
+        });
+
+        const response = await api.post("client-payments", formData);
+        console.log("POST /api/v1/client-payments Response:", response.data);
         return response.data;
     },
 
@@ -374,14 +443,14 @@ export const paymentService = {
 
     /**
      * List Client Payments
-     * GET /api/v1/client-payments
+     * GET /api/v1/client-payments/history
      */
     async listClientPayments(params?: any): Promise<any[]> {
         try {
             const pId = params?.project_id || 4;
-            const response = await api.get("client-payments", { params: { project_id: pId, ...params } });
+            const response = await api.get("client-payments/history", { params: { project_id: pId, ...params } });
             const data = response.data;
-            return Array.isArray(data) ? data : data?.items || data?.data || data?.payments || [];
+            return Array.isArray(data) ? data : data?.items || data?.data || data?.payments || data?.history || [];
         } catch (err) {
             console.error("Failed to fetch client payments list:", err);
             return [];

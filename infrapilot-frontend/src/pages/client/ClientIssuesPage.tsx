@@ -20,6 +20,7 @@ const ClientIssuesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
   const [priorityFilter, setPriorityFilter] = useState("ALL PRIORITY");
+  const [categoryFilter, setCategoryFilter] = useState("ALL CATEGORIES");
 
   const [newIssue, setNewIssue] = useState({
     title: "",
@@ -54,42 +55,23 @@ const ClientIssuesPage = () => {
     try {
       setLoading(true);
 
-      // Build API params — pass priority when a specific filter is selected
-      const apiParams: any = { project_id: projectId, limit: 1000 };
-      if (priorityFilter !== "ALL PRIORITY") {
-        // Map UI label to the API-expected value (capitalize first letter)
-        const priorityMap: Record<string, string> = {
-          CRITICAL: "Critical",
-          HIGH: "High",
-          MEDIUM: "Medium",
-          LOW: "Low",
-        };
-        apiParams.priority = priorityMap[priorityFilter] || priorityFilter;
-      }
+      const response = await issueService.listIssues({
+        project_id: projectId,
+        limit: 1000
+      });
 
-      const response = await issueService.getIssues(apiParams);
+      const allIssues = Array.isArray(response) ? response : (response.items || response.data || []);
 
-      // The API returns data directly or in an items array
-      const allIssues = Array.isArray(response) ? response : (response.items || []);
-
-      // Client View logic: Show issues reported by Client OR general project constraints (Material, Delay, Quality)
-      // Hide internal engineering constraints (Labor, Safety Protocols if internal)
-      const clientFacingIssues = allIssues.filter((i: any) =>
-        i.reporter_role === "Client" ||
-        i.source === "Client" ||
-        ["Material", "Delay", "Quality", "General"].includes(i.category) ||
-        !["Labor Constraint", "Machine Downtime", "Safety Protocol"].includes(i.category)
-      );
-
-      setIssues(clientFacingIssues.sort((a: any, b: any) =>
-        new Date(b.reported_date || b.created_at).getTime() - new Date(a.reported_date || a.created_at).getTime()
+      setIssues(allIssues.sort((a: any, b: any) =>
+        new Date(b.reported_date || b.created_at || 0).getTime() - new Date(a.reported_date || a.created_at || 0).getTime()
       ));
     } catch (error) {
       console.error("Failed to fetch project issues:", error);
+      toast.error("Failed to sync issues from server");
     } finally {
       setLoading(false);
     }
-  }, [projectId, priorityFilter]);
+  }, [projectId]);
 
   useEffect(() => {
     fetchIssues();
@@ -127,9 +109,15 @@ const ClientIssuesPage = () => {
       }
     }
 
+    if (categoryFilter !== "ALL CATEGORIES") {
+      result = result.filter(
+        i => i.category?.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+
     setFilteredIssues(result);
     setCurrentPage(1);
-  }, [issues, searchQuery, statusFilter, priorityFilter]);
+  }, [issues, searchQuery, statusFilter, priorityFilter, categoryFilter]);
 
   const handleViewIssue = async (id: number) => {
     try {
@@ -148,10 +136,24 @@ const ClientIssuesPage = () => {
 
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId) return;
+    if (!projectId) {
+      toast.error("No active project detected. Please select a project first.");
+      return;
+    }
+    if (!newIssue.title.trim()) {
+      toast.error("Please enter an issue title.");
+      return;
+    }
     try {
       setIsSubmitting(true);
-      await issueService.createIssue({ ...newIssue, project_id: projectId });
+      await issueService.createIssue({
+        project_id: projectId,
+        title: newIssue.title.trim(),
+        category: newIssue.category,
+        priority: newIssue.priority,
+        reported_date: newIssue.reported_date,
+        description: newIssue.description?.trim() || ""
+      });
       setIsCreateModalOpen(false);
       setNewIssue({
         title: "",
@@ -160,10 +162,12 @@ const ClientIssuesPage = () => {
         priority: "Medium",
         reported_date: new Date().toISOString().split('T')[0]
       });
-      toast.success("Issue logged in vault.");
-      fetchIssues();
-    } catch (error) {
-      toast.error("Failed to lodge issue.");
+      toast.success("Issue logged in vault successfully.");
+      await fetchIssues();
+    } catch (error: any) {
+      console.error("Failed to lodge issue:", error);
+      const msg = error.response?.data?.detail || error.message || "Failed to lodge issue.";
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setIsSubmitting(false);
     }
@@ -211,10 +215,10 @@ const ClientIssuesPage = () => {
             <div
               key={i}
               onClick={() => {
-                if (i === 0) { setStatusFilter("ALL STATUS"); setPriorityFilter("ALL PRIORITY"); }
-                else if (i === 1) { setStatusFilter("PENDING"); setPriorityFilter("ALL PRIORITY"); }
-                else if (i === 2) { setPriorityFilter("HIGH"); setStatusFilter("ALL STATUS"); }
-                else { setStatusFilter("RESOLVED"); setPriorityFilter("ALL PRIORITY"); }
+                if (i === 0) { setStatusFilter("ALL STATUS"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
+                else if (i === 1) { setStatusFilter("PENDING"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
+                else if (i === 2) { setPriorityFilter("HIGH"); setStatusFilter("ALL STATUS"); setCategoryFilter("ALL CATEGORIES"); }
+                else { setStatusFilter("RESOLVED"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
               }}
               className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group font-inter font-inter"
             >
@@ -274,6 +278,21 @@ const ClientIssuesPage = () => {
                     <option value="HIGH">HIGH</option>
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="LOW">LOW</option>
+                  </select>
+                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                {/* Category Filter - Marked Box */}
+                <div className="relative">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="appearance-none bg-white border border-slate-200 rounded-2xl py-3.5 pl-6 pr-14 text-[11px] font-black uppercase tracking-widest text-[#475569] outline-none cursor-pointer hover:border-slate-300 transition-all shadow-sm"
+                  >
+                    <option value="ALL CATEGORIES">ALL CATEGORIES</option>
+                    <option value="Material">MATERIAL</option>
+                    <option value="Safety">SAFETY</option>
+                    <option value="Delay">DELAY</option>
                   </select>
                   <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>

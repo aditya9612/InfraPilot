@@ -1,38 +1,36 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
-import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
-import { useAuth } from "../../context/AuthContext";
-
-interface AddActivityModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: CreateActivityRequest) => Promise<void>;
-  projectId: number;
-  engineerId: number;
-}
-
+import { workProgressService } from "../../services/workProgressService";
 import { boqService } from "../../services/boqService";
 import api from "../../services/api";
-import { workProgressService } from "../../services/workProgressService";
+import { useAuth } from "../../context/AuthContext";
 
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
   return arr.filter(item => {
-    const id = item.id || item.boq_id || item.user_id || item.boq_code;
-    if (!id || seen.has(id)) return false;
+    const id = item.id || item.boq_id || item.user_id;
+    if (seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 };
 
-const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
+interface AddActivityModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  projectId?: number;
+  engineerId?: number;
+  onSubmit: (data: any) => Promise<void>;
+}
+
+const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: AddActivityModalProps) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     project_id: "",
-    boq_code: "" as any,
+    boq_item_id: "" as any,
     start_date: "",
     end_date: "",
     work_order_id: "" as any,
@@ -90,8 +88,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
       // Fetch Work Orders for this project (and boq item if selected)
       const woParams: any = { project_id: projectIdToFetch };
-      if (formData.boq_code) {
-        woParams.boq_id = formData.boq_code;
+      if (formData.boq_item_id) {
+        woParams.boq_id = formData.boq_item_id;
       }
       api.get(`/work-orders`, { params: woParams })
         .then(woRes => setAllWorkOrders(uniqueById(Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []))))
@@ -141,21 +139,24 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     if (isOpen) {
       fetchProjectSpecificData();
     }
-  }, [isOpen, formData.project_id, projectId, formData.boq_code]);
+  }, [isOpen, formData.project_id, projectId, formData.boq_item_id]);
 
   const isCombinationUsed = (boqId: any, woId: any) => {
-    return existingActivities.some(a => 
-      (a.boq_item_id == boqId || a.boq_code == boqId) && 
+    return existingActivities.some(a =>
+      (a.boq_item_id == boqId || a.boq_code == boqId) &&
       (a.work_order_id == woId || (!a.work_order_id && !woId))
     );
   };
 
-  const displayedBoqs = allBoqs;
-  
+  const displayedBoqs = formData.project_id ? allBoqs.filter(b => b.project_id == formData.project_id || !b.project_id) : allBoqs;
+
   const displayedWorkOrders = (() => {
     let wos = allWorkOrders;
-    if (formData.boq_code) {
-      wos = wos.filter(w => !isCombinationUsed(formData.boq_code, w.id));
+    if (formData.project_id) {
+      wos = wos.filter(w => w.project_id == formData.project_id || !w.project_id);
+    }
+    if (formData.boq_item_id) {
+      wos = wos.filter(w => !isCombinationUsed(formData.boq_item_id, w.id));
     }
     return wos;
   })();
@@ -191,13 +192,13 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       await onSubmit({
         ...formData,
         project_id: Number(formData.project_id) || projectId,
-        boq_item_id: formData.boq_code ? Number(formData.boq_code) : null,
+        boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
       setFormData({
         project_id: "",
-        boq_code: "",
+        boq_item_id: "",
         start_date: "",
         end_date: "",
         work_order_id: "" as any,
@@ -216,19 +217,19 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
-      
+
       // Reset dependent fields when project changes
       if (name === "project_id") {
-        newData.boq_code = "";
+        newData.boq_item_id = "";
         newData.work_order_id = "";
         newData.engineer_id = "";
       }
-      
+
       // Reset dependent fields when BOQ changes
-      if (name === "boq_code") {
+      if (name === "boq_item_id") {
         newData.work_order_id = "";
       }
-      
+
       return newData;
     });
 
@@ -296,9 +297,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>BOQ Item</label>
               <select
-                name="boq_code"
-                className={inputClasses(errors.boq_code)}
-                value={formData.boq_code}
+                name="boq_item_id"
+                className={inputClasses(errors.boq_item_id)}
+                value={formData.boq_item_id}
                 onChange={handleChange}
               >
                 <option value="">Select BOQ Item</option>

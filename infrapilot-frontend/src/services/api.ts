@@ -34,6 +34,14 @@ api.interceptors.request.use(
       }
     }
 
+    // When payload is FormData, remove preset Content-Type so Axios/browser sets multipart boundary
+    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+      if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete (config.headers as any)["content-type"];
+      }
+    }
+
     // Ensure the URL doesn't start with a slash if we want it to be relative to baseURL
     if (config.url?.startsWith('/')) {
       config.url = config.url.substring(1);
