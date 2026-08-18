@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { RefreshCw, ArrowUpRight, ArrowDownRight, IndianRupee, Wallet, FileText, PieChart, Activity, Bell } from 'lucide-react';
-=======
-import { RefreshCw, ArrowUpRight, ArrowDownRight, DollarSign, Wallet, FileText, PieChart, Activity, Bell, Download } from 'lucide-react';
->>>>>>> testing
+import { RefreshCw, ArrowUpRight, ArrowDownRight, IndianRupee, Wallet, FileText, PieChart, Activity, Bell, Download } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
