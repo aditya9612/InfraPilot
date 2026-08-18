@@ -30,7 +30,7 @@ const CreateTaskModal = ({
     status: "Planned" as TaskStatus,
     start_date: "",
     end_date: "",
-    assigned_user_id: members[0]?.user_id || "",
+    assigned_user_id: "",
     boq_id: "",
     milestone_id: "",
     activity_type_id: "",
@@ -54,13 +54,6 @@ const CreateTaskModal = ({
   // File State
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [instructionImage, setInstructionImage] = useState<File | null>(null);
-
-  // Sync default assigned user when members load
-  useEffect(() => {
-    if (members.length > 0 && !formData.assigned_user_id) {
-      setFormData(prev => ({ ...prev, assigned_user_id: members[0].user_id }));
-    }
-  }, [members, formData.assigned_user_id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,7 +170,6 @@ const CreateTaskModal = ({
     if (!formData.title.trim()) newErrors.title = "Title is required.";
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
-    if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -197,7 +189,9 @@ const CreateTaskModal = ({
       form.append("status", formData.status);
       form.append("start_date", formData.start_date);
       form.append("end_date", formData.end_date);
-      form.append("assigned_user_id", String(formData.assigned_user_id));
+      if (formData.assigned_user_id) {
+        form.append("assigned_user_id", String(formData.assigned_user_id));
+      }
       form.append("completion_percentage", String(formData.completion_percentage));
 
       if (formData.boq_id) form.append("boq_id", String(formData.boq_id));
@@ -218,9 +212,11 @@ const CreateTaskModal = ({
 
       // Redundant compatibility fields
       form.append("activity_name", formData.title);
-      form.append("engineer_id", String(formData.assigned_user_id));
-      form.append("assigned_to", String(formData.assigned_user_id));
-      form.append("user_id", String(formData.assigned_user_id));
+      if (formData.assigned_user_id) {
+        form.append("engineer_id", String(formData.assigned_user_id));
+        form.append("assigned_to", String(formData.assigned_user_id));
+        form.append("user_id", String(formData.assigned_user_id));
+      }
 
       if (onSubmit) {
         await onSubmit(form);
@@ -236,7 +232,7 @@ const CreateTaskModal = ({
         status: "Planned",
         start_date: "",
         end_date: "",
-        assigned_user_id: members[0]?.user_id || "",
+        assigned_user_id: "",
         boq_id: "",
         milestone_id: "",
         activity_type_id: "",

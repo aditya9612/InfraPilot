@@ -673,7 +673,7 @@ const TaskManagementPage = () => {
     const openTaskModal = async (task: FrontendTask) => {
         if (!projectId) return;
         try {
-            const fetchedTask = await projectService.getTask(projectId, task.id);
+            const fetchedTask = await projectService.getTask(task.project_id || projectId, task.id || (task as any).task_id);
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
@@ -1762,14 +1762,14 @@ const TaskManagementPage = () => {
                                                                                 <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
                                                                                 <div className="flex items-center gap-3 flex-wrap">
                                                                                     <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
-                                                                                            request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                                                                                                'bg-emerald-100 text-emerald-700'
+                                                                                        request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                                                                            'bg-emerald-100 text-emerald-700'
                                                                                         }`}>
                                                                                         {request.priority || 'MEDIUM'}
                                                                                     </span>
                                                                                     <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                                                            request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                                'bg-rose-100 text-rose-700'
+                                                                                        request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                            'bg-rose-100 text-rose-700'
                                                                                         }`}>
                                                                                         {request.status || 'PENDING'}
                                                                                     </span>

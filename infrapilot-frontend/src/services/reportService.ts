@@ -1,6 +1,11 @@
 import api from "./api";
 
 export const reportService = {
+    getBusinessIntelligence: async () => {
+        const response = await api.get(`/reports/business-intelligence`);
+        return response.data;
+    },
+
     getDailyReport: async (projectId: number, reportDate: string) => {
         const response = await api.get(`/reports/daily`, { params: { project_id: projectId, report_date: reportDate, _t: Date.now() } });
         return response.data;

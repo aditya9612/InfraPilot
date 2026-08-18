@@ -80,7 +80,6 @@ const DocumentsPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [uploaderName, setUploaderName] = useState<string>("");
-  const [overallTotalDocs, setOverallTotalDocs] = useState<number | null>(null);
 
   const PAGE_SIZE = 10;
 
@@ -121,7 +120,8 @@ const DocumentsPage = () => {
       offset += BATCH;
     }
 
-    return { items: allItems, total };
+    // Override the backend's potentially buggy meta.total with the actual physical count we retrieved
+    return { items: allItems, total: allItems.length };
   };
 
   const fetchDocs = useCallback(async (query = "", folderId = currentFolderId) => {
@@ -140,9 +140,6 @@ const DocumentsPage = () => {
           ? drawingService.getVersions(selectedProjectId).catch(() => [])
           : Promise.resolve([])
       ]);
-
-      // Update overall total from meta
-      if (docResult.total > 0) setOverallTotalDocs(docResult.total);
 
       // Map standard Documents
       const mappedDocs = docResult.items.map((d: any) => ({
@@ -339,7 +336,34 @@ const DocumentsPage = () => {
   const handleDownload = async (doc: Document) => {
     const toastId = toast.loading(`Preparing ${doc.title}...`);
     try {
-      await documentService.downloadDocument(doc.id, doc.title);
+      let finalName = doc.title || `document_${doc.id}`;
+      let extension = "";
+
+      const fileUrl = doc.file_url || "";
+      if (fileUrl) {
+        const parts = fileUrl.split('?')[0].split('.');
+        if (parts.length > 1) {
+          const ext = parts[parts.length - 1].toLowerCase();
+          if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'dwg', 'dxf', 'zip'].includes(ext)) {
+            extension = `.${ext}`;
+          }
+        }
+      }
+
+      if (!extension && doc.document_type) {
+        const type = doc.document_type.toLowerCase();
+        if (['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(type)) {
+          extension = `.${type}`;
+        } else if (type === 'drawing') {
+          extension = '.pdf';
+        }
+      }
+
+      if (extension && !finalName.toLowerCase().endsWith(extension)) {
+        finalName += extension;
+      }
+
+      await documentService.downloadDocument(doc.id, finalName);
       toast.success("Download started", { id: toastId });
     } catch (err: any) {
       console.error("Download failed:", err);
@@ -511,13 +535,7 @@ const DocumentsPage = () => {
           <StatCard
             title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
             icon={<FileText className="w-5 h-5 text-emerald-500" />}
-            value={
-              overallTotalDocs !== null
-                ? overallTotalDocs.toString()
-                : stats
-                  ? stats.total_documents.toString()
-                  : "..."
-            }
+            value={filteredDocuments.length.toString()}
             sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
             accent="text-emerald-500"
           />
@@ -833,8 +851,8 @@ const DocumentsPage = () => {
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,
           file_url: previewUrl,
-          uploaded_by: uploaderName || viewingDoc.uploaded_by_name || "—",
-          remarks: viewingDoc.remarks || "—",
+          uploaded_by: uploaderName || viewingDoc.uploaded_by_name || "NA",
+          remarks: viewingDoc.remarks || "NA",
           folder_status: viewingDoc.is_folder ? "Folder" : "File",
         } : null}
         onDownload={handleDownload}

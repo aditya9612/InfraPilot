@@ -20,7 +20,7 @@ import { masterService } from "../../services/masterService";
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
   return arr.filter(item => {
-    const id = item.id || item.boq_id || item.user_id || item.boq_code;
+    const id = item.id || item.boq_id || item.user_id || item.boq_item_id || item.boq_code;
     if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
@@ -34,7 +34,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [formData, setFormData] = useState({
     project_id: "",
     activity_name: "",
-    boq_code: "" as any,
+    boq_item_id: "" as any,
     planned_quantity: "" as any,
     unit: "CUM",
     start_date: "",
@@ -163,8 +163,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
   }, [isOpen, formData.project_id, projectId]);
 
-  const displayedBoqs = allBoqs;
-  const displayedWorkOrders = allWorkOrders;
+  const displayedBoqs = formData.project_id ? allBoqs.filter(b => b.project_id == formData.project_id || !b.project_id) : allBoqs;
+  const displayedWorkOrders = formData.project_id ? allWorkOrders.filter(w => w.project_id == formData.project_id || !w.project_id) : allWorkOrders;
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -208,14 +208,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         ...formData,
         project_id: Number(formData.project_id) || projectId,
         planned_quantity: Number(formData.planned_quantity),
-        boq_code: formData.boq_code ? Number(formData.boq_code) : null,
+        boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
       setFormData({
         project_id: "",
         activity_name: "",
-        boq_code: "",
+        boq_item_id: "",
         planned_quantity: "",
         unit: "CUM",
         start_date: "",
@@ -323,9 +323,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>BOQ Item</label>
               <select
-                name="boq_code"
-                className={inputClasses(errors.boq_code)}
-                value={formData.boq_code}
+                name="boq_item_id"
+                className={inputClasses(errors.boq_item_id)}
+                value={formData.boq_item_id}
                 onChange={handleChange}
               >
                 <option value="">Select BOQ Item</option>

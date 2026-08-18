@@ -117,7 +117,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Completion Intensity</span>
-              <span className="text-2xl font-black">{(activity.completion_percentage || 0).toFixed(1)}%</span>
+              <span className="text-2xl font-black">{Number(activity.completion_percentage || 0).toFixed(1)}%</span>
             </div>
             <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
               <div
@@ -161,7 +161,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Completion Percentage</p>
-              <p className="text-sm font-bold text-slate-700">{(activity.completion_percentage || 0).toFixed(1)}%</p>
+              <p className="text-sm font-bold text-slate-700">{Number(activity.completion_percentage || 0).toFixed(1)}%</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Planned Quantity</p>

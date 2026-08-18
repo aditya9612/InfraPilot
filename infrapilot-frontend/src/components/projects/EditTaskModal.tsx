@@ -610,7 +610,7 @@ const EditTaskModal = ({
           </div>
         </div>
       </form>
-    </Modal>
+    </Modal >
   );
 };
 
