@@ -78,14 +78,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     await authService.logout();
     setUser(null);
-<<<<<<< HEAD
-    localStorage.removeItem("infrapilot_user");
-    localStorage.removeItem("client_selected_project_id");
-    localStorage.removeItem("infrapilot_selected_project_id");
-    localStorage.removeItem("mock_settings");
-    localStorage.removeItem("infrapilot_assigned_projects");
-=======
->>>>>>> testing
   };
 
   const refreshUser = (updates: Partial<User>) => {
