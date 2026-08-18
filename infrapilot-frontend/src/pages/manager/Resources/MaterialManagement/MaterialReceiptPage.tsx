@@ -16,7 +16,7 @@ import { boqService } from "../../../../services/boqService";
 import { useProject } from "../../../../context/ProjectContext";
 
 
-const RATE_TYPES = ["FIXED", "VARIABLE"];
+const RATE_TYPES = ["FIXED", "PER_UNIT", "PER_KG", "PER_TON", "PER_BAG"];
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
 
 type TabType = "Materials" | "Suppliers" | "Purchase Orders" | "Dashboard";

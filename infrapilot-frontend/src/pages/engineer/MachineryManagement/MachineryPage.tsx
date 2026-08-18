@@ -868,6 +868,8 @@ const MachineryPage = () => {
                         <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
                                 <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Project</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Ownership</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Operator</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Usage</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Condition</th>
@@ -881,9 +883,29 @@ const MachineryPage = () => {
                                     <td className="px-6 py-3">
                                         <p className="font-bold text-sm text-slate-800">{item.equipment_name}</p>
                                         <p className="text-xs text-slate-500">{item.equipment_code}</p>
-                                        <p className="text-[10px] font-bold text-primary mt-0.5">
-                                            {item.project_id ? (projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `PRJ-${item.project_id}`) : 'Not Allocated'}
-                                        </p>
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        {item.project_id ? (
+                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-blue-100 text-blue-700">
+                                                {projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `PRJ-${item.project_id}`}
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600">
+                                                Not Allocated
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${
+                                            item.status === 'RENTED' ? 'bg-purple-100 text-purple-700' :
+                                            item.status === 'OWNED' ? 'bg-blue-100 text-blue-700' :
+                                            item.status === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
+                                            item.status === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
+                                            item.status === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
+                                            'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {item.status || 'N/A'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
                                     <td className="px-6 py-3 text-sm text-slate-700">

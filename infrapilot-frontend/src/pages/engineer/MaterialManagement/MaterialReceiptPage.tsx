@@ -17,7 +17,7 @@ import { useProject } from "../../../context/ProjectContext";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
-const RATE_TYPES = ["FIXED", "VARIABLE"];
+const RATE_TYPES = ["FIXED", "PER_UNIT", "PER_KG", "PER_TON", "PER_BAG"];
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
 
 
