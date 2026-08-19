@@ -624,21 +624,70 @@ const DailyProgressEntryPage = () => {
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
               {activeTab === 'summary' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    { title: "TOTAL LOGS", value: projectSummary?.total_activities || stats.total.toString(), sub: "Entries Displayed", accent: "text-slate-800" },
-                    { title: "FINISHED LOGS", value: projectSummary?.completed_activities || stats.completed.toString(), sub: "100% Progress Reached", accent: "text-emerald-500" },
-                    { title: "DELAYED LOGS", value: projectSummary?.delayed_activities || stats.delayed.toString(), sub: "Critical Items", accent: "text-rose-500" },
-                    { title: "ON TRACK LOGS", value: projectSummary?.on_track_activities || "0", sub: "Performing as expected", accent: "text-blue-500" },
-                    { title: "NOT STARTED", value: projectSummary?.not_started_activities || "0", sub: "Pending Execution", accent: "text-slate-500" },
-                    { title: "COMPLETION", value: `${projectSummary?.completion_percentage || 0}%`, sub: "Overall Project Progress", accent: "text-indigo-500" },
-                  ].map((s) => (
-                    <div key={s.title} className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 transition-all">
-                      <p className="text-xs font-bold text-slate-400 mb-2 font-inter">{s.title}</p>
-                      <p className={`text-[28px] font-bold ${s.accent}`}>{s.value}</p>
-                      <p className="text-[11px] text-slate-400 mt-1 font-bold font-inter">{s.sub}</p>
+                <div className="flex flex-col gap-8">
+                  {/* Project Details */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Project Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Project Name</p>
+                        <p className="text-2xl font-bold text-slate-800 font-inter truncate">
+                          {projectSummary?.project?.project_name || "N/A"}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Overall Progress</p>
+                        <p className="text-2xl font-bold text-primary font-inter">
+                          {projectSummary?.summary?.overall_progress_percentage || projectSummary?.completion_percentage || "0"}%
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">Avg Activity Progress</p>
+                        <p className="text-2xl font-bold text-emerald-600 font-inter">
+                          {projectSummary?.summary?.average_activity_progress || "0"}%
+                        </p>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Activity Stats */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Activity Metrics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {[
+                        { title: "TOTAL", value: projectSummary?.summary?.total_activities || projectSummary?.total_activities || stats.total.toString(), accent: "text-slate-800", bg: "bg-slate-50", border: "border-slate-200" },
+                        { title: "COMPLETED", value: projectSummary?.summary?.completed_activities || projectSummary?.completed_activities || stats.completed.toString(), accent: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+                        { title: "ON TRACK", value: projectSummary?.summary?.on_track_activities || projectSummary?.on_track_activities || "0", accent: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+                        { title: "DELAYED", value: projectSummary?.summary?.delayed_activities || projectSummary?.delayed_activities || stats.delayed.toString(), accent: "text-rose-600", bg: "bg-rose-50", border: "border-rose-200" },
+                        { title: "NOT STARTED", value: projectSummary?.summary?.not_started_activities || projectSummary?.not_started_activities || "0", accent: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+                      ].map((s) => (
+                        <div key={s.title} className={`${s.bg} border ${s.border} rounded-xl p-5 transition-all hover:shadow-md`}>
+                          <p className="text-[10px] font-bold text-slate-500 mb-1 font-inter uppercase tracking-widest">{s.title}</p>
+                          <p className={`text-3xl font-bold ${s.accent} font-inter`}>{s.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quantity Stats */}
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 font-inter">Quantity Metrics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[
+                        { title: "PLANNED QUANTITY", value: projectSummary?.summary?.planned_quantity || "0.00", icon: "📦" },
+                        { title: "COMPLETED QUANTITY", value: projectSummary?.summary?.completed_quantity || "0.00", icon: "✅" },
+                        { title: "REMAINING QUANTITY", value: projectSummary?.summary?.remaining_quantity || "0.00", icon: "⏳" },
+                      ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 mb-1 font-inter tracking-widest uppercase">{s.title}</p>
+                            <p className="text-2xl font-bold text-slate-800 font-inter">{s.value}</p>
+                          </div>
+                          <div className="text-4xl opacity-80">{s.icon}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 

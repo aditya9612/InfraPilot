@@ -7,6 +7,7 @@ export interface EquipmentItem {
     equipment_code: string;
     operator_name: string;
     condition: string;
+    status?: string;
     rental_cost: number;
     maintenance_date: string;
     is_deleted: boolean;

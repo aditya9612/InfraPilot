@@ -18,16 +18,23 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
 
   // Resolve unit name from ID if necessary
   const getUnitDisplay = (unitValue: any) => {
-    if (!unitValue && item.default_unit_id) unitValue = item.default_unit_id;
-    if (typeof unitValue === 'number') {
-      return unitsMap[unitValue] || `Unit #${unitValue}`;
+    let resolvedUnit = unitValue || item.unit_id || item.default_unit_id || item.unitId || item.unit_name || item.unit;
+
+    // Check if the backend returned the joined Unit entity object
+    if (typeof resolvedUnit === 'object' && resolvedUnit !== null) {
+      if (resolvedUnit.name) return resolvedUnit.name;
+      if (resolvedUnit.id) resolvedUnit = resolvedUnit.id;
+    }
+
+    if (typeof resolvedUnit === 'number') {
+      return unitsMap[resolvedUnit] || `Unit #${resolvedUnit}`;
     }
     // If it's already a string, check if it's a numeric string
-    if (typeof unitValue === 'string' && /^\d+$/.test(unitValue)) {
-      const id = parseInt(unitValue, 10);
+    if (typeof resolvedUnit === 'string' && /^\d+$/.test(resolvedUnit)) {
+      const id = parseInt(resolvedUnit, 10);
       return unitsMap[id] || `Unit #${id}`;
     }
-    return unitValue || "—";
+    return resolvedUnit || "NA";
   };
 
   const footer = (
@@ -97,15 +104,15 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
               {item.system_tag === "LABOR" && (
                 <>
                   <InfoItem label="Skill category" value={item.skill_category} />
-                  <InfoItem label="Daily wage" value={item.default_daily_wage !== undefined && item.default_daily_wage !== null ? `₹${item.default_daily_wage}` : "—"} />
-                  <InfoItem label="Working hours" value={item.default_working_hours !== undefined && item.default_working_hours !== null ? `${item.default_working_hours} hrs` : "—"} />
-                  <InfoItem label="OT rate / hour" value={item.default_ot_rate_per_hour !== undefined && item.default_ot_rate_per_hour !== null ? `₹${item.default_ot_rate_per_hour}` : "—"} />
+                  <InfoItem label="Daily wage" value={item.default_daily_wage !== undefined && item.default_daily_wage !== null ? `₹${item.default_daily_wage}` : "NA"} />
+                  <InfoItem label="Working hours" value={item.default_working_hours !== undefined && item.default_working_hours !== null ? `${item.default_working_hours} hrs` : "NA"} />
+                  <InfoItem label="OT rate / hour" value={item.default_ot_rate_per_hour !== undefined && item.default_ot_rate_per_hour !== null ? `₹${item.default_ot_rate_per_hour}` : "NA"} />
                 </>
               )}
               {item.system_tag === "MATERIAL" && (
                 <>
-                  <InfoItem label="Default rate" value={item.default_rate !== undefined && item.default_rate !== null ? `₹${item.default_rate}` : "—"} />
-                  <InfoItem label="Min stock level" value={item.minimum_stock_level !== undefined && item.minimum_stock_level !== null ? item.minimum_stock_level.toString() : "—"} />
+                  <InfoItem label="Default rate" value={item.default_rate !== undefined && item.default_rate !== null ? `₹${item.default_rate}` : "NA"} />
+                  <InfoItem label="Min stock level" value={item.minimum_stock_level !== undefined && item.minimum_stock_level !== null ? item.minimum_stock_level.toString() : "NA"} />
                 </>
               )}
               {item.specification && (
@@ -142,7 +149,7 @@ const InfoItem: React.FC<{ label: string; value: string; isMono?: boolean }> = (
       {label}
     </p>
     <p className={`text-sm font-semibold text-slate-800 ${isMono ? "font-mono" : ""}`}>
-      {value || "—"}
+      {value || "NA"}
     </p>
   </div>
 );

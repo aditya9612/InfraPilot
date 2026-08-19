@@ -4,7 +4,6 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { reportService } from "../../services/reportService";
 import { projectService } from "../../services/projectService";
-import { documentService } from "../../services/documentService";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
 import ShareReportModal from "../../components/dashboard/ShareReportModal";
 import ReportDateModal from "../../components/dashboard/ReportDateModal";
@@ -146,34 +145,31 @@ const ReportsPage = () => {
     totalExpense: 0,
     totalProfit: 0,
     generatedReports: 0,
-    avgEfficiency: 0
+    avgEfficiency: 0,
+    efficiencyString: ""
   });
 
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [projList, financialSummary, docStats] = await Promise.all([
+        const [projList, biData] = await Promise.all([
           projectService.getProjects(100),
-          reportService.getProfitLoss().catch(() => null),
-          documentService.getStats().catch(() => null)
+          reportService.getBusinessIntelligence().catch(() => null)
         ]);
 
         const pList = Array.isArray(projList) ? projList : projList.items || [];
         setProjects(pList);
-        if (pList.length > 0) setSelectedProjectId(pList[0].id.toString());
 
-        // Calculate avg efficiency from projects using completion_percentage
-        const totalProgress = pList.reduce((acc: number, curr: any) => acc + (curr.completion_percentage || 0), 0);
-        const avgEff = pList.length > 0 ? (totalProgress / pList.length).toFixed(1) : 0;
-
-        setStats(prev => ({
-          ...prev,
-          totalExpense: financialSummary?.total_expense || 0,
-          totalProfit: (financialSummary?.total_invoice || financialSummary?.total_revenue || 0) - (financialSummary?.total_expense || 0),
-          generatedReports: docStats?.total_documents || 0,
-          avgEfficiency: Number(avgEff)
-        }));
+        if (biData) {
+          setStats(prev => ({
+            ...prev,
+            totalExpense: biData.expenditure || 0,
+            totalProfit: biData.revenue_focus || 0,
+            generatedReports: biData.activity_log || 0,
+            efficiencyString: biData.efficiency || ""
+          }));
+        }
       } catch (error) {
         console.error("Failed to fetch initial reporting data", error);
       }
@@ -812,9 +808,13 @@ const ReportsPage = () => {
               </div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Efficiency</span>
             </div>
-            <h3 className="text-2xl font-black text-slate-800">{stats.avgEfficiency}%</h3>
+            {stats.efficiencyString ? (
+              <h3 className="text-xl font-black text-slate-800 break-words line-clamp-2" title={stats.efficiencyString}>{stats.efficiencyString}</h3>
+            ) : (
+              <h3 className="text-2xl font-black text-slate-800">{stats.avgEfficiency}%</h3>
+            )}
             <p className="text-[11px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
-              <TrendingUp size={12} /> Syncing from {projects.length} sites
+              <TrendingUp size={12} /> Synchronization active
             </p>
           </div>
         </div>

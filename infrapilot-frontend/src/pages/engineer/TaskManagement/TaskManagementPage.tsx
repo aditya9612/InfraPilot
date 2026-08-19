@@ -8,7 +8,7 @@ import {
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
 } from 'lucide-react';
-// import ConfirmModal from "../../../components/common/ConfirmModal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
 import EditTaskRequestModal from './EditTaskRequestModal';
@@ -118,8 +118,11 @@ const TaskManagementPage = () => {
     const [isFetchingTaskRequests, setIsFetchingTaskRequests] = useState(false);
     const [isEditRequestModalOpen, setIsEditRequestModalOpen] = useState(false);
     const [selectedTaskRequest, setSelectedTaskRequest] = useState<any>(null);
+    const [isDeleteRequestModalOpen, setIsDeleteRequestModalOpen] = useState(false);
+    const [taskRequestToDelete, setTaskRequestToDelete] = useState<number | null>(null);
     const [taskReqStatusFilter, setTaskReqStatusFilter] = useState("All");
     const [taskReqProjectFilter, setTaskReqProjectFilter] = useState<number | "All">("All");
+    const [taskReqCurrentPage, setTaskReqCurrentPage] = useState(1);
 
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
@@ -432,15 +435,22 @@ const TaskManagementPage = () => {
         }
     }, [activeTab, taskReqStatusFilter, taskReqProjectFilter]);
 
-    const handleDeleteTaskRequest = async (requestId: number) => {
-        if (window.confirm("Are you sure you want to delete this task request?")) {
-            try {
-                await projectService.deleteTaskRequest(requestId);
-                toast.success("Task Request deleted successfully");
-                projectService.getTaskRequests({ limit: 100, skip: 0, project_id: projectId || undefined }).then(res => setTaskRequests(res || []));
-            } catch (error) {
-                toast.error("Failed to delete task request");
-            }
+    const handleDeleteTaskRequest = (requestId: number) => {
+        setTaskRequestToDelete(requestId);
+        setIsDeleteRequestModalOpen(true);
+    };
+
+    const confirmDeleteTaskRequest = async () => {
+        if (!taskRequestToDelete) return;
+        try {
+            await projectService.deleteTaskRequest(taskRequestToDelete);
+            toast.success("Task Request deleted successfully");
+            projectService.getTaskRequests({ limit: 100, skip: 0, project_id: projectId || undefined }).then(res => setTaskRequests(res || []));
+        } catch (error) {
+            toast.error("Failed to delete task request");
+        } finally {
+            setIsDeleteRequestModalOpen(false);
+            setTaskRequestToDelete(null);
         }
     };
 
@@ -1717,68 +1727,120 @@ const TaskManagementPage = () => {
                                         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
                                 ) : taskRequests.length > 0 ? (
-                                    <table className="w-full text-left font-inter min-w-[1200px] block md:table">
-                                        <thead className="hidden md:table-header-group">
-                                            <tr className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200">
-                                                <th className="p-4 whitespace-nowrap">Title</th>
-                                                <th className="p-4 whitespace-nowrap">Category</th>
-                                                <th className="p-4 whitespace-nowrap">Project Name</th>
-                                                <th className="p-4 whitespace-nowrap">Priority</th>
-                                                <th className="p-4 whitespace-nowrap">Description</th>
-                                                <th className="p-4 whitespace-nowrap">Attachment URL</th>
-                                                <th className="p-4 whitespace-nowrap">Assigned Name</th>
-                                                <th className="p-4 whitespace-nowrap">Status</th>
-                                                <th className="p-4 whitespace-nowrap">Is Deleted</th>
-                                                <th className="p-4 whitespace-nowrap">Created At</th>
-                                                <th className="p-4 whitespace-nowrap">Updated At</th>
-                                                <th className="p-4 whitespace-nowrap text-center">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="block md:table-row-group">
-                                            {taskRequests.map((req, idx) => {
-                                                const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
-                                                const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
+                                    <>
+                                        <table className="w-full text-left font-inter min-w-[1200px] block md:table">
+                                            <thead className="hidden md:table-header-group">
+                                                <tr className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200">
+                                                    <th className="p-4 whitespace-nowrap">Title</th>
+                                                    <th className="p-4 whitespace-nowrap">Category</th>
+                                                    <th className="p-4 whitespace-nowrap">Project Name</th>
+                                                    <th className="p-4 whitespace-nowrap">Priority</th>
+                                                    <th className="p-4 whitespace-nowrap">Description</th>
+                                                    <th className="p-4 whitespace-nowrap">Attachment URL</th>
+                                                    <th className="p-4 whitespace-nowrap">Assigned Name</th>
+                                                    <th className="p-4 whitespace-nowrap">Status</th>
+                                                    <th className="p-4 whitespace-nowrap">Is Deleted</th>
+                                                    <th className="p-4 whitespace-nowrap">Created At</th>
+                                                    <th className="p-4 whitespace-nowrap">Updated At</th>
+                                                    <th className="p-4 whitespace-nowrap text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="block md:table-row-group">
+                                            {(() => {
+                                                const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
+                                                const paginatedRequests = taskRequests.slice(startIndex, startIndex + itemsPerPage);
+                                                return paginatedRequests.map((req, idx) => {
+                                                    const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
+                                                    const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
 
-                                                return (
-                                                    <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
-                                                        <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
-                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
-                                                        <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
-                                                                {req.priority || 'NORMAL'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
-                                                        <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
-                                                            {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
-                                                                <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
-                                                            ) : '-'}
-                                                        </td>
-                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                {req.status || 'PENDING'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
-                                                        <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
-                                                        <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
-                                                        <td className="p-4 block md:table-cell text-center">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
-                                                                    <Edit2 className="w-4 h-4" />
-                                                                </button>
-                                                                <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                    return (
+                                                        <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
+                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
+                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
+                                                            <td className="p-4 block md:table-cell">
+                                                                <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
+                                                                    {req.priority || 'NORMAL'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
+                                                            <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
+                                                                {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
+                                                                    <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
+                                                            <td className="p-4 block md:table-cell">
+                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                    {req.status || 'PENDING'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
+                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
+                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
+                                                            <td className="p-4 block md:table-cell text-center">
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
+                                                                        <Edit2 className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
+                                            </tbody>
+                                        </table>
+                                        {taskRequests.length > 0 && (
+                                            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                                                <div className="text-sm font-medium text-slate-500">
+                                                    Showing <span className="font-bold text-slate-800">{Math.min((taskReqCurrentPage - 1) * itemsPerPage + 1, taskRequests.length)}</span> to <span className="font-bold text-slate-800">{Math.min(taskReqCurrentPage * itemsPerPage, taskRequests.length)}</span> of <span className="font-bold text-slate-800">{taskRequests.length}</span> requests
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => setTaskReqCurrentPage(prev => Math.max(1, prev - 1))}
+                                                        disabled={taskReqCurrentPage === 1}
+                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                                    >
+                                                        <ChevronLeft className="w-4 h-4" />
+                                                    </button>
+                                                    {(() => {
+                                                        const totalPages = Math.ceil(taskRequests.length / itemsPerPage);
+                                                        return Array.from({ length: totalPages }).map((_, idx) => {
+                                                            const page = idx + 1;
+                                                            if (page === 1 || page === totalPages || (page >= taskReqCurrentPage - 1 && page <= taskReqCurrentPage + 1)) {
+                                                                return (
+                                                                    <button
+                                                                        key={page}
+                                                                        onClick={() => setTaskReqCurrentPage(page)}
+                                                                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all shadow-sm ${taskReqCurrentPage === page
+                                                                            ? 'bg-primary text-white border-primary'
+                                                                            : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-primary bg-white'
+                                                                            }`}
+                                                                    >
+                                                                        {page}
+                                                                    </button>
+                                                                );
+                                                            } else if (page === taskReqCurrentPage - 2 || page === taskReqCurrentPage + 2) {
+                                                                return <span key={page} className="text-slate-400 text-xs px-1">...</span>;
+                                                            }
+                                                            return null;
+                                                        });
+                                                    })()}
+                                                    <button
+                                                        onClick={() => setTaskReqCurrentPage(prev => Math.min(Math.ceil(taskRequests.length / itemsPerPage), prev + 1))}
+                                                        disabled={taskReqCurrentPage === Math.max(1, Math.ceil(taskRequests.length / itemsPerPage))}
+                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                                    >
+                                                        <ChevronRight className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-20 text-center">
                                         <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
@@ -2729,7 +2791,15 @@ const TaskManagementPage = () => {
                 }}
                 request={selectedTaskRequest}
             />
-
+            <ConfirmModal
+                isOpen={isDeleteRequestModalOpen}
+                onClose={() => setIsDeleteRequestModalOpen(false)}
+                onConfirm={confirmDeleteTaskRequest}
+                title="Delete Task Request"
+                message="Are you sure you want to delete this task request? This action will permanently remove the entry from the project records."
+                confirmText="Delete Record"
+                type="danger"
+            />
         </>
     );
 };

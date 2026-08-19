@@ -21,7 +21,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
         assigned_to: 0,
         is_deleted: false
     });
-    
+    const [projectMembers, setProjectMembers] = useState<any[]>([]);
     const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
     useEffect(() => {
@@ -36,6 +36,15 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                 is_deleted: request.is_deleted || false
             });
             setAttachmentFile(null);
+
+            if (request.project_id) {
+                projectService.getProjectMembers(request.project_id)
+                    .then(res => {
+                        const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                        setProjectMembers(membersList);
+                    })
+                    .catch(err => console.error("Failed to fetch project members:", err));
+            }
         }
     }, [request, isOpen]);
 
@@ -160,28 +169,39 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             <label className={labelClasses}>
                                 Category
                             </label>
-                            <input 
-                                type="text" 
+                            <select 
                                 name="category"
                                 value={formData.category}
                                 onChange={handleChange}
                                 className={inputClasses}
-                                placeholder="Enter category"
-                            />
+                            >
+                                <option value="" disabled>Select category</option>
+                                <option value="Civil">Civil</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="Plumbing">Plumbing</option>
+                                <option value="Safety">Safety</option>
+                                <option value="Material">Material</option>
+                                <option value="General">General</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
 
                         <div className="space-y-1">
                             <label className={labelClasses}>
                                 Priority
                             </label>
-                            <input 
-                                type="text" 
+                            <select 
                                 name="priority"
                                 value={formData.priority}
                                 onChange={handleChange}
                                 className={inputClasses}
-                                placeholder="Enter priority"
-                            />
+                            >
+                                <option value="" disabled>Select priority</option>
+                                <option value="LOW">LOW</option>
+                                <option value="MEDIUM">MEDIUM</option>
+                                <option value="HIGH">HIGH</option>
+                                <option value="CRITICAL">CRITICAL</option>
+                            </select>
                         </div>
                     </div>
 
@@ -190,27 +210,43 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             <label className={labelClasses}>
                                 Status
                             </label>
-                            <input 
-                                type="text" 
+                            <select 
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
                                 className={inputClasses}
-                                placeholder="Enter status"
-                            />
+                            >
+                                <option value="" disabled>Select status</option>
+                                <option value="PENDING">PENDING</option>
+                                <option value="OPEN">OPEN</option>
+                                <option value="IN_PROGRESS">IN PROGRESS</option>
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="RESOLVED">RESOLVED</option>
+                                <option value="COMPLETED">COMPLETED</option>
+                                <option value="CLOSED">CLOSED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
                         </div>
 
                         <div className="space-y-1">
                             <label className={labelClasses}>
-                                Assigned To (ID)
+                                Assigned To
                             </label>
-                            <input 
-                                type="number" 
+                            <select 
                                 name="assigned_to"
-                                value={formData.assigned_to}
+                                value={formData.assigned_to || ""}
                                 onChange={handleChange}
                                 className={inputClasses}
-                            />
+                            >
+                                <option value="" disabled>Select User</option>
+                                <option value="0">Unassigned</option>
+                                {projectMembers.map(m => (
+                                    <option key={m.id || m.user_id} value={m.user_id || m.id}>
+                                        {m.full_name || m.name || `User ${m.user_id || m.id}`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

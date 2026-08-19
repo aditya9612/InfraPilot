@@ -94,8 +94,8 @@ const TaskRequestModal = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title.trim()) {
-            toast.error("Title is required");
+        if (!formData.assigned_project && !projectId) {
+            toast.error("Project is required");
             return;
         }
 
@@ -105,7 +105,7 @@ const TaskRequestModal = ({
                 ...formData,
                 assigned_to: formData.assigned_to ? Number(formData.assigned_to) : null,
                 assigned_project: formData.assigned_project ? Number(formData.assigned_project) : projectId,
-                project_id: projectId,
+                project_id: formData.assigned_project ? Number(formData.assigned_project) : projectId,
             };
             await onSubmit(submitData);
             setFormData({
@@ -153,7 +153,7 @@ const TaskRequestModal = ({
             <form id="task-request-form" onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-bold text-slate-800 mb-2">
-                        Title <span className="text-rose-500">*</span>
+                        Title
                     </label>
                     <input
                         type="text"
@@ -162,7 +162,6 @@ const TaskRequestModal = ({
                         onChange={handleChange}
                         placeholder="Enter task request title"
                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
-                        required
                     />
                 </div>
 
@@ -206,11 +205,12 @@ const TaskRequestModal = ({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Assigned Project</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Assigned Project <span className="text-rose-500">*</span></label>
                         <select
                             name="assigned_project"
                             value={formData.assigned_project}
                             onChange={handleChange}
+                            required
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
                         >
                             <option value="">Select Project</option>
@@ -256,9 +256,9 @@ const TaskRequestModal = ({
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                     />
                     {formData.attachment_url && !formData.attachment_file && (
-                         <div className="mt-2 text-[11px] font-medium text-slate-500">
-                             Current Attachment: <a href={formData.attachment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View File</a>
-                         </div>
+                        <div className="mt-2 text-[11px] font-medium text-slate-500">
+                            Current Attachment: <a href={formData.attachment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View File</a>
+                        </div>
                     )}
                 </div>
             </form>

@@ -9,6 +9,7 @@ export interface EquipmentItem {
   working_hours: number;
   fuel_used: number;
   condition: EquipmentCondition | string;
+  status?: string;
   rental_cost: number;
   maintenance_date: string;
   is_deleted: boolean;

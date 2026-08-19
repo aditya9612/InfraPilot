@@ -16,30 +16,60 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   document,
   onDownload,
 }) => {
+  const [localUrl, setLocalUrl] = React.useState<string>("");
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [isValidPdf, setIsValidPdf] = React.useState<boolean>(true);
 
   React.useEffect(() => {
-    const isPdf = document?.contentType === 'application/pdf' || document?.file_url?.toLowerCase().includes('.pdf') || document?.originalFileName?.toLowerCase().endsWith('.pdf') || document?.name?.toLowerCase().endsWith('.pdf');
-    if (isOpen && document?.file_url && isPdf) {
-      if (document.file_url.startsWith('blob:')) {
-        setIsValidPdf(true);
-      } else {
-        // Test if the URL actually exists and isn't falling back to the Vite React SPA intercept
-        fetch(document.file_url, { method: "HEAD" })
+    let isMounted = true;
+    if (isOpen && document && !document.isFolder) {
+      setIsLoading(true);
+      // Fetch as a blob securely passing the authenticated interceptors
+      import("../../services/api").then(({ default: api }) => {
+        api.get(`/documents/${document.id}/download`, { responseType: 'blob' })
           .then(res => {
-            const contentType = res.headers.get("content-type") || "";
-            if (!res.ok || contentType.includes("text/html")) {
-              setIsValidPdf(false);
-            } else {
-              setIsValidPdf(true);
+            if (!isMounted) return;
+
+            // Force proper MIME type to prevent the browser from auto-downloading the iframe content
+            let contentType = res.headers['content-type'] || res.data.type || document.contentType || '';
+            const docName = (document.file_url || document.originalFileName || document.name || '').toLowerCase();
+
+            if (!contentType || contentType.includes('application/octet-stream') || contentType.includes('application/json')) {
+              if (docName.includes('.pdf') || document.type?.toLowerCase() === 'pdf') {
+                contentType = 'application/pdf';
+              } else if (docName.match(/\.(jpg|jpeg)$/)) {
+                contentType = 'image/jpeg';
+              } else if (docName.includes('.png')) {
+                contentType = 'image/png';
+              } else if (docName.includes('.webp')) {
+                contentType = 'image/webp';
+              } else {
+                contentType = 'application/pdf'; // Safest fallback
+              }
             }
+
+            const blob = new Blob([res.data], { type: contentType });
+            setLocalUrl(window.URL.createObjectURL(blob));
+            setIsValidPdf(true);
+            setIsLoading(false);
           })
-          .catch(() => setIsValidPdf(false));
-      }
+          .catch(() => {
+            if (isMounted) {
+              setIsValidPdf(false);
+              setIsLoading(false);
+            }
+          });
+      });
     } else {
-      setIsValidPdf(true); // reset
+      setLocalUrl("");
+      setIsValidPdf(true);
     }
-  }, [isOpen, document?.file_url, document?.name, document?.contentType]);
+
+    return () => {
+      isMounted = false;
+      if (localUrl) window.URL.revokeObjectURL(localUrl);
+    };
+  }, [isOpen, document?.id]);
 
   if (!document) return null;
 
@@ -124,7 +154,12 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-2xl h-[450px] flex flex-col items-center justify-center text-slate-400 overflow-hidden relative">
-              {document.isFolder ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+                  <p className="font-bold text-slate-500">Loading Preview...</p>
+                </div>
+              ) : document.isFolder ? (
                 <div className="flex flex-col items-center justify-center p-6 text-center">
                   <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
                   <p className="font-bold text-slate-500">This is a directory.</p>
@@ -132,21 +167,21 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 </div>
               ) : (
                 <>
-                  {((document.contentType === 'application/pdf' || document.file_url?.toLowerCase().includes('.pdf') || document.originalFileName?.toLowerCase().endsWith('.pdf') || document.name?.toLowerCase().endsWith('.pdf')) && isValidPdf) ? (
+                  {((document.type?.toLowerCase() === 'pdf' || document.contentType === 'application/pdf' || document.file_url?.toLowerCase().includes('.pdf') || document.originalFileName?.toLowerCase().endsWith('.pdf') || document.name?.toLowerCase().endsWith('.pdf')) && isValidPdf && localUrl) ? (
                     <iframe
-                      src={`${document.file_url}#toolbar=0`}
+                      src={`${localUrl}#toolbar=0`}
                       className="w-full h-full border-none rounded-2xl"
                       title="PDF Preview"
                     />
-                  ) : (document.contentType?.startsWith('image/') || document.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg)([?#].*)?$/i) || document.originalFileName?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || document.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) ? (
+                  ) : ((document.contentType?.startsWith('image/') || document.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg)([?#].*)?$/i) || document.originalFileName?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || document.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) && localUrl) ? (
                     <img
-                      src={document.file_url}
+                      src={localUrl}
                       alt={document.name}
                       className="w-full h-full object-contain"
                     />
-                  ) : (document.file_url?.match(/\.(xls|xlsx|csv)([?#].*)?$/i) || document.originalFileName?.match(/\.(xls|xlsx|csv)$/i) || document.name?.match(/\.(xls|xlsx|csv)$/i)) ? (
+                  ) : ((document.file_url?.match(/\.(xls|xlsx|csv)([?#].*)?$/i) || document.originalFileName?.match(/\.(xls|xlsx|csv)$/i) || document.name?.match(/\.(xls|xlsx|csv)$/i)) && document.file_url) ? (
                     <ExcelPreview url={document.file_url} />
-                  ) : (document.file_url?.match(/\.(doc|docx|ppt|pptx)([?#].*)?$/i) || document.originalFileName?.match(/\.(doc|docx|ppt|pptx)$/i) || document.name?.match(/\.(doc|docx|ppt|pptx)$/i)) ? (
+                  ) : ((document.file_url?.match(/\.(doc|docx|ppt|pptx)([?#].*)?$/i) || document.originalFileName?.match(/\.(doc|docx|ppt|pptx)$/i) || document.name?.match(/\.(doc|docx|ppt|pptx)$/i)) && document.file_url) ? (
                     <iframe
                       src={`https://docs.google.com/viewer?url=${encodeURIComponent(document.file_url)}&embedded=true`}
                       className="w-full h-full border-none rounded-2xl"
@@ -198,7 +233,7 @@ const InfoItem: React.FC<{ label: string; value: string }> = ({
       {label}
     </p>
     <p className="text-sm font-bold text-slate-800">
-      {value || "—"}
+      {value || "NA"}
     </p>
   </div>
 );
