@@ -69,9 +69,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem("infrapilot_user", JSON.stringify(userData));
-    if (userData.project_id) {
-      localStorage.setItem("client_selected_project_id", String(userData.project_id));
-      localStorage.setItem("infrapilot_selected_project_id", String(userData.project_id));
+    // Only set client_selected_project_id on initial login if none was previously selected
+    const existingClientProj = localStorage.getItem("client_selected_project_id");
+    if (!existingClientProj || existingClientProj === "null" || existingClientProj === "undefined") {
+      if (userData.project_id) {
+        localStorage.setItem("client_selected_project_id", String(userData.project_id));
+        localStorage.setItem("infrapilot_selected_project_id", String(userData.project_id));
+      }
     }
   };
 

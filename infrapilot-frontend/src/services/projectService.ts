@@ -239,9 +239,11 @@ export const projectService = {
 
   // === Milestones ===
 
-  async getMilestones(projectId: number) {
+  async getMilestones(projectId: number, params: { limit?: number; offset?: number; status?: string; task_id?: number } = {}) {
     try {
-      const response = await api.get(`projects/${projectId}/milestones`);
+      const response = await api.get(`projects/${projectId}/milestones`, {
+        params: { limit: 100, offset: 0, ...params }
+      });
       const rawData = response.data;
       if (!rawData) return [];
       let items = Array.isArray(rawData) ? rawData : (rawData?.items || rawData?.data || []);

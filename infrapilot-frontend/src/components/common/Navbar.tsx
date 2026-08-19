@@ -71,61 +71,50 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
       try {
         let data: any[] = [];
         if (user.role === "Client") {
-          // Use the same endpoints as ClientNotificationsPage so counts match
-          const [sysRes, taskRes] = await Promise.allSettled([
-            api.get("/notifications"),
-            api.get("/projects/alerts/tasks"),
-          ]);
-
-          const sysRaw = sysRes.status === "fulfilled" ? sysRes.value.data : [];
+          // Fetch only client system notifications (no task alerts)
+          const sysRes = await api.get("/notifications").catch(() => ({ data: [] }));
+          const sysRaw = sysRes.data;
           const sysItems: any[] = Array.isArray(sysRaw) ? sysRaw : sysRaw?.items || sysRaw?.data || sysRaw?.notifications || [];
 
-          const taskRaw = taskRes.status === "fulfilled" ? taskRes.value.data : [];
-          const taskItems: any[] = Array.isArray(taskRaw) ? taskRaw : taskRaw?.items || taskRaw?.data || [];
+          const mappedSys = sysItems
+            .filter((n: any) => {
+              const entity = String(n.entity || n.entity_type || n.notification_type || '').toLowerCase();
+              const title = String(n.title || n.alert_type || '').toLowerCase();
+              const message = String(n.message || n.description || n.content || n.details || '').toLowerCase();
+              const type = String(n.type || '').toLowerCase();
+              const link = String(n.link || n.url || n.action_url || '').toLowerCase();
 
-          const TASK_READ_KEY = "client_task_notif_read_ids";
-          let taskReadIds: string[] = [];
-          try { taskReadIds = JSON.parse(localStorage.getItem(TASK_READ_KEY) || "[]"); } catch { /**/ }
+              const isTask = (
+                entity.includes('task') ||
+                title.includes('task') ||
+                message.includes('task') ||
+                type.includes('task') ||
+                link.includes('task')
+              );
 
-          const mappedSys = sysItems.map((n: any) => ({
-            ...n,
-            id: n.id,
-            title: n.title || n.alert_type || "Notification",
-            description: n.message || n.description || n.content || "",
-            details: n.message || n.details || "",
-            message: n.message || "",
-            type: n.type || "Info",
-            timestamp: n.created_at || n.timestamp || new Date().toISOString(),
-            read: !!(n.is_read || n.read),
-            source: "system",
-            link: n.link || n.url || n.action_url || null,
-            entity: n.entity || n.entity_type || null,
-            entity_type: n.entity_type || n.entity || null,
-            entity_id: n.entity_id || n.reference_id || n.related_id || null,
-            reference_id: n.reference_id || n.related_id || null,
-            project_id: n.project_id || null,
-          }));
+              return !isTask;
+            })
+            .map((n: any) => ({
+              ...n,
+              id: n.id,
+              title: n.title || n.alert_type || "Notification",
+              description: n.message || n.description || n.content || "",
+              details: n.message || n.details || "",
+              message: n.message || "",
+              type: n.type || "Info",
+              timestamp: n.created_at || n.timestamp || new Date().toISOString(),
+              read: !!(n.is_read || n.read),
+              source: "system",
+              link: n.link || n.url || n.action_url || null,
+              entity: n.entity || n.entity_type || null,
+              entity_type: n.entity_type || n.entity || null,
+              entity_id: n.entity_id || n.reference_id || n.related_id || null,
+              reference_id: n.reference_id || n.related_id || null,
+              project_id: n.project_id || null,
+            }));
 
-          const mappedTasks = taskItems.map((t: any) => ({
-            ...t,
-            id: `task-${t.task_id}`,
-            task_id: t.task_id,
-            project_id: t.project_id,
-            title: t.title || "Delayed Task",
-            description: `Delayed Status: ${t.status || "Delayed"}. Due Date: ${t.end_date || "N/A"}`,
-            details: `Due: ${t.end_date || 'N/A'}`,
-            type: "Alert",
-            timestamp: t.end_date || new Date().toISOString(),
-            read: taskReadIds.includes(`task-${t.task_id}`),
-            source: "task",
-            entity: "task",
-            entity_type: "task",
-            entity_id: t.task_id,
-          }));
-
-          data = [...mappedSys, ...mappedTasks];
-          // Set the total count (matches the "TOTAL ALERTS" stat on the Notifications page)
-          setClientTotalCount(data.length);
+          data = mappedSys;
+          setClientTotalCount(data.filter((n: any) => !n.read).length);
         } else if (user.role === "Labour") {
           // Use the unified overview endpoint for Labour to match the main notifications page
           data = await notificationService.getNotificationsOverview();
@@ -142,9 +131,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   }, [user]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  // For Clients: show total alerts count (matching the Notifications page "TOTAL ALERTS" stat)
-  // For other roles: show unread count
-  const bellBadgeCount = user?.role === "Client" ? clientTotalCount : unreadCount;
+  const bellBadgeCount = unreadCount;
 
   const handleNotifClick = async (notif: Notification) => {
     setIsNotificationOpen(false);

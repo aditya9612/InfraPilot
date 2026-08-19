@@ -7,6 +7,7 @@ import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import { useAuth } from "../../../context/AuthContext";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
+import { projectService } from "../../../services/projectService";
 import { quotationService } from "../../../services/quotationService";
 import { paymentService } from "../../../services/paymentService";
 import { notificationService } from "../../../services/notificationService";
@@ -108,52 +109,58 @@ const processPaymentHistory = (historyList: any[]) => {
   const paidInvoiceIdentifiers = new Set<string>();
 
   historyList.forEach((p: any) => {
-    const statusRaw = String(p.payment_status || p.status || "").trim().toUpperCase();
-    const invStatusRaw = String(p.invoice_status || "").trim().toUpperCase();
-    const isVerified =
-      statusRaw === "VERIFIED" ||
-      statusRaw === "APPROVED" ||
-      statusRaw === "COMPLETED" ||
-      statusRaw === "PAID" ||
-      statusRaw === "SUCCESS" ||
-      invStatusRaw === "PAID" ||
-      invStatusRaw === "APPROVED" ||
-      Boolean(p.verified_by) ||
-      Boolean(p.verified_at);
-
-    if (isVerified) {
-      if (p.invoice_no) {
-        const invClean = String(p.invoice_no).trim().toUpperCase();
-        paidInvoiceIdentifiers.add(invClean);
-        const digits = invClean.replace(/\D/g, "");
-        if (digits) {
-          paidInvoiceIdentifiers.add(digits);
-          paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
-          paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
-        }
+    if (p.invoice_no) {
+      const invClean = String(p.invoice_no).trim().toUpperCase();
+      paidInvoiceIdentifiers.add(invClean);
+      const digits = invClean.replace(/\D/g, "");
+      if (digits) {
+        paidInvoiceIdentifiers.add(digits);
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(5, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(4, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
       }
-      if (p.invoiceNo) {
-        const invClean = String(p.invoiceNo).trim().toUpperCase();
-        paidInvoiceIdentifiers.add(invClean);
-        const digits = invClean.replace(/\D/g, "");
-        if (digits) {
-          paidInvoiceIdentifiers.add(digits);
-          paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
-          paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
-        }
+    }
+    if (p.invoiceNo) {
+      const invClean = String(p.invoiceNo).trim().toUpperCase();
+      paidInvoiceIdentifiers.add(invClean);
+      const digits = invClean.replace(/\D/g, "");
+      if (digits) {
+        paidInvoiceIdentifiers.add(digits);
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(6, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(5, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(4, '0')}`.toUpperCase());
+        paidInvoiceIdentifiers.add(`INV-${digits.padStart(3, '0')}`.toUpperCase());
       }
-      if (p.invoice_id != null) {
-        const idStr = String(p.invoice_id).trim();
-        paidInvoiceIdentifiers.add(idStr);
-        paidInvoiceIdentifiers.add(`INV-${idStr.padStart(6, '0')}`.toUpperCase());
-        paidInvoiceIdentifiers.add(`INV-${idStr.padStart(3, '0')}`.toUpperCase());
-      }
+    }
+    if (p.invoice_id != null) {
+      const idStr = String(p.invoice_id).trim();
+      paidInvoiceIdentifiers.add(idStr);
+      paidInvoiceIdentifiers.add(`INV-${idStr.padStart(6, '0')}`.toUpperCase());
+      paidInvoiceIdentifiers.add(`INV-${idStr.padStart(5, '0')}`.toUpperCase());
+      paidInvoiceIdentifiers.add(`INV-${idStr.padStart(4, '0')}`.toUpperCase());
+      paidInvoiceIdentifiers.add(`INV-${idStr.padStart(3, '0')}`.toUpperCase());
     }
   });
 
+  const mapped = historyList.map(p => mapApiPayment(p, paidInvoiceIdentifiers));
+  const seenPaidInvoices = new Set<string>();
+  const deduplicatedPayments: ClientPayment[] = [];
+
+  for (const item of mapped) {
+    const invDigits = (item.invoiceNo || "").replace(/\D/g, "");
+    if (item.status === "PAID" && invDigits) {
+      if (seenPaidInvoices.has(invDigits)) {
+        continue; // Prevent repeated duplicate payment rows for same invoice
+      }
+      seenPaidInvoices.add(invDigits);
+    }
+    deduplicatedPayments.push(item);
+  }
+
   return {
     paidInvoiceIdentifiers,
-    mappedPayments: historyList.map(p => mapApiPayment(p, paidInvoiceIdentifiers)),
+    mappedPayments: deduplicatedPayments,
   };
 };
 
@@ -243,6 +250,18 @@ const ClientPaymentPage = () => {
   const [projectName, setProjectName] = useState("Loading...");
   const activeTab = tab || "quotation";
   const targetPaymentParam = paymentId || searchParams.get("id") || searchParams.get("payment_id");
+
+  useEffect(() => {
+    if (projectId) {
+      projectService.getProjectById(projectId)
+        .then(proj => {
+          if (proj?.name || proj?.project_name) {
+            setProjectName(proj.name || proj.project_name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [projectId]);
 
   // ── Quotation / old-expense state ──
   const [loading, setLoading] = useState(true);
@@ -376,6 +395,76 @@ const ClientPaymentPage = () => {
   const [apiLoading, setApiLoading] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── Available Pending Invoices (excluding any already paid/recorded invoices) ──
+  const availablePendingInvoices = useMemo(() => {
+    const existingInvoiceKeys = new Set<string>();
+
+    const addKeys = (invNo?: any, invId?: any) => {
+      if (invNo) {
+        const s = String(invNo).trim().toUpperCase();
+        if (s && s !== "—" && s !== "-") {
+          existingInvoiceKeys.add(s);
+          const d = s.replace(/\D/g, "");
+          if (d) {
+            existingInvoiceKeys.add(d);
+            existingInvoiceKeys.add(`INV-${d.padStart(6, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(5, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(4, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(3, '0')}`.toUpperCase());
+          }
+        }
+      }
+      if (invId != null) {
+        const s = String(invId).trim();
+        if (s && s !== "—" && s !== "-") {
+          existingInvoiceKeys.add(s);
+          const d = s.replace(/\D/g, "");
+          if (d) {
+            existingInvoiceKeys.add(d);
+            existingInvoiceKeys.add(`INV-${d.padStart(6, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(5, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(4, '0')}`.toUpperCase());
+            existingInvoiceKeys.add(`INV-${d.padStart(3, '0')}`.toUpperCase());
+          }
+        }
+      }
+    };
+
+    clientPayments.forEach(p => {
+      addKeys(p.invoiceNo);
+    });
+
+    paymentHistory.forEach((p: any) => {
+      addKeys(p.invoice_no || p.invoiceNo, p.invoice_id || p.id);
+    });
+
+    return (pendingInvoices || []).filter((inv: any) => {
+      const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
+      const invId = inv.id ?? inv.invoice_id;
+      const invIdStr = String(invId != null ? invId : "").trim();
+      const digits = (invNo || invIdStr).replace(/\D/g, "");
+      const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
+
+      // Exclude if marked PAID / APPROVED directly
+      if (invStatus === "PAID" || invStatus === "APPROVED") return false;
+
+      // Exclude if this invoice has already had a payment created / done
+      if (invNo && existingInvoiceKeys.has(invNo)) return false;
+      if (invIdStr && existingInvoiceKeys.has(invIdStr)) return false;
+      if (digits && existingInvoiceKeys.has(digits)) return false;
+      if (digits && (
+        existingInvoiceKeys.has(`INV-${digits.padStart(6, '0')}`.toUpperCase()) ||
+        existingInvoiceKeys.has(`INV-${digits.padStart(5, '0')}`.toUpperCase()) ||
+        existingInvoiceKeys.has(`INV-${digits.padStart(4, '0')}`.toUpperCase()) ||
+        existingInvoiceKeys.has(`INV-${digits.padStart(3, '0')}`.toUpperCase())
+      )) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [pendingInvoices, clientPayments, paymentHistory]);
 
   // ── Compute live metrics from invoice summary API response ──
   const invoiceSummaryMetrics = useMemo(() => {
@@ -607,12 +696,43 @@ const ClientPaymentPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch all quotations from API and user notifications concurrently
+        // Resolve active project name if needed
+        let activeProjectName = projectName;
+        if ((!activeProjectName || activeProjectName === "Loading...") && projectId) {
+          try {
+            const pData = await projectService.getProjectById(projectId);
+            activeProjectName = pData?.project_name || pData?.name || "";
+            setProjectName(activeProjectName);
+          } catch (e) {
+            // fallback
+          }
+        }
+
+        // Fetch quotations from API and user notifications concurrently
         const [data, notifs] = await Promise.all([
-          quotationService.getQuotations(100, 0),
+          quotationService.getQuotations(100, 0, projectId ? Number(projectId) : undefined),
           notificationService.getAllNotifications().catch(() => [])
         ]);
         const rawList = Array.isArray(data) ? data : ((data as any)?.items || (data as any)?.data || []);
+
+        // Filter list strictly for the currently selected project
+        let projectList = rawList;
+        if (projectId || (activeProjectName && activeProjectName !== "Loading...")) {
+          projectList = rawList.filter((q: any) => {
+            const qProjId = q.project_id != null ? Number(q.project_id) : (q.projectId != null ? Number(q.projectId) : null);
+            if (projectId && qProjId != null && qProjId === Number(projectId)) {
+              return true;
+            }
+            if (activeProjectName && activeProjectName !== "Loading..." && activeProjectName !== "All Projects") {
+              const qProjName = (q.project_name || q.remarks_details || q.projectName || "").toLowerCase().trim();
+              const targetName = activeProjectName.toLowerCase().trim();
+              if (qProjName && targetName && (qProjName === targetName || qProjName.includes(targetName) || targetName.includes(qProjName))) {
+                return true;
+              }
+            }
+            return false;
+          });
+        }
 
         // Extract quotation identifiers from notifications received by this client (e.g. QT/2026/0013, 13)
         const userNotifQuotationIdentifiers = new Set<string>();
@@ -639,9 +759,9 @@ const ClientPaymentPage = () => {
         const currentUserId = user?.id ? String(user.id).trim() : '';
 
         // Filter list strictly for the specific client so other clients' quotations are never shown
-        let clientList = rawList;
+        let clientList = projectList;
         if (isClientRole) {
-          clientList = rawList.filter((q: any) => {
+          const clientFiltered = projectList.filter((q: any) => {
             const qNo = String(q.quotation_no || q.quotation_number || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : '')).toUpperCase().trim();
             const qId = String(q.id || '').trim();
 
@@ -680,16 +800,10 @@ const ClientPaymentPage = () => {
             return false;
           });
 
-          // Fallback: If no client-filtered items found but notifications had a quotation id, match only those
-          if (clientList.length === 0 && userNotifQuotationIdentifiers.size > 0) {
-            const matchingFromAll = rawList.filter((q: any) => {
-              const qNo = String(q.quotation_no || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : '')).toUpperCase().trim();
-              const qId = String(q.id || '').trim();
-              return userNotifQuotationIdentifiers.has(qNo) || userNotifQuotationIdentifiers.has(qId);
-            });
-            if (matchingFromAll.length > 0) {
-              clientList = matchingFromAll;
-            }
+          if (clientFiltered.length > 0) {
+            clientList = clientFiltered;
+          } else {
+            clientList = projectList;
           }
         }
 
@@ -706,7 +820,7 @@ const ClientPaymentPage = () => {
 
           const quotationNo = q.quotation_no || q.quotation_number || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : "QT/2026/0001");
           const companyName = q.company_name || q.client_name || q.requested_by_name || user?.name || "Company";
-          const projectNameVal = q.project_name || q.remarks_details || user?.project_name || "Project";
+          const projectNameVal = q.project_name || q.remarks_details || activeProjectName || user?.project_name || "Project";
           const createdAt = q.created_at || q.date || q.quotation_date || new Date().toISOString();
           const approvedBy = q.approved_by_name || q.approved_by || (status === "Approved" ? (q.client_name || user?.name || "CLIENT") : "-");
 
@@ -737,7 +851,7 @@ const ClientPaymentPage = () => {
       }
     };
     fetchData();
-  }, [projectId, activeTab, user]);
+  }, [projectId, activeTab, user, projectName]);
 
   // ── Fetch Invoice Summary, Pending Invoices, Payment Lists & Analytics when on History tab ──
   useEffect(() => {
@@ -890,6 +1004,19 @@ const ClientPaymentPage = () => {
   // ── Quotation filtered/sorted ──
   const filteredQuotations = quotations
     .filter(q => {
+      // Ensure strictly belongs to currently selected project
+      if (projectId) {
+        const qProjId = q.project_id != null ? Number(q.project_id) : (q.projectId != null ? Number(q.projectId) : null);
+        const matchesProjId = qProjId != null && qProjId === Number(projectId);
+        const matchesProjName = projectName && projectName !== "Loading..." && projectName !== "All Projects" && (
+          (q.project_name || "").toLowerCase().includes(projectName.toLowerCase()) ||
+          (q.remarks_details || "").toLowerCase().includes(projectName.toLowerCase())
+        );
+        if (!matchesProjId && !matchesProjName) {
+          return false;
+        }
+      }
+
       const s = searchTerm.toLowerCase();
       const matchesSearch = !s || (
         (q.entity_title || "") +
@@ -1154,6 +1281,26 @@ const ClientPaymentPage = () => {
     if (!newInvoiceNo) { toast.error("Invoice ID is required"); return; }
     if (!newAmount || parseFloat(newAmount) <= 0) { toast.error("Valid Amount is required"); return; }
 
+    // Resolve numeric invoice id
+    let resolvedInvoiceId: number = selectedInvoiceId || 0;
+    if (!resolvedInvoiceId) {
+      const parsed = parseInt(String(newInvoiceNo).replace(/\D/g, ''), 10);
+      resolvedInvoiceId = !isNaN(parsed) && parsed > 0 ? parsed : 1;
+    }
+
+    // Check if this invoice is already paid to prevent repeated payments
+    const targetDigits = (newInvoiceNo || String(resolvedInvoiceId)).replace(/\D/g, '');
+    const alreadyPaid = clientPayments.some(p => {
+      const pDigits = (p.invoiceNo || '').replace(/\D/g, '');
+      return (p.status === "PAID" || Number(p.paidAmount || 0) >= Number(p.amount || 1)) && (
+        pDigits && targetDigits && pDigits === targetDigits
+      );
+    });
+    if (alreadyPaid) {
+      toast.error("Payment has already been completed for this invoice.");
+      return;
+    }
+
     // Strict frontend validation per backend payment method rules
     if (newPaymentMethodForm === "CHEQUE") {
       if (!newBankName.trim()) { toast.error("Bank Name is required for CHEQUE payment"); return; }
@@ -1168,14 +1315,7 @@ const ClientPaymentPage = () => {
       if (!receiptFile) { toast.error("Receipt file is required for UPI payment"); return; }
     }
 
-    const t = toast.loading("Creating payment...");
-
-    // Resolve numeric invoice id
-    let resolvedInvoiceId: number = selectedInvoiceId || 0;
-    if (!resolvedInvoiceId) {
-      const parsed = parseInt(String(newInvoiceNo).replace(/\D/g, ''), 10);
-      resolvedInvoiceId = !isNaN(parsed) && parsed > 0 ? parsed : 1;
-    }
+    const t = toast.loading("Processing payment...");
 
     try {
       const createdRes = await paymentService.createClientPayment({
@@ -1190,7 +1330,7 @@ const ClientPaymentPage = () => {
         remarks: newRemarks || null,
       });
 
-      toast.success("Payment Created successfully!", { id: t });
+      toast.success("Payment submitted successfully!", { id: t });
 
       // Immediate UI reflection of the 201 Created payment record
       if (createdRes) {
@@ -1958,8 +2098,8 @@ const ClientPaymentPage = () => {
             )}
           </Modal>
 
-          {/* Create Payment Modal – Photo 1 Layout */}
-          <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Payment" maxWidth="max-w-5xl" hideHeader={true} bodyPadding="p-0">
+          {/* Pay Payment Modal – Photo 1 Layout */}
+          <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Pay Payment" maxWidth="max-w-5xl" hideHeader={true} bodyPadding="p-0">
             <div className="space-y-4 max-h-[85vh] overflow-y-auto bg-white p-4 sm:p-5">
               {/* Header */}
               <div className="flex items-start justify-between border-b border-slate-100 pb-3">
@@ -1971,9 +2111,9 @@ const ClientPaymentPage = () => {
                     <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 mb-0.5">
                       <span>Client Payments</span>
                       <span>&gt;</span>
-                      <span className="text-slate-700">Create Payment</span>
+                      <span className="text-slate-700">Pay Payment</span>
                     </div>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Create Payment</h2>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Pay Payment</h2>
                     <p className="text-xs text-slate-400 font-medium mt-0.5">Create a new payment record for client invoice.</p>
                   </div>
                 </div>
@@ -2011,7 +2151,7 @@ const ClientPaymentPage = () => {
                           onChange={e => {
                             const val = e.target.value;
                             setNewInvoiceNo(val);
-                            const sel = pendingInvoices.find((p: any) =>
+                            const sel = availablePendingInvoices.find((p: any) =>
                               String(p.id) === val ||
                               String(p.invoice_id) === val ||
                               String(p.invoice_no) === val ||
@@ -2020,18 +2160,24 @@ const ClientPaymentPage = () => {
                             if (sel) {
                               const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
                               setSelectedInvoiceId(invId);
-                              setNewAmount(String(sel.amount || sel.total_amount || ""));
+                              const rawAmt = Number(sel.amount ?? sel.total_amount ?? sel.grand_total ?? sel.balance_amount ?? 0);
+                              setNewAmount(rawAmt > 0 ? rawAmt.toFixed(2) : String(sel.amount || sel.total_amount || "0.00"));
                               if (sel.project_name) setNewProjectName(sel.project_name);
                               if (sel.project_id) setNewProjectId(String(sel.project_id));
                             } else {
                               const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
-                              if (!isNaN(parsed) && parsed > 0) setSelectedInvoiceId(parsed);
+                              if (!isNaN(parsed) && parsed > 0) {
+                                setSelectedInvoiceId(parsed);
+                              } else {
+                                setSelectedInvoiceId(null);
+                                setNewAmount("");
+                              }
                             }
                           }}
                           className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
                         >
                           <option value="">Select Invoice ID</option>
-                          {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => {
+                          {availablePendingInvoices.length > 0 ? availablePendingInvoices.map((inv: any, idx: number) => {
                             const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
                             return (
                               <option key={idx} value={String(invId)}>
@@ -2039,10 +2185,7 @@ const ClientPaymentPage = () => {
                               </option>
                             );
                           }) : (
-                            <>
-                              <option value="5">5</option>
-                              <option value="17">17</option>
-                            </>
+                            <option value="" disabled>No pending unpaid invoices</option>
                           )}
                         </select>
                       </div>
@@ -2055,7 +2198,7 @@ const ClientPaymentPage = () => {
                         onChange={e => {
                           const val = e.target.value;
                           setNewInvoiceNo(val);
-                          const sel = pendingInvoices.find((p: any) =>
+                          const sel = availablePendingInvoices.find((p: any) =>
                             String(p.id) === val ||
                             String(p.invoice_id) === val ||
                             String(p.invoice_no) === val ||
@@ -2064,18 +2207,24 @@ const ClientPaymentPage = () => {
                           if (sel) {
                             const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
                             setSelectedInvoiceId(invId);
-                            setNewAmount(String(sel.amount || sel.total_amount || ""));
+                            const rawAmt = Number(sel.amount ?? sel.total_amount ?? sel.grand_total ?? sel.balance_amount ?? 0);
+                            setNewAmount(rawAmt > 0 ? rawAmt.toFixed(2) : String(sel.amount || sel.total_amount || "0.00"));
                             if (sel.project_name) setNewProjectName(sel.project_name);
                             if (sel.project_id) setNewProjectId(String(sel.project_id));
                           } else {
                             const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
-                            if (!isNaN(parsed) && parsed > 0) setSelectedInvoiceId(parsed);
+                            if (!isNaN(parsed) && parsed > 0) {
+                              setSelectedInvoiceId(parsed);
+                            } else {
+                              setSelectedInvoiceId(null);
+                              setNewAmount("");
+                            }
                           }
                         }}
                         className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
                       >
                         <option value="">Select Invoice ID</option>
-                        {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => {
+                        {availablePendingInvoices.length > 0 ? availablePendingInvoices.map((inv: any, idx: number) => {
                           const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
                           return (
                             <option key={idx} value={String(invId)}>
@@ -2083,16 +2232,13 @@ const ClientPaymentPage = () => {
                             </option>
                           );
                         }) : (
-                          <>
-                            <option value="5">5</option>
-                            <option value="17">17</option>
-                          </>
+                          <option value="" disabled>No pending unpaid invoices</option>
                         )}
                       </select>
                     </div>
                   )}
 
-                  {/* Row 2: Project + Amount */}
+                  {/* Row 2: Project + Amount (Fixed / Non-editable) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Project <span className="text-rose-500">*</span></label>
@@ -2104,8 +2250,15 @@ const ClientPaymentPage = () => {
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Amount <span className="text-rose-500">*</span></label>
                       <div className="relative flex items-center">
-                        <span className="absolute left-3.5 text-slate-400 font-medium text-xs">₹</span>
-                        <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Enter amount" className="w-full pl-8 pr-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" />
+                        <span className="absolute left-3.5 text-slate-400 font-bold text-xs">₹</span>
+                        <input
+                          type="text"
+                          readOnly
+                          disabled
+                          value={newAmount ? `${newAmount}` : ""}
+                          placeholder="0.00"
+                          className="w-full pl-8 pr-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100/80 border border-slate-200 rounded-xl outline-none cursor-not-allowed select-none"
+                        />
                       </div>
                     </div>
                   </div>
@@ -2251,7 +2404,7 @@ const ClientPaymentPage = () => {
                   <RotateCcw className="w-3.5 h-3.5" /> Reset
                 </button>
                 <button type="button" onClick={handleCreatePayment} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95 cursor-pointer">
-                  <Save className="w-3.5 h-3.5" /> Save Payment
+                  <Save className="w-3.5 h-3.5" /> Pay Payment
                 </button>
               </div>
             </div>

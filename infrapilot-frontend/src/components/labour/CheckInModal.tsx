@@ -3,6 +3,7 @@ import { Camera, MapPin, RefreshCcw, Loader2, Building2, X } from "lucide-react"
 import toast from "react-hot-toast";
 import type { CheckInRequest, LabourItem } from "../../types/labour";
 import { projectService } from "../../services/projectService";
+import { getISTDateString, getLocalDateTimeString } from "../../utils/dateUtils";
 
 interface Project {
     id: number;
@@ -20,11 +21,11 @@ interface CheckInModalProps {
 }
 
 const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: CheckInModalProps) => {
-    const now = new Date();
-
     const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(false);
+    const [attendanceDate, setAttendanceDate] = useState(getISTDateString());
+    const [inTime, setInTime] = useState(getLocalDateTimeString());
     const [status, setStatus] = useState("Present");
     const [workLocationType, setWorkLocationType] = useState("");
     const [taskId, setTaskId] = useState("");
@@ -54,6 +55,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
             }).catch(() => {}).finally(() => setLoadingProjects(false));
 
             // Reset state
+            setAttendanceDate(getISTDateString());
+            setInTime(getLocalDateTimeString());
             setIsPhotoCaptured(false);
             setCapturedImage(null);
             setErrors({});
@@ -161,6 +164,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                 task_description: taskDescription,
                 work_location_type: workLocationType,
                 check_in_image: capturedImage,
+                attendance_date: attendanceDate,
+                in_time: inTime,
             };
             await onSubmit(payload);
             // Parent (AttendancePage) controls closing the modal after success
@@ -233,7 +238,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                                 </label>
                                 <input
                                     type="date"
-                                    defaultValue={now.toISOString().split("T")[0]}
+                                    value={attendanceDate}
+                                    onChange={e => setAttendanceDate(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
                                 />
                             </div>
@@ -262,7 +268,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                                 </label>
                                 <input
                                     type="datetime-local"
-                                    defaultValue={now.toISOString().slice(0, 16)}
+                                    value={inTime}
+                                    onChange={e => setInTime(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
                                 />
                             </div>

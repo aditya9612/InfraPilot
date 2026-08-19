@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { ownerService } from "../../services/ownerService";
+import { userService } from "../../services/userService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 const ClientOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
+  const [ownerName, setOwnerName] = useState<string>("");
   const [milestones, setMilestones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMilestones, setLoadingMilestones] = useState(true);
@@ -24,6 +27,35 @@ const ClientOverviewPage = () => {
 
         const fetchedProj = await projectService.getProjectById(projectId);
         setProjectData(fetchedProj);
+
+        // Fetch owner name if owner_id exists
+        if (fetchedProj?.owner_id) {
+          try {
+            const owner = await ownerService.getOwnerById(String(fetchedProj.owner_id));
+            if (owner?.name) {
+              setOwnerName(owner.name);
+            } else {
+              throw new Error("Owner name not found in ownerService");
+            }
+          } catch {
+            try {
+              const allOwners = await ownerService.getOwners();
+              const matched = allOwners.find((o: any) => String(o.id) === String(fetchedProj.owner_id));
+              if (matched?.name) {
+                setOwnerName(matched.name);
+              } else {
+                const user = await userService.getUserById(Number(fetchedProj.owner_id));
+                if (user?.full_name || user?.name) {
+                  setOwnerName(user.full_name || user.name);
+                }
+              }
+            } catch (e) {
+              console.warn("Could not resolve owner name:", e);
+            }
+          }
+        } else if (fetchedProj?.owner_name || fetchedProj?.client_name) {
+          setOwnerName(fetchedProj.owner_name || fetchedProj.client_name);
+        }
 
         // Fetch milestones
         const milestonesResult: any = await projectService.getMilestones(projectId);
@@ -110,7 +142,7 @@ const ClientOverviewPage = () => {
                 <div className="w-8 h-8 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                 {/* Project Name */}
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">🏢</div>
@@ -182,12 +214,23 @@ const ClientOverviewPage = () => {
                 </div>
 
                 {/* Project Description */}
-                <div className="flex items-start gap-4 lg:col-span-3 border-t border-slate-50 pt-8 mt-2">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg shrink-0">🏗️</div>
+                <div className="flex items-start gap-4 border-t border-slate-50 pt-8 mt-2">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg shrink-0">📝</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Description</p>
-                    <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-4xl">
+                    <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-md">
                       {(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Owner Name */}
+                <div className="flex items-start gap-4 border-t border-slate-50 pt-8 mt-2">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-lg shrink-0">👤</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Owner Name</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">
+                      {ownerName || (projectData?.owner_id ? `Owner #${projectData.owner_id}` : "—")}
                     </p>
                   </div>
                 </div>

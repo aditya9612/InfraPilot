@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { issueService } from "../../services/issueService";
 import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, FileSpreadsheet } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ClientIssuesPage = () => {
@@ -16,6 +16,11 @@ const ClientIssuesPage = () => {
   const [fetchingDetail, setFetchingDetail] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
@@ -134,6 +139,81 @@ const ClientIssuesPage = () => {
     }
   };
 
+  // Close download dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target as Node)) {
+        setIsDownloadOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleExportPDF = async () => {
+    if (!projectId) {
+      toast.error("Please select a project first.");
+      return;
+    }
+    try {
+      setIsExportingPdf(true);
+      const params: any = { project_id: projectId };
+      if (statusFilter !== "ALL STATUS") params.status = statusFilter.toLowerCase();
+      if (priorityFilter !== "ALL PRIORITY") params.priority = priorityFilter.toLowerCase();
+      if (categoryFilter !== "ALL CATEGORIES") params.category = categoryFilter.toLowerCase();
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+
+      const blob = await issueService.exportIssuesPdf(params);
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Issues_Report_${projectId}_${new Date().toISOString().split("T")[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Issues PDF report downloaded successfully.");
+    } catch (error: any) {
+      console.error("Failed to export issues PDF:", error);
+      toast.error("Failed to export issues PDF.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!projectId) {
+      toast.error("Please select a project first.");
+      return;
+    }
+    try {
+      setIsExportingExcel(true);
+      const params: any = { project_id: projectId };
+      if (statusFilter !== "ALL STATUS") params.status = statusFilter.toLowerCase();
+      if (priorityFilter !== "ALL PRIORITY") params.priority = priorityFilter.toLowerCase();
+      if (categoryFilter !== "ALL CATEGORIES") params.category = categoryFilter.toLowerCase();
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+
+      const blob = await issueService.exportIssuesExcel(params);
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Issues_Report_${projectId}_${new Date().toISOString().split("T")[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Issues Excel report downloaded successfully.");
+    } catch (error: any) {
+      console.error("Failed to export issues Excel:", error);
+      toast.error("Failed to export issues Excel.");
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId) {
@@ -162,7 +242,7 @@ const ClientIssuesPage = () => {
         priority: "Medium",
         reported_date: new Date().toISOString().split('T')[0]
       });
-      toast.success("Issue logged in vault successfully.");
+      toast.success("Issue created successfully.");
       await fetchIssues();
     } catch (error: any) {
       console.error("Failed to lodge issue:", error);
@@ -195,13 +275,80 @@ const ClientIssuesPage = () => {
             <p className="text-slate-400 font-medium mt-2 text-sm tracking-tight font-inter">Official repository for site impediments and reported project risks.</p>
           </div>
 
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 font-inter font-inter"
-          >
-            <Plus className="w-5 h-5 font-inter" />
-            Log Issue
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Download Dropdown */}
+            <div className="relative" ref={downloadDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDownloadOpen((prev) => !prev)}
+                disabled={isExportingPdf || isExportingExcel}
+                className="flex items-center gap-2 px-6 py-4 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                <Download className={`w-4 h-4 text-blue-600 ${isExportingPdf || isExportingExcel ? "animate-bounce" : ""}`} />
+                <span>{isExportingPdf ? "Exporting PDF..." : isExportingExcel ? "Exporting Excel..." : "Download"}</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                    isDownloadOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {isDownloadOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDownloadOpen(false);
+                      handleExportPDF();
+                    }}
+                    className="w-full text-left px-3.5 py-3 rounded-xl hover:bg-rose-50/70 transition-colors flex items-center gap-3 group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0 border border-rose-100">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-rose-600 transition-colors">
+                        Download PDF
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Export issues summary (.pdf)
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDownloadOpen(false);
+                      handleExportExcel();
+                    }}
+                    className="w-full text-left px-3.5 py-3 rounded-xl hover:bg-emerald-50/70 transition-colors flex items-center gap-3 group cursor-pointer mt-1"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0 border border-emerald-100">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-emerald-600 transition-colors">
+                        Download Excel
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Export issues data (.xlsx)
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Create Issue Button */}
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 font-inter"
+            >
+              <Plus className="w-5 h-5 font-inter" />
+              Create Issue
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -571,7 +718,7 @@ const ClientIssuesPage = () => {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Log Issue"
+        title="Create Issue"
         maxWidth="max-w-2xl"
       >
         <div className="pt-2">
@@ -672,10 +819,9 @@ const ClientIssuesPage = () => {
               <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Description</h4>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                  DESCRIPTION <span className="text-red-500">*</span>
+                  DESCRIPTION
                 </label>
                 <textarea
-                  required
                   rows={4}
                   value={newIssue.description}
                   onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
@@ -699,7 +845,7 @@ const ClientIssuesPage = () => {
                 disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-xl text-sm font-black tracking-widest transition-all shadow-xl shadow-blue-500/20 active:scale-95 disabled:opacity-50 font-inter"
               >
-                {isSubmitting ? "Logging..." : "Log Issue"}
+                {isSubmitting ? "Creating..." : "Create Issue"}
               </button>
             </div>
           </form>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { ownerService } from "../../services/ownerService";
+import { userService } from "../../services/userService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import toast from "react-hot-toast";
 
@@ -21,6 +23,7 @@ const team = [
 
 const ClientProjectOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
+  const [ownerName, setOwnerName] = useState<string>("");
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -48,6 +51,34 @@ const ClientProjectOverviewPage = () => {
           try {
             const selected = await projectService.getProjectById(projectId);
             setProjectData(selected);
+
+            if (selected?.owner_id) {
+              try {
+                const owner = await ownerService.getOwnerById(String(selected.owner_id));
+                if (owner?.name) {
+                  setOwnerName(owner.name);
+                } else {
+                  throw new Error("Owner name not found");
+                }
+              } catch {
+                try {
+                  const allOwners = await ownerService.getOwners();
+                  const matched = allOwners.find((o: any) => String(o.id) === String(selected.owner_id));
+                  if (matched?.name) {
+                    setOwnerName(matched.name);
+                  } else {
+                    const user = await userService.getUserById(Number(selected.owner_id));
+                    if (user?.full_name || user?.name) {
+                      setOwnerName(user.full_name || user.name);
+                    }
+                  }
+                } catch (e) {
+                  console.warn("Could not resolve owner name:", e);
+                }
+              }
+            } else if (selected?.owner_name || selected?.client_name) {
+              setOwnerName(selected.owner_name || selected.client_name);
+            }
           } catch (e) {
             if (list.length > 0) setProjectData(list[0]);
           }
@@ -139,10 +170,11 @@ const ClientProjectOverviewPage = () => {
                     { label: "Project Name", value: (projectData?.project_name || "NEW SARA CITY").toUpperCase(), icon: "🏢" },
                     { label: "Location", value: "Sector 45, Pune, MH", icon: "📍" },
                     { label: "Project Type", value: "High-Rise Residential", icon: "🏗️" },
-                    { label: "Description", value: (projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY", icon: "📝" },
                     { label: "Start Date", value: formatDate(projectData?.start_date), icon: "📅" },
                     { label: "End Date (EST)", value: formatDate(projectData?.end_date), icon: "🏁" },
                     { label: "Project Status", value: projectData?.status || "—", icon: "🟢", status: projectData?.status },
+                    { label: "Description", value: (projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY", icon: "📝" },
+                    { label: "Owner Name", value: ownerName || (projectData?.owner_id ? `Owner #${projectData.owner_id}` : "—"), icon: "👤" },
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-lg shadow-sm shrink-0">{item.icon}</div>

@@ -1,6 +1,7 @@
 import Modal from "../common/Modal";
 import { Mail, Briefcase, Phone, FileText } from "lucide-react";
 import type { AttendanceRecord } from "../../types/labour";
+import { formatToIST } from "../../utils/dateUtils";
 
 interface AttendanceDetailModalProps {
     isOpen: boolean;
@@ -12,10 +13,10 @@ const AttendanceDetailModal = ({ isOpen, onClose, record }: AttendanceDetailModa
     if (!record) return null;
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title="Attendance Verification Audit" 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Attendance Verification Audit"
             maxWidth="max-w-xl"
         >
             <div className="p-6 font-inter text-inter italic-none">
@@ -24,19 +25,19 @@ const AttendanceDetailModal = ({ isOpen, onClose, record }: AttendanceDetailModa
                     <div className="relative z-10 flex items-center gap-6 font-inter">
                         <div className="flex gap-4">
                             <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative overflow-hidden font-inter">
-                                <img 
-                                    src={record.check_in_image || record.selfie_url || "https://images.unsplash.com/photo-1590650153855-d9e808231d41?w=400&h=400&fit=crop"} 
-                                    alt="Check-in" 
-                                    className="w-full h-full object-cover font-inter" 
+                                <img
+                                    src={record.check_in_image || record.selfie_url || "https://images.unsplash.com/photo-1590650153855-d9e808231d41?w=400&h=400&fit=crop"}
+                                    alt="Check-in"
+                                    className="w-full h-full object-cover font-inter"
                                 />
                                 <div className="absolute top-1 left-1 px-1 bg-blue-600 text-[6px] font-black rounded uppercase">Check-In</div>
                             </div>
                             {record.check_out_image && (
                                 <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative overflow-hidden font-inter">
-                                    <img 
-                                        src={record.check_out_image} 
-                                        alt="Check-out" 
-                                        className="w-full h-full object-cover font-inter" 
+                                    <img
+                                        src={record.check_out_image}
+                                        alt="Check-out"
+                                        className="w-full h-full object-cover font-inter"
                                     />
                                     <div className="absolute top-1 left-1 px-1 bg-rose-600 text-[6px] font-black rounded uppercase">Check-Out</div>
                                 </div>
@@ -57,7 +58,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, record }: AttendanceDetailModa
                             </div>
                             <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
                                 <span className="text-[10px] font-black uppercase tracking-widest font-inter">
-                                    IN: {record.in_time} • OUT: {record.out_time || "ACTIVE"}
+                                    IN: {formatToIST(record.in_time)} • OUT: {record.out_time ? formatToIST(record.out_time) : "ACTIVE"}
                                 </span>
                             </div>
                         </div>
@@ -121,11 +122,11 @@ const AttendanceDetailModal = ({ isOpen, onClose, record }: AttendanceDetailModa
                             <div className="grid grid-cols-2 gap-x-12 font-inter">
                                 <div className="font-inter">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Check-in Time</p>
-                                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{record.in_time}</p>
+                                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{formatToIST(record.in_time)}</p>
                                 </div>
                                 <div className="font-inter">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Check-out Time</p>
-                                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{record.out_time || "Pending"}</p>
+                                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{record.out_time ? formatToIST(record.out_time) : "Pending"}</p>
                                 </div>
                             </div>
                         </div>
@@ -152,7 +153,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, record }: AttendanceDetailModa
                     </div>
                 </div>
 
-                <button 
+                <button
                     onClick={onClose}
                     className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                 >
