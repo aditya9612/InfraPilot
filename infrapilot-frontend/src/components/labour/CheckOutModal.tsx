@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Camera, MapPin, RefreshCcw, Loader2, Upload, X } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CheckOutRequest } from "../../types/labour";
+import { getLocalDateTimeString } from "../../utils/dateUtils";
 
 interface CheckOutModalProps {
     isOpen: boolean;
@@ -11,9 +12,7 @@ interface CheckOutModalProps {
 }
 
 const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
-    const now = new Date();
-
-    const [outTime, setOutTime] = useState(now.toISOString().slice(0, 16));
+    const [outTime, setOutTime] = useState(getLocalDateTimeString());
     const [resolvedAddress, setResolvedAddress] = useState("");
     const [latitude, setLatitude] = useState(0);
     const [longitude, setLongitude] = useState(0);
@@ -36,7 +35,7 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
     useEffect(() => {
         if (isOpen) {
             // Reset form
-            setOutTime(new Date().toISOString().slice(0, 16));
+            setOutTime(getLocalDateTimeString());
             setWorkSummary("");
             setTaskDeadlineReason("");
             setPdfFile(null);
@@ -164,6 +163,7 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
                 work_summary: workSummary,
                 task_deadline_reason: taskDeadlineReason,
                 check_out_image: capturedImage,
+                out_time: outTime,
             };
             await onSubmit(payload);
             onClose();

@@ -3,6 +3,7 @@ import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
+import { projectService } from "../../services/projectService";
 import type { DocumentStats } from "../../types/document";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import {
@@ -55,6 +56,7 @@ const ClientDocumentsPage = () => {
   const [totalDocsFromApi, setTotalDocsFromApi] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [projectName, setProjectName] = useState<string>("");
   
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -138,14 +140,14 @@ const ClientDocumentsPage = () => {
     setIsPreviewOpen(true);
     try {
       let file_url = doc.file_url;
-      let currentDoc = doc;
+      let currentDoc = { ...doc };
 
       if (doc.id && doc.type !== "Drawing") {
         try {
           const detail = await documentService.getDocument(doc.id);
           if (detail) {
-            currentDoc = detail;
-            file_url = detail.file_url;
+            currentDoc = { ...currentDoc, ...detail };
+            file_url = detail.file_url || file_url;
           }
         } catch (e) {
           console.warn("Failed to fetch fresh metadata, using list data");
@@ -174,17 +176,28 @@ const ClientDocumentsPage = () => {
         previewUrl: blobUrl, 
         previewType: contentType, 
         fullUrl, 
-        remarks: currentDoc.remarks, 
-        uploaded_at: currentDoc.uploaded_at || currentDoc.date, 
-        project_name: currentDoc.project_name || currentDoc.projectName, 
+        remarks: (currentDoc.remarks !== undefined && currentDoc.remarks !== null) ? currentDoc.remarks : (doc.remarks || ""), 
+        uploaded_at: currentDoc.uploaded_at || currentDoc.date || doc.date, 
+        date: currentDoc.date || currentDoc.uploaded_at || doc.date,
+        project_name: (currentDoc.project_name && currentDoc.project_name !== "—") ? currentDoc.project_name : (projectName || "General"), 
+        uploaded_by: currentDoc.uploaded_by || currentDoc.created_by || currentDoc.user_name || doc.uploaded_by || "Site Engineer",
         file_size: currentDoc.file_size,
-        type: doc.type
+        type: doc.type || (doc.is_folder ? "Folder" : "Drawing")
       });
     } catch (err: any) {
       console.error("View failed:", err);
       const baseUrl = getBaseUrl();
       const fallbackUrl = doc.file_url?.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url?.replace(/^\//, '')}`;
-      setSelectedPreview({ ...doc, previewUrl: fallbackUrl, previewType: null, fullUrl: fallbackUrl });
+      setSelectedPreview({ 
+        ...doc, 
+        name: doc.drawing_name || doc.title || doc.name || "Preview",
+        project_name: (doc.project_name && doc.project_name !== "—") ? doc.project_name : (projectName || "General"),
+        uploaded_by: doc.uploaded_by || doc.created_by || doc.user_name || "Site Engineer",
+        remarks: doc.remarks || "",
+        previewUrl: fallbackUrl, 
+        previewType: null, 
+        fullUrl: fallbackUrl 
+      });
     } finally {
       setFetchingDetail(false);
     }
@@ -265,6 +278,18 @@ const ClientDocumentsPage = () => {
 
   useEffect(() => {
     if (projectId) {
+      projectService.getProjectById(projectId)
+        .then(res => {
+          if (res?.project_name || res?.name) {
+            setProjectName(res.project_name || res.name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) {
       fetchDrawingHistory();
       setCurrentPage(1);
     }
@@ -277,17 +302,19 @@ const ClientDocumentsPage = () => {
   const drawingData = useMemo(() => {
     const drawingDocsMapped = apiDrawings.map((d: any) => ({
       id: d.id,
-      project_name: d.project_name || "—",
-      drawing_name: d.drawing_name || d.title,
+      project_id: d.project_id,
+      project_name: (d.project_name && d.project_name !== "—") ? d.project_name : (projectName || "General"),
+      drawing_name: d.drawing_name || d.title || "Untitled Drawing",
       type: "Drawing",
-      date: d.date ? d.date.split('T')[0] : "—",
+      date: d.date ? d.date.split('T')[0] : (d.created_at ? d.created_at.split('T')[0] : "—"),
       version: d.version || "V1.0",
-      file_size: null,
+      file_size: d.file_size || null,
       file_url: d.file_url || d.upload_file || "",
-      approval_status: d.approval_status || "Pending",
+      approval_status: d.approval_status || "Approved",
       approval_id: d.approval_id,
       is_folder: false,
-      remarks: d.remarks || ""
+      remarks: d.remarks || "",
+      uploaded_by: d.uploaded_by || d.created_by || d.user_name || d.uploader_name || d.author || "Site Engineer"
     }));
 
     const otherDocsMapped = apiDocs
@@ -297,22 +324,24 @@ const ClientDocumentsPage = () => {
         const isFolder = d.is_folder || d.document_type === "folder";
         return {
           id: d.id,
-          project_name: d.project_name || "—",
+          project_id: d.project_id,
+          project_name: (d.project_name && d.project_name !== "—") ? d.project_name : (projectName || "General"),
           drawing_name: name,
           type: isFolder ? "Folder" : (d.document_type || "Document"),
-          date: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toISOString().split('T')[0] : "—",
+          date: d.created_at || d.uploaded_at || d.date ? new Date(d.created_at || d.uploaded_at || d.date).toISOString().split('T')[0] : "—",
           version: d.version || "V1.0",
           file_size: d.file_size || null,
           file_url: d.file_url || "",
-          approval_status: d.status || d.approval_status || "Pending",
+          approval_status: d.status || d.approval_status || "Approved",
           approval_id: null,
           is_folder: isFolder,
-          remarks: d.remarks || ""
+          remarks: d.remarks || "",
+          uploaded_by: d.uploaded_by || d.created_by || d.user_name || d.uploader_name || d.author || "Site Engineer"
         };
       });
 
     return [...drawingDocsMapped, ...otherDocsMapped].sort((a, b) => b.id - a.id);
-  }, [apiDrawings, apiDocs]);
+  }, [apiDrawings, apiDocs, projectName]);
 
   const IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif|sketch)$/i;
 
@@ -862,12 +891,17 @@ const ClientDocumentsPage = () => {
         document={selectedPreview ? {
           ...selectedPreview,
           name: selectedPreview.drawing_name || selectedPreview.title || selectedPreview.name || "Preview",
-          type: selectedPreview.type || "Document",
-          project: selectedPreview.project_name || selectedPreview.projectName || "General",
-          date: new Date(selectedPreview.uploaded_at || selectedPreview.date).toLocaleDateString(),
+          type: selectedPreview.type || (selectedPreview.is_folder ? "Folder" : "Drawing"),
+          project: (selectedPreview.project_name && selectedPreview.project_name !== "—")
+            ? selectedPreview.project_name
+            : (selectedPreview.projectName || projectName || "General"),
+          date: selectedPreview.date || (selectedPreview.uploaded_at ? new Date(selectedPreview.uploaded_at).toLocaleDateString() : "—"),
+          version: selectedPreview.version || "V1.0",
           isFolder: selectedPreview.is_folder || selectedPreview.type === "Folder",
-          status: selectedPreview.status || selectedPreview.approval_status || "Pending",
-          file_url: buildFileUrl(selectedPreview.file_url || "")
+          status: selectedPreview.approval_status || selectedPreview.status || "Approved",
+          uploaded_by: selectedPreview.uploaded_by || selectedPreview.created_by || selectedPreview.user_name || "Site Engineer",
+          remarks: selectedPreview.remarks && selectedPreview.remarks !== "No remarks" ? selectedPreview.remarks : (selectedPreview.remarks || "—"),
+          file_url: selectedPreview.previewUrl || buildFileUrl(selectedPreview.file_url || "")
         } : null}
         onDownload={handleDownload}
       />

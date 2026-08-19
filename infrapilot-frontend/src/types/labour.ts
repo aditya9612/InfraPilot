@@ -104,6 +104,8 @@ export interface CheckInRequest {
     remarks?: string;
     work_location_type?: string;
     check_in_image: string | null;
+    attendance_date?: string;
+    in_time?: string;
 }
 
 export interface CheckOutRequest {
@@ -117,4 +119,6 @@ export interface CheckOutRequest {
     work_summary?: string;
     task_deadline_reason?: string;
     check_out_image: string | null;
+    out_time?: string;
+    check_out_time?: string;
 }

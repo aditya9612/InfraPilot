@@ -10,18 +10,7 @@ import { projectService } from "../services/projectService";
  */
 export function useClientProjectId() {
   const [projectId, setProjectId] = useState<number | null>(() => {
-    // Check currently logged in user first
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const u = JSON.parse(userStr);
-        if (u?.project_id && Number(u.project_id) > 0) {
-          return Number(u.project_id);
-        }
-      } catch (e) {}
-    }
-
-    // 1. Synchronous initial check if a project was selected
+    // 1. Check explicit client manual selection FIRST — highest priority!
     const clientSaved = localStorage.getItem("client_selected_project_id");
     if (clientSaved && clientSaved !== "null" && clientSaved !== "undefined") {
       const pid = Number(clientSaved);
@@ -45,6 +34,17 @@ export function useClientProjectId() {
       } catch (e) {}
     }
 
+    // 2. Check logged-in user project_id only as initial fallback
+    const userStr = localStorage.getItem("infrapilot_user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u?.project_id && Number(u.project_id) > 0) {
+          return Number(u.project_id);
+        }
+      } catch (e) {}
+    }
+
     return null;
   });
 
@@ -52,12 +52,48 @@ export function useClientProjectId() {
 
   const resolve = useCallback(async () => {
     try {
-      // Check currently logged in user first
+      // 1. Check explicit client manual selection FIRST — highest priority!
+      const clientSaved = localStorage.getItem("client_selected_project_id");
+      if (clientSaved && clientSaved !== "null" && clientSaved !== "undefined") {
+        const pid = Number(clientSaved);
+        if (pid > 0) {
+          setProjectId(pid);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const infraSaved = localStorage.getItem("infrapilot_selected_project_id");
+      if (infraSaved && infraSaved !== "null" && infraSaved !== "undefined") {
+        const pid = Number(infraSaved);
+        if (pid > 0) {
+          setProjectId(pid);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Check settings fallback
+      const localSettings = localStorage.getItem("mock_settings");
+      if (localSettings) {
+        try {
+          const parsed = JSON.parse(localSettings);
+          if (parsed?.default_project_id) {
+            const pid = Number(parsed.default_project_id);
+            if (pid > 0) {
+              setProjectId(pid);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 3. Check user profile project_id fallback
       const userStr = localStorage.getItem("infrapilot_user");
-      let currentUser: any = null;
       if (userStr) {
         try {
-          currentUser = JSON.parse(userStr);
+          const currentUser = JSON.parse(userStr);
           if (currentUser?.project_id && Number(currentUser.project_id) > 0) {
             const pid = Number(currentUser.project_id);
             setProjectId(pid);
@@ -67,25 +103,25 @@ export function useClientProjectId() {
         } catch (e) {}
       }
 
-      // 1. Dynamic API Fallback: Automatically fetch the user's projects list from server
+      // 4. Initial fetch from API only if NO project was ever selected
       try {
-        const response = await projectService.getProjects(10, 0);
+        const response = await projectService.getProjects(100, 0);
         const items = Array.isArray(response) ? response : (response?.items || response?.data || []);
         if (items.length > 0) {
-          const selectedId = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
-          const hasSavedMatch = selectedId && items.some((p: any) => String(p.id || p.project_id) === String(selectedId));
-
-          if (hasSavedMatch) {
-            setProjectId(Number(selectedId));
-            setLoading(false);
-            return;
+          // Double check if client_selected_project_id was set in the meantime
+          const currentSaved = localStorage.getItem("client_selected_project_id");
+          if (currentSaved && currentSaved !== "null" && currentSaved !== "undefined") {
+            const pid = Number(currentSaved);
+            if (pid > 0) {
+              setProjectId(pid);
+              setLoading(false);
+              return;
+            }
           }
 
           const firstProjId = Number(items[0].id || items[0].project_id);
           if (firstProjId > 0) {
-            console.debug("useClientProjectId: Auto-selecting user project from API:", firstProjId);
             localStorage.setItem("client_selected_project_id", String(firstProjId));
-            localStorage.setItem("infrapilot_selected_project_id", String(firstProjId));
             setProjectId(firstProjId);
             setLoading(false);
             return;
@@ -93,35 +129,6 @@ export function useClientProjectId() {
         }
       } catch (apiErr) {
         console.warn("useClientProjectId: API project fetch fallback warning:", apiErr);
-      }
-
-      // 2. Check dedicated selection keys
-      const selectedId = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
-      if (selectedId && selectedId !== "null" && selectedId !== "undefined") {
-        const pid = Number(selectedId);
-        if (pid > 0) {
-          setProjectId(pid);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 3. Check settings fallback
-      const localSettings = localStorage.getItem("mock_settings");
-      if (localSettings) {
-        try {
-          const parsed = JSON.parse(localSettings);
-          if (parsed?.default_project_id) {
-            const pid = Number(parsed.default_project_id);
-            if (pid > 0) {
-              localStorage.setItem("client_selected_project_id", String(pid));
-              localStorage.setItem("infrapilot_selected_project_id", String(pid));
-              setProjectId(pid);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (e) {}
       }
 
       setProjectId(null);

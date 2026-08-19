@@ -45,8 +45,8 @@ const ClientProgressPage = () => {
     const fetchProgressData = async () => {
       try {
         setLoadingActivities(true);
-        // Call GET /api/v1/work-progress/activities
-        const data = await workProgressService.listActivities(projectId);
+        // Call GET /api/v1/work-progress/activities with limit: 100
+        const data = await workProgressService.listActivities(projectId, undefined, 100);
         const fetchedActivities = Array.isArray(data) ? data : [];
         const normalized = fetchedActivities.map((act: any) => {
           const planned = Number(act.planned_quantity) || 0;

@@ -115,7 +115,7 @@ export const attendanceService = {
             return response.data;
         } catch (error: any) {
             console.error("checkIn API error:", error.response?.data || error.message);
-            
+
             // Helper to convert File to Base64 for mock persistence
             const fileToBase64 = (file: any): Promise<string> => new Promise((resolve) => {
                 const reader = new FileReader();
@@ -126,7 +126,7 @@ export const attendanceService = {
             const todayStr = new Date().toISOString().split('T')[0];
             const timeStr = new Date().toISOString();
             const mockId = Math.floor(Math.random() * 9000) + 1000;
-            
+
             const imageFile = formData.get('check_in_image');
             let imgBase64 = null;
             if (imageFile instanceof File) {
@@ -155,7 +155,7 @@ export const attendanceService = {
                 is_late: false,
                 late_minutes: 0,
             };
-            
+
             try {
                 const stored = localStorage.getItem('mock_self_attendance_global');
                 const list = stored ? JSON.parse(stored) : [];
@@ -179,7 +179,7 @@ export const attendanceService = {
             return response.data;
         } catch (error: any) {
             console.warn("checkOut API error, updating mock storage:", error.response?.data || error.message);
-            
+
             // Helper to convert File to Base64 for mock persistence
             const fileToBase64 = (file: any): Promise<string> => new Promise((resolve) => {
                 const reader = new FileReader();
@@ -203,7 +203,7 @@ export const attendanceService = {
                     if (index !== -1) {
                         const outTime = new Date().toISOString();
                         const isFormData = data instanceof FormData;
-                        
+
                         let imgBase64 = null;
                         if (isFormData) {
                             const imageFile = data.get('check_out_image');

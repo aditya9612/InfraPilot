@@ -265,7 +265,7 @@ const ClientPhotosPage = () => {
 
                                             <div className="p-6 flex flex-col flex-1 font-inter">
                                                 <div className="flex items-center justify-between mb-4 font-inter">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">AUDIT-{photo.id}</span>
                                                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">Live Progress</span>
                                                 </div>
 
@@ -281,7 +281,9 @@ const ClientPhotosPage = () => {
                                                         <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
                                                         <div className="flex items-center gap-1.5 text-slate-400 font-inter">
                                                             <Calendar className="w-3 h-3 shrink-0" />
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} â€¢ {photo.date}</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">
+                                                                {photo.time ? `${photo.time} • ` : ""}{photo.date}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -316,7 +318,7 @@ const ClientPhotosPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 font-inter">
                                                             <div className="flex flex-col font-inter">
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-{photo.id}</span>
                                                                 <span className="text-sm font-bold text-slate-800 line-clamp-1 font-inter uppercase tracking-tight">{photo.description}</span>
                                                             </div>
                                                         </td>
@@ -460,7 +462,7 @@ const ClientPhotosPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
                                     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
-                                        <p className="text-xl font-bold text-white font-inter">#LOG-{selectedPhoto?.id}</p>
+                                        <p className="text-xl font-bold text-white font-inter">LOG-{selectedPhoto?.id}</p>
                                     </div>
                                     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Capture Sequence</p>

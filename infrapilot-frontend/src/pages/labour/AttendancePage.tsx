@@ -24,6 +24,12 @@ import toast from 'react-hot-toast';
 import CheckInModal from '../../components/labour/CheckInModal';
 import CheckOutModal from '../../components/labour/CheckOutModal';
 import { useAuth } from '../../context/AuthContext';
+import { 
+    getLocalDateString, 
+    getISTDateString,
+    formatToIST, 
+    parseUTCToDate 
+} from '../../utils/dateUtils';
 
 
 const AttendancePage: React.FC = () => {
@@ -77,14 +83,14 @@ const AttendancePage: React.FC = () => {
                 attendanceService.getListAttendance({ page_size: 10 })
             ]);
             const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
-            
+
             const normalizedList = (list.data || []).map((r: any) => ({
                 ...r,
-                check_in_image: r.check_in_image && !r.check_in_image.startsWith('data:') && !r.check_in_image.startsWith('http') 
-                    ? `${apiHost}/${r.check_in_image}` 
+                check_in_image: r.check_in_image && !r.check_in_image.startsWith('data:') && !r.check_in_image.startsWith('http')
+                    ? `${apiHost}/${r.check_in_image}`
                     : r.check_in_image,
-                check_out_image: r.check_out_image && !r.check_out_image.startsWith('data:') && !r.check_out_image.startsWith('http') 
-                    ? `${apiHost}/${r.check_out_image}` 
+                check_out_image: r.check_out_image && !r.check_out_image.startsWith('data:') && !r.check_out_image.startsWith('http')
+                    ? `${apiHost}/${r.check_out_image}`
                     : r.check_out_image
             }));
 
@@ -117,11 +123,18 @@ const AttendancePage: React.FC = () => {
         setIsActionLoading(true);
         try {
             const nowIso = new Date().toISOString();
+            const selectedDate = data.attendance_date || getISTDateString();
+            const inTimeIso = data.in_time
+                ? (data.in_time.includes('T') && !data.in_time.endsWith('Z') && !data.in_time.includes('+')
+                    ? new Date(data.in_time).toISOString()
+                    : data.in_time)
+                : nowIso;
+
             const formData = new FormData();
-            formData.append('attendance_date', nowIso.split('T')[0]);
+            formData.append('attendance_date', selectedDate);
             formData.append('project_id', (data.project_id || 1).toString());
             formData.append('status', 'present');
-            formData.append('in_time', nowIso);
+            formData.append('in_time', inTimeIso);
             formData.append('check_in_latitude', data.latitude?.toString() || '');
             formData.append('check_in_longitude', data.longitude?.toString() || '');
             formData.append('check_in_address', data.resolved_address || data.location_address || '');
@@ -151,13 +164,13 @@ const AttendancePage: React.FC = () => {
                 checked_in: true,
                 checked_out: false,
                 running_hours: 0,
-                date: nowIso.split('T')[0],
+                date: selectedDate,
                 attendance: {
                     id: checkInRes?.id || statusData?.attendance?.id || Math.floor(Math.random() * 9000) + 1000,
                     user_id: user?.id || 1,
-                    attendance_date: nowIso.split('T')[0],
-                    in_time: nowIso,
-                    check_in_time: nowIso,
+                    attendance_date: selectedDate,
+                    in_time: inTimeIso,
+                    check_in_time: inTimeIso,
                     out_time: undefined,
                     check_out_time: undefined,
                     working_hours: 0,
@@ -183,9 +196,15 @@ const AttendancePage: React.FC = () => {
         setIsActionLoading(true);
         try {
             const nowIso = new Date().toISOString();
+            const outTimeIso = data.out_time
+                ? (data.out_time.includes('T') && !data.out_time.endsWith('Z') && !data.out_time.includes('+')
+                    ? new Date(data.out_time).toISOString()
+                    : data.out_time)
+                : nowIso;
+
             const formData = new FormData();
 
-            formData.append('out_time', nowIso);
+            formData.append('out_time', outTimeIso);
             formData.append('check_out_latitude', data.latitude?.toString() || '');
             formData.append('check_out_longitude', data.longitude?.toString() || '');
             formData.append('check_out_address', data.resolved_address || data.location_address || '');
@@ -214,11 +233,11 @@ const AttendancePage: React.FC = () => {
                 checked_in: true,
                 checked_out: true,
                 running_hours: prev?.running_hours || 0,
-                date: nowIso.split('T')[0],
+                date: getISTDateString(),
                 attendance: {
                     ...(prev?.attendance || {}),
-                    out_time: nowIso,
-                    check_out_time: nowIso,
+                    out_time: outTimeIso,
+                    check_out_time: outTimeIso,
                     check_out_address: data.resolved_address || data.location_address || '',
                     work_summary: data.work_summary || '',
                 } as any
@@ -253,9 +272,12 @@ const AttendancePage: React.FC = () => {
             }
             return String(wh);
         }
-        if (!statusData?.attendance?.in_time) return "--:--";
-        const inTime = new Date(statusData.attendance.in_time);
-        const diffMs = currentTime.getTime() - inTime.getTime();
+        const timeVal = statusData?.attendance?.in_time || statusData?.attendance?.check_in_time;
+        if (!timeVal) return "--:--";
+        const inTimeDate = parseUTCToDate(timeVal, statusData?.attendance?.attendance_date);
+        if (!inTimeDate) return "--:--";
+
+        const diffMs = currentTime.getTime() - inTimeDate.getTime();
         if (diffMs < 0) return "00:00";
         const hrs = Math.floor(diffMs / (1000 * 60 * 60));
         const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -263,8 +285,8 @@ const AttendancePage: React.FC = () => {
     };
 
     const getFilteredRecords = () => {
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const today = getLocalDateString(new Date());
+        const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
         return attendanceList.filter(record => {
             if (historyFilter === 'Today') return record.attendance_date === today;
             if (historyFilter === 'Yesterday') return record.attendance_date === yesterday;
@@ -279,13 +301,17 @@ const AttendancePage: React.FC = () => {
 
     const filteredRecords = getFilteredRecords();
 
+    const parseTimeToMs = (timeStr?: string | null, baseDate?: string) => {
+        if (!timeStr) return 0;
+        const d = parseUTCToDate(timeStr, baseDate);
+        return d ? d.getTime() : 0;
+    };
+
     // Determine current attendance state
     const hasInTime = Boolean(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time);
     const hasOutTime = Boolean(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time);
-    const inTimeMs = statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).getTime() : 0;
-    const outTimeMs = (statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
-        ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).getTime()
-        : 0;
+    const inTimeMs = parseTimeToMs(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time, statusData?.attendance?.attendance_date);
+    const outTimeMs = parseTimeToMs(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time, statusData?.attendance?.attendance_date);
 
     const isCurrentlyCheckedIn =
         Boolean(statusData?.checked_in || hasInTime) &&
@@ -360,7 +386,7 @@ const AttendancePage: React.FC = () => {
                                     </span>
                                 </div>
 
-                                 <div className="space-y-6">
+                                <div className="space-y-6">
                                     {isCurrentlyCheckedIn ? (
                                         /* Active Session View: Show Check Out (Matches Screenshot Exactly) */
                                         <div className="space-y-6 animate-in fade-in duration-500">
@@ -378,11 +404,11 @@ const AttendancePage: React.FC = () => {
                                                                 {statusData?.attendance?.work_location_type === 'wfo' || statusData?.attendance?.work_location_type === 'office' ? 'Work From Office' : (statusData?.attendance?.work_location_type || 'Work From Office')}
                                                             </div>
                                                         </div>
-                                                        <p className="text-2xl font-black text-slate-800">
-                                                            {statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                         <p className="text-2xl font-black text-slate-800">
+                                                            {formatToIST(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time)}
                                                         </p>
                                                     </div>
-                                                    
+
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2">
                                                             <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -401,7 +427,9 @@ const AttendancePage: React.FC = () => {
                                                             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-out Time</span>
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            -
+                                                            {(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
+                                                                ? formatToIST(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
+                                                                : "-"}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -441,10 +469,10 @@ const AttendancePage: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {statusData?.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "02:51 PM"}
+                                                            {formatToIST(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time)}
                                                         </p>
                                                     </div>
-                                                    
+
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2">
                                                             <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -466,7 +494,9 @@ const AttendancePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time) ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                            {(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
+                                                                ? formatToIST(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time)
+                                                                : "--:--"}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -539,22 +569,20 @@ const AttendancePage: React.FC = () => {
                                                 <button
                                                     key={filter}
                                                     onClick={() => setHistoryFilter(filter)}
-                                                    className={`px-5 py-2 rounded-xl text-[11px] font-black transition-all ${
-                                                        historyFilter === filter
+                                                    className={`px-5 py-2 rounded-xl text-[11px] font-black transition-all ${historyFilter === filter
                                                             ? 'bg-[#0062ff] text-white shadow-lg shadow-blue-100'
                                                             : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {filter}
                                                 </button>
                                             ))}
-                                            <button 
+                                            <button
                                                 onClick={() => setHistoryFilter('Date')}
-                                                className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${
-                                                    historyFilter === 'Date'
+                                                className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${historyFilter === 'Date'
                                                         ? 'bg-[#0062ff] text-white shadow-lg shadow-blue-100'
                                                         : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 <Calendar className="w-3.5 h-3.5" />
                                                 Date
@@ -562,11 +590,11 @@ const AttendancePage: React.FC = () => {
                                         </div>
                                     </div>
 
-                                     <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
-                                             Showing {filteredRecords.length} records
-                                         </p>
-                                     </div>
+                                    <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
+                                            Showing {filteredRecords.length} records
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {historyFilter === 'Date' && (
@@ -639,7 +667,7 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div 
+                                                        <div
                                                             onClick={() => record.check_in_image && setPreviewImage({ url: record.check_in_image, title: "Check-In Image - " + (record.full_name || user?.name || "Labour") })}
                                                             className={`w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_in_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-blue-400' : ''}`}
                                                         >
@@ -659,7 +687,7 @@ const AttendancePage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div 
+                                                        <div
                                                             onClick={() => record.check_out_image && setPreviewImage({ url: record.check_out_image, title: "Check-Out Image - " + (record.full_name || user?.name || "Labour") })}
                                                             className={`w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_out_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-rose-400' : ''}`}
                                                         >
@@ -688,7 +716,7 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <button 
+                                                        <button
                                                             onClick={() => setSelectedRecordForLocation(record)}
                                                             className="flex items-center gap-1.5 text-blue-500 hover:text-blue-600 transition-colors"
                                                         >
@@ -704,7 +732,7 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <button 
+                                                        <button
                                                             onClick={() => setSelectedRecordForDetail(record)}
                                                             className="p-2.5 bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-200 rounded-xl text-slate-400 hover:text-blue-500 transition-all hover:shadow-lg hover:shadow-blue-50/50 active:scale-90"
                                                             title="View Detailed Records"
@@ -725,31 +753,31 @@ const AttendancePage: React.FC = () => {
                                                     </div>
                                                 </td>
                                             </tr>
-                                         )}
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
 
-                        <div className="p-6 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
-                            <div className="flex items-center gap-2">
-                                <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
-                                    <ChevronRight className="w-4 h-4 rotate-180" />
-                                </button>
-                                <div className="flex items-center gap-1">
-                                    <span className="w-8 h-8 rounded-lg bg-[#0062ff] text-white flex items-center justify-center text-xs font-black">1</span>
+                            <div className="p-6 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
+                                <div className="flex items-center gap-2">
+                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+                                        <ChevronRight className="w-4 h-4 rotate-180" />
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <span className="w-8 h-8 rounded-lg bg-[#0062ff] text-white flex items-center justify-center text-xs font-black">1</span>
+                                    </div>
+                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sorted by Date (Latest First)</p>
                             </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sorted by Date (Latest First)</p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </PageTransition>
+            </PageTransition>
 
-            <CheckInModal 
+            <CheckInModal
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
                 onSubmit={handleCheckIn}
@@ -782,7 +810,7 @@ const AttendancePage: React.FC = () => {
                                 <X className="w-5 h-5 text-slate-400" />
                             </button>
                         </div>
-                        
+
                         <div className="p-8 space-y-8 -mt-4 bg-white rounded-t-[32px]">
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
@@ -848,8 +876,8 @@ const AttendancePage: React.FC = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 overflow-hidden">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedRecordForDetail(null)} />
                     <div className="relative w-full max-w-[450px] max-h-[calc(100vh-3rem)] bg-white rounded-[32px] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden">
-                        <button 
-                            onClick={() => setSelectedRecordForDetail(null)} 
+                        <button
+                            onClick={() => setSelectedRecordForDetail(null)}
                             className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all z-20"
                         >
                             <X className="w-5 h-5" />
@@ -905,7 +933,7 @@ const AttendancePage: React.FC = () => {
                             <div className="flex items-center justify-center gap-8 py-2 border-y border-dashed border-slate-100">
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check In</span>
-                                    <div 
+                                    <div
                                         onClick={() => selectedRecordForDetail.check_in_image && setPreviewImage({ url: selectedRecordForDetail.check_in_image, title: "Check-In Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
                                         className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_in_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-blue-400' : ''}`}
                                     >
@@ -924,7 +952,7 @@ const AttendancePage: React.FC = () => {
 
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check Out</span>
-                                    <div 
+                                    <div
                                         onClick={() => selectedRecordForDetail.check_out_image && setPreviewImage({ url: selectedRecordForDetail.check_out_image, title: "Check-Out Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
                                         className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_out_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-rose-400' : ''}`}
                                     >

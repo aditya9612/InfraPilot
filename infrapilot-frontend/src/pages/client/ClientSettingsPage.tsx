@@ -50,15 +50,25 @@ const ClientSettingsPage = () => {
                 const [profileData, settingsData, projectsResult] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
-                    projectService.getProjects(20, 0).catch(() => []),
+                    projectService.getProjects(100, 0).catch(() => []),
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
                 setProjects(projectsList);
 
-                if (projectsList.length > 0) {
-                    const localSavedId = localStorage.getItem("client_selected_project_id");
-                    const defaultPid = settingsData?.default_project_id || (localSavedId ? Number(localSavedId) : null) || projectsList[0]?.id || projectsList[0]?.project_id;
-                    setActiveProjectId(Number(defaultPid));
+                const localSavedId = localStorage.getItem("client_selected_project_id");
+                let defaultPid: number | null = null;
+                if (localSavedId && localSavedId !== "null" && localSavedId !== "undefined" && Number(localSavedId) > 0) {
+                    defaultPid = Number(localSavedId);
+                } else if (settingsData?.default_project_id && Number(settingsData.default_project_id) > 0) {
+                    defaultPid = Number(settingsData.default_project_id);
+                } else if (projectsList.length > 0) {
+                    defaultPid = Number(projectsList[0]?.id || projectsList[0]?.project_id);
+                }
+
+                if (defaultPid) {
+                    setActiveProjectId(defaultPid);
+                    localStorage.setItem("client_selected_project_id", String(defaultPid));
+                    localStorage.setItem("infrapilot_selected_project_id", String(defaultPid));
                 }
                 setProfile(profileData);
                 setPreviewUrl(null);
@@ -147,6 +157,12 @@ const ClientSettingsPage = () => {
                     default_project_id: activeProjectId
                 });
 
+                if (activeProjectId) {
+                    localStorage.setItem("client_selected_project_id", String(activeProjectId));
+                    localStorage.setItem("infrapilot_selected_project_id", String(activeProjectId));
+                    window.dispatchEvent(new Event("project_changed"));
+                }
+
                 // Persist notification preferences locally to ensure consistency across refreshes
                 localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));
                 localStorage.setItem("client_notif_sms", String(settings.preferences?.notif_sms ?? true));
@@ -200,7 +216,7 @@ const ClientSettingsPage = () => {
 
     const getActiveProjectName = () => {
         const p = projects.find(proj => (proj.id || proj.project_id) === activeProjectId);
-        return p?.name || p?.project_name || "New sara city";
+        return p?.name || p?.project_name || "Sara City";
     };
 
     const formatDisplayDate = (dateStr: any) => {
@@ -399,10 +415,19 @@ const ClientSettingsPage = () => {
                                 onChange={(e) => {
                                     const newId = Number(e.target.value);
                                     setActiveProjectId(newId);
+                                    if (newId) {
+                                        localStorage.setItem("client_selected_project_id", String(newId));
+                                        localStorage.setItem("infrapilot_selected_project_id", String(newId));
+                                        window.dispatchEvent(new Event("project_changed"));
+                                    }
                                 }}
                                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                             >
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}
+                                {projects.map(p => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || p.title || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>
