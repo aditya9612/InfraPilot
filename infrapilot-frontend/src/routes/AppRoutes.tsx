@@ -48,7 +48,8 @@ import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage"
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import ManagerActivityListPage from "../pages/manager/WorkProgress/ActivityListPage";
 import ManagerDailyProgressEntryPage from "../pages/manager/WorkProgress/DailyProgressEntryPage";
-import WorkOrdersPage from "../pages/manager/WorkProgress/WorkOrdersPage";
+import ManagerWorkOrdersPage from "../pages/manager/WorkProgress/WorkOrdersPage";
+import EngineerWorkOrdersPage from "../pages/engineer/WorkProgress/WorkOrdersPage";
 import ManagerTasksPage from "../pages/manager/TaskManagement/TaskManagementPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
@@ -305,7 +306,7 @@ function AppRoutes() {
                 <Route path="projects/:id" element={<ProjectDetailsPage />} />
                 <Route path="work-progress/activities" element={<ManagerActivityListPage />} />
                 <Route path="work-progress/entry" element={<ManagerDailyProgressEntryPage />} />
-                <Route path="work-progress/work-orders" element={<WorkOrdersPage />} />
+                <Route path="work-progress/work-orders" element={<ManagerWorkOrdersPage />} />
                 {/* Fallback for old work-progress path */}
                 <Route path="work-progress" element={<Navigate to="work-progress/activities" replace />} />
                 <Route path="tasks" element={<ManagerTasksPage />} />
@@ -481,6 +482,7 @@ function AppRoutes() {
                 <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
                 <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
                 <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
+                <Route path="/engineer/progress/work-orders" element={<EngineerWorkOrdersPage />} />
                 <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
                 <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
                 <Route path="/engineer/labor/attendance" element={<AttendancePage />} />

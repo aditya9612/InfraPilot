@@ -42,7 +42,12 @@ export const issueService = {
         offset?: number;
     }): Promise<IssueResponse> {
         try {
-            const response = await api.get('/issues', { params });
+            const cleanParams = { ...params };
+            if (cleanParams.status === 'All') delete cleanParams.status;
+            if (cleanParams.priority === 'All') delete cleanParams.priority;
+            if (cleanParams.search === '') delete cleanParams.search;
+            
+            const response = await api.get('/issues', { params: cleanParams });
             if (response.data) {
                 if (Array.isArray(response.data)) {
                     return { items: response.data, meta: { total: response.data.length, limit: params?.limit || response.data.length, offset: params?.offset || 0 } };

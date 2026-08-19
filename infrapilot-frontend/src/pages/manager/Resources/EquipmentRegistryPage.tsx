@@ -594,7 +594,7 @@ const EquipmentRegistryPage = () => {
         if (!selectedEquipment) return;
         setIsLoading(true);
         try {
-            await equipmentService.deallocateEquipment(selectedEquipment.id);
+            await equipmentService.deallocateEquipment(selectedEquipment.id, selectedEquipment.project_id || 0);
             toast.success("Equipment deallocated!");
             setIsAllocateModalOpen(false);
             fetchData();
@@ -1215,7 +1215,7 @@ const EquipmentRegistryPage = () => {
                         }} className={`cursor-pointer min-w-[250px] rounded-xl border p-4 ${alert.status === 'OVERDUE' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'} hover:scale-[1.02] transition-transform`}>
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_code}</h4>
+                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</h4>
                                     <p className="text-xs text-slate-600 mt-1">Due: {alert.maintenance_date} ({alert.days_until} days)</p>
                                 </div>
                                 <Wrench className={`w-4 h-4 ${alert.status === 'OVERDUE' ? 'text-red-500' : 'text-amber-500'}`} />

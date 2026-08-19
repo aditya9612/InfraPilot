@@ -96,28 +96,25 @@ export const taskRequestService = {
         requestId: number | string,
         formData: FormData | Partial<CreateTaskRequestData>
     ) {
-        let payload: FormData;
+        let payload: any;
 
         if (formData instanceof FormData) {
-            payload = formData;
+            // If it's FormData, we'll try to extract the fields to a normal object
+            // since the backend expects a JSON dictionary
+            payload = {};
+            formData.forEach((value, key) => {
+                if (key !== "attachment") {
+                    payload[key] = value;
+                }
+            });
         } else {
-            payload = new FormData();
-            if (formData.project_id !== undefined && formData.project_id !== "") {
-                payload.append("project_id", String(formData.project_id));
-            }
-            if (formData.title !== undefined) payload.append("title", formData.title);
-            if (formData.category !== undefined) payload.append("category", formData.category);
-            if (formData.priority !== undefined) payload.append("priority", formData.priority);
-            if (formData.description !== undefined) payload.append("description", formData.description);
-            if (formData.assigned_to && Number(formData.assigned_to) > 0) {
-                payload.append("assigned_to", String(formData.assigned_to));
-            }
-            if (formData.attachment instanceof File) {
-                payload.append("attachment", formData.attachment);
+            payload = { ...formData };
+            if (payload.attachment instanceof File) {
+                delete payload.attachment;
             }
         }
 
-        console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId} (multipart/form-data)`);
+        console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId}`);
         const response = await api.put(`projects/task-requests/${requestId}`, payload);
         return response.data;
     },

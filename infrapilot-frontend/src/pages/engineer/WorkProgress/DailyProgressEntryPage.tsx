@@ -156,7 +156,21 @@ const DailyProgressEntryPage = () => {
         ? (activitiesList[0]?.id || 1)
         : Number(selectedActivityId);
       const res = await workProgressService.getActivityHistory(activityId);
-      setActivityHistory(res?.data || []);
+      const rawHistory = res?.history || res?.data || (Array.isArray(res) ? res : []);
+      const parentActivity = res?.activity || activitiesList.find(a => Number(a.id) === activityId);
+      
+      const normalizedHistory = rawHistory.map((item: any) => ({
+        ...item,
+        activity_id: activityId,
+        action: item.action || "DAILY_PROGRESS_UPDATE",
+        new_value: item.new_value || {
+          status: item.status || parentActivity?.status || "ON_TRACK",
+          today_progress: item.today_progress || 0,
+          total_completed: item.running_total || item.total_completed || 0
+        }
+      }));
+      
+      setActivityHistory(normalizedHistory);
       setHasLoadedHistory(true);
     } catch (err) {
       console.error("Load History Error:", err);
@@ -259,9 +273,10 @@ const DailyProgressEntryPage = () => {
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      const matchesStatus = statusFilter === "all" || (a?.status || "Not Started").toUpperCase().replace(/ /g, "_") === statusFilter.toUpperCase().replace(/ /g, "_");
+      return matchesSearch && matchesActivity && matchesStatus;
     });
-  }, [todayActivities, searchTerm, activitiesList, selectedActivityId]);
+  }, [todayActivities, searchTerm, activitiesList, selectedActivityId, statusFilter]);
 
   const filteredTodayActivities = useMemo(() => {
     if (activeStatFilter === "All Logs") return baseTodayActivities;
@@ -318,9 +333,10 @@ const DailyProgressEntryPage = () => {
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      const matchesStatus = statusFilter === "all" || (a?.status || "Not Started").toUpperCase().replace(/ /g, "_") === statusFilter.toUpperCase().replace(/ /g, "_");
+      return matchesSearch && matchesActivity && matchesStatus;
     });
-  }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId]);
+  }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId, statusFilter]);
 
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
@@ -337,8 +353,7 @@ const DailyProgressEntryPage = () => {
       const matchesSearch = searchTerm === "" ||
         e.activity_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (e.boq_code && String(e.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesActivity = selectedActivityId === "all" || String(e.id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      return matchesSearch;
     });
     if (activeStatFilter === "All Delayed") return list;
     return list.filter(e => {
@@ -348,7 +363,7 @@ const DailyProgressEntryPage = () => {
       if (activeStatFilter === "Almost Done (> 75%)") return p > 75;
       return true;
     });
-  }, [delayActivities, activeStatFilter, searchTerm, selectedActivityId]);
+  }, [delayActivities, activeStatFilter, searchTerm, selectedActivityId, statusFilter]);
 
   const stats = useMemo(() => {
     if (activeTab === 'delay') {
@@ -361,7 +376,7 @@ const DailyProgressEntryPage = () => {
 
       const delayedCount = list.filter(e => {
         const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id));
-        return a?.status === "Delay" || a?.status === "DELAY";
+        return a?.status?.toLowerCase().includes("delay");
       }).length;
 
       const completedCount = list.filter(e => {
@@ -384,7 +399,7 @@ const DailyProgressEntryPage = () => {
       const completed = list.filter(e => {
         return Number(e.new_value?.today_progress) >= 100;
       }).length;
-      const delayed = list.filter(e => e.new_value?.status?.toLowerCase() === "delay").length;
+      const delayed = list.filter(e => e.new_value?.status?.toLowerCase().includes("delay")).length;
       const yieldRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
       const totalProgress = list.reduce((sum, e) => sum + (Number(e.new_value?.today_progress) || 0), 0);
@@ -430,7 +445,7 @@ const DailyProgressEntryPage = () => {
         { label: "All Logs", count: base.length, colorClass: "text-slate-800", sub: "Total Entries" },
         { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
         { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
-        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "delay"; }).length, colorClass: "text-rose-500", sub: "Critical Items" }
+        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase().includes("delay"); }).length, colorClass: "text-rose-500", sub: "Critical Items" }
       ];
     } else if (activeTab === 'history') {
       cards = [

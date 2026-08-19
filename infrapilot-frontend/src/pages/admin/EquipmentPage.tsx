@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import type {
-    Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport, UtilizationReport, AvailabilityReport
-} from "../../services/equipmentService";
-import { equipmentService } from "../../services/equipmentService";
+import { equipmentService, type EquipmentItem as Equipment, type UsageReport, type MaintenanceAlert, type EquipmentAlert, type UtilizationReport, type AvailabilityReport } from "../../services/equipmentService";
 import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
 import PageTransition from "../../components/common/PageTransition";
@@ -54,8 +51,6 @@ const EquipmentPage = () => {
     const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
     const [transferList, setTransferList] = useState<any[]>([]);
 
-    // KPI Data
-    const [kpiData, setKpiData] = useState<any>(null);
 
     const projectMap = useMemo(() => {
         const map: Record<number, string> = {};
@@ -475,7 +470,7 @@ const EquipmentPage = () => {
                         {pagedData.length > 0 ? pagedData.map((alert: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
                                 <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name} <span className="text-xs text-slate-500">({alert.equipment_code})</span></h4>
+                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</h4>
                                 </div>
                                 <ul className="text-xs text-slate-600 list-disc list-inside mb-2">
                                     {alert.issues && alert.issues.map((issue: any, i: number) => (
@@ -719,7 +714,7 @@ const EquipmentPage = () => {
                 projects={assignedProjects}
                 onSubmit={async (data: any) => {
                     try {
-                        await equipmentService.transferEquipment({ ...data, condition_notes: data.reason });
+                        await equipmentService.transferEquipment(data.equipment_id, data.to_project_id);
                         toast.success("Equipment successfully transferred!");
                         setIsTransferModalOpen(false);
                         fetchData();

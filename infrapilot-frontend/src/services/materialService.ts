@@ -123,6 +123,19 @@ export const materialService = {
   },
 
   /**
+   * Get usage summary
+   * GET /api/v1/materials/usage
+   */
+  async getUsage(project_id?: number): Promise<any[]> {
+    const response = await api.get<any[]>("/materials/usage", {
+      params: project_id ? { project_id } : undefined
+    });
+    const data = response.data;
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items;
+  },
+
+  /**
    * Get inventory summary
    * GET /api/v1/materials/inventory
    */

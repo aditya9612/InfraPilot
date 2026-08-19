@@ -74,18 +74,10 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
 
         setIsSubmitting(true);
         try {
-            // We create a FormData object to handle the file upload
-            const payload = new FormData();
-            payload.append('title', formData.title);
-            payload.append('category', formData.category);
-            payload.append('priority', formData.priority);
-            payload.append('description', formData.description);
-            payload.append('status', formData.status);
-            payload.append('assigned_to', String(formData.assigned_to));
-            payload.append('is_deleted', String(formData.is_deleted));
-            
+            const payload = { ...formData };
             if (attachmentFile) {
-                payload.append('attachment', attachmentFile);
+                // Attachments are typically handled differently on JSON endpoints
+                (payload as any).attachment = attachmentFile;
             }
 
             await projectService.updateTaskRequest(request.id || request.request_id, payload);

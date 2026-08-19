@@ -1,5 +1,5 @@
 export type RateType = 'FIXED' | 'VARIABLE';
-export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
+export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW' | 'OUT_OF_STOCK';
 export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL' | 'DAMAGE' | 'LOSS' | 'VENDOR' | 'TRANSFER' | 'ADJUSTMENT' | 'PURCHASE';
 
 export interface Supplier {
@@ -96,6 +96,7 @@ export interface PurchasePayload {
   project_id: number;
   task_id?: number;
   issue_type: IssueType;
+  boq_item_id?: number;
 }
 
 export interface PurchaseOrder {

@@ -332,21 +332,13 @@ export const projectService = {
       const requestId = arg3 !== undefined ? arg2 : arg1;
       const data = arg3 !== undefined ? arg3 : arg2;
 
-      let payload: any;
-      if (data instanceof FormData) {
-        payload = data;
-      } else {
-        payload = new FormData();
-        for (const [key, value] of Object.entries(data)) {
-          if (value !== undefined && value !== null) {
-            payload.append(key, String(value));
-          }
-        }
+      // Remove attachment file from JSON payload if present
+      const payload = { ...data };
+      if (payload.attachment instanceof File) {
+        delete payload.attachment;
       }
 
-      const response = await api.put(`projects/task-requests/${requestId}`, payload, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      const response = await api.put(`projects/task-requests/${requestId}`, payload);
       return response.data;
     } catch (error) {
       console.error("Update Task Request API Error:", error);
