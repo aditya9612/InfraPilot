@@ -27,6 +27,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ variant = 'navbar', h
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Force selection if 'All Projects' is hidden and no project is selected
+    useEffect(() => {
+        if (hideAllProjects && !selectedProjectId && assignedProjects.length > 0) {
+            setSelectedProjectId(assignedProjects[0].id);
+        }
+    }, [hideAllProjects, selectedProjectId, assignedProjects, setSelectedProjectId]);
+
     if (!showSelector) return null;
 
     const isNavbar = variant === 'navbar';

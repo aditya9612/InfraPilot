@@ -80,8 +80,8 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
             await equipmentService.updatePurchase(purchaseId!, {
                 ...formData,
                 project_id: projectId,
-                boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : undefined,
-                warranty_end_date: formData.warranty_end_date || undefined,
+                boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
+                warranty_end_date: formData.warranty_end_date || null,
             });
             toast.success("Purchase updated successfully!");
             onSuccess();

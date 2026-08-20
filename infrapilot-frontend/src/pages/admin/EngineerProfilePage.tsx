@@ -138,30 +138,43 @@ const EngineerProfilePage: React.FC = () => {
     // 2. Fetch project intelligence for the active project
     useEffect(() => {
         const fetchProjectData = async () => {
-            if (!activeProjectId || !engineerData) return;
+            if (!engineerData) return;
             try {
-                const today = new Date().toISOString().split('T')[0];
-                const [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos] = await Promise.all([
-                    workProgressService.listActivities(activeProjectId, engineerData.user_id).catch(() => []),
-                    labourService.getAttendanceList(activeProjectId, today, today).catch(() => ({ items: [] })),
-                    issueService.listIssuesByProject(activeProjectId, { limit: 1000 }).catch(() => ({ items: [] })),
-                    expenseService.getExpensesByProject(activeProjectId).catch(() => []),
-                    dsrService.getDsrByProject(activeProjectId, { limit: 100, offset: 0 }).catch(() => ({ items: [] as any[] })),
-                    sitePhotoService.getPhotos({ project_id: activeProjectId, limit: 20 }).catch(() => ({ items: [] as any[] }))
-                ]);
+                let activities: any[] = [];
+                let attendanceRes: any = { items: [] };
+                let issuesRes: any = { items: [] };
+                let expensesRes: any = [];
+                let dsrsRes: any = { items: [] };
+                let photos: any = { items: [] };
+                let today = new Date().toISOString().split('T')[0];
+
+                if (activeProjectId) {
+                    [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos] = await Promise.all([
+                        workProgressService.listActivities(activeProjectId!, engineerData.user_id).catch(() => []),
+                        labourService.getAttendanceList(activeProjectId!, today, today).catch(() => ({ items: [] })),
+                        issueService.listIssues({ project_id: activeProjectId!, limit: 1000 }).catch(() => ({ items: [] })),
+                        expenseService.getExpensesByProject(activeProjectId!).catch(() => []),
+                        dsrService.getDsrByProject(activeProjectId!, { limit: 100, offset: 0 }).catch(() => ({ items: [] as any[] })),
+                        sitePhotoService.getPhotos({ project_id: activeProjectId!, limit: 20 }).catch(() => ({ items: [] as any[] }))
+                    ]);
+                }
 
                 // Fetch issue analytics separately (non-blocking)
-                dsrService.getIssueAnalytics(activeProjectId).then(setIssueAnalytics).catch(() => setIssueAnalytics(null));
+                if (activeProjectId) {
+                    dsrService.getIssueAnalytics(activeProjectId).then(setIssueAnalytics).catch(() => setIssueAnalytics(null));
+                } else {
+                    setIssueAnalytics(null);
+                }
 
                 const dsrsList = (dsrsRes as any)?.items || [];
                 const dsrTotal = (dsrsRes as any)?.total || dsrsList.length;
                 let allDsrs = [...dsrsList];
 
                 // Fetch remaining pages if total > 100
-                if (dsrTotal > 100) {
+                if (activeProjectId && dsrTotal > 100) {
                     const extraPages = Math.ceil((dsrTotal - 100) / 100);
                     const extraRequests = Array.from({ length: extraPages }, (_, i) =>
-                        dsrService.getDsrByProject(activeProjectId, { limit: 100, offset: (i + 1) * 100 }).catch(() => ({ items: [] }))
+                        dsrService.getDsrByProject(activeProjectId!, { limit: 100, offset: (i + 1) * 100 }).catch(() => ({ items: [] }))
                     );
                     const extraResults = await Promise.all(extraRequests);
                     extraResults.forEach(r => {
@@ -184,7 +197,7 @@ const EngineerProfilePage: React.FC = () => {
                     totalCount = attendance.length;
                     skilledCount = attendance.filter((l: any) => normalizeSkill(l).includes("skilled") && !normalizeSkill(l).includes("unskilled")).length;
                     unskilledCount = totalCount - skilledCount;
-                } else {
+                } else if (activeProjectId) {
                     // Fallback to registry details for breakdown
                     const regDetails = await labourService.getLabours(activeProjectId, { limit: 100 }).catch(() => ({ items: [] }));
                     const regItems = (regDetails as any)?.items || [];
@@ -199,12 +212,16 @@ const EngineerProfilePage: React.FC = () => {
                 const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
                 const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
 
-                const activeActivities = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && a.completion_percentage < 100);
-                const progress = (activities as any[]).length > 0 ? Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (a.completion_percentage || 0), 0) / (activities as any[]).length) : 0;
+                const activeActivities = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
+                const progress = (activities as any[]).length > 0 ? Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / (activities as any[]).length) : 0;
                 const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
                 const totalExpenses = (expenses as any[]).reduce((sum: number, e: any) => sum + (e.amount || e.total_amount || 0), 0);
 
-                const mlRes = await materialService.getLogs({ project_id: activeProjectId, limit: 100 }).catch(() => []);
+                let mlRes: any[] = [];
+                if (activeProjectId) {
+                    const mlData = await materialService.getLogs({ project_id: activeProjectId, limit: 100 }).catch(() => []);
+                    mlRes = Array.isArray(mlData) ? mlData : [];
+                }
                 setMaterialLogs(Array.isArray(mlRes) ? mlRes : []);
 
                 setVitals({
@@ -464,9 +481,9 @@ const EngineerProfilePage: React.FC = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 rounded-t-2xl overflow-hidden">
                             {[
                                 { label: "Labour Today", value: vitals.total_labour_today, icon: <Users className="w-4 h-4" />, color: "text-white" },
-                                { label: "Active Tasks",  value: vitals.active_activities,  icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-300" },
-                                { label: "Open Issues",   value: vitals.open_issues?.total ?? 0, icon: <AlertTriangle className="w-4 h-4" />, color: "text-amber-300" },
-                                { label: "Progress",      value: `${vitals.progress}%`,     icon: <Camera className="w-4 h-4" />, color: "text-blue-200" },
+                                { label: "Active Tasks", value: vitals.active_activities, icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-300" },
+                                { label: "Open Issues", value: vitals.open_issues?.total ?? 0, icon: <AlertTriangle className="w-4 h-4" />, color: "text-amber-300" },
+                                { label: "Progress", value: `${vitals.progress}%`, icon: <Camera className="w-4 h-4" />, color: "text-blue-200" },
                             ].map(s => (
                                 <div key={s.label} className="bg-white/10 px-5 py-4 flex items-center gap-3">
                                     <span className={s.color}>{s.icon}</span>
@@ -602,14 +619,13 @@ const EngineerProfilePage: React.FC = () => {
                         <div className="px-6 pt-5 pb-0 flex items-center justify-between border-b border-slate-100 flex-wrap gap-3">
                             <div className="flex gap-1">
                                 {[
-                                    { key: "photos",    label: "Site Photos",   count: sitePhotos.length + dsrData.filter(d => d.dsr_image).length },
-                                    { key: "materials", label: "Material Log",  count: undefined },
-                                    { key: "dsr",       label: "Daily Reports", count: dsrData.length },
+                                    { key: "photos", label: "Site Photos", count: sitePhotos.length + dsrData.filter(d => d.dsr_image).length },
+                                    { key: "materials", label: "Material Log", count: undefined },
+                                    { key: "dsr", label: "Daily Reports", count: dsrData.length },
                                 ].map(tab => (
                                     <button key={tab.key} onClick={() => setMirrorFilter(tab.key as any)}
-                                        className={`relative px-4 py-3 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center gap-2 ${
-                                            mirrorFilter === tab.key ? "bg-primary text-white" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                                        }`}>
+                                        className={`relative px-4 py-3 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center gap-2 ${mirrorFilter === tab.key ? "bg-primary text-white" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                                            }`}>
                                         {tab.label}
                                         {tab.count !== undefined && tab.count > 0 && (
                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${mirrorFilter === tab.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"}`}>{tab.count}</span>

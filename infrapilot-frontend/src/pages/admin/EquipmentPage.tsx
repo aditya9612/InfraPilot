@@ -15,6 +15,7 @@ import {
     Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, ShieldCheck, FileText, ArrowRightLeft
 } from "lucide-react";
 import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormModal";
+import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
 import TransferEquipmentModal from "../../components/forms/TransferEquipmentModal";
 import { useProject } from "../../context/ProjectContext";
 
@@ -696,21 +697,30 @@ const EquipmentPage = () => {
                 </div>
             </PageTransition>
 
-            <EquipmentFormModal
-                isOpen={isEquipmentModalOpen}
-                onClose={() => setIsEquipmentModalOpen(false)}
-                onSave={async (data) => {
-                    try {
-                        if (data.id) await equipmentService.updateEquipment(data.id, data);
-                        else await equipmentService.createEquipment(data);
-                        toast.success("Registry updated");
-                        setIsEquipmentModalOpen(false);
-                        fetchData();
-                    } catch (err) { toast.error("Failed to save asset"); }
-                }}
-                initialData={formData}
-                isViewOnly={isViewMode}
-            />
+            {isViewMode ? (
+                <EquipmentViewModal
+                    isOpen={isEquipmentModalOpen}
+                    onClose={() => setIsEquipmentModalOpen(false)}
+                    equipment={formData}
+                    projectsMap={projectMap}
+                    onEdit={() => setIsViewMode(false)}
+                />
+            ) : (
+                <EquipmentFormModal
+                    isOpen={isEquipmentModalOpen}
+                    onClose={() => setIsEquipmentModalOpen(false)}
+                    onSave={async (data) => {
+                        try {
+                            if (data.id) await equipmentService.updateEquipment(data.id, data);
+                            else await equipmentService.createEquipment(data);
+                            toast.success("Registry updated");
+                            setIsEquipmentModalOpen(false);
+                            fetchData();
+                        } catch (err) { toast.error("Failed to save asset"); }
+                    }}
+                    initialData={formData}
+                />
+            )}
 
             <TransferEquipmentModal
                 isOpen={isTransferModalOpen}

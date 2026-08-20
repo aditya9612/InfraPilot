@@ -834,22 +834,26 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Tasks" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Calculated Completion</p>
-                  <p className="text-2xl font-black text-primary">{(progress?.completion_percentage || displayProgress).toFixed(2)}%</p>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tasks</p>
+                  <p className="text-2xl font-black text-slate-800">{tasks.length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
-                  <p className="text-2xl font-black text-slate-700">{progress?.status || project.status}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Planned</p>
+                  <p className="text-2xl font-black text-slate-500">{tasks.filter(t => t.status?.toLowerCase() === "planned").length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Completed Tasks</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Progress</p>
+                  <p className="text-2xl font-black text-primary">{tasks.filter(t => t.status?.toLowerCase() === "in progress").length}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Completed</p>
                   <p className="text-2xl font-black text-emerald-600">{tasks.filter(t => t.status?.toLowerCase() === "completed").length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Tasks</p>
-                  <p className="text-2xl font-black text-slate-700">{tasks.length}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cancelled</p>
+                  <p className="text-2xl font-black text-rose-500">{tasks.filter(t => t.status?.toLowerCase() === "cancelled").length}</p>
                 </div>
               </div>
 
