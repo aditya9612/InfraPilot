@@ -7,7 +7,6 @@ export interface EquipmentItem {
     equipment_code: string;
     operator_name: string;
     condition: string;
-    status?: string;
     rental_cost: number;
     maintenance_date: string;
     is_deleted: boolean;
@@ -64,7 +63,6 @@ export interface AllocationStatus {
 export interface MaintenanceAlert {
     equipment_id: number;
     equipment_code: string;
-    equipment_name?: string;
     maintenance_date: string;
     days_until: number;
     status: string;
@@ -203,8 +201,8 @@ export const equipmentService = {
         return response.data;
     },
 
-    async deallocateEquipment(id: number, project_id: number): Promise<AllocationStatus> {
-        await api.put(`/equipment/deallocate`, { equipment_ids: [id], project_id });
+    async deallocateEquipment(id: number): Promise<AllocationStatus> {
+        await api.put(`/equipment/deallocate`, { equipment_ids: [id], project_id: null });
         return { equipment_id: id, allocated: false, project_id: null };
     },
 
@@ -464,8 +462,8 @@ export const equipmentService = {
         return response.data;
     },
 
-    async transferEquipment(equipment_id: number, to_project_id: number): Promise<any> {
-        const response = await api.post(`/equipment/transfer`, { equipment_id, to_project_id });
+    async transferEquipment(data: { equipment_id: number, to_project_id: number, transfer_date?: string, condition_notes?: string }): Promise<any> {
+        const response = await api.post('/equipment/transfer', data);
         return response.data;
     },
 

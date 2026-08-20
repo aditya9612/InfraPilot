@@ -1,30 +1,32 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
+import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
+import { useAuth } from "../../context/AuthContext";
+
+interface AddActivityModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreateActivityRequest) => Promise<void>;
+  projectId: number;
+  engineerId: number;
+}
+
 import { boqService } from "../../services/boqService";
 import api from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
+import { workProgressService } from "../../services/workProgressService";
 
 const uniqueById = (arr: any[]) => {
   const seen = new Set();
   return arr.filter(item => {
-    const id = item.id || item.boq_id || item.user_id;
-    if (seen.has(id)) return false;
+    const id = item.id || item.boq_id || item.user_id || item.boq_item_id || item.boq_code;
+    if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 };
 
-interface AddActivityModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  projectId?: number;
-  engineerId?: number;
-  onSubmit: (data: any) => Promise<void>;
-}
-
-const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: AddActivityModalProps) => {
+const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
@@ -48,16 +50,19 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
 
       const fetchAllData = async () => {
         try {
-          let projectsList = [];
+          let projectsList: any[] = [];
           if (user?.role === "ProjectManager") {
             projectsList = await projectService.getAssignedProjects(Number(user.id));
-          } else {
-            const res = await projectService.getProjects(100, 0);
-            projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+            try {
+              const res = await projectService.getProjects(100, 0);
+              projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+            } catch (err) {
+              console.error("Failed to fetch projects", err);
+            }
           }
-          setProjects(uniqueById(projectsList));
-        } catch (err) {
-          console.error("Failed to fetch projects", err);
+          setProjects(projectsList);
+        } catch (error) {
+          console.error("Failed to fetch initial data", error);
         }
       };
 
@@ -161,6 +166,8 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
     return wos;
   })();
 
+
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -190,8 +197,9 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
     setIsSubmitting(true);
     try {
       await onSubmit({
-        ...formData,
         project_id: Number(formData.project_id) || projectId,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
         boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
@@ -294,6 +302,7 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
               </select>
               {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
             </div>
+
             <div>
               <label className={labelClasses}>BOQ Item</label>
               <select
@@ -358,6 +367,7 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
             </div>
           </div>
         </div>
+
 
         {/* Timeline Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">

@@ -10,7 +10,6 @@ interface InvoiceDetailsModalProps {
   invoice: Invoice | null;
   projects: Project[];
   owners?: Owner[];
-  quotations?: { id?: number; quotation_no?: string }[];
   onMarkPaid: (id: number) => void;
   onDownloadPDF: (id: number) => void;
   onSendInvoice?: (id: number) => void;
@@ -22,7 +21,6 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   invoice,
   projects,
   owners = [],
-  quotations = [],
   onMarkPaid,
   onDownloadPDF,
   onSendInvoice,
@@ -31,12 +29,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
   const project = projects.find((p) => p.id === invoice.project_id);
   const owner = owners.find((o) => String(o.id) === String(invoice.owner_id));
-  const quotation = quotations.find((q) => q.id === invoice.quotation_id);
-  const quotationDisplay = quotation?.quotation_no
-    ? quotation.quotation_no
-    : invoice.quotation_id
-      ? `QT-${invoice.quotation_id}`
-      : "N/A";
+  // quotation removed as it is not used in the UI directly
 
   const statusColors = {
     pending: "bg-amber-100 text-amber-600 border-amber-200",
@@ -224,11 +217,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
               <div>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Source Type</p>
-                <p className="text-xs font-bold text-slate-600 uppercase">{invoice.source_type || "Direct"}</p>
-              </div>
-              <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Quotation ID</p>
-                <p className="text-xs font-bold text-slate-600">{quotationDisplay}</p>
+                <p className="text-[13px] font-bold text-slate-700 capitalize">{invoice.source_type && invoice.source_type !== "null" ? invoice.source_type : "Manual Entry"}</p>
               </div>
               <div>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Client / Owner</p>
