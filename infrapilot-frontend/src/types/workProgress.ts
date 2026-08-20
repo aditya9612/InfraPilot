@@ -45,14 +45,10 @@ export interface ProjectSummary {
 export interface CreateActivityRequest {
   project_id: number;
   boq_item_id?: number | null;
-  activity_name: string;
-  planned_quantity: number;
-  unit: string;
+  work_order_id?: number | null;
+  engineer_id?: number | null;
   start_date: string;
   end_date: string;
-  status: string;
-  engineer_id: number | null;
-  work_order_id?: number | null;
 }
 
 export interface UpdateActivityRequest {

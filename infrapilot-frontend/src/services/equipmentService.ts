@@ -462,8 +462,8 @@ export const equipmentService = {
         return response.data;
     },
 
-    async transferEquipment(equipment_id: number, to_project_id: number): Promise<any> {
-        const response = await api.post(`/equipment/${equipment_id}/transfer`, { to_project_id });
+    async transferEquipment(data: { equipment_id: number, to_project_id: number, transfer_date?: string, condition_notes?: string }): Promise<any> {
+        const response = await api.post('/equipment/transfer', data);
         return response.data;
     },
 

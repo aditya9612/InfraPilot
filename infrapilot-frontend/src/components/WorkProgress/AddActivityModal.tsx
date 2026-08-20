@@ -14,7 +14,6 @@ interface AddActivityModalProps {
 
 import { boqService } from "../../services/boqService";
 import api from "../../services/api";
-import { masterService } from "../../services/masterService";
 import { workProgressService } from "../../services/workProgressService";
 
 const uniqueById = (arr: any[]) => {
@@ -33,13 +32,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     project_id: "",
-    activity_name: "",
     boq_item_id: "" as any,
-    planned_quantity: "" as any,
-    unit: "CUM",
     start_date: "",
     end_date: "",
-    status: "NOT_STARTED",
     work_order_id: "" as any,
     engineer_id: "" as any
   });
@@ -47,8 +42,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [allBoqs, setAllBoqs] = useState<any[]>([]);
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
-  const [unitList, setUnitList] = useState<any[]>([]);
-  const [activityTypes, setActivityTypes] = useState<any[]>([]);
   const [existingActivities, setExistingActivities] = useState<any[]>([]);
 
   useEffect(() => {
@@ -57,33 +50,19 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
       const fetchAllData = async () => {
         try {
-          let projectsList = [];
+          let projectsList: any[] = [];
           if (user?.role === "ProjectManager") {
             projectsList = await projectService.getAssignedProjects(Number(user.id));
-          } else {
-            const res = await projectService.getProjects(100, 0);
-            projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+            try {
+              const res = await projectService.getProjects(100, 0);
+              projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+            } catch (err) {
+              console.error("Failed to fetch projects", err);
+            }
           }
-          setProjects(uniqueById(projectsList));
-        } catch (err) {
-          console.error("Failed to fetch projects", err);
-        }
-
-
-
-        try {
-          const unitsRes = await masterService.getEntities("units");
-          setUnitList(Array.isArray(unitsRes) ? unitsRes : []);
-        } catch (err) {
-          console.error("Failed to fetch units", err);
-        }
-
-        try {
-          const actTypes = await masterService.getEntities("activity-types");
-          setActivityTypes(Array.isArray(actTypes) ? actTypes : []);
-        } catch (err) {
-          console.error("Failed to fetch activity types", err);
-          setActivityTypes([]);
+          setProjects(projectsList);
+        } catch (error) {
+          console.error("Failed to fetch initial data", error);
         }
       };
 
@@ -167,10 +146,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
   }, [isOpen, formData.project_id, projectId, formData.boq_item_id]);
 
-  const isCombinationUsed = (boqId: any, actName: any, woId: any) => {
+  const isCombinationUsed = (boqId: any, woId: any) => {
     return existingActivities.some(a =>
       (a.boq_item_id == boqId || a.boq_code == boqId) &&
-      a.activity_name === actName &&
       (a.work_order_id == woId || (!a.work_order_id && !woId))
     );
   };
@@ -182,26 +160,13 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     if (formData.project_id) {
       wos = wos.filter(w => w.project_id == formData.project_id || !w.project_id);
     }
-    if (formData.boq_item_id && formData.activity_name) {
-      wos = wos.filter(w => !isCombinationUsed(formData.boq_item_id, formData.activity_name, w.id));
+    if (formData.boq_item_id) {
+      wos = wos.filter(w => !isCombinationUsed(formData.boq_item_id, w.id));
     }
     return wos;
   })();
 
-  const displayedActivityTypes = (() => {
-    let types = activityTypes;
-    if (formData.boq_item_id) {
-      const selectedBoq = allBoqs.find(b => (b.id || b.boq_id) == formData.boq_item_id);
-      if (selectedBoq && selectedBoq.activity_type_id) {
-        const filtered = activityTypes.filter(a => a.id == selectedBoq.activity_type_id);
-        if (filtered.length > 0) types = filtered;
-      }
-    }
-    if (formData.boq_item_id) {
-      types = types.filter(t => !isCombinationUsed(formData.boq_item_id, t.name, formData.work_order_id || null));
-    }
-    return types;
-  })();
+
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -209,16 +174,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     const errs: Record<string, string> = {};
     if (!formData.project_id) {
       errs.project_id = "Project selection is required";
-    }
-
-    if (!formData.activity_name.trim()) {
-      errs.activity_name = "Activity name is required";
-    } else if (/[0-9]/.test(formData.activity_name)) {
-      errs.activity_name = "Activity name must be alphabetic only (no numbers)";
-    }
-
-    if (formData.planned_quantity === "" || formData.planned_quantity <= 0) {
-      errs.planned_quantity = "Planned quantity must be greater than 0";
     }
 
     if (formData.work_order_id && formData.work_order_id <= 0) {
@@ -242,22 +197,18 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     setIsSubmitting(true);
     try {
       await onSubmit({
-        ...formData,
         project_id: Number(formData.project_id) || projectId,
-        planned_quantity: Number(formData.planned_quantity),
+        start_date: formData.start_date,
+        end_date: formData.end_date,
         boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
       setFormData({
         project_id: "",
-        activity_name: "",
         boq_item_id: "",
-        planned_quantity: "",
-        unit: "CUM",
         start_date: "",
         end_date: "",
-        status: "NOT_STARTED",
         work_order_id: "" as any,
         engineer_id: "" as any
       });
@@ -272,11 +223,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (name === "activity_name" && /[0-9]/.test(value)) {
-      setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
-      return;
-    }
-
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
 
@@ -285,13 +231,11 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         newData.boq_item_id = "";
         newData.work_order_id = "";
         newData.engineer_id = "";
-        newData.activity_name = "";
       }
 
       // Reset dependent fields when BOQ changes
       if (name === "boq_item_id") {
         newData.work_order_id = "";
-        newData.activity_name = "";
       }
 
       return newData;
@@ -358,24 +302,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               </select>
               {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
             </div>
-            <div>
-              <label className={labelClasses}>Activity Name*</label>
-              <select
-                name="activity_name"
-                className={inputClasses(errors.activity_name)}
-                value={formData.activity_name}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Activity Name</option>
-                {displayedActivityTypes.map((act) => (
-                  <option key={act.id || act.name} value={act.name}>
-                    {act.name}
-                  </option>
-                ))}
-              </select>
-              {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
-            </div>
+
             <div>
               <label className={labelClasses}>BOQ Item</label>
               <select
@@ -441,33 +368,6 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           </div>
         </div>
 
-        {/* Logistics & Metrics Section */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Logistics & Metrics
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Planned Quantity*</label>
-              <input
-                required type="number" name="planned_quantity" min="0" step="any"
-                className={inputClasses(errors.planned_quantity)}
-                value={formData.planned_quantity} onChange={e => setFormData({ ...formData, planned_quantity: e.target.value })}
-              />
-              {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
-            </div>
-            <div>
-              <label className={labelClasses}>Unit of Measure*</label>
-              <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
-                <option value="">Select Unit</option>
-                {unitList.map(u => {
-                  const unitCode = u.name?.match(/\(([^)]+)\)/)?.[1]?.toUpperCase() || u.name?.toUpperCase() || "";
-                  return <option key={u.id || u.unique_code || u.name} value={unitCode}>{u.name}</option>;
-                })}
-              </select>
-            </div>
-          </div>
-        </div>
 
         {/* Timeline Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">

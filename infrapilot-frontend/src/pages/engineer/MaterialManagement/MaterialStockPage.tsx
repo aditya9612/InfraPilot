@@ -443,25 +443,26 @@ const MaterialStockPage = () => {
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">material_name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">difference</th><th className="px-6 py-4 text-right">avg_rate</th><th className="px-6 py-4">reason</th></tr>
+                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Old Stock</th><th className="px-6 py-4 text-center">New Stock</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4">Remarks</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
+                                        {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
                                                 <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
-
+                                                <td className="px-6 py-4 text-sm text-slate-600 text-center">{(a as any).old_stock ?? '-'}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{(a as any).new_stock ?? '-'}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center">
                                                     <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                                         {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR((a as any).avg_rate)}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((a as any).avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</td>
                                             </tr>
                                         ))}
-                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>

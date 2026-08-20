@@ -116,7 +116,7 @@ const MachineryPage = () => {
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
-    
+
     // View Modals for Usage and Maintenance
     const [viewUsageItem, setViewUsageItem] = useState<any>(null);
     const [isViewUsageModalOpen, setIsViewUsageModalOpen] = useState(false);
@@ -426,7 +426,10 @@ const MachineryPage = () => {
         e.preventDefault();
         if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment(formData.equipment_id, formData.project_id);
+            await equipmentService.transferEquipment({
+                equipment_id: Number(formData.equipment_id),
+                to_project_id: Number(formData.project_id)
+            });
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -615,7 +618,7 @@ const MachineryPage = () => {
             const toastId = toast.loading("Generating QR Code...");
             const res = await equipmentService.generateQR(equipment_id);
             toast.dismiss(toastId);
-            
+
             // Handle if the response is a blob or base64
             let url = "";
             if (typeof res === "string" && res.startsWith("data:image")) {
@@ -849,7 +852,7 @@ const MachineryPage = () => {
                             <option value="Unallocated">Deallocated</option>
                         </select>
                         <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer transition-colors hover:bg-slate-100" onClick={() => setShowDeleted(!showDeleted)}>
-                            <input type="checkbox" checked={showDeleted} onChange={() => {}} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
+                            <input type="checkbox" checked={showDeleted} onChange={() => { }} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
                             <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
                         </div>
                     </div>
@@ -1016,7 +1019,7 @@ const MachineryPage = () => {
                     <ExternalLink className="w-4 h-4" /> Create Transfer
                 </button>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
@@ -1029,7 +1032,7 @@ const MachineryPage = () => {
                         </button>
                     ))}
                 </div>
-                
+
                 <div className="lg:col-span-3">
                     {(selectedEquipment ? (selectedEquipmentLogs.transfer?.length || 0) > 0 : transferHistory.length > 0) ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1820,9 +1823,14 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="flex justify-end gap-3 mt-8">
-                            {allocationStatus.allocated && (
-                                <button type="button" onClick={handleDeallocate} className="px-6 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">Deallocate</button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={handleDeallocate}
+                                disabled={!(allocationStatus.allocated || Boolean(selectedEquipment?.project_id))}
+                                className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-colors ${(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? 'text-rose-500 hover:bg-rose-50 border border-transparent' : 'text-slate-300 bg-slate-50 border border-slate-200 cursor-not-allowed'}`}
+                            >
+                                Deallocate
+                            </button>
                             <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                             <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
                         </div>
@@ -1876,10 +1884,17 @@ const MachineryPage = () => {
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
                 <form onSubmit={handleSaveMaintenance} className="p-6 font-inter space-y-4">
                     <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                            <option value="">-- Select Project --</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {modalEquipmentList.filter(eq => formData.project_id ? eq.project_id === formData.project_id : true).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
@@ -1899,13 +1914,6 @@ const MachineryPage = () => {
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NEXT MAINTENANCE DATE</label>
                         <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
-                        <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
-                            <option value="">-- Select Project --</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
-                        </select>
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>

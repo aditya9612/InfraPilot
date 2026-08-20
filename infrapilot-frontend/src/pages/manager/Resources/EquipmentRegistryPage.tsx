@@ -673,10 +673,10 @@ const EquipmentRegistryPage = () => {
 
         setIsLoading(true);
         try {
-            await equipmentService.transferEquipment(
-                Number(transferForm.equipment_id),
-                Number(transferForm.to_project_id)
-            );
+            await equipmentService.transferEquipment({
+                equipment_id: Number(transferForm.equipment_id),
+                to_project_id: Number(transferForm.to_project_id)
+            });
             toast.success('Equipment transfer initiated');
             setIsTransferModalOpen(false);
             fetchData();
@@ -921,7 +921,9 @@ const EquipmentRegistryPage = () => {
                         <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
                                 <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Allocation</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Status</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Project</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Operator</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Usage</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Condition</th>
@@ -948,6 +950,14 @@ const EquipmentRegistryPage = () => {
                                                 Not Allocated
                                             </span>
                                         )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-lg ${item.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : item.status === 'RENTED' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {item.status || 'AVAILABLE'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-700 text-xs font-semibold">
+                                        {item.project_id ? (projects.find((p: any) => Number(p.id) === Number(item.project_id))?.project_name || projects.find((p: any) => Number(p.id) === Number(item.project_id))?.name || `Project ${item.project_id}`) : '—'}
                                     </td>
                                     <td className="px-6 py-4 text-slate-700">{item.operator_name || '—'}</td>
                                     <td className="px-6 py-4 text-slate-700">
@@ -1692,9 +1702,14 @@ const EquipmentRegistryPage = () => {
                         </div>
 
                         <div className="flex justify-end gap-3 mt-8">
-                            {(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) && (
-                                <button type="button" onClick={handleDeallocate} className="px-6 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">Deallocate</button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={handleDeallocate}
+                                disabled={!(allocationStatus.allocated || Boolean(selectedEquipment?.project_id))}
+                                className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-colors ${(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? 'text-rose-500 hover:bg-rose-50 border border-transparent' : 'text-slate-300 bg-slate-50 border border-slate-200 cursor-not-allowed'}`}
+                            >
+                                Deallocate
+                            </button>
                             <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                             <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
                         </div>
@@ -1741,10 +1756,19 @@ const EquipmentRegistryPage = () => {
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
                 <form onSubmit={handleMaintenanceSave} className="p-6 font-inter space-y-4">
                     <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Project *</label>
+                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
+                            <option value="">-- Select Project --</option>
+                            {assignedProjects.map(project => (
+                                <option key={project.id} value={project.id}>{project.project_name || `Project ${project.id}`}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || selectedEquipment?.id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {activeEquipmentList.filter(eq => !eq.project_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {activeEquipmentList.filter(eq => formData.project_id ? eq.project_id === formData.project_id : true).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1766,15 +1790,6 @@ const EquipmentRegistryPage = () => {
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Next Maintenance Date</label>
                             <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Project *</label>
-                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
-                            <option value="">-- Select Project --</option>
-                            {assignedProjects.map(project => (
-                                <option key={project.id} value={project.id}>{project.project_name || `Project ${project.id}`}</option>
-                            ))}
-                        </select>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">BOQ Item (Optional)</label>
@@ -1818,7 +1833,12 @@ const EquipmentRegistryPage = () => {
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                             <select required disabled={isRentalViewOnly} value={formData.equipment_id || selectedEquipment?.id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                                 <option value="">-- Choose equipment --</option>
-                                {activeEquipmentList.filter(eq => !eq.project_id || eq.id === formData.equipment_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                                {activeEquipmentList.filter(eq => {
+                                    if (Number(eq.id) === Number(formData.equipment_id)) return true;
+                                    const isRented = allRentalLogs.some(r => Number(r.equipment_id) === Number(eq.id) && r.status !== 'CANCELLED' && r.status !== 'COMPLETED');
+                                    const isInMaintenance = allMaintenanceLogs.some(m => Number(m.equipment_id) === Number(eq.id) && m.status !== 'COMPLETED');
+                                    return !isRented && !isInMaintenance && (!eq.project_id);
+                                }).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                             </select>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
