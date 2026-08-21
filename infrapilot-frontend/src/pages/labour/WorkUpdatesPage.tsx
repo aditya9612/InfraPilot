@@ -12,7 +12,6 @@ import {
     X,
     ChevronDown,
     FileText,
-    History,
     Download,
     FileDown,
     Edit,
@@ -231,12 +230,33 @@ const WorkUpdatesPage: React.FC = () => {
     const [timeline, setTimeline] = useState<any[]>([]);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
 
-    // Filter tasks assigned to current user (e.g. Ramesh Sharma)
+    // Filter tasks assigned to current user (e.g. Ramesh Sharma) and exclude completed tasks
     const displayTasks = useMemo(() => {
         const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
         const currentUserId = user?.id ? Number(user.id) : null;
 
+        const isNotCompleted = (t: any) => {
+            const localStatus = localStorage.getItem(`task_status_${t.id}`);
+            const statusStr = String(localStatus || t.status || t.task_status || '').trim().toLowerCase();
+            if (
+                statusStr === 'completed' ||
+                statusStr === 'done' ||
+                statusStr === 'closed' ||
+                statusStr === 'finished' ||
+                statusStr === 'complete'
+            ) {
+                return false;
+            }
+            if (Number(t.completion_percentage) >= 100 || Number(t.progress) >= 100) {
+                return false;
+            }
+            return true;
+        };
+
         const filtered = tasks.filter((t: any) => {
+            // Exclude completed tasks
+            if (!isNotCompleted(t)) return false;
+
             const assignedText = String(
                 t.assignedTo ||
                 t.assigned_to_name ||
@@ -259,7 +279,10 @@ const WorkUpdatesPage: React.FC = () => {
             return isNameMatch || isIdMatch;
         });
 
-        return filtered;
+        if (filtered.length > 0) return filtered;
+
+        // If no user-specific matches, show all non-completed tasks
+        return tasks.filter(isNotCompleted);
     }, [tasks, user]);
 
     // Fetch tasks, activity types, my work updates, and project timeline
@@ -268,11 +291,18 @@ const WorkUpdatesPage: React.FC = () => {
             try {
                 const response = await projectService.getTasks(Number(projectId));
                 const items = Array.isArray(response) ? response : (response.items || []);
-                setTasks(items);
+                const mappedItems = items.map((t: any) => {
+                    const localStatus = localStorage.getItem(`task_status_${t.id}`);
+                    return {
+                        ...t,
+                        status: localStatus || t.status || 'Planned'
+                    };
+                });
+                setTasks(mappedItems);
                 
                 // If we have a taskName/taskId from query, try to find it in the list to sync category
-                if (taskId && items.length > 0) {
-                    const currentTask = items.find((t: any) => String(t.id) === String(taskId));
+                if (taskId && mappedItems.length > 0) {
+                    const currentTask = mappedItems.find((t: any) => String(t.id) === String(taskId));
                     if (currentTask && !category) {
                         setCategory(currentTask.category || currentTask.description?.split('|')[0]?.trim() || '');
                     }
@@ -295,22 +325,6 @@ const WorkUpdatesPage: React.FC = () => {
             try {
                 const updates = await workUpdateService.getMyWorkUpdates({ project_id: Number(projectId) });
                 setMyUpdates(updates);
-                
-                // Extract photos from my updates to populate prior site history dynamically
-                const apiPhotos: string[] = [];
-                updates.forEach((u: any) => {
-                    if (Array.isArray(u.before_images)) apiPhotos.push(...u.before_images);
-                    if (Array.isArray(u.after_images)) apiPhotos.push(...u.after_images);
-                    if (Array.isArray(u.images)) {
-                        u.images.forEach((img: any) => {
-                            const url = img.image_url || img.url || img.path;
-                            if (url) apiPhotos.push(url);
-                        });
-                    }
-                });
-                if (apiPhotos.length > 0) {
-                    setPriorPhotos(prev => [...apiPhotos, ...prev].slice(0, 8));
-                }
             } catch (err) {
                 console.warn("Failed to fetch my work updates:", err);
             }
@@ -609,14 +623,6 @@ const WorkUpdatesPage: React.FC = () => {
             toast.success(`Work update #${activeUpdateId} submitted successfully!`, { id: loadingToast });
             setEditingUpdateId(null);
 
-            // Save photos to history
-            const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            const currentUpdatePhotos = [...beforePhotos, ...afterPhotos];
-            const filteredOldHistory = existingHistory.filter((p: string) => !currentUpdatePhotos.includes(p));
-            const newHistory = [...currentUpdatePhotos, ...filteredOldHistory].slice(0, 8);
-            safeSetItem(historyKey, JSON.stringify(newHistory));
-            setPriorPhotos(newHistory);
-
             // Clear draft form
             localStorage.removeItem(persistenceKey);
             setDescription('');
@@ -659,19 +665,11 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    const [priorPhotos, setPriorPhotos] = useState<string[]>([
-        "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=200",
-        "https://images.unsplash.com/photo-1510673398445-94f476ef2ca9?auto=format&fit=crop&q=80&w=200",
-        "https://images.unsplash.com/photo-1590069230002-70cc6945ebd7?auto=format&fit=crop&q=80&w=200",
-        "https://images.unsplash.com/photo-1503387762-592dee581106?auto=format&fit=crop&q=80&w=200"
-    ]);
-
     // Calculated state
     const [totalHours, setTotalHours] = useState('8h 30m');
 
     // Persistence keys
     const persistenceKey = taskId ? `work_update_data_${taskId}` : `work_update_data_last_draft`;
-    const historyKey = taskId ? `task_history_photos_${taskId}` : `task_history_photos_global`;
 
     // Persistence: Load data on mount
     useEffect(() => {
@@ -690,13 +688,7 @@ const WorkUpdatesPage: React.FC = () => {
             if (data.beforeRemarks !== undefined) setBeforeRemarks(data.beforeRemarks);
             if (data.afterRemarks !== undefined) setAfterRemarks(data.afterRemarks);
         }
-
-        // Load Historical Photos
-        const savedHistory = localStorage.getItem(historyKey);
-        if (savedHistory) {
-            setPriorPhotos(JSON.parse(savedHistory));
-        }
-    }, [persistenceKey, historyKey]);
+    }, [persistenceKey]);
 
     // Persistence: Save data on any change
     useEffect(() => {
@@ -740,14 +732,6 @@ const WorkUpdatesPage: React.FC = () => {
 
             try {
                 const base64String = await compressImageFile(file);
-
-                // Add to Prior Site History immediately
-                const currentHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-                if (!currentHistory.includes(base64String)) {
-                    const updatedHistory = [base64String, ...currentHistory].slice(0, 8);
-                    safeSetItem(historyKey, JSON.stringify(updatedHistory));
-                    setPriorPhotos(updatedHistory);
-                }
 
                 if (type === 'before') {
                     setBeforePhotos(prev => {
@@ -1056,35 +1040,6 @@ const WorkUpdatesPage: React.FC = () => {
                                 </div>
                                 
                                 <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <History className="w-3 h-3 text-slate-400" />
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prior Site History</p>
-                                    </div>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                        {priorPhotos.map((url, i) => (
-                                            <div 
-                                                key={i} 
-                                                onClick={() => {
-                                                    if (beforePhotos.length >= 4) {
-                                                        toast.error("Max 4 Before photos allowed");
-                                                        return;
-                                                    }
-                                                    setBeforePhotos(prev => [...prev, url]);
-                                                    toast.success("Added photo to Before photos");
-                                                }}
-                                                title="Click to add to Before Photos"
-                                                className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 opacity-70 hover:opacity-100 transition-all cursor-pointer shadow-sm relative group"
-                                            >
-                                                <img src={url} alt="History" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <Plus className="w-4 h-4 text-white drop-shadow" />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-2">
                                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
                                         {beforePhotos.length > 0 ? (
@@ -1170,35 +1125,6 @@ const WorkUpdatesPage: React.FC = () => {
                                         <p className="text-xs font-bold text-slate-700">Drag & drop images here</p>
                                         <p className="text-[11px] font-bold text-blue-600">or click to upload</p>
                                         <p className="text-[10px] text-slate-400 mt-1">JPG, PNG up to 15MB</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <History className="w-3 h-3 text-slate-400" />
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prior Site History</p>
-                                    </div>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                        {priorPhotos.map((url, i) => (
-                                            <div 
-                                                key={i} 
-                                                onClick={() => {
-                                                    if (afterPhotos.length >= 4) {
-                                                        toast.error("Max 4 After photos allowed");
-                                                        return;
-                                                    }
-                                                    setAfterPhotos(prev => [...prev, url]);
-                                                    toast.success("Added photo to After photos");
-                                                }}
-                                                title="Click to add to After Photos"
-                                                className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 opacity-70 hover:opacity-100 transition-all cursor-pointer shadow-sm relative group"
-                                            >
-                                                <img src={url} alt="History" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <Plus className="w-4 h-4 text-white drop-shadow" />
-                                                </div>
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
 
