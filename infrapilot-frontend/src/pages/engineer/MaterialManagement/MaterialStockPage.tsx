@@ -489,9 +489,9 @@ const MaterialStockPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    {r.remaining_stock === 0 ? (
+                                                    {r.alert_type === 'OUT_OF_STOCK' || r.alert_type === 'OUT OF STOCK' || (r.remaining_stock === 0 && !r.alert_type) ? (
                                                         <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-rose-100 text-rose-700 uppercase tracking-widest">Out of Stock</span>
-                                                    ) : r.remaining_stock < 10 ? (
+                                                    ) : r.alert_type === 'LOW_STOCK' || r.alert_type === 'LOW STOCK' ? (
                                                         <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-amber-100 text-amber-700 uppercase tracking-widest">Low Stock</span>
                                                     ) : (
                                                         <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-emerald-100 text-emerald-700 uppercase tracking-widest">In Stock</span>

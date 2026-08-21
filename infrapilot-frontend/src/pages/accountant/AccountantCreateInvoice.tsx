@@ -597,7 +597,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
       const payload: any = {
         client_name: clientDetails.name,
-        client_user_id: clientDetails.client_user_id || null,
+        client_user_id: clientDetails.client_user_id || 1,
         company_name: clientDetails.company || "Patil Construction Pvt Ltd",
         mobile_number: clientDetails.mobile,
         email: clientDetails.email || "rahul.patil@example.com",
@@ -617,54 +617,46 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         material_items: materialItems.map((mi: any) => ({ ...mi, estimated_amount: mi.estimated_amount || (mi.estimated_quantity * mi.estimated_rate) })),
         extra_charge_items: extraChargeItems.map((ei: any) => ({ ...ei, amount: ei.amount || (ei.quantity * ei.rate) })),
 
-        items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
+        items: (id ? items.filter(i => !String(i.id).startsWith("new_")) : items).map(item => {
           let measurements: any[] = [];
-          if (String(item.id) === "1" || String(item.id) === "soling") {
-            const { l, w, h } = measurementData.soling;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
-            }
-          } else if (String(item.id) === "2" || String(item.id) === "plum_concrete") {
-            const { l, w, h } = measurementData.plum;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "m" }];
-            }
-          } else {
+          let itemType = "custom";
+          if (String(item.id) === "1" || String(item.id).includes("soling")) {
+            itemType = "soling";
+            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
+          } else if (String(item.id) === "2" || String(item.id).includes("plum")) {
+            itemType = "plum_concrete";
+            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
+          } else if (String(item.id) === "3" || String(item.id).includes("stone")) {
+            itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          }
-
-          return {
-            item_type: (String(item.id) === "1" || String(item.id) === "soling") ? "soling" : (String(item.id) === "2" || String(item.id) === "plum_concrete") ? "plum_concrete" : "stone_work",
-            title: item.description.split('\n')[0],
-            description: item.description,
-            unit: item.unit,
-            quantity: item.quantity,
-            rate: item.rate,
-            amount: item.amount,
-            measurements
-          };
-        }) : items.map(item => {
-          let measurements: any[] = [];
-          if (String(item.id) === "1") {
-            const { l, w, h } = measurementData.soling;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
-            }
-          } else if (String(item.id) === "2") {
-            const { l, w, h } = measurementData.plum;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "m" }];
-            }
           } else {
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+            itemType = item.item_type || "custom";
+            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
+          if (measurements.length === 0) {
+            let dummyLength = item.quantity || 1;
+            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
           return {
-            item_type: String(item.id) === "1" ? "soling" : String(item.id) === "2" ? "plum_concrete" : "stone_work",
+            item_type: itemType,
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
@@ -893,6 +885,33 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         if (field === "quantity" || field === "rate") {
           const rawAmount = Number(updatedItem.quantity) * Number(updatedItem.rate);
           updatedItem.amount = Number(rawAmount.toFixed(2));
+
+          if (field === "quantity") {
+            const actualQty = Number(value);
+            if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+              const l = item.unit === "Brass" ? actualQty * 100 : item.unit === "Sqft" ? actualQty : actualQty / 0.0283168;
+              setMeasurementData(prev => ({ ...prev, plum: { l: Number(l.toFixed(2)), w: 1, h: 1, cuft: 0, m3: 0 } }));
+            } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+              const l = (item.unit === "Cum" || item.unit === "m3") ? actualQty / 0.0283168 : item.unit === "Sqft" ? actualQty : actualQty * 100;
+              setMeasurementData(prev => ({ ...prev, stone: [{ l: Number(l.toFixed(2)), w: 1, h: 1, v: actualQty }] }));
+            } else if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+              const l = item.unit === "Brass" ? actualQty * 100 : item.unit === "Sqft" ? actualQty : actualQty / 0.0283168;
+              setMeasurementData(prev => ({ ...prev, soling: { l: Number(l.toFixed(2)), w: 1, h: 1, qty: actualQty } }));
+            }
+          }
+        } else if (field === "unit") {
+          if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+            const cuft = measurementData.plum.l * measurementData.plum.w * measurementData.plum.h;
+            const m3 = Number((cuft * 0.0283168).toFixed(2));
+            const qty = value === "Brass" ? Number((cuft / 100).toFixed(2)) : value === "Sqft" ? Number((measurementData.plum.l * measurementData.plum.w).toFixed(2)) : value === "Nos" ? 1 : m3;
+            updatedItem.quantity = qty;
+            updatedItem.amount = Number((qty * updatedItem.rate).toFixed(2));
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+            const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
+            const qty = (value === "Cum" || value === "m3") ? Number((totalCuft * 0.0283168).toFixed(2)) : value === "Sqft" ? Number((measurementData.stone.reduce((sum, s) => sum + (s.l * s.w), 0)).toFixed(2)) : value === "Nos" ? measurementData.stone.length : Number((totalCuft / 100).toFixed(2));
+            updatedItem.quantity = qty;
+            updatedItem.amount = Number((qty * updatedItem.rate).toFixed(2));
+          }
         }
         return updatedItem;
       }

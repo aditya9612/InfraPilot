@@ -172,6 +172,7 @@ export interface MaterialReport {
   total_cost: number;
   payment_pending: number;
   project_id?: number;
+  alert_type?: string;
 }
 
 export interface PriceHistory {

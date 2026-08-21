@@ -330,14 +330,13 @@ const ChecklistsPage = () => {
         setExecuteError(false);
         setIsSubmitting(true);
         try {
-            const response = await checklistService.executeChecklist({
+            await checklistService.executeChecklist({
                 project_id: Number(projectId),
                 checklist_id: Number(selectedChecklist.id),
                 status: executeStatus.toUpperCase(),
                 remarks: executeRemarks
             });
             toast.success("Checklist executed successfully!");
-            setLogs(prev => [response, ...prev]);
             await fetchData();
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");

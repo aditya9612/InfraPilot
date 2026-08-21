@@ -13,7 +13,7 @@ import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
 import { financeService } from "../../services/financeService";
 import { ownerService } from "../../services/ownerService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle, Paperclip } from "lucide-react";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
@@ -995,12 +995,9 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const [raCurrentPage, setRaCurrentPage] = useState(1);
   const [raRecordsPerPage, setRaRecordsPerPage] = useState(10);
-  const [appCurrentPage, setAppCurrentPage] = useState(1);
-  const [appRecordsPerPage, setAppRecordsPerPage] = useState(10);
 
   useEffect(() => {
     setRaCurrentPage(1);
-    setAppCurrentPage(1);
   }, [search, filterStatus, filterProject, filterContractor, filterDateFrom, filterDateTo, activeSubTab]);
 
   // ── fetch ALL dropdown data when "create" tab opens ──
@@ -1256,6 +1253,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       await api.post("/billing", payload);
       toast.success(editingRABill ? "RA Bill updated!" : "RA Bill created successfully!");
       setFormData(defaultForm);
+      setRefreshTrigger(prev => prev + 1);
       handleTabChange("list");
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.message || "Failed to create RA Bill";
@@ -1303,20 +1301,17 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const raTotalPages = Math.ceil(filtered.length / raRecordsPerPage);
   const paginatedRABills = filtered.slice((raCurrentPage - 1) * raRecordsPerPage, raCurrentPage * raRecordsPerPage);
 
-  const pendingApprovalBills = raBills.filter(r => r.status === "Pending Approval" || r.status === "Submitted");
-  const appTotalPages = Math.ceil(pendingApprovalBills.length / appRecordsPerPage);
-  const paginatedAppBills = pendingApprovalBills.slice((appCurrentPage - 1) * appRecordsPerPage, appCurrentPage * appRecordsPerPage);
+
 
   // ── live bill summary calculations ──
-  const grossAmount = Number(formData.gross_amount) || 0;
+  const qty = Number(formData.quantity) || 0;
+  const rate = Number(formData.rate) || 0;
+  const grossAmount = qty * rate;
   const gstPct = Number(formData.gst_percent) || 0;
   const gstAmount = grossAmount * (gstPct / 100);
   const totalAmount = grossAmount + gstAmount;
 
-  const tds = Number(formData.tds_amount) || 0;
-  const retention = Number(formData.retention_amount) || 0;
-  const securityRecovery = Number(formData.security_deposit_recovery) || 0;
-  const totalDeductions = tds + retention + securityRecovery;
+  const totalDeductions = Number(formData.deductions) || 0;
   const netPayable = totalAmount - totalDeductions;
 
   return (
@@ -1621,16 +1616,29 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   />
                 </div>
 
-                {/* Gross Amount */}
+                {/* Quantity */}
                 <div>
-                  <label className={labelClasses}>Gross Amount (₹)</label>
+                  <label className={labelClasses}>Quantity</label>
                   <input
                     type="number"
                     min="0"
                     className={inputClasses}
-                    placeholder="e.g. 150000"
-                    value={formData.gross_amount}
-                    onChange={e => setFormData({ ...formData, gross_amount: e.target.value })}
+                    placeholder="e.g. 100"
+                    value={formData.quantity || ''}
+                    onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                  />
+                </div>
+
+                {/* Rate */}
+                <div>
+                  <label className={labelClasses}>Rate (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className={inputClasses}
+                    placeholder="e.g. 1500"
+                    value={formData.rate || ''}
+                    onChange={e => setFormData({ ...formData, rate: e.target.value })}
                   />
                 </div>
 
@@ -1643,72 +1651,24 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     max="100"
                     className={inputClasses}
                     placeholder="18"
-                    value={formData.gst_percent}
+                    value={formData.gst_percent || ''}
                     onChange={e => setFormData({ ...formData, gst_percent: e.target.value })}
                   />
                 </div>
 
-                {/* TDS Amount */}
+                {/* Deductions */}
                 <div>
-                  <label className={labelClasses}>TDS Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    className={inputClasses}
-                    placeholder="e.g. 3000"
-                    value={formData.tds_amount}
-                    onChange={e => setFormData({ ...formData, tds_amount: e.target.value })}
-                  />
-                </div>
-
-                {/* Retention */}
-                <div>
-                  <label className={labelClasses}>Retention (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    className={inputClasses}
-                    placeholder="e.g. 7500"
-                    value={formData.retention_amount}
-                    onChange={e => setFormData({ ...formData, retention_amount: e.target.value })}
-                  />
-                </div>
-
-                {/* Security Deposit Recovery */}
-                <div className="col-span-2">
-                  <label className={labelClasses}>Security Deposit Recovery (₹)</label>
+                  <label className={labelClasses}>Deductions (₹)</label>
                   <input
                     type="number"
                     min="0"
                     className={inputClasses}
                     placeholder="e.g. 5000"
-                    value={formData.security_deposit_recovery}
-                    onChange={e => setFormData({ ...formData, security_deposit_recovery: e.target.value })}
+                    value={formData.deductions || ''}
+                    onChange={e => setFormData({ ...formData, deductions: e.target.value })}
                   />
                 </div>
 
-              </div>
-            </div>
-
-            {/* ── Section: Attachments ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-                Attachments
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {["Contractor Invoice", "Measurement Sheet", "Completion Sheet", "Supporting Documents"].map(att => (
-                  <div key={att} className="border border-slate-200 rounded-xl p-4 flex items-center justify-between bg-slate-50">
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">{att}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">PDF, JPG up to 5MB</p>
-                    </div>
-                    <label className="text-xs font-bold text-primary bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                      Upload
-                      <input type="file" className="hidden" />
-                    </label>
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -1723,12 +1683,10 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               </h3>
               <div className="space-y-3">
                 {[
-                  { label: "Gross Amount", value: fmt(grossAmount) },
+                  { label: "Quantity × Rate", value: `${fmt(qty)} × ${fmt(rate)}` },
+                  { label: "Gross Amount", value: fmt(grossAmount), bold: true },
                   { label: `GST (${gstPct}%)`, value: `+ ${fmt(gstAmount)}` },
                   { label: "Total Amount", value: fmt(totalAmount), bold: true },
-                  { label: "TDS", value: `– ${fmt(tds)}`, bold: false },
-                  { label: "Retention", value: `– ${fmt(retention)}`, bold: false },
-                  { label: "Sec. Deposit Rec.", value: `– ${fmt(securityRecovery)}`, bold: false },
                   { label: "Total Deductions", value: `– ${fmt(totalDeductions)}`, bold: true, border: true },
                   { label: "Net Payable", value: fmt(netPayable), bold: true, accent: true },
                 ].map((row, i) => (
@@ -1737,19 +1695,6 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     <span className={`text-sm ${row.accent ? "font-black text-primary text-base" : row.bold ? "font-bold text-slate-800" : "text-slate-700"}`}>{row.value}</span>
                   </div>
                 ))}
-              </div>
-
-              {/* Payment Status */}
-              <div className="mt-5 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Payment Status</label>
-                <div className="flex gap-2">
-                  {["Paid", "Partial", "Pending"].map(s => (
-                    <label key={s} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="payment_status" value={s} defaultChecked={s === "Pending"} className="accent-primary" />
-                      <span className="text-xs font-semibold text-slate-600">{s}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
 
               <button
@@ -1769,72 +1714,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
         </form>
       )}
 
-      {activeSubTab === "approval" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">RA Bill Approval Queue</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Bills pending PMC / client certification</p>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {paginatedAppBills.map(rb => {
-              const projName = projects?.find((p: any) => p.id === rb.project_id)?.project_name || rb.project_id || "N/A";
-              const contrName = contractors?.find((c: any) => c.id === rb.contractor_id)?.name || rb.contractor_id || "N/A";
-              return (
-              <div key={rb.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{rb.bill_number || "—"} — {contrName}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{projName} · Date: {rb.bill_date || "—"}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-700">{fmt(rb.total_amount)}</span>
-                  <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(rb.status)}`}>{rb.status}</span>
-                  <button onClick={() => handleApprove(rb.id)} className="text-emerald-500 hover:text-emerald-600 transition-all active:scale-95" title="Approve">
-                    <Check className="w-6 h-6" strokeWidth={2.5} />
-                  </button>
-                  <button onClick={() => handleReject(rb.id)} className="text-rose-500 hover:text-rose-600 transition-all active:scale-95 ml-2" title="Reject">
-                    <X className="w-6 h-6" strokeWidth={2.5} />
-                  </button>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={appRecordsPerPage} 
-                onChange={(e) => { setAppRecordsPerPage(Number(e.target.value)); setAppCurrentPage(1); }}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
-              >
-                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <span className="text-xs text-slate-500 font-semibold">
-              Showing {pendingApprovalBills.length === 0 ? 0 : (appCurrentPage - 1) * appRecordsPerPage + 1} - {Math.min(appCurrentPage * appRecordsPerPage, pendingApprovalBills.length)} of {pendingApprovalBills.length} records
-            </span>
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={() => setAppCurrentPage(p => Math.max(1, p - 1))}
-                disabled={appCurrentPage === 1}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
-                {appCurrentPage}
-              </span>
-              <button 
-                onClick={() => setAppCurrentPage(p => Math.min(appTotalPages, p + 1))}
-                disabled={appCurrentPage === appTotalPages || appTotalPages === 0}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {viewingRABill && (
         <ViewRABillModal 
@@ -2063,8 +1943,10 @@ const CollectionsSection = () => {
                     <td className="px-4 py-3 text-xs font-mono text-slate-400">{c.ref || c.reference || "—"}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(c.status || c.payment_status || "PENDING")}`}>{c.status || c.payment_status || "PENDING"}</span></td>
                     <td className="px-4 py-3">
-                      {(c.status || c.payment_status || "").toLowerCase() !== "received" && (
+                      {(c.status || c.payment_status || "").toLowerCase() !== "received" ? (
                         <button onClick={() => toast.success("Follow-up sent!")} className="text-[10px] font-bold px-2.5 py-1 bg-blue-50 text-primary rounded-lg border border-blue-100 hover:bg-blue-100 transition-all">Follow Up</button>
+                      ) : (
+                        <button onClick={() => toast.success("Receipt downloaded!")} className="text-[10px] font-bold px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all mx-auto">Download</button>
                       )}
                     </td>
                   </tr>
@@ -2128,6 +2010,8 @@ const ClientLedgerSection = () => {
   const [ledgerData, setLedgerData] = useState<any>(null);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -2257,24 +2141,63 @@ const ClientLedgerSection = () => {
                   <td colSpan={5} className="px-5 py-8 text-center text-slate-400 text-sm font-semibold">No transactions found.</td>
                 </tr>
               ) : (
-                transactions.map((row: any, i: number) => {
-                  const debit = Number(row.debit) || 0;
-                  const credit = Number(row.credit) || 0;
-                  const balance = Number(row.balance) || 0;
-                  return (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">{row.date || "—"}</td>
-                      <td className="px-5 py-3 text-xs font-semibold text-slate-700">{row.particulars || row.description || "—"}</td>
-                      <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{debit > 0 ? fmtExact(debit) : "—"}</td>
-                      <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{credit > 0 ? fmtExact(credit) : "—"}</td>
-                      <td className={`px-5 py-3 text-xs font-bold text-right ${balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtExact(Math.abs(balance))}</td>
-                    </tr>
-                  )
-                })
+                (() => {
+                  const paginatedTransactions = transactions.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+                  return paginatedTransactions.map((row: any, i: number) => {
+                    const debit = Number(row.debit) || 0;
+                    const credit = Number(row.credit) || 0;
+                    const balance = Number(row.balance) || 0;
+                    return (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">{row.date || "—"}</td>
+                        <td className="px-5 py-3 text-xs font-semibold text-slate-700">{row.particulars || row.description || "—"}</td>
+                        <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{debit > 0 ? fmtExact(debit) : "—"}</td>
+                        <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{credit > 0 ? fmtExact(credit) : "—"}</td>
+                        <td className={`px-5 py-3 text-xs font-bold text-right ${balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtExact(Math.abs(balance))}</td>
+                      </tr>
+                    )
+                  })
+                })()
               )}
             </tbody>
           </table>
         </div>
+        {transactions.length > 0 && (
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={recordsPerPage} 
+                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {transactions.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, transactions.length)} of {transactions.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {currentPage}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(transactions.length / recordsPerPage), p + 1))}
+                disabled={currentPage === Math.ceil(transactions.length / recordsPerPage) || Math.ceil(transactions.length / recordsPerPage) === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2551,21 +2474,7 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
             {bill.status === "Paid" && <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-white"/></div>}
           </div>
 
-          {/* Attachments */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Paperclip size={14}/> Attachments</p>
-            <div className="grid grid-cols-2 gap-3">
-              {["Contractor Invoice", "Measurement Sheet", "Supporting Documents"].map((att) => (
-                <div key={att} className="p-3 border border-slate-100 bg-slate-50 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-primary"/>
-                    <span className="text-xs font-bold text-slate-700">{att}</span>
-                  </div>
-                  <button className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">View</button>
-                </div>
-              ))}
-            </div>
-          </div>
+
           
       </div>
     </Modal>

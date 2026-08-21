@@ -333,7 +333,8 @@ const DailyProgressEntryPage = () => {
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
-      const matchesStatus = statusFilter === "all" || (a?.status || "Not Started").toUpperCase().replace(/ /g, "_") === statusFilter.toUpperCase().replace(/ /g, "_");
+      const entryStatus = e.new_value?.status || a?.status || "DELAY";
+      const matchesStatus = statusFilter === "all" || entryStatus.toUpperCase().replace(/ /g, "_") === statusFilter.toUpperCase().replace(/ /g, "_");
       return matchesSearch && matchesActivity && matchesStatus;
     });
   }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId, statusFilter]);
@@ -444,8 +445,7 @@ const DailyProgressEntryPage = () => {
       cards = [
         { label: "All Logs", count: base.length, colorClass: "text-slate-800", sub: "Total Entries" },
         { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
-        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
-        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase().includes("delay"); }).length, colorClass: "text-rose-500", sub: "Critical Items" }
+        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => Number(act.id) === Number(e.activity_id)); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" }
       ];
     } else if (activeTab === 'history') {
       cards = [
@@ -465,7 +465,7 @@ const DailyProgressEntryPage = () => {
     if (cards.length === 0) return null;
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-6 mb-8 font-inter`}>
         {cards.map(c => (
           <div
             key={c.label}
@@ -626,7 +626,6 @@ const DailyProgressEntryPage = () => {
                       className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
                     >
                       <option value="all">ALL STATUS</option>
-                      <option value="NOT_STARTED">NOT STARTED</option>
                       <option value="ON_TRACK">ON TRACK</option>
                       <option value="DELAY">DELAY</option>
                       <option value="COMPLETED">COMPLETED</option>

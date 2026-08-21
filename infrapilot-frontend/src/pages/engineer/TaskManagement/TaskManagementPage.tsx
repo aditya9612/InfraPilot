@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
+import CreateTaskRequestModal from "../../../components/forms/CreateTaskRequestModal";
 import AudioRecordModal from './AudioRecordModal';
 import EditTaskRequestModal from './EditTaskRequestModal';
 import Modal from '../../../components/common/Modal';
@@ -137,6 +138,7 @@ const TaskManagementPage = () => {
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
 
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+    const [isCreateTaskRequestModalOpen, setIsCreateTaskRequestModalOpen] = useState(false);
 
     // Generate BOQ to Task Modal State
     const [isGenerateBoqModalOpen, setIsGenerateBoqModalOpen] = useState(false);
@@ -834,7 +836,7 @@ const TaskManagementPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {activeTab !== "Project Tasks" && (
+                        {activeTab !== "Task Requests" && activeTab !== "Project Tasks" && (
                             <>
                                 <button
                                     onClick={() => setIsGenerateBoqModalOpen(true)}
@@ -851,6 +853,15 @@ const TaskManagementPage = () => {
                                     Create Task
                                 </button>
                             </>
+                        )}
+                        {activeTab === "Task Requests" && (
+                            <button
+                                onClick={() => setIsCreateTaskRequestModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Create Task Request
+                            </button>
                         )}
                     </div>
                 </div>
@@ -1748,7 +1759,8 @@ const TaskManagementPage = () => {
                                             <tbody className="block md:table-row-group">
                                             {(() => {
                                                 const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
-                                                const paginatedRequests = taskRequests.slice(startIndex, startIndex + itemsPerPage);
+                                                const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
+                                                const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
                                                 return paginatedRequests.map((req, idx) => {
                                                     const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
                                                     const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
@@ -2800,6 +2812,13 @@ const TaskManagementPage = () => {
                 confirmText="Delete Record"
                 type="danger"
             />
+            <CreateTaskRequestModal
+                isOpen={isCreateTaskRequestModalOpen}
+                onClose={() => setIsCreateTaskRequestModalOpen(false)}
+                onSuccess={fetchData}
+                projects={assignedProjects}
+            />
+
         </>
     );
 };
