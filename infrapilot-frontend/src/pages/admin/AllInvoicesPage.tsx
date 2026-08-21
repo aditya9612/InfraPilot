@@ -303,8 +303,8 @@ const AllInvoicesPage = () => {
   // Stats
   const stats = useMemo(() => {
     const total = displayData.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
-    const pending = displayData.filter((i) => i.status === "pending").reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
-    const paid = displayData.filter((i) => i.status === "paid").reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+    const pending = displayData.reduce((s, i: any) => s + (Number(i.pending_amount) || (Number(i.total_amount) - (Number(i.paid_amount) || 0)) || 0), 0);
+    const paid = displayData.reduce((s, i: any) => s + (Number(i.paid_amount) || 0), 0);
     return { total, pending, paid };
   }, [displayData]);
 
@@ -480,8 +480,6 @@ const AllInvoicesPage = () => {
                     <th className="px-4 py-4 whitespace-nowrap">Owner</th>
                     <th className="px-4 py-4 whitespace-nowrap">Type</th>
                     <th className="px-4 py-4 whitespace-nowrap">Source Type</th>
-                    <th className="px-4 py-4 whitespace-nowrap">Reference</th>
-                    <th className="px-4 py-4 whitespace-nowrap">Quotation ID</th>
                     <th className="px-4 py-4 text-right whitespace-nowrap">Base Amount</th>
                     <th className="px-4 py-4 text-right whitespace-nowrap">GST Amount</th>
                     <th className="px-4 py-4 text-right whitespace-nowrap">Tax Amount</th>
@@ -531,12 +529,6 @@ const AllInvoicesPage = () => {
                           </td>
                           <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
                             {inv.source_type || "-"}
-                          </td>
-                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
-                            {inv.reference_id || "-"}
-                          </td>
-                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
-                            {inv.quotation_id ? `QT-${inv.quotation_id}` : "-"}
                           </td>
                           <td className="px-4 py-4 text-sm font-bold text-slate-700 text-right tabular-nums whitespace-nowrap">
                             {formatCompactCurrency(Number(inv.amount) || 0)}
@@ -692,7 +684,6 @@ const AllInvoicesPage = () => {
         invoice={viewingInvoice}
         projects={projects}
         owners={owners}
-        quotations={quotations as any}
         onMarkPaid={async (id) => {
           try {
             await financeService.markInvoicePaid(id);

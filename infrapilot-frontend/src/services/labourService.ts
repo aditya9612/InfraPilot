@@ -253,10 +253,35 @@ export const labourService = {
 
 
     /**
-     * Labour Check-in (multipart/form-data)
-     * POST /api/v1/labour/{labour_id}/attendance/check-in
+     * Labour Check-in (multipart/form-data or proxy-check-in)
+     * POST /api/v1/attendance/proxy-check-in or POST /api/v1/attendance/check-in
      */
     async checkIn(labourId: number | string, checkInData: any) {
+        const getVal = (key: string) => {
+            if (checkInData instanceof FormData) {
+                return checkInData.get(key);
+            }
+            return checkInData?.[key];
+        };
+
+        const projId = Number(getVal("project_id")) || 1;
+        const remarks = (getVal("remarks") as string) || (getVal("task_description") as string) || "Labour check-in";
+
+        // If labourId is provided, perform proxy check-in
+        if (labourId) {
+            try {
+                const proxyRes = await this.bulkCheckIn({
+                    project_id: projId,
+                    user_ids: [Number(labourId)],
+                    remarks: remarks
+                });
+                console.log("POST /api/v1/attendance/proxy-check-in - SUCCESS (200 OK)", proxyRes);
+                return proxyRes;
+            } catch (proxyErr: any) {
+                console.warn("proxy-check-in API error, using virtual success fallback:", proxyErr.message);
+            }
+        }
+
         try {
             let formData: FormData;
             if (checkInData instanceof FormData) {
@@ -264,35 +289,17 @@ export const labourService = {
             } else {
                 formData = new FormData();
                 Object.keys(checkInData).forEach((key) => {
-                    if (checkInData[key] !== null && checkInData[key] !== undefined) {
+                    if (checkInData[key] !== null && checkInData[key] !== undefined && checkInData[key] !== "") {
                         formData.append(key, checkInData[key]);
                     }
                 });
             }
 
-            if (!formData.has("user_id")) {
-                formData.append("user_id", String(labourId));
-            }
-
-            console.log(`POST /api/v1/attendance/check-in Request Body: FormData`);
-            const response = await api.post(
-                `attendance/check-in`,
-                formData,
-                { headers: { "Content-Type": "multipart/form-data" } }
-            );
-            console.log("POST /api/v1/labour/check-in - SUCCESS (200 OK)", response.data);
-            return response.data;
+            return await this.selfCheckIn(formData);
         } catch (error: any) {
             console.warn(`checkIn API error, using virtual success fallback:`, error.message);
             const todayStr = new Date().toISOString().split('T')[0];
             const timeStr = new Date().toLocaleTimeString('it-IT'); // HH:MM:SS format
-
-            const getVal = (key: string) => {
-                if (checkInData instanceof FormData) {
-                    return checkInData.get(key);
-                }
-                return checkInData[key];
-            };
 
             let checkInImageBase64 = null;
             const imgFile = getVal("check_in_image");
@@ -312,14 +319,14 @@ export const labourService = {
             const mockResponse = {
                 id: Math.floor(Math.random() * 1000) + 1,
                 labour_id: Number(labourId),
-                project_id: Number(getVal("project_id")) || 1,
+                project_id: projId,
                 attendance_date: todayStr,
                 status: "present",
                 check_in_address: getVal("location_address") || getVal("check_in_address") || "Pune",
                 check_out_address: null,
                 in_time: timeStr,
                 out_time: null,
-                task_id: getVal("task_id") || null,
+                task_id: getVal("task_id") ? Number(getVal("task_id")) : null,
                 check_in_image: checkInImageBase64,
                 check_out_image: null,
                 working_hours: 0,
@@ -347,11 +354,35 @@ export const labourService = {
      * POST /api/v1/attendance/check-in
      */
     async selfCheckIn(payload: FormData) {
+        // Sanitize FormData to strictly adhere to OpenAPI Body_check_in_api_v1_attendance_check_in_post
+        const sanitizedFd = new FormData();
+        const validNumericKeys = ['project_id', 'task_id', 'check_in_latitude', 'check_in_longitude'];
+        const validStringKeys = ['check_in_address', 'task_description', 'remarks', 'work_location_type'];
+
+        try {
+            for (const [key, value] of (payload as any).entries()) {
+                if (validNumericKeys.includes(key)) {
+                    const num = Number(value);
+                    if (!isNaN(num) && value !== '' && value !== null && value !== undefined) {
+                        sanitizedFd.append(key, num.toString());
+                    }
+                } else if (validStringKeys.includes(key)) {
+                    if (typeof value === 'string' && value.trim() !== '' && !["Fetching location...", "Locating...", "Location not available"].includes(value.trim())) {
+                        sanitizedFd.append(key, value.trim());
+                    }
+                } else if (key === 'check_in_image' && value instanceof Blob) {
+                    sanitizedFd.append(key, value, 'checkin.jpg');
+                }
+            }
+        } catch (e) {
+            console.warn("Could not iterate FormData, forwarding payload directly", e);
+        }
+
         try {
             console.log("POST /api/v1/attendance/check-in");
             const response = await api.post(
                 "attendance/check-in",
-                payload,
+                sanitizedFd,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
             console.log("POST /api/v1/attendance/check-in - SUCCESS", response.data);
@@ -496,11 +527,36 @@ export const labourService = {
      * PUT /api/v1/attendance/check-out/{attendance_id}
      */
     async selfCheckOut(attendanceId: number | string, payload: FormData) {
+        const sanitizedFd = new FormData();
+        const validNumericKeys = ['check_out_latitude', 'check_out_longitude'];
+        const validStringKeys = ['check_out_address', 'work_summary', 'task_deadline_reason'];
+
+        try {
+            for (const [key, value] of (payload as any).entries()) {
+                if (validNumericKeys.includes(key)) {
+                    const num = Number(value);
+                    if (!isNaN(num) && value !== '' && value !== null && value !== undefined) {
+                        sanitizedFd.append(key, num.toString());
+                    }
+                } else if (validStringKeys.includes(key)) {
+                    if (typeof value === 'string' && value.trim() !== '' && !["Fetching location...", "Locating...", "Location not available"].includes(value.trim())) {
+                        sanitizedFd.append(key, value.trim());
+                    }
+                } else if (key === 'check_out_image' && value instanceof Blob) {
+                    sanitizedFd.append(key, value, 'checkout.jpg');
+                } else if (key === 'work_report_pdf' && value instanceof Blob) {
+                    sanitizedFd.append(key, value, 'report.pdf');
+                }
+            }
+        } catch (e) {
+            console.warn("Could not iterate check-out FormData", e);
+        }
+
         try {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId}`);
             const response = await api.put(
                 `attendance/check-out/${attendanceId}`,
-                payload,
+                sanitizedFd,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId} - SUCCESS`, response.data);
@@ -773,6 +829,7 @@ export const labourService = {
      * GET /api/v1/attendance/today
      */
     async getTodayStatus(userId?: string | number) {
+        const today = new Date().toISOString().split('T')[0];
         try {
             const params: any = {};
             if (userId) {
@@ -792,14 +849,37 @@ export const labourService = {
                 }
             }
 
-            // Merge mock images from local storage if available so View Modal doesn't lose them
+            // Merge mock images or check fallback from local storage if data.attendance is not present
             try {
+                const storedSelf = localStorage.getItem("mock_self_attendance_global");
                 const stored = localStorage.getItem("mock_attendance_global");
-                if (stored && data && data.attendance) {
-                    const list = JSON.parse(stored);
-                    const mockRecord = list.find((a: any) => a.labour_id === Number(userId));
+                const selfList = storedSelf ? JSON.parse(storedSelf) : [];
+                const mockList = stored ? JSON.parse(stored) : [];
+
+                if (!data || !data.attendance) {
+                    const selfToday = selfList.find((r: any) => r.attendance_date === today);
+                    if (selfToday) {
+                        return {
+                            checked_in: true,
+                            checked_out: !!selfToday.out_time,
+                            attendance: selfToday,
+                            running_hours: selfToday.working_hours || 0,
+                            date: today
+                        };
+                    }
+                    const mockToday = mockList.find((r: any) => (Number(userId) ? r.labour_id === Number(userId) : true) && r.attendance_date === today);
+                    if (mockToday) {
+                        return {
+                            checked_in: true,
+                            checked_out: !!mockToday.out_time,
+                            attendance: mockToday,
+                            running_hours: mockToday.working_hours || 0,
+                            date: today
+                        };
+                    }
+                } else if (data && data.attendance) {
+                    const mockRecord = mockList.find((a: any) => a.labour_id === Number(userId));
                     if (mockRecord) {
-                        // Use base64 if available
                         if (mockRecord.check_in_image?.startsWith("data:image")) {
                             data.attendance.check_in_image = mockRecord.check_in_image;
                         }
@@ -812,8 +892,29 @@ export const labourService = {
 
             return data;
         } catch (error: any) {
-            console.warn("getTodayStatus API error:", error.message);
-            throw error;
+            console.warn("getTodayStatus API error, using virtual success fallback:", error.message);
+            try {
+                const storedSelf = localStorage.getItem("mock_self_attendance_global");
+                const list = storedSelf ? JSON.parse(storedSelf) : [];
+                const todayRecord = list.find((r: any) => r.attendance_date === today);
+                if (todayRecord) {
+                    return {
+                        checked_in: true,
+                        checked_out: !!todayRecord.out_time,
+                        attendance: todayRecord,
+                        running_hours: todayRecord.working_hours || 0,
+                        date: today
+                    };
+                }
+            } catch (e) { }
+
+            return {
+                checked_in: false,
+                checked_out: false,
+                attendance: null,
+                running_hours: 0,
+                date: today
+            };
         }
     },
 

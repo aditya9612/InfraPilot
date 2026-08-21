@@ -218,7 +218,7 @@ const ClientsPage = () => {
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === 'payments' && (
               <>
-                <ProjectSelector variant="page" />
+                <ProjectSelector variant="page" hideAllProjects={true} />
                 <button
                   onClick={handleExportExcel}
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all"

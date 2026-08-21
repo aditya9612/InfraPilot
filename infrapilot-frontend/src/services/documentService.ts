@@ -149,15 +149,23 @@ export const documentService = {
         });
 
         // Ensure we preserve the MIME type so the OS knows what to do with the file natively
-        const contentType = response.headers['content-type'] || 'application/octet-stream';
-        const blob = response.data instanceof Blob
-            ? new Blob([response.data], { type: contentType })
-            : new Blob([response.data], { type: contentType });
+        const contentType = response.headers['content-type'] || response.data.type || 'application/octet-stream';
+        const blob = new Blob([response.data], { type: contentType });
+
+        let extension = 'pdf'; // Default
+        if (contentType.includes('image/png')) extension = 'png';
+        else if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) extension = 'jpg';
+        else if (contentType.includes('spreadsheet') || contentType.includes('excel')) extension = 'xlsx';
+        else if (contentType.includes('word') || contentType.includes('document')) extension = 'docx';
+        else if (contentType.includes('image/gif')) extension = 'gif';
+        else if (contentType.includes('image/webp')) extension = 'webp';
+
+        const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;
 
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', fileName || `document_${id}`);
+        link.setAttribute('download', finalName);
         document.body.appendChild(link);
         link.click();
         link.remove();

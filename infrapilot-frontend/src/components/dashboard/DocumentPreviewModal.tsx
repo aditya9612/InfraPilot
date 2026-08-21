@@ -26,19 +26,11 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       setIsLoading(true);
       // Fetch as a blob securely passing the authenticated interceptors
       import("../../services/api").then(({ default: api }) => {
-        const docId = document.document_id || document.id;
-        
-        if (!docId || docId === 'undefined' || docId === 'null') {
-          if (document.file_url && typeof document.file_url === 'string') {
-            setLocalUrl(document.file_url);
-          } else {
-            setIsValidPdf(false);
-          }
-          setIsLoading(false);
-          return;
-        }
+        const endpoint = document.isDrawing
+          ? `/drawings/documents/view/${document.id}`
+          : `/documents/${document.id}/download`;
 
-        api.get(`/documents/${docId}/download`, { responseType: 'blob' })
+        api.get(endpoint, { responseType: 'blob' })
           .then(res => {
             if (!isMounted) return;
 

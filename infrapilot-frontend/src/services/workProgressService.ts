@@ -55,18 +55,7 @@ export const workProgressService = {
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
       return items;
     } catch (error: any) {
-      if (params.project_id) {
-        try {
-          const retryRes = await api.get("/work-progress/activities");
-          const retryData = retryRes.data;
-          const items = Array.isArray(retryData) ? retryData : (retryData.items || retryData.data || []);
-          if (items && items.length > 0) {
-            return items.filter((a: any) => !project_id || Number(a.project_id) === Number(project_id));
-          }
-        } catch (retryErr) {
-          console.warn("listActivities retry failed:", retryErr);
-        }
-      }
+      // Note: Removed inner retry block since /activities now requires a project_id.
       console.warn("listActivities API error, using fallback:", error?.message);
       let filtered = [...mockActivities];
       if (project_id) filtered = filtered.filter(a => a.project_id === project_id);
@@ -271,9 +260,8 @@ export const workProgressService = {
 
   async getTodayProgress(engineerId?: number, project_id?: number): Promise<{ limit: number; offset: number; page_count: number; total_count: number; data: DailyEntry[] }> {
     try {
-      const params: Record<string, any> = {};
-      if (engineerId) params.engineer_id = engineerId;
-      if (project_id) params.project_id = project_id;
+      const params: Record<string, any> = { limit: 100 };
+      // Omit engineer_id entirely, as passing it explicitly can cause backend filtering issues. Let JWT handle natively.
       const response = await api.get("/work-progress/site-engineer/today-progress", {
         params
       });

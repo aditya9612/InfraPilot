@@ -16,6 +16,7 @@ import ViewPurchaseModal from "../../components/forms/ViewPurchaseModal";
 import EditPurchaseModal from "../../components/forms/EditPurchaseModal";
 import { equipmentService } from "../../services/equipmentService";
 import { Trash2, Edit2 } from "lucide-react";
+import { userService } from "../../services/userService";
 
 const ManagerProcurementPage = () => {
     const { selectedProjectId, selectedProject } = useProject();
@@ -26,6 +27,7 @@ const ManagerProcurementPage = () => {
     const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
     // ── UI States ─────────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState("");
@@ -64,7 +66,7 @@ const ManagerProcurementPage = () => {
         setIsLoading(true);
         try {
             const skip = (currentPage - 1) * itemsPerPage;
-            const [reqResult, posResult] = await Promise.allSettled([
+            const [reqResult, posResult, usersResult] = await Promise.allSettled([
                 siteRequestService.getRequests(selectedProjectId),
                 equipmentService.listPurchase({
                     project_id: selectedProjectId,
@@ -75,7 +77,8 @@ const ManagerProcurementPage = () => {
                     ...(boqItemId && { boq_item_id: Number(boqItemId) }),
                     ...(purchaseDateFrom && { purchase_date_from: purchaseDateFrom }),
                     ...(purchaseDateTo && { purchase_date_to: purchaseDateTo })
-                })
+                }),
+                userService.getAllUsers(100)
             ]);
 
             // Handle site requests result
@@ -100,9 +103,22 @@ const ManagerProcurementPage = () => {
                 setPurchaseOrders(pos);
                 setTotalItems(total);
             } else {
-                console.error("Purchase orders fetch failed:", posResult.reason);
                 setPurchaseOrders([]);
                 setTotalItems(0);
+            }
+
+            // Handle users result
+            if (usersResult.status === "fulfilled") {
+                const raw = usersResult.value;
+                const usrList = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+                const uMap: Record<number, string> = {};
+                usrList.forEach((u: any) => {
+                    const uid = u?.user_id || u?.id;
+                    if (uid) {
+                        uMap[uid] = u.full_name || u.name || u.username || `User ${uid}`;
+                    }
+                });
+                setUsersMap(uMap);
             }
         } catch (err) {
             console.error("Failed to fetch procurement data", err);
@@ -362,10 +378,6 @@ const ManagerProcurementPage = () => {
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
                                     <option value="All">All Types</option>
                                     <option value="Material">Material</option>
-                                    <option value="Doc">Doc</option>
-                                    <option value="Drawing">Drawing</option>
-                                    <option value="BOQ">BOQ</option>
-                                    <option value="Bill">Bill</option>
                                     <option value="Equipment">Equipment</option>
                                     <option value="Labour">Labour</option>
                                     <option value="Work">Work</option>
@@ -432,8 +444,8 @@ const ManagerProcurementPage = () => {
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.quantity}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm text-slate-600"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Req:</span> {item.requested_by}</span>
-                                                    <span className="text-sm text-slate-600 mt-0.5"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">App:</span> {item.approved_by || "-"}</span>
+                                                    <span className="text-sm text-slate-600"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Req:</span> {usersMap[item.requested_by] || item.requested_by}</span>
+                                                    <span className="text-sm text-slate-600 mt-0.5"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">App:</span> {usersMap[item.approved_by] || item.approved_by || "-"}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -465,7 +477,7 @@ const ManagerProcurementPage = () => {
                                                     {selectedProject?.project_name || "Unknown Project"}
                                                 </span>
                                                 <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string,string>)[item.purchase_type] || item.purchase_type}
+                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

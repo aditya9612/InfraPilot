@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import toast from 'react-hot-toast';
@@ -7,6 +7,7 @@ import { projectService } from '../../services/projectService';
 import { taskRequestService } from '../../services/taskRequestService';
 import type { TaskRequest } from '../../services/taskRequestService';
 import Modal from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination';
 import {
     Send,
     RotateCcw,
@@ -105,6 +106,22 @@ const TaskRequestsPage: React.FC = () => {
     const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
     const [viewingRequest, setViewingRequest] = useState<TaskRequest | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    // Pagination State (0-indexed)
+    const [currentPage, setCurrentPage] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+
+    const paginatedRequests = useMemo(() => {
+        const start = currentPage * pageSize;
+        return requests.slice(start, start + pageSize);
+    }, [requests, currentPage, pageSize]);
+
+    useEffect(() => {
+        const maxPage = Math.max(0, Math.ceil(requests.length / pageSize) - 1);
+        if (currentPage > maxPage) {
+            setCurrentPage(maxPage);
+        }
+    }, [requests.length, pageSize, currentPage]);
 
     const fetchRequests = React.useCallback(async () => {
         setIsLoadingRequests(true);
@@ -562,7 +579,7 @@ const TaskRequestsPage: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
-                                            {requests.map((req, idx) => (
+                                            {paginatedRequests.map((req, idx) => (
                                                 <tr key={req.id || idx} className="hover:bg-slate-50/30 transition-colors group">
                                                     <td className="px-8 py-6">
                                                         <h4 className="text-sm font-bold text-slate-800">{req.title}</h4>
@@ -674,6 +691,17 @@ const TaskRequestsPage: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            )}
+
+                            {!isLoadingRequests && requests.length > 0 && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalItems={requests.length}
+                                    pageSize={pageSize}
+                                    onPageChange={setCurrentPage}
+                                    onPageSizeChange={setPageSize}
+                                    label="requests"
+                                />
                             )}
                         </div>
                     </div>

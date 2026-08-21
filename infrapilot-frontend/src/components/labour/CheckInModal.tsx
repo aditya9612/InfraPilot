@@ -154,7 +154,7 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
         setIsLoading(true);
         try {
             const payload: CheckInRequest = {
-                labour_id: workers[0]?.id || 0,
+                labour_id: workers[0]?.id || (workers[0] as any)?.labour_id || 0,
                 project_id: selectedProjectId,
                 task_id: taskId,
                 latitude,

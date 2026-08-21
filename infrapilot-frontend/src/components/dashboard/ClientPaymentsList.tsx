@@ -13,9 +13,10 @@ const ClientPaymentsList = () => {
     const [viewingPayment, setViewingPayment] = useState<ClientPayment | null>(null);
 
     const fetchPayments = async () => {
+        if (!selectedProjectId) return;
         setLoading(true);
         try {
-            const data = await clientPaymentService.listPayments(selectedProjectId ? { project_id: selectedProjectId } : undefined);
+            const data = await clientPaymentService.listPayments({ project_id: selectedProjectId });
             setPayments(data.items || []);
         } catch (err) {
             console.error("Failed to fetch payments", err);
@@ -111,7 +112,7 @@ const ClientPaymentsList = () => {
                             filteredPayments.map((p) => (
                                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-4">
-                                        <p className="font-bold text-slate-600">{p.user_name || "Unknown Client"}</p>
+                                        <p className="font-bold text-slate-600">{(p as any).client_name || p.user_name || "Unknown Client"}</p>
                                         {p.project_name && <p className="text-[10px] text-slate-500 truncate max-w-[150px]" title={p.project_name}>{p.project_name}</p>}
                                     </td>
                                     <td className="px-6 py-4 font-black text-slate-700">
@@ -119,7 +120,7 @@ const ClientPaymentsList = () => {
                                         <p className="text-[10px] text-slate-400 font-normal">{new Date(p.payment_date).toLocaleDateString()}</p>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-sm font-bold text-slate-700 uppercase">{p.payment_method || "N/A"}</p>
+                                        <p className="text-sm font-bold text-slate-700 uppercase">{(p as any).method || p.payment_method || "N/A"}</p>
                                         {p.bank_name && <p className="text-[10px] text-slate-500">{p.bank_name}</p>}
                                     </td>
                                     <td className="px-6 py-4">
@@ -129,14 +130,14 @@ const ClientPaymentsList = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase
-                      ${(p.payment_status || '').toLowerCase() === 'completed' || (p.payment_status || '').toLowerCase() === 'verified' ? 'bg-emerald-100 text-emerald-600' :
-                                                (p.payment_status || '').toLowerCase() === 'failed' || (p.payment_status || '').toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                            {p.payment_status || 'Pending'}
+                      ${((p as any).status || p.payment_status || '').toLowerCase().includes('completed') || ((p as any).status || p.payment_status || '').toLowerCase().includes('verified') || ((p as any).status || p.payment_status || '').toLowerCase().includes('success') ? 'bg-emerald-100 text-emerald-600' :
+                                                ((p as any).status || p.payment_status || '').toLowerCase().includes('failed') || ((p as any).status || p.payment_status || '').toLowerCase().includes('rejected') ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                            {((p as any).status || p.payment_status || 'Pending').replace(/_/g, ' ')}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-3">
-                                            {(p.payment_status || '').toLowerCase() !== 'verified' && (
+                                            {((p as any).status || p.payment_status || '').toLowerCase().includes('pending') && (
                                                 <>
                                                     <button
                                                         onClick={() => handleVerify(p.id, "approve")}

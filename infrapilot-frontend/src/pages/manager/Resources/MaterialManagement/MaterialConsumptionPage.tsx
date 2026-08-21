@@ -362,7 +362,7 @@ const MaterialConsumptionPage = () => {
                                             <th className="px-6 py-4">Material</th>
                                             <th className="px-6 py-4">From Project</th>
                                             <th className="px-6 py-4">To Project</th>
-                                            <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
+                                            <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Created At</th><th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
                                     )}
                                     {activeTab === "Transactions" && (
@@ -485,7 +485,7 @@ const MaterialConsumptionPage = () => {
                 {viewTransferDetails && (
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date(viewTransferDetails.created_at || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Material</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.material?.name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>

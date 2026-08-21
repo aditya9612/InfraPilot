@@ -8,31 +8,29 @@ import { useAuth } from "../../../context/AuthContext";
 import { workOrderService, type WorkOrder } from "../../../services/workOrderService";
 import { projectService } from "../../../services/projectService";
 import { useProject } from "../../../context/ProjectContext";
+import { contractorService } from "../../../services/contractorService";
 
 const WorkOrdersPage = () => {
   const { user } = useAuth();
   const { selectedProjectId: projectId } = useProject();
-  
+
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [contractors] = useState<any[]>([
-    { id: 1, name: "Alpha Builders" },
-    { id: 2, name: "Omega Constructors" }
-  ]); // Mock contractors for now if contractorService is not readily available
-  
+  const [contractors, setContractors] = useState<any[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedViewOrder, setSelectedViewOrder] = useState<WorkOrder | null>(null);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const paginatedWorkOrders = workOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  
+
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [formData, setFormData] = useState<any>({
     project_id: projectId || "",
@@ -68,9 +66,21 @@ const WorkOrdersPage = () => {
     }
   };
 
+  const loadContractors = async (projId: number) => {
+    try {
+      const data = await contractorService.getContractorsByProject(projId);
+      setContractors(data);
+    } catch (error) {
+      console.error("Failed to fetch contractors", error);
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
     loadWorkOrders();
+    if (projectId) {
+      loadContractors(projectId);
+    }
   }, [projectId]);
 
   const handleView = async (id: number) => {
@@ -227,11 +237,10 @@ const WorkOrdersPage = () => {
                           <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.rate}</td>
                           <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{order.total_amount || (order.total_quantity * order.rate)}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              order.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${order.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
                               order.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                              'bg-amber-100 text-amber-700'
-                            }`}>
+                                'bg-amber-100 text-amber-700'
+                              }`}>
                               {order.status || 'Pending'}
                             </span>
                           </td>
@@ -495,11 +504,10 @@ const WorkOrdersPage = () => {
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">STATUS</p>
                   <p className="font-medium text-slate-900">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      selectedViewOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${selectedViewOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
                       selectedViewOrder.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                      'bg-amber-100 text-amber-700'
-                    }`}>
+                        'bg-amber-100 text-amber-700'
+                      }`}>
                       {selectedViewOrder.status || 'Pending'}
                     </span>
                   </p>

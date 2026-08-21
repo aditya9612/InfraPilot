@@ -80,7 +80,7 @@ const AttendancePage: React.FC = () => {
         try {
             const [status, list] = await Promise.all([
                 attendanceService.getTodayStatus(),
-                attendanceService.getListAttendance({ page_size: 10 })
+                attendanceService.getListAttendance({ page_size: 100 })
             ]);
             const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 
@@ -131,17 +131,31 @@ const AttendancePage: React.FC = () => {
                 : nowIso;
 
             const formData = new FormData();
-            formData.append('attendance_date', selectedDate);
-            formData.append('project_id', (data.project_id || 1).toString());
-            formData.append('status', 'present');
-            formData.append('in_time', inTimeIso);
-            formData.append('check_in_latitude', data.latitude?.toString() || '');
-            formData.append('check_in_longitude', data.longitude?.toString() || '');
-            formData.append('check_in_address', data.resolved_address || data.location_address || '');
-            if (data.task_id) formData.append('task_id', data.task_id);
-            if (data.task_description) formData.append('task_description', data.task_description);
-            if (data.remarks) formData.append('remarks', data.remarks);
-            if (data.work_location_type) formData.append('work_location_type', data.work_location_type);
+            if (data.project_id && Number(data.project_id) > 0) {
+                formData.append('project_id', Number(data.project_id).toString());
+            }
+            if (data.latitude !== undefined && data.latitude !== null && !isNaN(Number(data.latitude))) {
+                formData.append('check_in_latitude', Number(data.latitude).toString());
+            }
+            if (data.longitude !== undefined && data.longitude !== null && !isNaN(Number(data.longitude))) {
+                formData.append('check_in_longitude', Number(data.longitude).toString());
+            }
+            const resolvedAddr = data.resolved_address || data.location_address;
+            if (resolvedAddr && !["Fetching location...", "Locating...", "Location not available"].includes(resolvedAddr.trim())) {
+                formData.append('check_in_address', resolvedAddr.trim());
+            }
+            if (data.task_id && !isNaN(Number(data.task_id))) {
+                formData.append('task_id', Number(data.task_id).toString());
+            }
+            if (data.task_description && data.task_description.trim()) {
+                formData.append('task_description', data.task_description.trim());
+            }
+            if (data.remarks && data.remarks.trim()) {
+                formData.append('remarks', data.remarks.trim());
+            }
+            if (data.work_location_type && data.work_location_type.trim()) {
+                formData.append('work_location_type', data.work_location_type.trim());
+            }
 
             if (data.check_in_image) {
                 try {
@@ -622,22 +636,22 @@ const AttendancePage: React.FC = () => {
                                 )}
                             </div>
 
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[580px] border border-slate-100 rounded-2xl scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 scrollbar-track-slate-50 relative">
                                 <table className="w-full">
-                                    <thead className="bg-slate-50/50">
+                                    <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200 backdrop-blur-sm">
                                         <tr>
                                             {[
                                                 'DATE', 'LABOUR NAME', 'DEPARTMENT',
                                                 'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'WORKING HOURS',
                                                 'OVERTIME HOURS', 'LOCATION', 'STATUS', 'ACTION'
                                             ].map(head => (
-                                                <th key={head} className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 whitespace-nowrap">
+                                                <th key={head} className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 whitespace-nowrap bg-slate-50">
                                                     {head}
                                                 </th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-slate-100">
                                         {filteredRecords.length > 0 ? (
                                             filteredRecords.map((record) => (
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
