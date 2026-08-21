@@ -28,13 +28,16 @@ import {
     getLocalDateString, 
     getISTDateString,
     formatToIST, 
-    parseUTCToDate 
+    parseUTCToDate,
+    formatDateBySettings,
+    formatDateToIST
 } from '../../utils/dateUtils';
 
 
 const AttendancePage: React.FC = () => {
     const { user } = useAuth();
     const [currentTime, setCurrentTime] = useState(new Date());
+    const currentDateRef = React.useRef(getISTDateString());
 
     const [historyFilter, setHistoryFilter] = useState('Today');
     const [statusData, setStatusData] = useState<TodayStatusResponse | null>(null);
@@ -52,7 +55,18 @@ const AttendancePage: React.FC = () => {
     const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        const timer = setInterval(() => {
+            const now = new Date();
+            setCurrentTime(now);
+
+            // Check if midnight (12:00 AM) has arrived for the next day
+            const nowISTDate = getISTDateString(now);
+            if (nowISTDate !== currentDateRef.current) {
+                currentDateRef.current = nowISTDate;
+                // Automatically refresh attendance data for the new day
+                fetchData(true);
+            }
+        }, 1000);
 
         // Fetch live location
         if ("geolocation" in navigator) {
@@ -74,6 +88,49 @@ const AttendancePage: React.FC = () => {
         return () => clearInterval(timer);
     }, []);
 
+    const extractDateString = (record: AttendanceRecord): string => {
+        const raw = record.attendance_date || record.in_time || record.check_in_time || '';
+        if (!raw) return '';
+        const str = String(raw).trim();
+        if (str.includes('T')) return str.split('T')[0];
+        if (str.includes(' ')) return str.split(' ')[0];
+        return str;
+    };
+
+    const getRecordWorkingHours = (record: AttendanceRecord) => {
+        if (record.working_hours) {
+            const wh: unknown = record.working_hours;
+            if (typeof wh === 'number') {
+                const hrs = Math.floor(wh);
+                const mins = Math.round((wh % 1) * 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+            }
+            if (typeof wh === 'string' && (wh as string).includes(':')) {
+                return wh as string;
+            }
+            const whNum = parseFloat(wh as string);
+            if (!isNaN(whNum)) {
+                const hrs = Math.floor(whNum);
+                const mins = Math.round((whNum % 1) * 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+            }
+            return String(wh);
+        }
+        if (record.in_time && record.out_time) {
+            const inDate = parseUTCToDate(record.in_time, record.attendance_date);
+            const outDate = parseUTCToDate(record.out_time, record.attendance_date);
+            if (inDate && outDate) {
+                const diffMs = outDate.getTime() - inDate.getTime();
+                if (diffMs > 0) {
+                    const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+                    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+                }
+            }
+        }
+        return '-';
+    };
+
     const fetchData = async (silent = false) => {
         if (!silent) setIsLoading(true);
         else setIsRefreshing(true);
@@ -84,7 +141,9 @@ const AttendancePage: React.FC = () => {
             ]);
             const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 
-            const normalizedList = (list.data || []).map((r: any) => ({
+            const rawItems = Array.isArray(list) ? list : (list?.data || list?.items || []);
+
+            let normalizedList: AttendanceRecord[] = rawItems.map((r: any) => ({
                 ...r,
                 check_in_image: r.check_in_image && !r.check_in_image.startsWith('data:') && !r.check_in_image.startsWith('http')
                     ? `${apiHost}/${r.check_in_image}`
@@ -102,6 +161,29 @@ const AttendancePage: React.FC = () => {
                 status.attendance.check_out_image = status.attendance.check_out_image && !status.attendance.check_out_image.startsWith('data:') && !status.attendance.check_out_image.startsWith('http')
                     ? `${apiHost}/${status.attendance.check_out_image}`
                     : status.attendance.check_out_image;
+
+                const todayDate = extractDateString(status.attendance) || getISTDateString();
+                
+                // Ensure today's active record from status is present in normalizedList
+                const existingIndex = normalizedList.findIndex((r: any) => 
+                    (status.attendance?.id && r.id === status.attendance.id) ||
+                    (extractDateString(r) === todayDate)
+                );
+
+                if (existingIndex >= 0) {
+                    normalizedList[existingIndex] = {
+                        ...normalizedList[existingIndex],
+                        ...status.attendance,
+                        full_name: normalizedList[existingIndex].full_name || status.attendance.full_name || user?.name || 'Labour',
+                        attendance_date: normalizedList[existingIndex].attendance_date || todayDate,
+                    };
+                } else if (status.attendance.in_time || status.attendance.check_in_time || status.checked_in) {
+                    normalizedList.unshift({
+                        ...status.attendance,
+                        full_name: status.attendance.full_name || user?.name || 'Labour',
+                        attendance_date: todayDate,
+                    });
+                }
             }
 
             setStatusData(status);
@@ -173,25 +255,37 @@ const AttendancePage: React.FC = () => {
                 console.warn('API checkin failed, service handled mock persistence');
             }
 
+            const newRecord: AttendanceRecord = {
+                id: checkInRes?.id || statusData?.attendance?.id || Math.floor(Math.random() * 9000) + 1000,
+                user_id: user?.id || 1,
+                full_name: user?.name || 'Labour',
+                attendance_date: selectedDate,
+                in_time: inTimeIso,
+                check_in_time: inTimeIso,
+                out_time: undefined,
+                check_out_time: undefined,
+                working_hours: 0,
+                check_in_address: data.resolved_address || data.location_address || liveLocation || '',
+                work_location_type: data.work_location_type || 'wfo',
+                is_late: false,
+                check_in_image: data.check_in_image || undefined,
+            } as any;
+
             // Immediately set active checked-in state
             setStatusData({
                 checked_in: true,
                 checked_out: false,
                 running_hours: 0,
                 date: selectedDate,
-                attendance: {
-                    id: checkInRes?.id || statusData?.attendance?.id || Math.floor(Math.random() * 9000) + 1000,
-                    user_id: user?.id || 1,
-                    attendance_date: selectedDate,
-                    in_time: inTimeIso,
-                    check_in_time: inTimeIso,
-                    out_time: undefined,
-                    check_out_time: undefined,
-                    working_hours: 0,
-                    check_in_address: data.resolved_address || data.location_address || liveLocation || '',
-                    work_location_type: data.work_location_type || 'wfo',
-                    is_late: false,
-                } as any
+                attendance: newRecord
+            });
+
+            setAttendanceList(prev => {
+                const exists = prev.some(r => r.id === newRecord.id || extractDateString(r) === selectedDate);
+                if (exists) {
+                    return prev.map(r => (r.id === newRecord.id || extractDateString(r) === selectedDate) ? { ...r, ...newRecord } : r);
+                }
+                return [newRecord, ...prev];
             });
 
             toast.success('Check-in successful!');
@@ -243,19 +337,31 @@ const AttendancePage: React.FC = () => {
                 console.warn('API checkout failed, service handled mock persistence');
             }
 
+            const todayDate = getISTDateString();
+            const updatedAtt = {
+                ...(statusData?.attendance || {}),
+                out_time: outTimeIso,
+                check_out_time: outTimeIso,
+                check_out_address: data.resolved_address || data.location_address || '',
+                work_summary: data.work_summary || '',
+                check_out_image: data.check_out_image || statusData?.attendance?.check_out_image,
+            } as any;
+
             setStatusData(prev => ({
                 checked_in: true,
                 checked_out: true,
                 running_hours: prev?.running_hours || 0,
-                date: getISTDateString(),
-                attendance: {
-                    ...(prev?.attendance || {}),
-                    out_time: outTimeIso,
-                    check_out_time: outTimeIso,
-                    check_out_address: data.resolved_address || data.location_address || '',
-                    work_summary: data.work_summary || '',
-                } as any
+                date: todayDate,
+                attendance: updatedAtt
             }));
+
+            setAttendanceList(prev => {
+                const exists = prev.some(r => r.id === checkoutId || extractDateString(r) === todayDate);
+                if (exists) {
+                    return prev.map(r => (r.id === checkoutId || extractDateString(r) === todayDate) ? { ...r, ...updatedAtt } : r);
+                }
+                return [updatedAtt, ...prev];
+            });
 
             toast.success('Check-out successful!');
             await fetchData(true);
@@ -299,15 +405,24 @@ const AttendancePage: React.FC = () => {
     };
 
     const getFilteredRecords = () => {
-        const today = getLocalDateString(new Date());
-        const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
+        const todayIST = getISTDateString();
+        const todayLocal = getLocalDateString();
+        const yesterdayIST = getISTDateString(new Date(Date.now() - 86400000));
+        const yesterdayLocal = getLocalDateString(new Date(Date.now() - 86400000));
+
         return attendanceList.filter(record => {
-            if (historyFilter === 'Today') return record.attendance_date === today;
-            if (historyFilter === 'Yesterday') return record.attendance_date === yesterday;
+            const recDate = extractDateString(record);
+            if (historyFilter === 'Today') {
+                return recDate === todayIST || recDate === todayLocal;
+            }
+            if (historyFilter === 'Yesterday') {
+                return recDate === yesterdayIST || recDate === yesterdayLocal;
+            }
             if (historyFilter === 'Date') {
-                if (dateFrom && dateTo) return record.attendance_date >= dateFrom && record.attendance_date <= dateTo;
-                if (dateFrom) return record.attendance_date >= dateFrom;
-                if (dateTo) return record.attendance_date <= dateTo;
+                if (dateFrom && dateTo) return recDate >= dateFrom && recDate <= dateTo;
+                if (dateFrom) return recDate >= dateFrom;
+                if (dateTo) return recDate <= dateTo;
+                return true;
             }
             return true; // 'All'
         });
@@ -322,16 +437,24 @@ const AttendancePage: React.FC = () => {
     };
 
     // Determine current attendance state
+    const todayIST = getISTDateString(currentTime);
+    const todayLocal = getLocalDateString(currentTime);
+    const recordDate = statusData?.attendance?.attendance_date || statusData?.date;
+    const isRecordForToday = Boolean(
+        recordDate && (recordDate === todayIST || recordDate === todayLocal)
+    );
+
     const hasInTime = Boolean(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time);
     const hasOutTime = Boolean(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time);
     const inTimeMs = parseTimeToMs(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time, statusData?.attendance?.attendance_date);
     const outTimeMs = parseTimeToMs(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time, statusData?.attendance?.attendance_date);
 
     const isCurrentlyCheckedIn =
+        isRecordForToday &&
         Boolean(statusData?.checked_in || hasInTime) &&
         (!statusData?.checked_out || !hasOutTime || inTimeMs > outTimeMs);
 
-    const isShiftCompleted = !isCurrentlyCheckedIn && Boolean(statusData?.checked_out || hasOutTime);
+    const isShiftCompleted = isRecordForToday && !isCurrentlyCheckedIn && Boolean(statusData?.checked_out || hasOutTime);
 
     if (isLoading) {
         return (
@@ -476,10 +599,12 @@ const AttendancePage: React.FC = () => {
                                                         <div className="flex items-center gap-2">
                                                             <LogIn className="w-4 h-4 text-emerald-500" />
                                                             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-In Time</span>
-                                                            <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-rose-100">Late</span>
+                                                            {statusData?.attendance?.is_late && (
+                                                                <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-rose-100">Late</span>
+                                                            )}
                                                             <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black rounded-full uppercase tracking-widest">
                                                                 <MapPinIcon className="w-2.5 h-2.5" />
-                                                                Work From Office
+                                                                {statusData?.attendance?.work_location_type === 'wfo' || statusData?.attendance?.work_location_type === 'office' ? 'Work From Office' : (statusData?.attendance?.work_location_type || 'Work From Office')}
                                                             </div>
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
@@ -520,19 +645,6 @@ const AttendancePage: React.FC = () => {
                                                 <CheckCircle className="w-4 h-4 text-emerald-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Attendance Completed for Today</span>
                                             </div>
-
-                                            <button
-                                                onClick={() => setIsCheckInModalOpen(true)}
-                                                disabled={isActionLoading}
-                                                className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn disabled:opacity-50"
-                                            >
-                                                {isActionLoading ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                                ) : (
-                                                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                                                )}
-                                                Check In
-                                            </button>
                                         </div>
                                     ) : (
                                         /* Initial State: Show Check In */
@@ -657,7 +769,7 @@ const AttendancePage: React.FC = () => {
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="text-xs font-bold text-slate-500">
-                                                            {record.attendance_date ? new Date(record.attendance_date).toLocaleDateString() : '2024-03-24'}
+                                                            {formatDateBySettings(extractDateString(record) || record.attendance_date || record.in_time)}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -721,8 +833,8 @@ const AttendancePage: React.FC = () => {
                                                         </div>
                                                     </td>
 
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-400">
-                                                        {record.working_hours ? `${record.working_hours}h` : '-'}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-700">
+                                                        {getRecordWorkingHours(record)}
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-400">
