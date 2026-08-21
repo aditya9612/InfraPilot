@@ -35,7 +35,7 @@ const ManagerIssuesPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
     const [isExportingExcel, setIsExportingExcel] = useState(false);
-    
+
     // Export Modal State
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportType, setExportType] = useState<"pdf" | "excel" | null>(null);
@@ -509,25 +509,24 @@ const ManagerIssuesPage = () => {
                                 {Array.from({ length: totalPages }).map((_, i) => {
                                     const page = i + 1;
                                     if (
-                                        page === 1 || 
-                                        page === totalPages || 
+                                        page === 1 ||
+                                        page === totalPages ||
                                         (page >= currentPage - 1 && page <= currentPage + 1)
                                     ) {
                                         return (
                                             <button
                                                 key={page}
                                                 onClick={() => setCurrentPage(page)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-                                                    currentPage === page
+                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
                                                         ? "bg-primary text-white shadow-sm shadow-primary/20"
                                                         : "text-slate-500 hover:bg-slate-100"
-                                                }`}
+                                                    }`}
                                             >
                                                 {page}
                                             </button>
                                         );
                                     } else if (
-                                        page === currentPage - 2 || 
+                                        page === currentPage - 2 ||
                                         page === currentPage + 2
                                     ) {
                                         return <span key={page} className="text-slate-400 font-bold px-1 flex items-center justify-center">...</span>;
@@ -727,7 +726,7 @@ const ManagerIssuesPage = () => {
                             </div>
                             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Issue Parameters</h3>
                         </div>
-                        
+
                         <div className="grid grid-cols-3 gap-4 mb-5">
                             <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</div>
@@ -789,7 +788,7 @@ const ManagerIssuesPage = () => {
                         </div>
                     </div>
 
-                    <button 
+                    <button
                         onClick={() => { setIsViewModalOpen(false); setSelectedIssue(null); }}
                         className="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] shadow-md shadow-blue-500/20"
                     >
@@ -832,11 +831,10 @@ const ManagerIssuesPage = () => {
                                 <button
                                     key={s}
                                     onClick={() => setExportFilters({ ...exportFilters, status: s })}
-                                    className={`px-4 py-2 rounded-full text-[11px] font-bold uppercase transition-all ${
-                                        exportFilters.status === s
+                                    className={`px-4 py-2 rounded-full text-[11px] font-bold uppercase transition-all ${exportFilters.status === s
                                             ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                                             : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
+                                        }`}
                                 >
                                     {s}
                                 </button>
@@ -861,7 +859,7 @@ const ManagerIssuesPage = () => {
                                     else if (p === 'medium') colorClass = 'border-amber-200 text-amber-500 hover:bg-amber-50 hover:border-amber-300';
                                     else if (p === 'low') colorClass = 'border-emerald-200 text-emerald-500 hover:bg-emerald-50 hover:border-emerald-300';
                                 }
-                                
+
                                 return (
                                     <button
                                         key={p}

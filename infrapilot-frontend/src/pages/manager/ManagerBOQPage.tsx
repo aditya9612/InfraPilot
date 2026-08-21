@@ -210,7 +210,7 @@ const ManagerBOQPage = () => {
             // Removed draft filter so newly created BOQs show up
             const masterItems = res.items;
             setBoqData(masterItems);
-            setTotalItems(masterItems.length);
+            setTotalItems(res.total || masterItems.length);
 
             // Also refresh summary if project is selected
             if (selectedProjectId) {

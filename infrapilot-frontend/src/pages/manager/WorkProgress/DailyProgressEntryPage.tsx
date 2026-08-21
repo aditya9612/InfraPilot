@@ -144,7 +144,7 @@ const DailyProgressEntryPage = () => {
       else if (res && Array.isArray((res as any).data)) entries = (res as any).data;
       else if (res && (res as any).data && Array.isArray((res as any).data.data)) entries = (res as any).data.data;
       else if (res && Array.isArray((res as any).progress)) entries = (res as any).progress;
-      
+
       setTodayActivities(entries as DailyEntry[]);
       setHasLoadedToday(true);
 
@@ -190,18 +190,18 @@ const DailyProgressEntryPage = () => {
       const limit = 100;
       while (true) {
         const res = await workProgressService.listDailyEntries(undefined, undefined, projectId, limit, offset);
-        
+
         let batch: any[] = [];
         if (Array.isArray(res)) batch = res;
         else if (res && Array.isArray((res as any).data)) batch = (res as any).data;
         else if (res && (res as any).data && Array.isArray((res as any).data.data)) batch = (res as any).data.data;
-        
+
         if (!batch || batch.length === 0) break;
         allEntriesList = allEntriesList.concat(batch);
         if (batch.length < limit) break;
         offset += limit;
       }
-      
+
       const entries = allEntriesList;
       setAllEntries(entries);
       setHasLoadedAll(true);
@@ -241,7 +241,7 @@ const DailyProgressEntryPage = () => {
     if (!projectId) return;
     try {
       if (!hasLoadedHistory) setLoading(true);
-      
+
       let historyArr: any[] = [];
       if (selectedActivityId === "all") {
         // Fetch history for all activities in parallel
@@ -255,7 +255,7 @@ const DailyProgressEntryPage = () => {
           else if (r && Array.isArray((r as any).activity)) hist = (r as any).activity;
           else if (r && Array.isArray((r as any).data)) hist = (r as any).data;
           else if (r && (r as any).data && Array.isArray((r as any).data.data)) hist = (r as any).data.data;
-          
+
           if (r && (r as any).activity && (r as any).activity.id) {
             hist = hist.map((h: any) => ({ ...h, activity_id: (r as any).activity.id, activity: (r as any).activity }));
           }
@@ -269,13 +269,13 @@ const DailyProgressEntryPage = () => {
         else if (r && Array.isArray((r as any).activity)) hist = (r as any).activity;
         else if (r && Array.isArray((r as any).data)) hist = (r as any).data;
         else if (r && (r as any).data && Array.isArray((r as any).data.data)) hist = (r as any).data.data;
-        
+
         if (r && (r as any).activity && (r as any).activity.id) {
           hist = hist.map((h: any) => ({ ...h, activity_id: (r as any).activity.id, activity: (r as any).activity }));
         }
         historyArr = hist;
       }
-      
+
       // Sort by created_at descending if available
       historyArr.sort((a, b) => {
         const da = new Date(a.created_at || a.entry_date || 0).getTime();
@@ -298,7 +298,7 @@ const DailyProgressEntryPage = () => {
     try {
       setLoading(true);
       const res = await workProgressService.getDelayReport(projectId);
-      
+
       let delayArr: any[] = [];
       if (Array.isArray(res)) delayArr = res;
       else if (res && Array.isArray((res as any).data)) delayArr = (res as any).data;
@@ -390,7 +390,8 @@ const DailyProgressEntryPage = () => {
 
   const baseTodayActivities = useMemo(() => {
     return todayActivities.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => String(act.id) === String(e.activity_id));
+      // if (!a) return false; // Relaxed to allow displaying logs even if activity data is missing
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -417,7 +418,8 @@ const DailyProgressEntryPage = () => {
       list = list.filter(e => e.entry_date === filterDate);
     }
     return list.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => String(act.id) === String(e.activity_id));
+      // if (!a) return false;
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -448,7 +450,8 @@ const DailyProgressEntryPage = () => {
       });
     }
     return list.filter(e => {
-      const a = activitiesList.find(act => act.id === e.activity_id);
+      const a = activitiesList.find(act => String(act.id) === String(e.activity_id));
+      // if (!a) return false;
       const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -460,8 +463,8 @@ const DailyProgressEntryPage = () => {
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
     return baseHistoryEntries.filter(e => {
-      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
-      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      if (activeStatFilter === "Progress Updates") return Number(e.today_progress) > 0 || Number(e.new_value?.today_progress) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.status && e.status !== e.old_value?.status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
       return true;
     });
   }, [baseHistoryEntries, activeStatFilter]);
@@ -473,9 +476,9 @@ const DailyProgressEntryPage = () => {
         e.activity_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (e.boq_code && String(e.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.id) === String(selectedActivityId);
-      
+
       const matchesStatus = delayStatusFilter === "all" || (e.status || "DELAY").toUpperCase() === delayStatusFilter.toUpperCase();
-      
+
       return matchesSearch && matchesActivity && matchesStatus;
     });
     if (activeStatFilter === "All Delayed") return list;
@@ -523,12 +526,12 @@ const DailyProgressEntryPage = () => {
       const list = baseHistoryEntries;
       const total = list.length;
       const completed = list.filter(e => {
-        return Number(e.new_value?.today_progress) >= 100;
+        return Number(e.today_progress) >= 100 || Number(e.new_value?.today_progress) >= 100;
       }).length;
-      const delayed = list.filter(e => e.new_value?.status?.toLowerCase() === "delay").length;
+      const delayed = list.filter(e => e.status?.toLowerCase() === "delay" || e.new_value?.status?.toLowerCase() === "delay").length;
       const yieldRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-      const totalProgress = list.reduce((sum, e) => sum + (Number(e.new_value?.today_progress) || 0), 0);
+      const totalProgress = list.reduce((sum, e) => sum + (Number(e.today_progress) || Number(e.new_value?.today_progress) || 0), 0);
 
       return {
         total,
@@ -578,8 +581,8 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'history') {
       cards = [
         { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
-        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
-        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.today_progress) > 0 || Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
+        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.status && e.status !== e.old_value?.status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
       ];
     } else if (activeTab === 'delay') {
       cards = [
@@ -686,61 +689,61 @@ const DailyProgressEntryPage = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
             {activeTab !== 'summary' && (
-            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-              <div className="relative flex-1 max-w-md font-inter">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
-                  <Search className="w-4 h-4" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search by activity ref or BOQ identity..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-                />
-              </div>
+              <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                <div className="relative flex-1 max-w-md font-inter">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
+                    <Search className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by activity ref or BOQ identity..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                  />
+                </div>
 
-              <div className="flex items-center gap-3 font-inter">
-                {activeTab === 'delay' && (
-                  <select
-                    value={delayStatusFilter}
-                    onChange={(e) => setDelayStatusFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="DELAY">Delay</option>
-                    <option value="ON TRACK">On Track</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="NOT STARTED">Not Started</option>
-                  </select>
-                )}
-                {(activeTab === 'all' || activeTab === 'history') && (
-                  <div className="flex items-center gap-3 font-inter">
-                    {activeTab === 'all' && (
-                      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <input
-                          type="date"
-                          value={filterDate}
-                          onChange={(e) => setFilterDate(e.target.value)}
-                          className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
-                        />
-                      </div>
-                    )}
+                <div className="flex items-center gap-3 font-inter">
+                  {activeTab === 'delay' && (
                     <select
-                      value={selectedActivityId}
-                      onChange={(e) => setSelectedActivityId(e.target.value)}
+                      value={delayStatusFilter}
+                      onChange={(e) => setDelayStatusFilter(e.target.value)}
                       className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
                     >
-                      <option value="all">All Activities</option>
-                      {activitiesList.map(a => (
-                        <option key={a.id} value={a.id}>{a.activity_name}</option>
-                      ))}
+                      <option value="all">All Statuses</option>
+                      <option value="DELAY">Delay</option>
+                      <option value="ON TRACK">On Track</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="NOT STARTED">Not Started</option>
                     </select>
-                  </div>
-                )}
+                  )}
+                  {(activeTab === 'all' || activeTab === 'history') && (
+                    <div className="flex items-center gap-3 font-inter">
+                      {activeTab === 'all' && (
+                        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <input
+                            type="date"
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                            className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
+                          />
+                        </div>
+                      )}
+                      <select
+                        value={selectedActivityId}
+                        onChange={(e) => setSelectedActivityId(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                      >
+                        <option value="all">All Activities</option>
+                        {activitiesList.map(a => (
+                          <option key={a.id} value={a.id}>{a.activity_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
             )}
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">

@@ -7,7 +7,6 @@ export interface EquipmentItem {
     equipment_code: string;
     operator_name: string;
     condition: string;
-    status?: string;
     rental_cost: number;
     maintenance_date: string;
     is_deleted: boolean;
@@ -463,8 +462,8 @@ export const equipmentService = {
         return response.data;
     },
 
-    async transferEquipment(equipment_id: number, to_project_id: number): Promise<any> {
-        const response = await api.post(`/equipment/${equipment_id}/transfer`, { to_project_id });
+    async transferEquipment(data: { equipment_id: number, to_project_id: number, transfer_date?: string, condition_notes?: string }): Promise<any> {
+        const response = await api.post('/equipment/transfer', data);
         return response.data;
     },
 

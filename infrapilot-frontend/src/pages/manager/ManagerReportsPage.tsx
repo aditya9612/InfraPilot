@@ -95,12 +95,7 @@ const ManagerReportsPage = () => {
         format: "PDF" | "Excel";
     } | null>(null);
 
-    const [stats, setStats] = useState({
-        totalExpense: 0,
-        totalProfit: 0,
-        completion: 0,
-        activeIssues: 0
-    });
+
 
     const MONTH_NAMES = [
         "January", "February", "March", "April", "May", "June",
@@ -143,37 +138,7 @@ const ManagerReportsPage = () => {
         }
     };
 
-    useEffect(() => {
-        const fetchGlobalStats = async () => {
-            if (!selectedProjectId) return;
-            try {
-                const [finSummary, progressSummary, issueRes, allIssuesRes] = await Promise.all([
-                    reportService.getFinancialSummary(selectedProjectId).catch(() => null),
-                    workProgressService.getProjectSummary(selectedProjectId).catch(() => null),
-                    reportService.getIssueReport(selectedProjectId).catch(() => null),
-                    issueService.listIssuesByProject(selectedProjectId).catch(() => null)
-                ]);
 
-                const profit = (finSummary?.total_billing || 0) - (finSummary?.total_expense || 0);
-
-                const total = progressSummary?.total_activities || 0;
-                const completed = progressSummary?.completed_activities || 0;
-                const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-                const activeIssuesCount = allIssuesRes?.meta?.total ?? allIssuesRes?.items?.length ?? (issueRes as any)?.open_issues ?? 0;
-
-                setStats({
-                    totalExpense: finSummary?.total_expense || 0,
-                    totalProfit: profit,
-                    completion: completionRate,
-                    activeIssues: activeIssuesCount
-                });
-            } catch (error) {
-                console.error("Failed to fetch dashboard stats", error);
-            }
-        };
-        fetchGlobalStats();
-    }, [selectedProjectId]);
 
     const handleExport = async (reportId: string, format: "PDF" | "Excel", customStart?: string, customEnd?: string) => {
         if (!selectedProjectId) {
@@ -344,7 +309,7 @@ const ManagerReportsPage = () => {
                         reportService.getFinancialSummary(pid).catch(() => null),
                         financeService.getProjectInvoiceSummary(pid).catch(() => null)
                     ]);
-                    
+
                     const invoiceSummary = rawInvoiceSummary ? {
                         projectId: pid,
                         paid: (rawInvoiceSummary.total_billing || 0) - (rawInvoiceSummary.pending_collections || 0),
@@ -496,31 +461,7 @@ const ManagerReportsPage = () => {
                     </div>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                    {[
-                        { label: "Net Margin", value: formatCompactCurrency(stats.totalProfit), sub: "Billing vs Costs", icon: <TrendingUp size={22} />, color: "bg-emerald-50 text-emerald-600" },
-                        { label: "Operational Spend", value: formatCompactCurrency(stats.totalExpense), sub: "Total Expenditure", icon: <IndianRupee size={22} />, color: "bg-rose-50 text-rose-500" },
-                        { label: "Execution Rank", value: `${stats.completion}%`, sub: "Progress Compliance", icon: <CheckCircle2 size={22} />, color: "bg-blue-50 text-blue-600" },
-                        { label: "Active Blockers", value: `${stats.activeIssues} ${stats.activeIssues === 1 ? 'Issue' : 'Issues'}`, sub: "Site Issues", icon: <AlertCircle size={22} />, color: "bg-amber-50 text-amber-600" },
-                    ].map((stat, i) => (
-                        <div key={i} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all hover:shadow-md">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color}`}>
-                                    {stat.icon}
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                                    <p className="text-2xl font-black text-slate-800 tracking-tight">{stat.value}</p>
-                                </div>
-                            </div>
-                            <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
-                                <div className="h-full bg-slate-200 w-2/3 rounded-full" />
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">{stat.sub}</p>
-                        </div>
-                    ))}
-                </div>
+
 
                 {/* Categories & Search */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">

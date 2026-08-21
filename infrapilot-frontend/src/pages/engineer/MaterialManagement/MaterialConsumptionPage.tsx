@@ -357,6 +357,7 @@ const MaterialConsumptionPage = () => {
                                             <tr key={i.material_id} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 <td className="px-6 py-4 text-right">
@@ -373,10 +374,7 @@ const MaterialConsumptionPage = () => {
                                                     <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">
-                                                    {(() => {
-                                                        const d = (t as any).transfer_date || (t as any).transferDate || (t as any).created_at || (t as any).createdAt || (t as any).date || (t as any).timestamp;
-                                                        return d ? new Date(d).toLocaleDateString() : 'N/A';
-                                                    })()}
+                                                    {t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                                     <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
@@ -468,7 +466,7 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Transfer ID</p><p className="text-sm font-bold text-slate-800">#{viewTransferDetails.id}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleString()}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.created_at ? new Date(viewTransferDetails.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Material</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.material?.name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>

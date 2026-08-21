@@ -93,12 +93,6 @@ function LedgerTab({ client, navigate }: any) {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-50 flex items-center justify-between">
                     <h3 className="text-sm font-black text-slate-700">Invoice History</h3>
-                    <button
-                        onClick={() => navigate(`/admin/invoices/create?clientId=${client.id}`)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-all"
-                    >
-                        <PlusCircle className="w-3.5 h-3.5" /> Create Invoice
-                    </button>
                 </div>
                 <table className="w-full text-sm text-left">
                     <thead>

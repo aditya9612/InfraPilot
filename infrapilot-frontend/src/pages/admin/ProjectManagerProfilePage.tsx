@@ -129,10 +129,7 @@ const ProjectManagerProfilePage: React.FC = () => {
     // 2. Fetch portfolio inteligence for all active projects
     useEffect(() => {
         const fetchProjectData = async () => {
-            if (!engineerData || assignedProjects.length === 0) {
-                setIsLoading(false);
-                return;
-            }
+            if (!engineerData) return;
             try {
                 setIsLoading(true);
                 const today = new Date().toISOString().split('T')[0];
@@ -153,7 +150,7 @@ const ProjectManagerProfilePage: React.FC = () => {
                     const [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos, mlRes, analytics, membersRes] = await Promise.all([
                         workProgressService.listActivities(pid).catch(() => []),
                         labourService.getAttendanceList(pid, today, today).catch(() => ({ items: [] })),
-                        issueService.listIssuesByProject(pid, { limit: 1000 }).catch(() => ({ items: [] })),
+                        issueService.listIssues({ project_id: pid, limit: 1000 }).catch(() => ({ items: [] })),
                         expenseService.getExpensesByProject(pid).catch(() => []),
                         dsrService.getDsrByProject(pid, { limit: 100, offset: 0 }).catch(() => ({ items: [] as any[] })),
                         sitePhotoService.getPhotos({ project_id: pid, limit: 20 }).catch(() => ({ items: [] as any[] })),
@@ -162,7 +159,8 @@ const ProjectManagerProfilePage: React.FC = () => {
                         projectService.getProjectMembers(pid).catch(() => [])
                     ]);
 
-                    allActivities = allActivities.concat(activities as any[]);
+                    const mappedActivities = Array.isArray(activities) ? activities : ((activities as any)?.items || []);
+                    allActivities = allActivities.concat(mappedActivities);
                     allAttendance = allAttendance.concat((attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []));
                     allIssues = allIssues.concat((issuesRes as any)?.items || []);
                     allExpenses = allExpenses.concat(Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []));
@@ -200,8 +198,8 @@ const ProjectManagerProfilePage: React.FC = () => {
 
                 const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
                 const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
-                const currentActivities = allActivities.filter((a: any) => a.status !== "COMPLETED" && (a.completion_percentage || 0) < 100);
-                const progress = allActivities.length > 0 ? Math.round(allActivities.reduce((sum, a) => sum + (a.completion_percentage || 0), 0) / allActivities.length) : 0;
+                const currentActivities = allActivities.filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
+                const progress = allActivities.length > 0 ? Math.round(allActivities.reduce((sum, a) => sum + (Number(a.completion_percentage) || 0), 0) / allActivities.length) : 0;
 
                 const parseAmount = (val: any) => parseFloat((val?.toString() || "0").replace(/[^0-9.]/g, '')) || 0;
                 const totalExpenses = allExpenses.reduce((sum, e) => sum + parseAmount(e.amount || e.total_amount), 0);

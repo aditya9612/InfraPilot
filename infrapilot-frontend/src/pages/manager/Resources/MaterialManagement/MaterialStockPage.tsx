@@ -30,6 +30,7 @@ const MaterialStockPage = () => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [globalInventory, setGlobalInventory] = useState<InventoryItem[]>([]);
     const [reports, setReports] = useState<MaterialReport[]>([]);
+    const [reportSummary, setReportSummary] = useState<any>(null);
     const [adjustments, setAdjustments] = useState<MaterialLog[]>([]);
     const [valuation, setValuation] = useState({ total_value: 0 });
     const [projectsList, setProjectsList] = useState<any[]>([]);
@@ -86,6 +87,7 @@ const MaterialStockPage = () => {
     // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
     const [logTypeFilter, setLogTypeFilter] = useState("ADJUSTMENT");
+    const [reportAlertFilter, setReportAlertFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -104,7 +106,11 @@ const MaterialStockPage = () => {
 
     const fetchReports = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getMaterialReport(projectId); setReports(data.materials || []); }
+        try {
+            const data = await materialService.getMaterialReport(projectId);
+            setReports(data.materials || []);
+            setReportSummary(data.summary || null);
+        }
         catch (e) { toast.error("Failed to load reports"); }
         finally { setIsLoading(false); }
     };
@@ -146,7 +152,16 @@ const MaterialStockPage = () => {
     const filteredGlobalInventory = useMemo(() => globalInventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [globalInventory, searchTerm]);
     const paginatedGlobalInventory = useMemo(() => filteredGlobalInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredGlobalInventory, currentPage, itemsPerPage]);
 
-    const filteredReports = useMemo(() => reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [reports, searchTerm]);
+    const filteredReports = useMemo(() => {
+        let res = reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (reportAlertFilter) {
+            res = res.filter(r => {
+                const alertType = (r as any).alert_type || (r.remaining_stock <= 0 ? 'OUT_OF_STOCK' : (r.remaining_stock <= ((r as any).minimum_stock_level || 10) ? 'LOW_STOCK' : 'IN_STOCK'));
+                return alertType === reportAlertFilter;
+            });
+        }
+        return res;
+    }, [reports, searchTerm, reportAlertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
 
     const filteredAdjustments = useMemo(() => adjustments.filter(a => a.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [adjustments, searchTerm]);
@@ -222,7 +237,7 @@ const MaterialStockPage = () => {
 
     return (
         <>
-            <Navbar title="Material Stock" breadcrumb={["Engineer", "Material Management", "Stock & Inventory"]} />
+            <Navbar title="Material Stock" breadcrumb={["Manager", "Material Management", "Stock & Inventory"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -396,7 +411,7 @@ const MaterialStockPage = () => {
                                                         {i.remaining_stock}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{i.unit}</td>
+                                                <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '—'}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-600 text-right">{formatINR(i.avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                             </tr>
@@ -413,26 +428,68 @@ const MaterialStockPage = () => {
                 {activeTab === "Reports" && (
                     <div className="space-y-4 flex-1 flex flex-col min-h-0">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption & Stock Reports</h2>
+
+                        {reportSummary && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-2">
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Materials</p>
+                                    <p className="text-xl font-black text-slate-800">{reportSummary.total_materials || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Purchased</p>
+                                    <p className="text-xl font-black text-blue-600">{reportSummary.total_purchased || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Used</p>
+                                    <p className="text-xl font-black text-orange-500">{reportSummary.total_used || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Value</p>
+                                    <p className="text-xl font-black text-slate-800">{formatINR(reportSummary.total_stock_value)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Pay</p>
+                                    <p className="text-xl font-black text-rose-500">{formatINR(reportSummary.total_payment_pending)}</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                     <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                 </div>
+                                <div className="relative w-48">
+                                    <select value={reportAlertFilter} onChange={(e) => setReportAlertFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                                        <option value="">All Alerts</option>
+                                        <option value="IN_STOCK">In Stock</option>
+                                        <option value="LOW_STOCK">Low Stock</option>
+                                        <option value="OUT_OF_STOCK">Out of Stock</option>
+                                    </select>
+                                </div>
                                 <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
+                                        {isLoading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
                                                 <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
                                                 <td className="px-6 py-4 text-sm text-center text-orange-600">{r.total_used}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center">
+                                                    {(() => {
+                                                        const alertType = (r as any).alert_type || (r.remaining_stock <= 0 ? 'OUT_OF_STOCK' : (r.remaining_stock <= ((r as any).minimum_stock_level || 10) ? 'LOW_STOCK' : 'IN_STOCK'));
+                                                        const alertText = alertType.replace('_', ' ');
+                                                        const badgeColor = alertType === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-600' : alertType === 'LOW_STOCK' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600';
+                                                        return <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase ${badgeColor}`}>{alertText}</span>;
+                                                    })()}
+                                                </td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
                                             </tr>
@@ -469,18 +526,37 @@ const MaterialStockPage = () => {
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4">Remarks</th></tr>
+                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Old Stock</th><th className="px-6 py-4 text-center">New Stock</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4">Remarks</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
+                                        {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
                                                 <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
-                                                <td className="px-6 py-4 text-sm font-bold text-center">{a.quantity}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">Manual Audit Adjustment</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 text-center">{(a as any).old_stock ?? '-'}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{(a as any).new_stock ?? '-'}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center">
+                                                    <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                        {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((a as any).avg_rate)}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">
+                                                    <div>{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</div>
+                                                    <pre className="text-[9px] text-slate-400 bg-slate-100 p-1 rounded mt-1 overflow-auto max-w-xs">{JSON.stringify({
+                                                        old_stock: (a as any).old_stock,
+                                                        new_stock: (a as any).new_stock,
+                                                        difference: (a as any).difference,
+                                                        quantity: a.quantity,
+                                                        rate: a.rate,
+                                                        avg_rate: (a as any).avg_rate,
+                                                        keys: Object.keys(a)
+                                                    })}</pre>
+                                                </td>
                                             </tr>
                                         ))}
-                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>

@@ -9,6 +9,7 @@ interface AddMaterialModalProps {
   suppliers: any[];
   apiErrors?: Record<string, string>;
   projects: any[];
+  masterMaterials: any[];
 }
 
 export default function AddMaterialModal({
@@ -19,6 +20,7 @@ export default function AddMaterialModal({
   suppliers,
   apiErrors,
   projects,
+  masterMaterials,
 }: AddMaterialModalProps) {
   const [formData, setFormData] = useState({
     project_id: 1, // Default mock project
@@ -31,6 +33,7 @@ export default function AddMaterialModal({
     quantity_purchased: 0,
     payment_given: 0,
     minimum_stock_level: 200,
+    material_master_id: undefined as number | undefined,
   });
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function AddMaterialModal({
       setFormData({
         ...initialData,
         project_id: initialData.project_id || 1,
+        material_master_id: initialData.material_master_id || undefined,
         payment_given: 0, // Reset for "Add Payment" logic in edit mode
       });
     } else {
@@ -52,6 +56,7 @@ export default function AddMaterialModal({
         quantity_purchased: 0,
         payment_given: 0,
         minimum_stock_level: 200,
+        material_master_id: undefined,
       });
     }
   }, [initialData, isOpen]);
@@ -81,7 +86,8 @@ export default function AddMaterialModal({
         name === "purchase_rate" ||
           name === "quantity_purchased" ||
           name === "payment_given" ||
-          name === "project_id"
+          name === "project_id" ||
+          name === "material_master_id"
           ? Number(value)
           : value,
     }));
@@ -92,10 +98,8 @@ export default function AddMaterialModal({
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
-    if (!formData.material_name.trim())
-      newErrors.material_name = "Material name is required.";
-    if (!formData.category.trim()) newErrors.category = "Category is required.";
-    if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
+    if (!formData.material_master_id)
+      newErrors.material_master_id = "Please select a material master.";
     if (!formData.supplier_name)
       newErrors.supplier_name = "Please select a supplier.";
     if (!formData.purchase_rate || formData.purchase_rate <= 0)
@@ -181,68 +185,82 @@ export default function AddMaterialModal({
 
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Material name <span className="text-rose-500">*</span>
+                Material Master <span className="text-rose-500">*</span>
+              </label>
+              <select
+                name="material_master_id"
+                value={formData.material_master_id || ""}
+                onChange={(e) => {
+                  const mId = Number(e.target.value);
+                  const mat = masterMaterials.find((m) => m.id === mId);
+                  setFormData((prev) => ({
+                    ...prev,
+                    material_master_id: mId,
+                    material_name: mat ? (mat.title || mat.name || mat.material_name || prev.material_name) : prev.material_name,
+                    category: mat && mat.category ? mat.category : prev.category,
+                    unit: mat && mat.unit ? mat.unit : prev.unit,
+                  }));
+                  if (errors.material_master_id) setErrors((prev) => ({ ...prev, material_master_id: "" }));
+                }}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.material_master_id
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+              >
+                <option value="" disabled>Select Master Material</option>
+                {masterMaterials.map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title || m.name || m.material_name}
+                  </option>
+                ))}
+              </select>
+              {errors.material_master_id && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.material_master_id}
+                </p>
+              )}
+            </div>
+
+            <div className="md:col-span-2 space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Material name
               </label>
               <input
                 type="text"
                 name="material_name"
                 value={formData.material_name}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.material_name
-                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
-                placeholder="e.g. Premium Cement 53 Grade"
+                disabled
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
+                placeholder="Auto-filled from Master"
               />
-              {errors.material_name && (
-                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
-                  {errors.material_name}
-                </p>
-              )}
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Category <span className="text-rose-500">*</span>
+                Category
               </label>
               <input
                 type="text"
                 name="category"
                 value={formData.category}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.category
-                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
-                placeholder="e.g. Masonry"
+                disabled
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
+                placeholder="Auto-filled"
               />
-              {errors.category && (
-                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
-                  {errors.category}
-                </p>
-              )}
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Unit <span className="text-rose-500">*</span>
+                Unit
               </label>
               <input
                 type="text"
                 name="unit"
                 value={formData.unit}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.unit
-                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
-                placeholder="e.g. Bags, Liters"
+                disabled
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
+                placeholder="Auto-filled"
               />
-              {errors.unit && (
-                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
-                  {errors.unit}
-                </p>
-              )}
             </div>
 
             <div className="md:col-span-2 space-y-1">

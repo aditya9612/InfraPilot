@@ -3,7 +3,7 @@ import api from './api';
 export interface WorkOrder {
   id: number;
   project_id: number;
-  contractor_id: number;
+  contractor_id: number | null;
   work_order_number: string;
   work_description: string;
   total_quantity: number;
@@ -19,7 +19,16 @@ export interface WorkOrder {
 export const workOrderService = {
   async getWorkOrders(params?: { project_id?: number, contractor_id?: number }) {
     const response = await api.get('/work-orders', { params });
-    return response.data;
+    const data = response.data;
+    const items = Array.isArray(data) ? data : (data.items || data.data || []);
+
+    // Deduplicate items based on ID to fix React map key errors
+    const seen = new Set();
+    return items.filter((item: any) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
   },
 
   async getWorkOrder(id: number) {
@@ -29,7 +38,7 @@ export const workOrderService = {
 
   async createWorkOrder(data: {
     project_id: number;
-    contractor_id: number;
+    contractor_id: number | null;
     work_description: string;
     total_quantity: number;
     rate: number;
@@ -39,7 +48,7 @@ export const workOrderService = {
   },
 
   async updateWorkOrder(id: number, data: {
-    contractor_id: number;
+    contractor_id: number | null;
     work_description: string;
     total_quantity: number;
     completed_quantity: number;

@@ -1,4 +1,4 @@
-export type RateType = 'FIXED' | 'VARIABLE';
+export type RateType = 'FIXED' | 'PER_UNIT' | 'PER_KG' | 'PER_TON' | 'PER_BAG';
 export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
 export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL' | 'DAMAGE' | 'LOSS' | 'VENDOR' | 'TRANSFER' | 'ADJUSTMENT' | 'PURCHASE';
 
@@ -57,9 +57,7 @@ export interface Material {
 
 export interface CreateMaterialPayload {
   project_id: number;
-  material_name: string;
-  category: string;
-  unit: string;
+  material_master_id: number;
   supplier_id: number;
   purchase_rate: number;
   rate_type: RateType;

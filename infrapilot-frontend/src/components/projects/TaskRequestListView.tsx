@@ -12,7 +12,15 @@ const TaskRequestListView = ({ taskRequests, isLoading, onEdit, onDelete }: Task
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    const paginatedRequests = taskRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    // Sort requests by newest first based on id (since they are typically sequential) or created_at
+    const sortedRequests = [...taskRequests].sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
+        return (b.id || 0) - (a.id || 0);
+    });
+
+    const paginatedRequests = sortedRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const totalPages = Math.ceil(taskRequests.length / itemsPerPage);
 
     if (isLoading) {
@@ -93,7 +101,7 @@ const TaskRequestListView = ({ taskRequests, isLoading, onEdit, onDelete }: Task
                 </div>
             </div>
 
-            {totalPages > 1 && (
+            {totalPages > 0 && (
                 <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <span className="text-xs font-bold text-slate-500">
                         Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, taskRequests.length)} of {taskRequests.length} requests

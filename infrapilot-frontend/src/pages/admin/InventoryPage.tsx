@@ -14,6 +14,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
 import { materialService } from "../../services/materialService";
 import { projectService } from "../../services/projectService";
+import { masterService } from "../../services/masterService";
 import {
   PlusCircle,
   FileText,
@@ -59,7 +60,7 @@ const InventoryPage = () => {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
-  const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
+  const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
@@ -107,29 +108,29 @@ const InventoryPage = () => {
 
   const [logProjectId, setLogProjectId] = useState<number | "all">("all");
   const [logType, setLogType] = useState<string>("all");
+  const [inventoryProjectId, setInventoryProjectId] = useState<number | "all">("all");
   const [isLogsRefreshing, setIsLogsRefreshing] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [invData, supData, poData, transferData, summaryData, logsData, allMaterials, projectsResponse] = await Promise.all([
+      const [invData, supData, poData, transferData, logsData, allMaterials, projectsResponse] = await Promise.all([
         materialService.listMaterials(),
         materialService.getSuppliers(),
         materialService.listPurchaseOrders(),
         materialService.listTransfers(),
-        materialService.getMaterialSummary(),
         materialService.getLogs({}),
-        materialService.listMaterials(), // Fetch all for PO creation
+        masterService.getEntities("materials"), // Fetch Master catalog
         projectService.getProjects(100) // Correct method name
       ]);
 
+      // Handle dynamic summary separately via useEffect
       setInventory(invData);
       setMasterMaterials(allMaterials);
       setSuppliers(supData);
       setPos(Array.isArray(poData) ? poData : []);
       const transferItems = Array.isArray(transferData) ? transferData : (transferData?.data || []);
       setTransfers(transferItems);
-      setSummary(summaryData);
       setLogs(Array.isArray(logsData) ? logsData : []);
 
       // Update projects
@@ -159,12 +160,28 @@ const InventoryPage = () => {
     }
   }, [isMaster]);
 
+  // Sync overview blocks and summary with the project filter
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const sum = await materialService.getMaterialSummary(
+          inventoryProjectId === "all" ? undefined : inventoryProjectId
+        );
+        setSummary(sum);
+      } catch (e) {
+        console.error("Failed to fetch project summary:", e);
+      }
+    };
+    fetchSummary();
+  }, [inventoryProjectId]);
+
   // Filters
   const filteredInventory = inventory.filter(
     (i) =>
-      (i.material_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (i.category || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (i.supplier_name || "").toLowerCase().includes(searchTerm.toLowerCase()),
+      (inventoryProjectId === "all" || i.project_id === inventoryProjectId) &&
+      ((i.material_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (i.category || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (i.supplier_name || "").toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const filteredSuppliers = suppliers.filter(
@@ -319,9 +336,7 @@ const InventoryPage = () => {
         // Strict payload construction based on user provided API spec
         const payload = {
           project_id: Number(data.project_id || 1),
-          material_name: data.material_name,
-          category: data.category,
-          unit: data.unit,
+          material_master_id: Number(data.material_master_id),
           supplier_id: supplier?.id || 0,
           purchase_rate: Number(data.purchase_rate),
           rate_type: data.rate_type || "FIXED",
@@ -555,7 +570,7 @@ const InventoryPage = () => {
                 { id: "overview", label: "Overview", icon: LayoutDashboard },
                 { id: "inventory", label: "Inventory", icon: FileText },
                 { id: "suppliers", label: "Suppliers", icon: Truck },
-                { id: "pos", label: "Orders", icon: ShoppingCart },
+                { id: "pos", label: "Purchase Orders", icon: ShoppingCart },
                 { id: "transfers", label: "Transfers", icon: Truck },
                 { id: "logs", label: "Logs", icon: History },
               ]
@@ -614,6 +629,16 @@ const InventoryPage = () => {
               </>
             )}
 
+            {activeTab === "pos" && (
+              <button
+                onClick={() => setIsCreatePOModalOpen(true)}
+                className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Create PO
+              </button>
+            )}
+
             {activeTab === "suppliers" && (
               <button
                 onClick={() => {
@@ -632,7 +657,7 @@ const InventoryPage = () => {
         {activeTab === "overview" && (
           <div className="flex flex-col gap-6 mb-8">
             {/* LOW STOCK ALERT BANNER */}
-            {inventory.filter((m) => m.remaining_stock < m.minimum_stock_level)
+            {filteredInventory.filter((m) => m.remaining_stock < m.minimum_stock_level)
               .length > 0 && (
                 <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
                   <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
@@ -649,7 +674,7 @@ const InventoryPage = () => {
                       threshold and require immediate procurement:
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {inventory
+                      {filteredInventory
                         .filter((m) => m.remaining_stock < m.minimum_stock_level)
                         .map((lowItem) => (
                           <span
@@ -673,7 +698,7 @@ const InventoryPage = () => {
               <StatCard
                 title="Total Stock Valuation"
                 value={`₹${(summary?.total_stock_value || 0).toLocaleString()}`}
-                sub="Across all sites"
+                sub={inventoryProjectId === "all" ? "Across all sites" : `For Project ID #${inventoryProjectId}`}
                 accent="text-emerald-500"
               />
               <StatCard
@@ -727,6 +752,22 @@ const InventoryPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
+
+              {(activeTab === "inventory" || activeTab === "overview") && (
+                <select
+                  value={inventoryProjectId}
+                  onChange={(e) => {
+                    setInventoryProjectId(e.target.value === "all" ? "all" : Number(e.target.value));
+                    setMaterialPage(0);
+                  }}
+                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                >
+                  <option value="all">All Projects</option>
+                  {projectList.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              )}
 
               {activeTab === "logs" && (
                 <div className="flex items-center gap-2">
@@ -1031,6 +1072,7 @@ const InventoryPage = () => {
         suppliers={suppliers}
         apiErrors={materialApiErrors}
         projects={projectList}
+        masterMaterials={masterMaterials}
       />
 
       <MaterialCostReportModal

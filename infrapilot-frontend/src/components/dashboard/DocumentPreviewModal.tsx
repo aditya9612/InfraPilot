@@ -26,7 +26,11 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       setIsLoading(true);
       // Fetch as a blob securely passing the authenticated interceptors
       import("../../services/api").then(({ default: api }) => {
-        api.get(`/documents/${document.id}/download`, { responseType: 'blob' })
+        const endpoint = document.isDrawing
+          ? `/drawings/documents/view/${document.id}`
+          : `/documents/${document.id}/download`;
+
+        api.get(endpoint, { responseType: 'blob' })
           .then(res => {
             if (!isMounted) return;
 

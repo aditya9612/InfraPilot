@@ -89,8 +89,8 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
 };
 
 const TaskManagementPage = () => {
-    const { selectedProjectId } = useProject();
-    const [projectId, setProjectId] = useState<number | null>(selectedProjectId);
+    const { } = useProject();
+    const [projectId, setProjectId] = useState<number | 'all' | null>('all');
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -199,8 +199,8 @@ const TaskManagementPage = () => {
     const [isLoadingTaskRequests, setIsLoadingTaskRequests] = useState(false);
 
     useEffect(() => {
-        if (projectId) {
-            projectService.getProjectMembers(projectId).then(res => {
+        if (projectId && projectId !== ('all' as any)) {
+            projectService.getProjectMembers(projectId as any).then(res => {
                 setProjectMembers(Array.isArray(res) ? res : (res.items || res.data || []));
             }).catch(() => { });
         }
@@ -211,11 +211,12 @@ const TaskManagementPage = () => {
         const fetchDetails = async () => {
             setIsFetchingDetails(true);
             try {
+                const pid = selectedTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
                 if (modalTab === "Comments") {
-                    const res = await projectService.getTaskComments(selectedTask.project_id || projectId, selectedTask.id);
+                    const res = await projectService.getTaskComments(pid as number, selectedTask.id);
                     setTaskComments(Array.isArray(res) ? res : (res.items || res.data || []));
                 } else if (modalTab === "Activity") {
-                    const res = await projectService.getTaskProgressHistory(selectedTask.project_id || projectId, selectedTask.id);
+                    const res = await projectService.getTaskProgressHistory(pid as number, selectedTask.id);
                     setTaskActivity(Array.isArray(res) ? res : (res.items || res.data || []));
                 }
             } catch (error) {
@@ -229,15 +230,16 @@ const TaskManagementPage = () => {
 
     // Fetch Task Requests when Project Tasks tab is active
     useEffect(() => {
-        if (activeTab === "Project Tasks" && projectId) {
+        if (activeTab === "Project Tasks" && projectId && projectId !== ('all' as any)) {
             fetchTaskRequests();
         }
     }, [activeTab, projectId]);
 
     const fetchTaskRequests = async () => {
+        if (!projectId || projectId === ('all' as any)) return;
         setIsLoadingTaskRequests(true);
         try {
-            const requests = await projectService.getTaskRequests(projectId!);
+            const requests = await projectService.getTaskRequests(projectId as any);
             setTaskRequests(Array.isArray(requests) ? requests : (requests?.items || requests?.data || []));
         } catch (error) {
             console.error("Failed to fetch task requests:", error);
@@ -257,10 +259,11 @@ const TaskManagementPage = () => {
         }
 
         try {
-            await projectService.createTaskComment(selectedTask.project_id || projectId, selectedTask.id, { content: finalContent });
+            const pid = selectedTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
+            await projectService.createTaskComment(pid as number, selectedTask.id, { content: finalContent });
             setNewComment("");
             setCommentAttachment(null);
-            const res = await projectService.getTaskComments(selectedTask.project_id || projectId, selectedTask.id);
+            const res = await projectService.getTaskComments(pid as number, selectedTask.id);
             setTaskComments(Array.isArray(res) ? res : (res.items || res.data || []));
         } catch (error) {
             toast.error("Failed to add comment");
@@ -268,17 +271,45 @@ const TaskManagementPage = () => {
     };
 
     const fetchData = useCallback(async () => {
-        if (!projectId) return;
+        if (!projectId && projectId !== ('all' as any)) return;
         setLoading(true);
         try {
-            const [fetchedTasks, fetchedMembers, fetchedMilestones, fetchedBoqs, fetchedActivities, fetchedProjects] = await Promise.all([
-                projectService.getTasks(projectId),
-                projectService.getProjectMembers(projectId),
-                projectService.getMilestones(projectId).catch(() => []),
-                boqService.getBoqItems(projectId).catch(() => []),
-                workProgressService.listActivities(projectId).catch(() => []),
-                projectService.getProjects(100, 0).catch(() => [])
-            ]);
+            let fetchedTasks: any = { items: [] };
+            let fetchedMembers: any = { items: [] };
+            let fetchedMilestones: any = [];
+            let fetchedBoqs: any = [];
+            let fetchedActivities: any = [];
+            let fetchedProjects: any = [];
+
+            if (projectId === ('all' as any)) {
+                const projectIdsToFetch = assignedProjects.map(p => p.id || p.project_id);
+                if (projectIdsToFetch.length > 0) {
+                    const taskPromises = projectIdsToFetch.map(id => projectService.getTasks(id));
+                    const allResponses = await Promise.all(taskPromises);
+
+                    let allItems: any[] = [];
+                    allResponses.forEach(res => {
+                        const items = Array.isArray(res) ? res : (res.items || res.data || []);
+                        allItems = [...allItems, ...items];
+                    });
+                    fetchedTasks = { items: allItems };
+                }
+            } else {
+                const results = await Promise.all([
+                    projectService.getTasks(projectId as any),
+                    projectService.getProjectMembers(projectId as any),
+                    projectService.getMilestones(projectId as any).catch(() => []),
+                    boqService.getBoqItems(projectId as any).catch(() => []),
+                    workProgressService.listActivities(projectId as any).catch(() => []),
+                    projectService.getProjects(100, 0).catch(() => [])
+                ]);
+                fetchedTasks = results[0];
+                fetchedMembers = results[1];
+                fetchedMilestones = results[2];
+                fetchedBoqs = results[3];
+                fetchedActivities = results[4];
+                fetchedProjects = results[5];
+            }
 
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
             const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
@@ -311,8 +342,6 @@ const TaskManagementPage = () => {
                 // Map the exact project name
                 let taskProjectName = pName;
                 if (t.project_id) {
-                    const user = userStr ? JSON.parse(userStr) : null;
-                    const assignedProjects = user ? (user.assigned_projects || user.user?.assigned_projects || []) : [];
                     const matched = projectsList.find((p: any) => (p.id || p.project_id) === t.project_id) ||
                         assignedProjects.find((p: any) => (p.id || p.project_id) === t.project_id);
                     if (matched) taskProjectName = matched.project_name || matched.name;
@@ -379,13 +408,9 @@ const TaskManagementPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, assignedProjects]);
 
-    useEffect(() => {
-        if (selectedProjectId) {
-            setProjectId(selectedProjectId);
-        }
-    }, [selectedProjectId]);
+    // Intentionally removed synchronization with selectedProjectId so 'all' is preserved by default
 
     useEffect(() => {
         const fetchUserAssignedProjects = async () => {
@@ -417,18 +442,14 @@ const TaskManagementPage = () => {
         fetchUserAssignedProjects();
     }, []);
 
-    // Default to the first assigned project if no project is selected
     useEffect(() => {
-        if (!projectId && assignedProjects.length > 0) {
-            const firstProjectId = assignedProjects[0].id || assignedProjects[0].project_id;
-            if (firstProjectId) {
-                setProjectId(firstProjectId);
-            }
+        if (!projectId && projectId !== ('all' as any) && assignedProjects.length > 0) {
+            setProjectId('all');
         }
     }, [projectId, assignedProjects]);
 
     useEffect(() => {
-        if (projectId) {
+        if (projectId || projectId === ('all' as any)) {
             fetchData();
         } else {
             setLoading(false);
@@ -519,7 +540,7 @@ const TaskManagementPage = () => {
         const formElement = e.currentTarget;
         const formData = new FormData(formElement);
 
-        const targetProjectId = Number(formData.get('project_id')) || projectId || 0;
+        const targetProjectId = Number(formData.get('project_id')) || (projectId === ('all' as any) ? 0 : projectId) || 0;
         const assignedUserIds = formData.get('assigned_user_ids') as string;
         const assignedUserIdNum = assignedUserIds && assignedUserIds !== "" && assignedUserIds !== "None" ? Number(assignedUserIds.toString().split(',')[0]) : null;
 
@@ -619,9 +640,11 @@ const TaskManagementPage = () => {
             ]);
 
             const membersList: any[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers?.items || fetchedMembers?.data || []);
-            const tasksList = Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks?.items || fetchedTasks?.data || []);
+            const rawTasks = Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || []);
+            // Enforce frontend filtering to guarantee only tasks belonging to the currently selected project are mapped and displayed (unless 'all' is selected)
+            const safeTasks = rawTasks.filter((t: any) => projectId === ('all' as any) || !t.project_id || String(t.project_id) === String(projectId));
 
-            const mapped = tasksList.map((t: any) => {
+            const mapped = safeTasks.map((t: any) => {
                 const rawAssignedId = (t as any).assigned_user || t.assigned_user_id;
                 const actualAssignedId = (typeof rawAssignedId === 'object' && rawAssignedId !== null)
                     ? (rawAssignedId.user_id || rawAssignedId.id)
@@ -682,10 +705,13 @@ const TaskManagementPage = () => {
         }
     };
 
+    // handleApproveTaskRequest removed as it is unused and invalidates projectService
+
     const openTaskModal = async (task: FrontendTask) => {
-        if (!projectId) return;
+        if (!projectId && projectId !== ('all' as any)) return;
         try {
-            const fetchedTask = await projectService.getTask(task.project_id || projectId, task.id || (task as any).task_id);
+            const pid = task.project_id || (projectId === ('all' as any) ? 0 : projectId);
+            const fetchedTask = await projectService.getTask(pid as number, task.id || (task as any).task_id);
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
@@ -703,9 +729,11 @@ const TaskManagementPage = () => {
     };
 
     const executeDeleteTask = async () => {
-        if (!projectId || !deleteId) return;
+        if ((!projectId && projectId !== ('all' as any)) || !deleteId) return;
         try {
-            const res = await projectService.deleteTask(projectId, deleteId);
+            const taskObj = tasks.find(t => t.id === deleteId);
+            const pid = taskObj?.project_id || (projectId === ('all' as any) ? 0 : projectId);
+            const res = await projectService.deleteTask(pid as number, deleteId);
             toast.success(res?.message || "Task deleted successfully");
             setIsDeleteModalOpen(false);
             setDeleteId(null);
@@ -716,14 +744,18 @@ const TaskManagementPage = () => {
     };
 
     const handleStatusChange = async (taskId: number, newStatus: string) => {
-        if (!projectId) return;
+        if (!projectId && projectId !== ('all' as any)) return;
+
+        const taskObj = tasks.find(t => t.id === taskId);
+        const pid = taskObj?.project_id || (projectId === ('all' as any) ? 0 : projectId);
+        if (!pid) return;
 
         // Optimistic UI Update for instant feedback
         const previousTasks = [...tasks];
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
 
         try {
-            await projectService.updateTaskStatus(projectId, taskId, newStatus);
+            await projectService.updateTaskStatus(pid as number, taskId, newStatus);
             toast.success(`Task status updated to ${newStatus}`);
             fetchData();
         } catch (error) {
@@ -734,10 +766,12 @@ const TaskManagementPage = () => {
 
     const handleUpdateProgress = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedProgressTask || !projectId) return;
+        if (!selectedProgressTask || (!projectId && projectId !== ('all' as any))) return;
+
+        const pid = selectedProgressTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
 
         try {
-            await projectService.updateTaskProgress(projectId, selectedProgressTask.id, {
+            await projectService.updateTaskProgress(pid as number, selectedProgressTask.id, {
                 percentage: progressPercentage,
                 remarks: progressRemark
             });
@@ -751,10 +785,12 @@ const TaskManagementPage = () => {
 
     const handlePassTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPassTask || !projectId || !passNewUserId) return;
+        if (!selectedPassTask || (!projectId && projectId !== ('all' as any)) || !passNewUserId) return;
+
+        const pid = selectedPassTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
 
         try {
-            await projectService.passTask(projectId, selectedPassTask.id, {
+            await projectService.passTask(pid as number, selectedPassTask.id, {
                 new_user_id: passNewUserId,
                 remark: passRemark
             });
@@ -768,16 +804,16 @@ const TaskManagementPage = () => {
 
     // Task Request Handlers
     const handleSaveTaskRequest = async (formData: any) => {
-        if (!projectId) return;
+        if (!projectId && projectId !== ('all' as any)) return;
 
         try {
             if (selectedTaskRequest) {
                 // Update existing task request
-                await projectService.updateTaskRequest(projectId, selectedTaskRequest.id, formData);
+                await projectService.updateTaskRequest(projectId as any, selectedTaskRequest.id, formData);
                 toast.success("Task request updated successfully!");
             } else {
                 // Create new task request
-                await projectService.createTaskRequest(projectId, formData);
+                await projectService.createTaskRequest(projectId as any, formData);
                 toast.success("Task request created successfully!");
             }
             setSelectedTaskRequest(null);
@@ -789,11 +825,11 @@ const TaskManagementPage = () => {
     };
 
     const handleDeleteTaskRequest = async (requestId: number) => {
-        if (!projectId) return;
+        if (!projectId && projectId !== ('all' as any)) return;
 
         if (confirm("Are you sure you want to delete this task request?")) {
             try {
-                await projectService.deleteTaskRequest(projectId, requestId);
+                await projectService.deleteTaskRequest(projectId as any, requestId);
                 toast.success("Task request deleted successfully!");
                 fetchTaskRequests();
             } catch (error) {
@@ -825,6 +861,8 @@ const TaskManagementPage = () => {
             const task = tasks.find(t => t.id === recordingTaskId);
             if (!task) return;
 
+            const pid = task.project_id || (projectId === ('all' as any) ? 0 : projectId);
+
             // Convert base64 audio to Blob for FormData upload
             const base64Data = audioBase64.split(',')[1] || audioBase64;
             const byteChars = atob(base64Data);
@@ -844,11 +882,11 @@ const TaskManagementPage = () => {
             if (task.start_date) fd.append('start_date', task.start_date);
             if (task.end_date) fd.append('end_date', task.end_date);
             if (task.assigned_user_id) fd.append('assigned_user_ids', String(task.assigned_user_id));
-            fd.append('project_id', String(task.project_id || projectId));
+            fd.append('project_id', String(pid));
             // Append audio as file — backend field name: audio_instruction
             fd.append('audio_instruction', audioFile);
 
-            await projectService.updateTask(task.project_id || projectId, recordingTaskId, fd);
+            await projectService.updateTask(pid as number, recordingTaskId, fd);
             toast.success("Audio added successfully!");
             fetchData();
         } catch (error) {
@@ -1014,7 +1052,7 @@ const TaskManagementPage = () => {
                         </div>
                         <div onClick={() => setStatusFilter("Planned")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Planned" ? 'border-slate-500 ring-1 ring-slate-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Planned" ? 'text-slate-600' : 'text-slate-400'}`}>To Do</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Planned" ? 'text-slate-600' : 'text-slate-400'}`}>Planned</p>
                                 <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Planned').length}</h3>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-slate-100 transition-colors">
@@ -1087,6 +1125,21 @@ const TaskManagementPage = () => {
                                 </div>
 
                                 <div className="flex flex-wrap items-end gap-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Project</span>
+                                        <select
+                                            value={projectId || ""}
+                                            onChange={(e) => setProjectId(e.target.value === "all" ? "all" : e.target.value ? Number(e.target.value) : null)}
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter w-[200px] truncate"
+                                        >
+                                            <option value="all">All Projects</option>
+                                            {assignedProjects.map((p: any) => (
+                                                <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                                    {p.project_name || p.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
                                         <select
@@ -1834,7 +1887,7 @@ const TaskManagementPage = () => {
                 projectMembers={projectMembers}
                 editingRequest={selectedTaskRequest}
                 isLoading={isLoadingTaskRequests}
-                projectId={projectId || undefined}
+                projectId={projectId === 'all' ? undefined : (Number(projectId) || undefined)}
                 assignedProjects={assignedProjects}
             />
 
@@ -2552,7 +2605,7 @@ const TaskManagementPage = () => {
             <CreateTaskDrawer
                 isOpen={isCreateDrawerOpen}
                 onClose={() => setIsCreateDrawerOpen(false)}
-                projectId={projectId}
+                projectId={projectId === 'all' ? null : projectId}
                 onSuccess={() => {
                     fetchData();
                     setIsCreateDrawerOpen(false);

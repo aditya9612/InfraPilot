@@ -352,7 +352,7 @@ const MachineryPage = () => {
                 // Force deallocate immediately to ensure it starts as Unallocated
                 try {
                     if (newEq && newEq.id) {
-                        await equipmentService.deallocateEquipment(newEq.id);
+                        await equipmentService.deallocateEquipment(newEq.id, newEq.project_id || 0);
                     }
                 } catch (err) {
                     console.error("Failed to explicitly deallocate new equipment", err);
@@ -411,7 +411,7 @@ const MachineryPage = () => {
     const handleDeallocate = async () => {
         if (!selectedEquipment) return;
         try {
-            await equipmentService.deallocateEquipment(selectedEquipment.id);
+            await equipmentService.deallocateEquipment(selectedEquipment.id, selectedEquipment.project_id || 0);
             toast.success("Equipment deallocated!");
             setIsAllocateModalOpen(false);
             // Refetch equipment list so UI reflects the new allocation status immediately
@@ -674,6 +674,12 @@ const MachineryPage = () => {
         setSelectedEquipment(eq);
         setIsViewModalOpen(true);
         try {
+            const fetchedEq = await equipmentService.getEquipment(eq.id);
+            setSelectedEquipment(fetchedEq as unknown as Equipment);
+        } catch (e) {
+            console.error("Failed to fetch equipment details", e);
+        }
+        try {
             const alloc = await equipmentService.getAllocation(eq.id);
             setAllocationStatus(alloc);
         } catch (e) {
@@ -733,10 +739,14 @@ const MachineryPage = () => {
         return filteredEquipmentList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredEquipmentList, currentPage, itemsPerPage]);
 
+    const filteredAllRentals = useMemo(() => {
+        return selectedEquipment ? allRentals.filter(r => r.equipment_id === selectedEquipment.id) : allRentals;
+    }, [allRentals, selectedEquipment]);
+
     const paginatedAllRentals = useMemo(() => {
         const startIndex = (rentalCurrentPage - 1) * rentalItemsPerPage;
-        return allRentals.slice(startIndex, startIndex + rentalItemsPerPage);
-    }, [allRentals, rentalCurrentPage, rentalItemsPerPage]);
+        return filteredAllRentals.slice(startIndex, startIndex + rentalItemsPerPage);
+    }, [filteredAllRentals, rentalCurrentPage, rentalItemsPerPage]);
 
     // Dashboard Stats
     const dashStats = useMemo(() => {
@@ -786,7 +796,7 @@ const MachineryPage = () => {
                             {maintenanceAlerts.length > 0 ? maintenanceAlerts.map((alert, i) => (
                                 <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
                                     <div>
-                                        <p className="font-bold text-sm text-slate-800">{alert.equipment_code}</p>
+                                        <p className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</p>
                                         <p className="text-xs text-slate-500">Due in {alert.days_until} days ({alert.maintenance_date})</p>
                                     </div>
                                     <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${alert.status === 'OVERDUE' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
@@ -808,7 +818,7 @@ const MachineryPage = () => {
                             {equipmentAlerts.length > 0 ? equipmentAlerts.map((alert, i) => (
                                 <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name} <span className="text-xs text-slate-500">({alert.equipment_code})</span></h4>
+                                        <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</h4>
                                     </div>
                                     <ul className="text-xs text-slate-600 list-disc list-inside mb-2">
                                         {alert.issues.map((issue, j) => (
@@ -1045,9 +1055,9 @@ const MachineryPage = () => {
                     <button onClick={() => setSelectedEquipment(null)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${!selectedEquipment ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
                         All Equipment
                     </button>
-                    {modalEquipmentList.map(eq => (
+                    {equipmentList.map(eq => (
                         <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
-                            {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
+                            {eq.equipment_name} <span className="text-xs text-slate-400 block truncate">{eq.equipment_code}</span>
                         </button>
                     ))}
                 </div>
@@ -1214,7 +1224,7 @@ const MachineryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    {modalEquipmentList.map(eq => (
+                    {modalEquipmentList.filter(eq => maintenanceAlerts.some(a => a.equipment_id === eq.id)).map(eq => (
                         <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
                             {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
                         </button>
@@ -1244,6 +1254,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {selectedEquipmentLogs.maint.length > 0 ? selectedEquipmentLogs.maint.map((logItem: any) => {
                                     const log = logItem as any;
+                                    const isCompleted = log.status === 'COMPLETED' || !!log.completed_at;
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50">
                                             <td className="p-4 whitespace-nowrap">{log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || projects.find(p => p.id === log.project_id)?.name || `Project #${log.project_id}`) : '-'}</td>
@@ -1259,7 +1270,7 @@ const MachineryPage = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{log.status}</span>
+                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{log.status || (isCompleted ? 'COMPLETED' : 'ACTIVE')}</span>
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-1">
@@ -1270,9 +1281,11 @@ const MachineryPage = () => {
                                                     }} className="p-1.5 text-slate-400 hover:text-indigo-500 rounded hover:bg-slate-50 transition-colors" title="View Details">
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Complete Maintenance">
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
+                                                    {!isCompleted && (
+                                                        <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} className="p-1.5 rounded text-emerald-500 hover:text-white hover:bg-emerald-500" title="Complete Maintenance">
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
@@ -1325,94 +1338,33 @@ const MachineryPage = () => {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Specific Equipment Rental History */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    {/* All Rental History Container */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[400px]">
                         <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                            <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                                Rental History
+                            <h3 className="font-bold text-sm text-slate-800">
+                                All Rental History
                             </h3>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</span>
                                 <select
-                                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:border-primary"
+                                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:border-primary bg-white"
                                     value={selectedEquipment?.id || ""}
                                     onChange={(e) => {
-                                        const eq = equipmentList.find(item => item.id === Number(e.target.value));
-                                        if (eq) setSelectedEquipment(eq);
+                                        if (e.target.value === "") {
+                                            setSelectedEquipment(null);
+                                        } else {
+                                            const eq = equipmentList.find(item => item.id === Number(e.target.value));
+                                            if (eq) setSelectedEquipment(eq);
+                                        }
+                                        setRentalCurrentPage(1);
                                     }}
                                 >
+                                    <option value="">All Equipment</option>
                                     {modalEquipmentList.map(eq => (
                                         <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
                                     ))}
                                 </select>
                             </div>
-                        </div>
-                        <div className="overflow-auto max-h-[440px]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
-                                    <tr>
-                                        <th className="p-4 whitespace-nowrap">Start Date</th>
-                                        <th className="p-4 whitespace-nowrap">End Date</th>
-                                        <th className="p-4 whitespace-nowrap">Rental Cost</th>
-                                        <th className="p-4 whitespace-nowrap">Client Name</th>
-                                        <th className="p-4 whitespace-nowrap">Notes</th>
-                                        <th className="p-4 whitespace-nowrap">Created At</th>
-                                        <th className="p-4 whitespace-nowrap">Status</th>
-                                        <th className="p-4 whitespace-nowrap">Duration</th>
-                                        <th className="p-4 whitespace-nowrap">Per Day Cost</th>
-                                        <th className="p-4 whitespace-nowrap text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {selectedEquipmentLogs.rental.length > 0 ? selectedEquipmentLogs.rental.map(log => (
-                                        <tr key={log.id} className="hover:bg-slate-50">
-                                            <td className="p-4 text-slate-700 whitespace-nowrap">{log.start_date}</td>
-                                            <td className="p-4 text-slate-700 whitespace-nowrap">{log.end_date}</td>
-                                            <td className="p-4 font-bold text-purple-600 whitespace-nowrap">₹{log.rental_cost?.toLocaleString()}</td>
-                                            <td className="p-4 font-bold text-slate-700 whitespace-nowrap">{log.client_name}</td>
-                                            <td className="p-4 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
-                                            <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{log.created_at ? new Date(log.created_at).toLocaleString() : '-'}</td>
-                                            <td className="p-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
-                                            </td>
-                                            <td className="p-4 text-slate-700 whitespace-nowrap">{log.duration} days</td>
-                                            <td className="p-4 text-slate-500 whitespace-nowrap">₹{log.per_day_cost?.toLocaleString()}</td>
-                                            <td className="p-4 whitespace-nowrap text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={async () => {
-                                                        const rentalDetails = await equipmentService.getRental(log.id);
-                                                        setRentalToView(rentalDetails);
-                                                        setIsRentalViewModalOpen(true);
-                                                    }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleCompleteRental(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => {
-                                                        setRentalToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
-                                                        setIsRentalDeleteModalOpen(true);
-                                                    }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )) : <tr><td colSpan={9} className="p-8 text-center text-slate-400">No rental records found</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* All Rental History Container */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[400px]">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-sm text-slate-800">
-                                All Rental History
-                            </h3>
                         </div>
                         <div className="overflow-auto flex-1">
                             <table className="w-full text-left text-sm">
@@ -1499,7 +1451,7 @@ const MachineryPage = () => {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     {(() => {
-                                        const totalItems = allRentals.length;
+                                        const totalItems = filteredAllRentals.length;
                                         const totalPages = Math.max(1, Math.ceil(totalItems / rentalItemsPerPage));
                                         const pages = [];
                                         if (totalPages <= 5) {
@@ -1529,8 +1481,8 @@ const MachineryPage = () => {
                                         });
                                     })()}
                                     <button
-                                        onClick={() => setRentalCurrentPage(prev => Math.min(Math.ceil(allRentals.length / rentalItemsPerPage), prev + 1))}
-                                        disabled={rentalCurrentPage >= Math.ceil(allRentals.length / rentalItemsPerPage)}
+                                        onClick={() => setRentalCurrentPage(prev => Math.min(Math.ceil(filteredAllRentals.length / rentalItemsPerPage), prev + 1))}
+                                        disabled={rentalCurrentPage >= Math.ceil(filteredAllRentals.length / rentalItemsPerPage)}
                                         className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                     >
                                         <ChevronRight className="w-4 h-4" />
@@ -1612,7 +1564,7 @@ const MachineryPage = () => {
                         {purchaseReport.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {purchaseReport.map((p, idx) => (
-                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:scale-105 transition-transform">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{p.category || 'General Equipment'}</p>
                                         <p className="text-2xl font-bold text-slate-800 mb-1">₹{p.total_cost?.toLocaleString() || '0'}</p>
                                         <p className="text-xs text-slate-500 font-medium">{p.purchase_count || 0} Assets Purchased</p>
@@ -1623,6 +1575,30 @@ const MachineryPage = () => {
                             <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                                 <FileText className="w-10 h-10 mb-3 opacity-20" />
                                 <p className="text-sm font-medium">No purchase data available</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-500" /> <h3 className="font-bold text-sm text-slate-800">Cost Analytics</h3>
+                    </div>
+                    <div className="p-6">
+                        {costReport.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                {costReport.map((c, idx) => (
+                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:scale-105 transition-transform">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{c.equipment_code}</p>
+                                        <p className="text-2xl font-bold text-slate-800 mb-1">₹{(c.total_cost || 0)?.toLocaleString()}</p>
+                                        <p className="text-xs text-slate-500 font-medium">{c.total_days || 0} Days Rented</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                                <Activity className="w-10 h-10 mb-3 opacity-20" />
+                                <p className="text-sm font-medium">No cost data available</p>
                             </div>
                         )}
                     </div>
@@ -1923,8 +1899,8 @@ const MachineryPage = () => {
                         <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
-                        <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT *</label>
+                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
@@ -1951,7 +1927,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {unallocatedEquipmentList.filter(eq => !maintenanceAlerts.some(a => a.equipment_id === eq.id)).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -2246,8 +2222,8 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Choose equipment --</option>
-                            {modalEquipmentList.map(eq => (
-                                <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
+                            {equipmentList.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.equipment_name} - {eq.equipment_code}</option>
                             ))}
                         </select>
                     </div>

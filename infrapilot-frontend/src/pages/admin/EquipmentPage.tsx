@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import type {
-    Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport, UtilizationReport, AvailabilityReport
-} from "../../services/equipmentService";
-import { equipmentService } from "../../services/equipmentService";
+import { equipmentService, type EquipmentItem as Equipment, type UsageReport, type MaintenanceAlert, type EquipmentAlert, type UtilizationReport, type AvailabilityReport } from "../../services/equipmentService";
 import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
 import PageTransition from "../../components/common/PageTransition";
@@ -15,6 +12,7 @@ import {
     Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, ShieldCheck, FileText, ArrowRightLeft
 } from "lucide-react";
 import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormModal";
+import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
 import TransferEquipmentModal from "../../components/forms/TransferEquipmentModal";
 import { useProject } from "../../context/ProjectContext";
 
@@ -54,8 +52,6 @@ const EquipmentPage = () => {
     const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
     const [transferList, setTransferList] = useState<any[]>([]);
 
-    // KPI Data
-    const [kpiData, setKpiData] = useState<any>(null);
 
     const projectMap = useMemo(() => {
         const map: Record<number, string> = {};
@@ -229,7 +225,8 @@ const EquipmentPage = () => {
                 <tr>
                     <th className="px-6 py-4">Equipment Name</th>
                     <th className="px-6 py-4">Project Name</th>
-                    <th className="px-6 py-4">Serial / Code</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Maintenance Date</th>
                     <th className="px-6 py-4">Condition</th>
                     <th className="px-6 py-4">Operator</th>
                     <th className="px-6 py-4 text-right">Actions</th>
@@ -237,12 +234,15 @@ const EquipmentPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
+                    <tr><td colSpan={7} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
                 ) : pagedData.length > 0 ? pagedData.map((item: any) => (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
                         <td className="px-6 py-4 font-medium text-slate-600">{item.project_id ? projectMap[item.project_id] || `Project ID: ${item.project_id}` : "N/A"}</td>
-                        <td className="px-6 py-4 font-mono text-slate-500">{item.equipment_code}</td>
+                        <td className="px-6 py-4 text-slate-600">
+                            <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">{item.status ? item.status.replace(/_/g, ' ') : "—"}</span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 font-medium">{item.maintenance_date || "—"}</td>
                         <td className="px-6 py-4">
                             <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
                                 {item.condition}
@@ -258,7 +258,7 @@ const EquipmentPage = () => {
                         </td>
                     </tr>
                 )) : (
-                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No equipment records found</td></tr>
+                    <tr><td colSpan={7} className="p-10 text-center text-slate-400 font-medium">No equipment records found</td></tr>
                 )}
             </tbody>
         </table>
@@ -475,7 +475,7 @@ const EquipmentPage = () => {
                         {pagedData.length > 0 ? pagedData.map((alert: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
                                 <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name} <span className="text-xs text-slate-500">({alert.equipment_code})</span></h4>
+                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</h4>
                                 </div>
                                 <ul className="text-xs text-slate-600 list-disc list-inside mb-2">
                                     {alert.issues && alert.issues.map((issue: any, i: number) => (
@@ -696,21 +696,30 @@ const EquipmentPage = () => {
                 </div>
             </PageTransition>
 
-            <EquipmentFormModal
-                isOpen={isEquipmentModalOpen}
-                onClose={() => setIsEquipmentModalOpen(false)}
-                onSave={async (data) => {
-                    try {
-                        if (data.id) await equipmentService.updateEquipment(data.id, data);
-                        else await equipmentService.createEquipment(data);
-                        toast.success("Registry updated");
-                        setIsEquipmentModalOpen(false);
-                        fetchData();
-                    } catch (err) { toast.error("Failed to save asset"); }
-                }}
-                initialData={formData}
-                isViewOnly={isViewMode}
-            />
+            {isViewMode ? (
+                <EquipmentViewModal
+                    isOpen={isEquipmentModalOpen}
+                    onClose={() => setIsEquipmentModalOpen(false)}
+                    equipment={formData}
+                    projectsMap={projectMap}
+                    onEdit={() => setIsViewMode(false)}
+                />
+            ) : (
+                <EquipmentFormModal
+                    isOpen={isEquipmentModalOpen}
+                    onClose={() => setIsEquipmentModalOpen(false)}
+                    onSave={async (data) => {
+                        try {
+                            if (data.id) await equipmentService.updateEquipment(data.id, data);
+                            else await equipmentService.createEquipment(data);
+                            toast.success("Registry updated");
+                            setIsEquipmentModalOpen(false);
+                            fetchData();
+                        } catch (err) { toast.error("Failed to save asset"); }
+                    }}
+                    initialData={formData}
+                />
+            )}
 
             <TransferEquipmentModal
                 isOpen={isTransferModalOpen}
@@ -719,7 +728,7 @@ const EquipmentPage = () => {
                 projects={assignedProjects}
                 onSubmit={async (data: any) => {
                     try {
-                        await equipmentService.transferEquipment({ ...data, condition_notes: data.reason });
+                        await equipmentService.transferEquipment(data.equipment_id, data.to_project_id);
                         toast.success("Equipment successfully transferred!");
                         setIsTransferModalOpen(false);
                         fetchData();

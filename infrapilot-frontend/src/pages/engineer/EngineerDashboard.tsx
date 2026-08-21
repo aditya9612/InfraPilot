@@ -16,6 +16,10 @@ const phaseStatusStyle: Record<string, string> = {
     Completed: "bg-emerald-100 text-emerald-700",
     "In Progress": "bg-blue-100 text-blue-700",
     Upcoming: "bg-slate-100 text-slate-500",
+    COMPLETED: "bg-emerald-100 text-emerald-700",
+    IN_PROGRESS: "bg-blue-100 text-blue-700",
+    PLANNED: "bg-slate-100 text-slate-500",
+    DELAYED: "bg-rose-100 text-rose-700",
 };
 
 const EngineerDashboard = () => {
@@ -57,6 +61,10 @@ const EngineerDashboard = () => {
     // Pagination for Expense Register
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Pagination for Timeline Tracking
+    const [timelinePage, setTimelinePage] = useState(1);
+    const [timelineItemsPerPage, setTimelineItemsPerPage] = useState(5);
 
     // Live weather state
     const [liveWeather, setLiveWeather] = useState({
@@ -279,6 +287,40 @@ const EngineerDashboard = () => {
         );
     };
 
+    const renderTimelinePagination = (total: number) => {
+        const totalPages = Math.ceil(total / timelineItemsPerPage) || 1;
+        const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-4 rounded-b-2xl -mx-6 -mb-6">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={timelineItemsPerPage} onChange={(e) => { setTimelineItemsPerPage(Number(e.target.value)); setTimelinePage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (timelinePage - 1) * timelineItemsPerPage + 1} - {Math.min(timelinePage * timelineItemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setTimelinePage(p => Math.max(1, p - 1))} disabled={timelinePage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setTimelinePage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${timelinePage === page ? 'bg-emerald-500 text-white border border-emerald-500 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setTimelinePage(p => Math.min(totalPages, p + 1))} disabled={timelinePage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <>
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
@@ -462,22 +504,24 @@ const EngineerDashboard = () => {
                                     <p className="text-xs text-slate-400 mt-0.5">Milestone progress and completion status</p>
                                 </div>
                                 <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-black rounded-xl uppercase tracking-widest">
-                                    {timelinePhases.filter((p: any) => p.status === "Completed").length}/{timelinePhases.length} Phases Done
+                                    {timelinePhases.filter((p: any) => p.status?.toUpperCase() === "COMPLETED").length}/{timelinePhases.length} Phases Done
                                 </span>
                             </div>
                             <div className="space-y-4">
-                                {timelinePhases.map((phase: any, index: number) => (
+                                {timelinePhases.slice((timelinePage - 1) * timelineItemsPerPage, timelinePage * timelineItemsPerPage).map((phase: any, index: number) => {
+                                    const globalIndex = (timelinePage - 1) * timelineItemsPerPage + index;
+                                    return (
                                     <div key={phase.id} className="flex gap-4 items-start">
                                         <div className="flex flex-col items-center shrink-0">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 ${phase.status === "Completed" ? "bg-emerald-500 border-emerald-500 text-white" : phase.status === "In Progress" ? "bg-primary border-primary text-white" : "bg-white border-slate-200 text-slate-400"}`}>
-                                                {phase.status === "Completed" ? (
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-500 border-emerald-500 text-white" : phase.status?.toUpperCase() === "IN_PROGRESS" || phase.status?.toUpperCase() === "IN PROGRESS" ? "bg-primary border-primary text-white" : "bg-white border-slate-200 text-slate-400"}`}>
+                                                {phase.status?.toUpperCase() === "COMPLETED" ? (
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
                                                 ) : (
-                                                    <span>{index + 1}</span>
+                                                    <span>{globalIndex + 1}</span>
                                                 )}
                                             </div>
-                                            {index < timelinePhases.length - 1 && (
-                                                <div className={`w-0.5 h-8 mt-1 ${phase.status === "Completed" ? "bg-emerald-200" : "bg-slate-100"}`} />
+                                            {index < Math.min(timelineItemsPerPage, timelinePhases.length - (timelinePage - 1) * timelineItemsPerPage) - 1 && (
+                                                <div className={`w-0.5 h-8 mt-1 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-200" : "bg-slate-100"}`} />
                                             )}
                                         </div>
                                         <div className="flex-1 pb-4">
@@ -486,22 +530,24 @@ const EngineerDashboard = () => {
                                                     <p className="text-sm font-bold text-slate-800">{phase.phase}</p>
                                                     <p className="text-[10px] text-slate-400 font-medium mt-0.5">{phase.start} → {phase.end}</p>
                                                 </div>
-                                                <span className={`w-fit px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-widest shrink-0 ${phaseStatusStyle[phase.status]}`}>
+                                                <span className={`w-fit px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-widest shrink-0 ${phaseStatusStyle[phase.status] || phaseStatusStyle[phase.status?.toUpperCase()] || phaseStatusStyle["Upcoming"]}`}>
                                                     {phase.status}
                                                 </span>
                                             </div>
-                                            {phase.status !== "Upcoming" && (
+                                            {phase.status?.toUpperCase() !== "UPCOMING" && phase.status?.toUpperCase() !== "PLANNED" && (
                                                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
                                                     <div
-                                                        className={`h-full rounded-full transition-all duration-700 ${phase.status === "Completed" ? "bg-emerald-400" : "bg-primary"}`}
+                                                        className={`h-full rounded-full transition-all duration-700 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-400" : "bg-primary"}`}
                                                         style={{ width: `${phase.progress}%` }}
                                                     />
                                                 </div>
                                             )}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
+                            {renderTimelinePagination(timelinePhases.length)}
                         </div>
                     </div>
 

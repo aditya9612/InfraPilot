@@ -30,6 +30,7 @@ const MaterialStockPage = () => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [globalInventory, setGlobalInventory] = useState<InventoryItem[]>([]);
     const [reports, setReports] = useState<MaterialReport[]>([]);
+    const [reportSummary, setReportSummary] = useState<any>(null);
     const [adjustments, setAdjustments] = useState<MaterialLog[]>([]);
     const [valuation, setValuation] = useState({ total_value: 0 });
     const [projectsList, setProjectsList] = useState<any[]>([]);
@@ -85,6 +86,7 @@ const MaterialStockPage = () => {
 
     // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
+    const [alertFilter, setAlertFilter] = useState("");
     const [logTypeFilter, setLogTypeFilter] = useState("ADJUSTMENT");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -104,7 +106,11 @@ const MaterialStockPage = () => {
 
     const fetchReports = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getMaterialReport(projectId); setReports(data.materials || []); }
+        try {
+            const data = await materialService.getMaterialReport(projectId);
+            setReports(data.materials || []);
+            setReportSummary(data.summary || null);
+        }
         catch (e) { toast.error("Failed to load reports"); }
         finally { setIsLoading(false); }
     };
@@ -128,7 +134,7 @@ const MaterialStockPage = () => {
         if (activeTab === "Stock Overview") fetchStock();
         else if (activeTab === "Global Inventory") fetchGlobalInventory();
         else if (activeTab === "Reports") fetchReports();
-        else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); }
+        else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); fetchGlobalInventory(); }
     }, [activeTab, projectId, logTypeFilter]);
 
     const stats = useMemo(() => {
@@ -146,7 +152,13 @@ const MaterialStockPage = () => {
     const filteredGlobalInventory = useMemo(() => globalInventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [globalInventory, searchTerm]);
     const paginatedGlobalInventory = useMemo(() => filteredGlobalInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredGlobalInventory, currentPage, itemsPerPage]);
 
-    const filteredReports = useMemo(() => reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [reports, searchTerm]);
+    const filteredReports = useMemo(() => {
+        let list = reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (alertFilter === 'OUT_OF_STOCK') list = list.filter(r => r.remaining_stock === 0);
+        else if (alertFilter === 'LOW_STOCK') list = list.filter(r => r.remaining_stock > 0 && r.remaining_stock < 10);
+        else if (alertFilter === 'IN_STOCK') list = list.filter(r => r.remaining_stock >= 10);
+        return list;
+    }, [reports, searchTerm, alertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
 
     const filteredAdjustments = useMemo(() => adjustments.filter(a => a.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [adjustments, searchTerm]);
@@ -387,21 +399,88 @@ const MaterialStockPage = () => {
                 {activeTab === "Reports" && (
                     <div className="space-y-4 flex-1 flex flex-col min-h-0">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption & Stock Reports</h2>
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                    <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+
+                        {/* Summary Stat Cards */}
+                        {reportSummary && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Materials</p>
+                                    <p className="text-2xl font-bold text-blue-600">{reportSummary.total_materials ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Unique Items</p>
                                 </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Purchased</p>
+                                    <p className="text-2xl font-bold text-emerald-600">{reportSummary.total_purchased ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Units Procured</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Used</p>
+                                    <p className="text-2xl font-bold text-orange-600">{reportSummary.total_used ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Units Consumed</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Remaining</p>
+                                    <p className="text-2xl font-bold text-slate-800">{reportSummary.total_remaining ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">In Stock</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Stock Value</p>
+                                    <p className="text-xl font-bold text-blue-700">{formatINR(reportSummary.total_stock_value)}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Current Inventory</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Amount Paid</p>
+                                    <p className="text-xl font-bold text-emerald-700">{formatINR(reportSummary.total_payment_given)}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Payment Given</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pending Pay</p>
+                                    <p className="text-xl font-bold text-rose-600">{formatINR(reportSummary.total_payment_pending)}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Outstanding</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">In Stock</p>
+                                    <p className="text-2xl font-bold text-emerald-600">{reportSummary.in_stock_count ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Sufficient</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Low Stock</p>
+                                    <p className="text-2xl font-bold text-amber-600">{reportSummary.low_stock_count ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Need Reorder</p>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Out of Stock</p>
+                                    <p className="text-2xl font-bold text-rose-600">{reportSummary.out_of_stock_count ?? 0}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Stockout Alert</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                            <div className="p-4 border-b border-slate-50 flex items-center gap-3 flex-wrap">
+                                <div className="relative flex-1 min-w-[200px] max-w-md">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                    <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                </div>
+                                <select
+                                    value={alertFilter}
+                                    onChange={(e) => { setAlertFilter(e.target.value); setCurrentPage(1); }}
+                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600 w-44"
+                                >
+                                    <option value="">All Alerts</option>
+                                    <option value="IN_STOCK">✅ In Stock</option>
+                                    <option value="LOW_STOCK">⚠️ Low Stock</option>
+                                    <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+                                </select>
                                 <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th><th className="px-6 py-4 text-center">Alert</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
+                                        {isLoading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
                                                 <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
@@ -409,6 +488,15 @@ const MaterialStockPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    {r.remaining_stock === 0 ? (
+                                                        <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-rose-100 text-rose-700 uppercase tracking-widest">Out of Stock</span>
+                                                    ) : r.remaining_stock < 10 ? (
+                                                        <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-amber-100 text-amber-700 uppercase tracking-widest">Low Stock</span>
+                                                    ) : (
+                                                        <span className="px-2 py-1 text-[9px] font-black rounded-lg bg-emerald-100 text-emerald-700 uppercase tracking-widest">In Stock</span>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -443,22 +531,33 @@ const MaterialStockPage = () => {
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">material_name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">difference</th><th className="px-6 py-4 text-right">avg_rate</th><th className="px-6 py-4">reason</th></tr>
+                                        <tr>
+                                            <th className="px-6 py-4">Date</th>
+                                            <th className="px-6 py-4">Material Name</th>
+                                            <th className="px-6 py-4">Type</th>
+                                            <th className="px-6 py-4 text-center">Qty Change</th>
+                                            <th className="px-6 py-4 text-right">Avg Rate</th>
+                                            <th className="px-6 py-4">Reason</th>
+                                        </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}<br /><span className="text-[10px] text-slate-400">{new Date(a.created_at).toLocaleTimeString()}</span></td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">
+                                                    {(a as any).material_name ||
+                                                        inventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                                                        globalInventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                                                        `Material #${a.material_id || ''}`}
+                                                </td>
                                                 <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
-
                                                 <td className="px-6 py-4 text-sm font-bold text-center">
                                                     <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                                         {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR((a as any).avg_rate)}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR((a as any).avg_rate)}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 max-w-[160px] truncate" title={(a as any).reason || ''}>{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</td>
                                             </tr>
                                         ))}
                                         {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
@@ -478,7 +577,7 @@ const MaterialStockPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">material_id *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Material *</label>
                                 <select required value={adjustmentForm.material_id || ""} onChange={e => {
                                     const val = Number(e.target.value);
                                     setAdjustmentForm({ ...adjustmentForm, material_id: val });

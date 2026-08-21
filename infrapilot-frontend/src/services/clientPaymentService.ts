@@ -76,8 +76,15 @@ export const clientPaymentService = {
     async getPaymentHistory(params?: any): Promise<ClientPayment[]> {
         const p = parseParams(params);
         console.log("GET /api/v1/client-payments/history", p);
-        const response = await api.get("/client-payments/history", { params: p });
-        return Array.isArray(response.data) ? response.data : (response.data.items || response.data.history || []);
+        try {
+            const response = await api.get("/client-payments/history", { params: p });
+            return Array.isArray(response.data) ? response.data : (response.data.items || response.data.history || []);
+        } catch (e: any) {
+            if (e.response?.status === 422) {
+                console.error("422 Validation Error on history:", JSON.stringify(e.response.data));
+            }
+            throw e;
+        }
     },
 
     /**
@@ -154,10 +161,15 @@ export const clientPaymentService = {
         const p = parseParams(params);
         console.log("GET /api/v1/client-payments/history", p);
         const response = await api.get("/client-payments/history", { params: p });
+
+        let items = [];
         if (Array.isArray(response.data)) {
-            return { items: response.data, total: response.data.length };
+            items = response.data;
+        } else {
+            items = response.data.items || response.data.history || response.data.payments || [];
         }
-        return response.data;
+
+        return { items, total: response.data.total || items.length };
     },
 
     /**
