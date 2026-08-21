@@ -323,7 +323,10 @@ export default function PaymentTracker() {
                   </td>
                   <td className="p-4">
                     <p className="text-sm font-semibold text-slate-700">
-                      {txn.project_name || 'Unknown Project'}
+                      {(() => {
+                        const proj = projects.find((p: any) => String(p.id) === String(txn.project_id));
+                        return (proj ? (proj.project_name || proj.name) : txn.project_name) || 'Unknown Project';
+                      })()}
                     </p>
                   </td>
                   <td className="p-4 text-sm text-slate-600">
@@ -459,7 +462,10 @@ export default function PaymentTracker() {
               <div className="flex justify-between pb-3 border-b border-slate-100">
                 <span className="text-slate-500 text-sm">Project</span>
                 <span className="text-slate-800 font-medium text-sm">
-                  {selectedTxn.project_name || `ID: ${selectedTxn.project_id}` || '-'}
+                  {(() => {
+                    const proj = projects.find((p: any) => String(p.id) === String(selectedTxn.project_id));
+                    return (proj ? (proj.project_name || proj.name) : selectedTxn.project_name) || `ID: ${selectedTxn.project_id}` || '-';
+                  })()}
                 </span>
               </div>
               <div className="flex justify-between pb-3 border-b border-slate-100">

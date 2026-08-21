@@ -27,7 +27,7 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
       <table className="w-full text-left">
         <thead>
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-            <th className="px-6 py-4">PO ID & Material</th>
+            <th className="px-6 py-4">Material</th>
             <th className="px-6 py-4">Quantity</th>
             <th className="px-6 py-4">Rate (₹)</th>
             <th className="px-6 py-4">Total Amount</th>
@@ -39,8 +39,7 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
           {pos.map((po) => (
             <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
-                <p className="font-bold text-slate-800">PO-{po.id.toString().padStart(4, '0')}</p>
-                <p className="text-xs text-slate-500 font-medium">{po.material_name}</p>
+                <p className="font-bold text-slate-800">{po.material_name}</p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {po.quantity} units

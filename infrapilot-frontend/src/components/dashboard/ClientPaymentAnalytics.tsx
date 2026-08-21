@@ -7,19 +7,44 @@ import { useProject } from "../../context/ProjectContext";
 const ClientPaymentAnalyticsUI = () => {
     const { selectedProjectId } = useProject();
     const [analytics, setAnalytics] = useState<ClientPaymentAnalytics | null>(null);
-    const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!selectedProjectId) return;
             setLoading(true);
             try {
-                const [analyticsData, summaryData] = await Promise.all([
-                    clientPaymentService.getAnalytics(selectedProjectId ? { project_id: selectedProjectId } : undefined),
-                    clientPaymentService.getInvoiceSummary(selectedProjectId ? { project_id: selectedProjectId } : undefined)
-                ]);
-                setAnalytics(analyticsData);
-                setInvoiceSummary(summaryData);
+                // Fetch the actual payments linked to this project to calculate precise local metrics
+                const payments = await clientPaymentService.getPaymentHistory({ project_id: selectedProjectId });
+
+                let totalCollection = 0;
+                let pendingCount = 0;
+                let successCount = 0;
+
+                payments.forEach((p: any) => {
+                    const status = (p.status || p.payment_status || '').toLowerCase();
+                    const amount = Number(p.amount) || 0;
+
+                    if (status.includes('completed') || status.includes('verified') || status.includes('success')) {
+                        successCount++;
+                        totalCollection += amount;
+                    } else if (status.includes('pending')) {
+                        pendingCount++;
+                    }
+                });
+
+                const average = successCount > 0 ? (totalCollection / successCount) : 0;
+
+                setAnalytics({
+                    total_collection: totalCollection.toString(),
+                    pending_verification: pendingCount,
+                    successful_payments: successCount,
+                    average_payment: average.toString(),
+                    rejected_payments: 0,
+                    total_invoices: 0,
+                    overdue_invoices: 0,
+                    highest_payment: "0",
+                });
             } catch (err) {
                 console.error("Failed to fetch client payment analytics", err);
             } finally {
