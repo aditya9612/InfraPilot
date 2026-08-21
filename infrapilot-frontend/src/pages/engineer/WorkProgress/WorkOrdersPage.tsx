@@ -153,7 +153,7 @@ const WorkOrdersPage = () => {
       <Navbar title="Work Orders" breadcrumb={["InfraPilot", "Engineer", "Work Progress", "Work Orders"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] pb-24">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
             <div>

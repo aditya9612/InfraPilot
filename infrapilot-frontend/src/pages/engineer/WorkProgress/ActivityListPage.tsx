@@ -44,51 +44,51 @@ const ActivityListPage = () => {
 
   const handleExportPdf = async () => {
     if (!projectId) {
-        toast.error("Project ID is required");
-        return;
+      toast.error("Project ID is required");
+      return;
     }
     setIsExportingPdf(true);
     const toastId = toast.loading("Generating PDF report...");
     try {
-        const blob = await reportService.exportWeeklyPDF(projectId);
-        const url = window.URL.createObjectURL(new Blob([blob]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Work_Progress_Report_${projectId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        toast.success("PDF report exported!", { id: toastId });
+      const blob = await reportService.exportWeeklyPDF(projectId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Work_Progress_Report_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("PDF report exported!", { id: toastId });
     } catch (err: any) {
-        console.error("PDF Export failed:", err);
-        toast.error("Export failed", { id: toastId });
+      console.error("PDF Export failed:", err);
+      toast.error("Export failed", { id: toastId });
     } finally {
-        setIsExportingPdf(false);
+      setIsExportingPdf(false);
     }
   };
 
   const handleExportExcel = async () => {
     if (!projectId) {
-        toast.error("Project ID is required");
-        return;
+      toast.error("Project ID is required");
+      return;
     }
     setIsExportingExcel(true);
     const toastId = toast.loading("Generating Excel report...");
     try {
-        const blob = await reportService.exportWeeklyExcel(projectId);
-        const url = window.URL.createObjectURL(new Blob([blob]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Work_Progress_Report_${projectId}.xlsx`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        toast.success("Excel report exported!", { id: toastId });
+      const blob = await reportService.exportWeeklyExcel(projectId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Work_Progress_Report_${projectId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Excel report exported!", { id: toastId });
     } catch (err: any) {
-        console.error("Excel Export failed:", err);
-        toast.error("Export failed", { id: toastId });
+      console.error("Excel Export failed:", err);
+      toast.error("Export failed", { id: toastId });
     } finally {
-        setIsExportingExcel(false);
+      setIsExportingExcel(false);
     }
   };
 
@@ -106,15 +106,15 @@ const ActivityListPage = () => {
 
   useEffect(() => {
     projectService.getProjects(100, 0).then((data: any) => {
-        setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
-    }).catch(() => {});
+      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+    }).catch(() => { });
 
     api.get("/work-orders").then((res: any) => {
-        const items = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        // simple unique filter
-        const unique = Array.from(new Map(items.map((i: any) => [i.id, i])).values());
-        setWorkOrdersList(unique);
-    }).catch(() => {});
+      const items = Array.isArray(res.data) ? res.data : (res.data.items || []);
+      // simple unique filter
+      const unique = Array.from(new Map(items.map((i: any) => [i.id, i])).values());
+      setWorkOrdersList(unique);
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -170,7 +170,7 @@ const ActivityListPage = () => {
       setLoading(true);
       // Pass project_id from Context — backend returns only that project's activities
       const data = await workProgressService.listActivities(projectId, undefined, 100, 0);
-      
+
       const normalizedData = data.map((a: any) => ({
         ...a,
         status: a.status || "NOT_STARTED"

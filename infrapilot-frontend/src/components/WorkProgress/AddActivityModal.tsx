@@ -49,7 +49,7 @@ const AddActivityModal = ({ isOpen, onClose, projectId, engineerId, onSubmit }: 
       const fetchAllData = async () => {
         try {
           let projectsList = [];
-          if (user?.role === "ProjectManager") {
+          if (user?.role === "ProjectManager" || user?.role === "SiteEngineer") {
             projectsList = await projectService.getAssignedProjects(Number(user.id));
           } else {
             const res = await projectService.getProjects(100, 0);

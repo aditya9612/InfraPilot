@@ -16,7 +16,7 @@ interface IssueFilterModalProps {
     onConfirm: (filters: IssueFilterSelection) => void;
 }
 
-const STATUS_OPTIONS = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
+const STATUS_OPTIONS = ["OPEN", "CLOSED"];
 const PRIORITY_OPTIONS = ["HIGH", "MEDIUM", "LOW"];
 
 const IssueFilterModal = ({ isOpen, onClose, format, onConfirm }: IssueFilterModalProps) => {

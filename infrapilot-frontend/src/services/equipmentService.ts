@@ -251,7 +251,7 @@ export const equipmentService = {
         return response.data;
     },
 
-    async getUsageReport(params?: { project_id?: number }): Promise<UsageReport[]> {
+    async getUsageReport(params?: { equipment_id?: number, date_from?: string, date_to?: string, limit?: number, offset?: number, project_id?: number }): Promise<UsageReport[]> {
         const response = await api.get<any>('/equipment/usage/report', { params });
         const data = response.data;
         return Array.isArray(data) ? data : (data.items || data.data || []);
@@ -426,7 +426,7 @@ export const equipmentService = {
         return new Blob([response.data as any]);
     },
 
-    async getCostReport(params?: { project_id?: number }): Promise<CostReport[]> {
+    async getCostReport(params?: { equipment_id?: number, date_from?: string, date_to?: string, limit?: number, offset?: number, project_id?: number }): Promise<CostReport[]> {
         const response = await api.get<any>('/equipment/cost/report', { params });
         const data = response.data;
         return Array.isArray(data) ? data : (data.items || data.data || []);
@@ -497,24 +497,22 @@ export const equipmentService = {
         return response.data;
     },
 
-    async getUtilizationReport(params?: { project_id?: number }): Promise<UtilizationReport[]> {
-        const usageData = await this.getUsageReport(params);
-        return usageData.map(u => ({
-            equipment_id: u.equipment_id,
-            equipment_code: u.equipment_code,
-            total_hours: u.total_hours || 0,
-            utilization_rate: Number((((u.total_hours || 0) / 208) * 100).toFixed(2))
-        }));
+    async getUtilizationReport(params?: { equipment_id?: number, limit?: number, offset?: number, project_id?: number }): Promise<UtilizationReport[]> {
+        const response = await api.get<any>('/equipment/report/utilization', { params });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
-    async getPurchaseReport(params?: { project_id?: number }): Promise<any[]> {
-        const response = await api.get<any[]>('/equipment/purchase/report', { params });
-        return response.data;
+    async getPurchaseReport(params?: { project_id?: number, purchase_type?: string, limit?: number, offset?: number }): Promise<any[]> {
+        const response = await api.get<any>('/equipment/purchase/report', { params });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
-    async getAvailabilityReport(params?: { project_id?: number }): Promise<AvailabilityReport[]> {
-        const response = await api.get<AvailabilityReport[]>('/equipment/eq/availability', { params });
-        return response.data;
+    async getAvailabilityReport(params?: { project_id?: number, is_available?: boolean, limit?: number, offset?: number }): Promise<any[]> {
+        const response = await api.get<any>('/equipment/eq/availability', { params });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
     async getMaintenanceAlerts(params?: { project_id?: number }): Promise<MaintenanceAlert[]> {

@@ -86,7 +86,7 @@ export const checklistService = {
     },
 
     executeChecklist: async (data: ExecuteChecklistRequest): Promise<ChecklistLog> => {
-        const response = await api.post('/checklists/execute', data);
+        const response = await api.post(`/checklists/${data.checklist_id}/execute`, data);
         return response.data;
     },
 

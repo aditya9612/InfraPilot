@@ -34,7 +34,102 @@ const conditionDisplay: Record<string, string> = {
     'MAINTENANCE': 'MAINTENANCE',
 };
 
-const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equipment", "Maintenance", "Rental", "Purchase", "Reports & Alerts"];
+const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equipment", "Maintenance", "Rental", "Purchase", "Reports", "Project Report"];
+
+const Pagination = ({
+    totalItems,
+    itemsPerPage,
+    currentPage,
+    onPageChange,
+    onItemsPerPageChange,
+}: {
+    totalItems: number;
+    itemsPerPage: number;
+    currentPage: number;
+    onPageChange: (page: number) => void;
+    onItemsPerPageChange: (items: number) => void;
+}) => {
+    if (totalItems === 0) return null;
+    
+    return (
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+            {/* Left: Items per page */}
+            <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                <select
+                    value={itemsPerPage}
+                    onChange={(e) => { onItemsPerPageChange(Number(e.target.value)); onPageChange(1); }}
+                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                </select>
+            </div>
+
+            {/* Center: Showing info */}
+            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} records
+            </div>
+
+            {/* Right: Pagination */}
+            <div className="flex items-center gap-1.5">
+                <button
+                    onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {(() => {
+                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                    const pages = [];
+                    if (totalPages <= 5) {
+                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                        if (currentPage <= 3) {
+                            pages.push(1, 2, 3, 4, '...', totalPages);
+                        } else if (currentPage >= totalPages - 2) {
+                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                        } else {
+                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                        }
+                    }
+
+                    return pages.map((page, index) => {
+                        if (page === '...') {
+                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                        }
+                        const pageNum = page as number;
+                        const isActive = currentPage === pageNum;
+                        return (
+                            <button
+                                key={`page-${pageNum}`}
+                                onClick={() => onPageChange(pageNum)}
+                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                    }`}
+                            >
+                                {pageNum}
+                            </button>
+                        );
+                    });
+                })()}
+
+                <button
+                    onClick={() => onPageChange(Math.min(Math.ceil(totalItems / itemsPerPage), currentPage + 1))}
+                    disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const MachineryPage = () => {
     // ─── Project Context ──────────────────────────────────────────────
@@ -78,6 +173,8 @@ const MachineryPage = () => {
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
+    const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
+    const [availabilityReportList, setAvailabilityReportList] = useState<any[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
     // ─── UI / Form States ──────────────────────────────────────────────
@@ -89,6 +186,41 @@ const MachineryPage = () => {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [utilizationPage, setUtilizationPage] = useState(1);
+    const [utilizationItemsPerPage, setUtilizationItemsPerPage] = useState(10);
+    const [costPage, setCostPage] = useState(1);
+    const [costItemsPerPage, setCostItemsPerPage] = useState(10);
+    const [usagePage, setUsagePage] = useState(1);
+    const [usageItemsPerPage, setUsageItemsPerPage] = useState(10);
+    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchaseItemsPerPage, setPurchaseItemsPerPage] = useState(10);
+    const [availabilityPage, setAvailabilityPage] = useState(1);
+    const [availabilityItemsPerPage, setAvailabilityItemsPerPage] = useState(10);
+
+    // Date filters for reports
+    const [costDateFrom, setCostDateFrom] = useState("");
+    const [costDateTo, setCostDateTo] = useState("");
+    const [usageDateFrom, setUsageDateFrom] = useState("");
+    const [usageDateTo, setUsageDateTo] = useState("");
+    const [appliedCostDateFrom, setAppliedCostDateFrom] = useState("");
+    const [appliedCostDateTo, setAppliedCostDateTo] = useState("");
+    const [appliedUsageDateFrom, setAppliedUsageDateFrom] = useState("");
+    const [appliedUsageDateTo, setAppliedUsageDateTo] = useState("");
+    
+    // Purchase/Availability filters
+    const [purchaseType, setPurchaseType] = useState("");
+    const [appliedPurchaseType, setAppliedPurchaseType] = useState("");
+    const [isAvailableFilter, setIsAvailableFilter] = useState("");
+    const [appliedIsAvailableFilter, setAppliedIsAvailableFilter] = useState("");
+
+    // Purchase List Tab States
+    const [purchaseList, setPurchaseList] = useState<any[]>([]);
+    const [purchaseListType, setPurchaseListType] = useState("");
+    const [purchaseListDateFrom, setPurchaseListDateFrom] = useState("");
+    const [purchaseListDateTo, setPurchaseListDateTo] = useState("");
+    const [appliedPurchaseListType, setAppliedPurchaseListType] = useState("");
+    const [appliedPurchaseListDateFrom, setAppliedPurchaseListDateFrom] = useState("");
+    const [appliedPurchaseListDateTo, setAppliedPurchaseListDateTo] = useState("");
 
     // Selected items for modals
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
@@ -110,12 +242,20 @@ const MachineryPage = () => {
     const [rentalToView, setRentalToView] = useState<any>(null);
     const [isRentalDeleteModalOpen, setIsRentalDeleteModalOpen] = useState(false);
     const [rentalToDelete, setRentalToDelete] = useState<{ id: number, equipment_id: number } | null>(null);
-    const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
+
 
     // New Modals for Transfer & Purchase
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
+    const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
+    const [createPurchaseForm, setCreatePurchaseForm] = useState<any>({});
+    
+    // View and Delete Purchase Modals
+    const [isViewPurchaseModalOpen, setIsViewPurchaseModalOpen] = useState(false);
+    const [viewPurchaseData, setViewPurchaseData] = useState<any>(null);
+    const [isDeletePurchaseModalOpen, setIsDeletePurchaseModalOpen] = useState(false);
+    const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
     
     // View Modals for Usage and Maintenance
     const [viewUsageItem, setViewUsageItem] = useState<any>(null);
@@ -220,7 +360,7 @@ const MachineryPage = () => {
                 const [res, report, boqs] = await Promise.all([
                     equipmentService.listEquipment(eqParams),
                     equipmentService.getUsageReport(pIdObj),
-                    selectedProjectId ? boqService.getBoqs({ project_id: selectedProjectId, limit: 100, skip: 0 } as any).catch(() => ({ items: [] })) : Promise.resolve({ items: [] })
+                    boqService.getBoqs({ project_id: selectedProjectId || undefined, limit: 100, skip: 0 } as any).catch(() => ({ items: [] }))
                 ]);
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
@@ -232,7 +372,7 @@ const MachineryPage = () => {
                 const [res, mAlerts, boqs] = await Promise.all([
                     equipmentService.listEquipment(eqParams),
                     equipmentService.getMaintenanceAlerts(pIdObj),
-                    selectedProjectId ? boqService.getBoqs({ project_id: selectedProjectId, limit: 100, skip: 0 } as any).catch(() => ({ items: [] })) : Promise.resolve({ items: [] })
+                    boqService.getBoqs({ project_id: selectedProjectId || undefined, limit: 100, skip: 0 } as any).catch(() => ({ items: [] }))
                 ]);
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
@@ -248,7 +388,8 @@ const MachineryPage = () => {
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
                 setCostReport(cost);
-                if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+                // Do not auto-select first equipment for Rental tab, show all rentals by default
+                // if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
 
                 // Fetch all rentals in one call
                 try {
@@ -258,10 +399,16 @@ const MachineryPage = () => {
                 } catch (e) { console.error("Failed to fetch all rentals", e); }
             }
             else if (activeTab === "Purchase") {
-                const res = await equipmentService.listEquipment(eqParams);
-                const eqList = res.items || [];
-                setEquipmentList(eqList);
-                if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+                const purchParams: any = { ...pIdObj };
+                if (appliedPurchaseListDateFrom) purchParams.purchase_date_from = appliedPurchaseListDateFrom;
+                if (appliedPurchaseListDateTo) purchParams.purchase_date_to = appliedPurchaseListDateTo;
+                
+                const [res, eqRes] = await Promise.all([
+                    equipmentService.listPurchase(purchParams),
+                    equipmentService.listEquipment(eqParams)
+                ]);
+                setPurchaseList(res.items || res || []);
+                setEquipmentList(eqRes.items || []);
             }
             else if (activeTab === "Transfer Equipment") {
                 const [res, history] = await Promise.all([
@@ -273,20 +420,33 @@ const MachineryPage = () => {
                 setTransferHistory(history);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
             }
-            else if (activeTab === "Reports & Alerts") {
-                const [avail, util, eqRes, purchaseRes] = await Promise.all([
+            else if (activeTab === "Reports") {
+                const [avail, util, eqRes, costRes, usageRes] = await Promise.all([
                     equipmentService.getAvailabilityReport(pIdObj),
                     equipmentService.getUtilizationReport(pIdObj),
                     equipmentService.listEquipment(eqParams),
-                    equipmentService.getPurchaseReport(pIdObj).catch(() => [])
+                    equipmentService.getCostReport({ ...pIdObj, date_from: appliedCostDateFrom || undefined, date_to: appliedCostDateTo || undefined }),
+                    equipmentService.getUsageReport({ ...pIdObj, date_from: appliedUsageDateFrom || undefined, date_to: appliedUsageDateTo || undefined })
                 ]);
                 setAvailability(avail);
                 setUtilizationReport(util);
                 setEquipmentList(eqRes.items || []);
-                setPurchaseReport(purchaseRes || []);
+                setCostReport(costRes || []);
+                setUsageReport(usageRes || []);
             }
+            else if (activeTab === "Project Report") {
+                const [eqRes, purchRes, availListRes] = await Promise.all([
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.getPurchaseReport({ ...pIdObj, purchase_type: appliedPurchaseType || undefined }),
+                    equipmentService.getAvailabilityReport({ ...pIdObj, is_available: appliedIsAvailableFilter === 'true' ? true : appliedIsAvailableFilter === 'false' ? false : undefined })
+                ]);
+                setEquipmentList(eqRes.items || []);
+                setPurchaseReport(purchRes || []);
+                setAvailabilityReportList(availListRes || []);
+            }
+
         }, silent);
-    }, [activeTab, selectedProjectId, showDeleted]);
+    }, [activeTab, selectedProjectId, showDeleted, appliedCostDateFrom, appliedCostDateTo, appliedUsageDateFrom, appliedUsageDateTo, appliedPurchaseType, appliedIsAvailableFilter, appliedPurchaseListType, appliedPurchaseListDateFrom, appliedPurchaseListDateTo]);
 
     useEffect(() => {
         fetchTabData();
@@ -311,7 +471,7 @@ const MachineryPage = () => {
             equipmentService.listRental(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, rental: res })));
         } else if (activeTab === "Transfer Equipment") {
             equipmentService.getTransferHistory(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, transfer: res })));
-        } else if (activeTab === "Reports & Alerts" || isLogsModalOpen) {
+        } else if (activeTab === "Reports" || activeTab === "Alerts" || isLogsModalOpen) {
             equipmentService.getAuditLogs(selectedEquipment.id, { limit: 20, offset: 0 }).then(res => setAuditLogs(res.items || []));
         }
     }, [selectedEquipment, activeTab, isLogsModalOpen]);
@@ -410,8 +570,15 @@ const MachineryPage = () => {
 
     const handleDeallocate = async () => {
         if (!selectedEquipment) return;
+        
+        const targetProjectId = formData.project_id || selectedEquipment.project_id || selectedProjectId;
+        if (!targetProjectId) {
+            toast.error("Please select a project to deallocate from");
+            return;
+        }
+
         try {
-            await equipmentService.deallocateEquipment(selectedEquipment.id, selectedEquipment.project_id || 0);
+            await equipmentService.deallocateEquipment(selectedEquipment.id, targetProjectId);
             toast.success("Equipment deallocated!");
             setIsAllocateModalOpen(false);
             // Refetch equipment list so UI reflects the new allocation status immediately
@@ -433,6 +600,36 @@ const MachineryPage = () => {
             setEquipmentList(res.items || []);
         } catch (error) {
             toast.error("Failed to transfer equipment");
+        }
+    };
+
+    const handleSavePurchase = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            if (createPurchaseForm.id) {
+                await equipmentService.updatePurchase(createPurchaseForm.id, createPurchaseForm);
+                toast.success("Purchase updated successfully!");
+            } else {
+                await equipmentService.createPurchase(createPurchaseForm);
+                toast.success("Purchase created successfully!");
+            }
+            setIsCreatePurchaseModalOpen(false);
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error) {
+            toast.error("Failed to save purchase");
+        }
+    };
+
+    const handleDeletePurchase = async () => {
+        if (!purchaseToDelete) return;
+        try {
+            await equipmentService.deletePurchase(purchaseToDelete);
+            toast.success("Purchase deleted successfully!");
+            setIsDeletePurchaseModalOpen(false);
+            setPurchaseToDelete(null);
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error) {
+            toast.error("Failed to delete purchase");
         }
     };
 
@@ -772,8 +969,8 @@ const MachineryPage = () => {
                         { title: "Available", value: dashStats.avail.toString(), sub: "Ready for deploy", accent: "text-emerald-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); } },
                         { title: "Allocated", value: dashStats.alloc.toString(), sub: "Currently in use", accent: "text-blue-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); } },
                         { title: "Maintenance Due", value: dashStats.maint.toString(), sub: "Upcoming/Overdue", accent: "text-amber-500", action: () => setActiveTab("Maintenance") },
-                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-rose-500", action: () => setActiveTab("Reports & Alerts") },
-                        { title: "Total Rental/Mo", value: `₹${dashStats.totalRental.toLocaleString()}`, sub: "Estimated cost", accent: "text-purple-500", action: () => setActiveTab("Rental") }
+                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-rose-500", action: () => setActiveTab("Alerts") },
+                        { title: "Total Rental/Mo", value: `₹${dashStats.totalRental.toLocaleString()}`, sub: "Estimated cost", accent: "text-purple-500", action: () => { setActiveTab("Rental"); setSelectedEquipment(null); } }
                     ].map((s) => (
                         <div key={s.title} onClick={s.action} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">{s.title}</p>
@@ -957,85 +1154,13 @@ const MachineryPage = () => {
                 </div>
 
                 {/* ─── Pagination Controls ──────────────────────────────────────────────────────── */}
-                {filteredEquipmentList.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                        {/* Left: Items per page */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                            >
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                        </div>
-
-                        {/* Center: Showing info */}
-                        <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                            Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredEquipmentList.length)} of {filteredEquipmentList.length} records
-                        </div>
-
-                        {/* Right: Pagination */}
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                disabled={currentPage === 1}
-                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-
-                            {(() => {
-                                const totalItems = filteredEquipmentList.length;
-                                const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                const pages = [];
-                                if (totalPages <= 5) {
-                                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                } else {
-                                    if (currentPage <= 3) {
-                                        pages.push(1, 2, 3, 4, '...', totalPages);
-                                    } else if (currentPage >= totalPages - 2) {
-                                        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                    } else {
-                                        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                    }
-                                }
-
-                                return pages.map((page, index) => {
-                                    if (page === '...') {
-                                        return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                    }
-                                    const pageNum = page as number;
-                                    const isActive = currentPage === pageNum;
-                                    return (
-                                        <button
-                                            key={`page-${pageNum}`}
-                                            onClick={() => setCurrentPage(pageNum)}
-                                            className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                });
-                            })()}
-
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredEquipmentList.length / itemsPerPage), prev + 1))}
-                                disabled={currentPage >= Math.ceil(filteredEquipmentList.length / itemsPerPage)}
-                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <Pagination
+                    totalItems={filteredEquipmentList.length}
+                    itemsPerPage={itemsPerPage}
+                    currentPage={currentPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={setItemsPerPage}
+                />
             </div>
         </div>
     );
@@ -1149,7 +1274,7 @@ const MachineryPage = () => {
                                 <tbody className="divide-y divide-slate-100">
                                     {usageReport.map(r => (
                                         <tr key={r.equipment_id} onClick={() => setSelectedEquipment(equipmentList.find(e => e.id === r.equipment_id) || null)} className="hover:bg-slate-50 cursor-pointer">
-                                            <td className="p-4 font-bold text-primary">{r.equipment_code}</td>
+                                            <td className="p-4 font-bold text-primary">{(r as any).equipment_name || (r as any).equipment?.equipment_name || equipmentList.find(e => Number(e.id) === Number(r.equipment_id))?.equipment_name || r.equipment_code}</td>
                                             <td className="p-4">{r.total_hours}</td>
                                             <td className="p-4">{r.total_fuel}</td>
                                             <td className="p-4">{r.avg_hours.toFixed(1)}</td>
@@ -1164,7 +1289,7 @@ const MachineryPage = () => {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                         <div className="p-4 border-b border-slate-100 bg-slate-50">
                             <h3 className="font-bold text-sm text-slate-800">
-                                Logs {selectedEquipment ? `— ${selectedEquipment.equipment_code}` : "(Select equipment)"}
+                                Logs {selectedEquipment ? `— ${selectedEquipment.equipment_name || selectedEquipment.equipment_code}` : "(Select equipment)"}
                             </h3>
                         </div>
                         <div className="flex-1 overflow-auto p-4 space-y-3 max-h-[400px]">
@@ -1211,7 +1336,7 @@ const MachineryPage = () => {
                             if (eq) setSelectedEquipment(eq);
                         }} className={`cursor-pointer hover:scale-[1.02] transition-transform min-w-[250px] p-4 rounded-xl border ${alert.status === 'OVERDUE' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
                             <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-sm text-slate-800">{alert.equipment_code}</h4>
+                                <h4 className="font-bold text-sm text-slate-800">{equipmentList.find(e => e.id === alert.equipment_id)?.equipment_name || alert.equipment_code}</h4>
                                 <Wrench className={`w-4 h-4 ${alert.status === 'OVERDUE' ? 'text-red-500' : 'text-amber-500'}`} />
                             </div>
                             <p className="text-xs text-slate-600 mt-1">Due: {alert.maintenance_date} ({alert.days_until} days)</p>
@@ -1258,7 +1383,7 @@ const MachineryPage = () => {
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50">
                                             <td className="p-4 whitespace-nowrap">{log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || projects.find(p => p.id === log.project_id)?.name || `Project #${log.project_id}`) : '-'}</td>
-                                            <td className="p-4 whitespace-nowrap">{log.boq_item_id ? (boqsList.find(b => b.id === log.boq_item_id)?.item_name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.boq_item_id ? (log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name || boqsList.find(b => Number(b.id) === Number(log.boq_item_id))?.item_name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
                                             <td className="p-4 whitespace-nowrap">{log.equipment_id ? (equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || selectedEquipment?.equipment_name || `Equipment #${log.equipment_id}`) : '-'}</td>
                                             <td className="p-4 whitespace-nowrap">{log.maintenance_date || '-'}</td>
                                             <td className="p-4 font-bold text-slate-800">₹{log.cost?.toLocaleString() || '0'}</td>
@@ -1382,10 +1507,10 @@ const MachineryPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {paginatedAllRentals.length > 0 ? paginatedAllRentals.map(log => {
-                                        const eq = equipmentList.find(e => e.id === log.equipment_id);
+                                        const eq = equipmentList.find(e => Number(e.id) === Number(log.equipment_id));
                                         return (
                                             <tr key={`${log.equipment_id}-${log.id}`} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-3 font-bold text-slate-800">{eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
+                                                <td className="px-6 py-3 font-bold text-slate-800">{(log as any).equipment_name || (log as any).equipment?.equipment_name || eq?.equipment_name || eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
                                                 <td className="px-6 py-3 text-slate-700">{log.start_date}</td>
                                                 <td className="px-6 py-3 text-slate-700">{log.end_date}</td>
                                                 <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
@@ -1496,7 +1621,12 @@ const MachineryPage = () => {
         );
     };
 
-    const renderReports = () => (
+    const renderReports = () => {
+        const paginatedUtilization = utilizationReport.slice((utilizationPage - 1) * utilizationItemsPerPage, utilizationPage * utilizationItemsPerPage);
+        const paginatedCost = costReport.slice((costPage - 1) * costItemsPerPage, costPage * costItemsPerPage);
+        const paginatedUsage = usageReport.slice((usagePage - 1) * usageItemsPerPage, usagePage * usageItemsPerPage);
+
+        return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
@@ -1510,158 +1640,404 @@ const MachineryPage = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-primary" /> <h3 className="font-bold text-sm text-slate-800">Utilization Rate</h3>
-                    </div>
-                    <div className="p-4 space-y-4 max-h-[400px] overflow-auto">
-                        {utilizationReport.map(r => (
-                            <div key={r.equipment_id}>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="font-bold text-slate-700">{r.equipment_code}</span>
-                                    <span className="font-medium text-slate-500">{r.total_hours} hrs ({r.utilization_rate}%)</span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-2">
-                                    <div className={`h-2 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div>
-                                </div>
-                            </div>
-                        ))}
+            {/* API Data Tables will follow here (they are already added below this block) */}
+
+            {/* API Data Tables */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-slate-800">Utilization Report</h3>
+                </div>
+                <div className="overflow-auto max-h-[300px]">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <tr>
+                                <th className="p-4">Equipment</th>
+                                <th className="p-4">Total Hrs</th>
+                                <th className="p-4">Utilization Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
+                                <tr key={r.equipment_id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
+                                    <td className="p-4">{r.total_hours} hrs</td>
+                                    <td className="p-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-16 bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div></div>
+                                            <span>{r.utilization_rate}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No utilization data</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+                <Pagination
+                    totalItems={utilizationReport.length}
+                    itemsPerPage={utilizationItemsPerPage}
+                    currentPage={utilizationPage}
+                    onPageChange={setUtilizationPage}
+                    onItemsPerPageChange={setUtilizationItemsPerPage}
+                />
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
+                    <div className="flex items-center gap-2">
+                        <input type="date" value={costDateFrom} onChange={e => setCostDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
+                        <span className="text-xs text-slate-500">to</span>
+                        <input type="date" value={costDateTo} onChange={e => setCostDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
+                        <button onClick={() => { setAppliedCostDateFrom(costDateFrom); setAppliedCostDateTo(costDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                     </div>
                 </div>
+                <div className="overflow-auto max-h-[300px]">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <tr>
+                                <th className="p-4">Equipment</th>
+                                <th className="p-4">Total Cost</th>
+                                <th className="p-4">Rentals</th>
+                                <th className="p-4">Avg Cost</th>
+                                <th className="p-4">Total Days</th>
+                                <th className="p-4">Rev/Day</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
+                                <tr key={c.equipment_id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                    <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
+                                    <td className="p-4">{c.rental_count}</td>
+                                    <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
+                                    <td className="p-4">{c.total_days}</td>
+                                    <td className="p-4">₹{c.revenue_per_day?.toLocaleString()}</td>
+                                </tr>
+                            )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No cost data</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+                <Pagination
+                    totalItems={costReport.length}
+                    itemsPerPage={costItemsPerPage}
+                    currentPage={costPage}
+                    onPageChange={setCostPage}
+                    onItemsPerPageChange={setCostItemsPerPage}
+                />
+            </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-500" /> <h3 className="font-bold text-sm text-slate-800">Availability Map</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
+                    <div className="flex items-center gap-2">
+                        <input type="date" value={usageDateFrom} onChange={e => setUsageDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
+                        <span className="text-xs text-slate-500">to</span>
+                        <input type="date" value={usageDateTo} onChange={e => setUsageDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
+                        <button onClick={() => { setAppliedUsageDateFrom(usageDateFrom); setAppliedUsageDateTo(usageDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                     </div>
-                    <div className="overflow-auto max-h-[400px]">
+                </div>
+                <div className="overflow-auto max-h-[300px]">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <tr>
+                                <th className="p-4">Equipment</th>
+                                <th className="p-4">Total Hrs</th>
+                                <th className="p-4">Total Fuel</th>
+                                <th className="p-4">Avg Hrs</th>
+                                <th className="p-4">Entries</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
+                                <tr key={u.equipment_id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                    <td className="p-4">{u.total_hours}</td>
+                                    <td className="p-4">{u.total_fuel}</td>
+                                    <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
+                                    <td className="p-4">{u.usage_count}</td>
+                                </tr>
+                            )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No usage data</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+                <Pagination
+                    totalItems={usageReport.length}
+                    itemsPerPage={usageItemsPerPage}
+                    currentPage={usagePage}
+                    onPageChange={setUsagePage}
+                    onItemsPerPageChange={setUsageItemsPerPage}
+                />
+            </div>
+            
+
+
+        </div>
+    );
+    };
+
+    const renderProjectReport = () => {
+        const paginatedPurchase = purchaseReport.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
+        const paginatedAvailability = availabilityReportList.slice((availabilityPage - 1) * availabilityItemsPerPage, availabilityPage * availabilityItemsPerPage);
+
+        return (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-slate-800">Project Specific Reports</h2>
+                </div>
+                
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Purchase Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={purchaseType} onChange={e => setPurchaseType(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary">
+                                <option value="">All Types</option>
+                                <option value="NEW">NEW</option>
+                                <option value="USED">USED</option>
+                            </select>
+                            <button onClick={() => { setAppliedPurchaseType(purchaseType); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
-                                <tr><th className="p-4">Code</th><th className="p-4">Status</th><th className="p-4">Project ID</th></tr>
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Purchase Count</th>
+                                    <th className="p-4 text-center">Quantity</th>
+                                    <th className="p-4">Cost</th>
+                                    <th className="p-4">Type</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {availability.map(a => (
-                                    <tr key={a.equipment_id} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{a.equipment_code}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${a.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                {a.is_available ? 'Available' : 'Allocated'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-slate-500 font-mono">{a.project_id || '-'}</td>
+                                {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{p.asset_name}</td>
+                                        <td className="p-4">{p.purchase_count}</td>
+                                        <td className="p-4 text-center">{p.total_quantity}</td>
+                                        <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
+                                        <td className="p-4">{p.purchase_type}</td>
                                     </tr>
-                                ))}
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No purchase data</td></tr>}
                             </tbody>
                         </table>
                     </div>
+                    <Pagination
+                        totalItems={purchaseReport.length}
+                        itemsPerPage={purchaseItemsPerPage}
+                        currentPage={purchasePage}
+                        onPageChange={setPurchasePage}
+                        onItemsPerPageChange={setPurchaseItemsPerPage}
+                    />
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-purple-500" /> <h3 className="font-bold text-sm text-slate-800">Purchase Analytics</h3>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Availability Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={isAvailableFilter} onChange={e => setIsAvailableFilter(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary">
+                                <option value="">All</option>
+                                <option value="true">Available</option>
+                                <option value="false">Not Available</option>
+                            </select>
+                            <button onClick={() => { setAppliedIsAvailableFilter(isAvailableFilter); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
                     </div>
-                    <div className="p-6">
-                        {purchaseReport.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {purchaseReport.map((p, idx) => (
-                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:scale-105 transition-transform">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{p.category || 'General Equipment'}</p>
-                                        <p className="text-2xl font-bold text-slate-800 mb-1">₹{p.total_cost?.toLocaleString() || '0'}</p>
-                                        <p className="text-xs text-slate-500 font-medium">{p.purchase_count || 0} Assets Purchased</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                                <FileText className="w-10 h-10 mb-3 opacity-20" />
-                                <p className="text-sm font-medium">No purchase data available</p>
-                            </div>
-                        )}
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Project ID</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedAvailability.length > 0 ? paginatedAvailability.map((a: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{a.equipment_name || a.equipment_code}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                {a.is_available ? "true" : "false"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">{a.project_id ? (projects.find(p => Number(p.id) === Number(a.project_id))?.project_name || projects.find(p => Number(p.id) === Number(a.project_id))?.name || a.project_id) : '-'}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No availability data</td></tr>}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-500" /> <h3 className="font-bold text-sm text-slate-800">Cost Analytics</h3>
-                    </div>
-                    <div className="p-6">
-                        {costReport.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                {costReport.map((c, idx) => (
-                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:scale-105 transition-transform">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{c.equipment_code}</p>
-                                        <p className="text-2xl font-bold text-slate-800 mb-1">₹{(c.total_cost || 0)?.toLocaleString()}</p>
-                                        <p className="text-xs text-slate-500 font-medium">{c.total_days || 0} Days Rented</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                                <Activity className="w-10 h-10 mb-3 opacity-20" />
-                                <p className="text-sm font-medium">No cost data available</p>
-                            </div>
-                        )}
-                    </div>
+                    <Pagination
+                        totalItems={availabilityReportList.length}
+                        itemsPerPage={availabilityItemsPerPage}
+                        currentPage={availabilityPage}
+                        onPageChange={setAvailabilityPage}
+                        onItemsPerPageChange={setAvailabilityItemsPerPage}
+                    />
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
-    const renderPurchase = () => (
+    const renderPurchase = () => {
+        let filteredPurchase = purchaseList;
+        if (appliedPurchaseListType) {
+            filteredPurchase = filteredPurchase.filter(p => p.purchase_type === appliedPurchaseListType);
+        }
+        if (appliedPurchaseListDateFrom) {
+            filteredPurchase = filteredPurchase.filter(p => new Date(p.purchase_date) >= new Date(appliedPurchaseListDateFrom));
+        }
+        if (appliedPurchaseListDateTo) {
+            filteredPurchase = filteredPurchase.filter(p => new Date(p.purchase_date) <= new Date(appliedPurchaseListDateTo));
+        }
+
+        const paginatedPurchase = filteredPurchase.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
+        return (
         <div className="space-y-4 h-full flex flex-col">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Purchase Tracker</h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Purchase Tracker</h2>
+                <button onClick={() => { setCreatePurchaseForm({}); setIsCreatePurchaseModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
+                    <Plus className="w-4 h-4" /> Create Purchase
+                </button>
+            </div>
             <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-bold text-sm text-slate-800">Select equipment to view purchase history</h3>
+                <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                    <h3 className="font-bold text-sm text-slate-800">Purchase History</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <select value={purchaseListType} onChange={e => {
+                            setPurchaseListType(e.target.value);
+                            setAppliedPurchaseListType(e.target.value);
+                        }} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary">
+                            <option value="">All Types</option>
+                            <option value="NEW">NEW</option>
+                            <option value="USED">USED</option>
+                        </select>
+                        <input type="date" value={purchaseListDateFrom} onChange={e => setPurchaseListDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="From Date" />
+                        <span className="text-xs text-slate-500">to</span>
+                        <input type="date" value={purchaseListDateTo} onChange={e => setPurchaseListDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="To Date" />
+                        <button onClick={() => {
+                            setAppliedPurchaseListType(purchaseListType);
+                            setAppliedPurchaseListDateFrom(purchaseListDateFrom);
+                            setAppliedPurchaseListDateTo(purchaseListDateTo);
+                            setRefreshTrigger(prev => prev + 1);
+                        }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-auto">
                     <table className="w-full text-left min-w-[800px]">
                         <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
-                                <th className="px-6 py-4 border-b border-slate-200">Equipment Name</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Code</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Condition</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Project</th>
+                                <th className="px-6 py-4 border-b border-slate-200">BOQ Item</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Type</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Asset Name</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Purchase Date</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Vendor</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Invoice Number</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Quantity</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Unit Price</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Total Amount</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Warranty End Date</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Notes</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Created At</th>
                                 <th className="px-6 py-4 border-b border-slate-200 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {equipmentList.map(item => (
+                            {paginatedPurchase.map(item => (
                                 <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.equipment_name}</td>
-                                    <td className="px-6 py-3 text-xs text-slate-500 font-mono">{item.equipment_code}</td>
-                                    <td className="px-6 py-3">
-                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
-                                            {conditionDisplay[item.condition] || item.condition}
-                                        </span>
-                                    </td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
+                                    <td className="px-6 py-3 text-xs font-bold text-slate-700">{item.purchase_type}</td>
+                                    <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.asset_name}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-500">{item.purchase_date}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.vendor_name}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-500">{String(item.invoice_number)}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.quantity}</td>
+                                    <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.unit_price?.toLocaleString()}</td>
+                                    <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.total_amount?.toLocaleString()}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-500">{item.warranty_end_date}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-500 max-w-[150px] truncate" title={item.notes}>{item.notes}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-500 whitespace-nowrap">{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</td>
                                     <td className="px-6 py-3 text-right">
-                                        <button
-                                            onClick={async () => {
-                                                setSelectedEquipment(item);
-                                                try {
-                                                    const hist = await equipmentService.getEquipmentPurchaseHistory(item.id);
-                                                    setPurchaseHistoryData(hist);
-                                                    setIsPurchaseHistoryModalOpen(true);
-                                                } catch (e) {
-                                                    toast.error("Failed to load purchase history");
-                                                }
-                                            }}
-                                            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
-                                        >
-                                            View History
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const p = await equipmentService.getPurchase(item.id);
+                                                        setViewPurchaseData(p);
+                                                        setIsViewPurchaseModalOpen(true);
+                                                    } catch (e) {
+                                                        toast.error('Failed to load purchase details');
+                                                    }
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="View"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const p = await equipmentService.getPurchase(item.id);
+                                                        setCreatePurchaseForm(p);
+                                                        setIsCreatePurchaseModalOpen(true);
+                                                    } catch (e) {
+                                                        toast.error('Failed to load purchase details');
+                                                    }
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setPurchaseToDelete(item.id);
+                                                    setIsDeletePurchaseModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const eq = equipmentList.find(e => e.id === item.asset_id);
+                                                    if(eq) setSelectedEquipment(eq);
+                                                    try {
+                                                        const hist = await equipmentService.getEquipmentPurchaseHistory(item.asset_id);
+                                                        setPurchaseHistoryData(hist);
+                                                        setIsPurchaseHistoryModalOpen(true);
+                                                    } catch (e) {
+                                                        toast.error("Failed to load purchase history");
+                                                    }
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                title="View History"
+                                            >
+                                                <History className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
-                            {equipmentList.length === 0 && (
-                                <tr><td colSpan={4} className="px-6 py-20 text-center text-slate-400">No equipment found</td></tr>
+                            {filteredPurchase.length === 0 && (
+                                <tr><td colSpan={14} className="px-6 py-20 text-center text-slate-400">No purchases found</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+                <Pagination
+                    totalItems={filteredPurchase.length}
+                    itemsPerPage={purchaseItemsPerPage}
+                    currentPage={purchasePage}
+                    onPageChange={setPurchasePage}
+                    onItemsPerPageChange={setPurchaseItemsPerPage}
+                />
             </div>
         </div>
     );
+    };
 
     return (
         <>
@@ -1678,19 +2054,21 @@ const MachineryPage = () => {
                             Complete lifecycle tracking — allocation, usage, maintenance, cost
                         </p>
                     </div>
-                    <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
-                        <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
-                        <select
-                            value={selectedProjectId || ""}
-                            onChange={handleProjectChange}
-                            className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
-                        >
-                            <option value="">All Projects</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {activeTab !== "Reports" && (
+                        <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
+                            <select
+                                value={selectedProjectId || ""}
+                                onChange={handleProjectChange}
+                                className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
+                            >
+                                <option value="">All Projects</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* ─── Tab Bar ─── */}
@@ -1699,7 +2077,10 @@ const MachineryPage = () => {
                         {TABS.map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => {
+                                    setActiveTab(tab);
+                                    if (tab === "Rental") setSelectedEquipment(null);
+                                }}
                                 className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
                             >
                                 {tab}
@@ -1721,7 +2102,8 @@ const MachineryPage = () => {
                             {activeTab === "Maintenance" && renderMaintenance()}
                             {activeTab === "Rental" && renderRental()}
                             {activeTab === "Purchase" && renderPurchase()}
-                            {activeTab === "Reports & Alerts" && renderReports()}
+                            {activeTab === "Reports" && renderReports()}
+                            {activeTab === "Project Report" && renderProjectReport()}
                         </>
                     )}
                 </div>
@@ -2198,7 +2580,7 @@ const MachineryPage = () => {
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (boqsList.find(b => b.id === rentalToView.boq_item_id)?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
                             <div className="col-span-2">
@@ -2222,7 +2604,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Choose equipment --</option>
-                            {equipmentList.map(eq => (
+                            {equipmentList.filter(eq => eq.project_id).map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.equipment_name} - {eq.equipment_code}</option>
                             ))}
                         </select>
@@ -2249,13 +2631,25 @@ const MachineryPage = () => {
                 <div className="p-6 font-inter bg-slate-50">
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
-                        {purchaseHistoryData ? (
-                            <div className="grid grid-cols-2 gap-6">
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Equipment</p><p className="text-sm font-bold text-slate-800">{purchaseHistoryData.equipment_name || selectedEquipment?.equipment_name}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="text-sm font-bold text-slate-800">{purchaseHistoryData.supplier_name || 'N/A'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{purchaseHistoryData.purchase_date ? new Date(purchaseHistoryData.purchase_date).toLocaleDateString() : 'N/A'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty Expiry</p><p className="text-sm font-bold text-slate-800">{purchaseHistoryData.warranty_expiry ? new Date(purchaseHistoryData.warranty_expiry).toLocaleDateString() : 'N/A'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Cost</p><p className="text-sm font-bold text-emerald-600">₹{purchaseHistoryData.total_cost?.toLocaleString() || '0'}</p></div>
+                        {purchaseHistoryData && (Array.isArray(purchaseHistoryData) ? purchaseHistoryData.length > 0 : true) ? (
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                                {(Array.isArray(purchaseHistoryData) ? purchaseHistoryData : [purchaseHistoryData]).map((hist: any, index: number) => (
+                                    <div key={index} className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
+                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
+                                        <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <div className="py-8 text-center text-slate-400 text-sm">No purchase data available</div>
@@ -2265,6 +2659,136 @@ const MachineryPage = () => {
                         <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Create Purchase Modal */}
+            <Modal isOpen={isCreatePurchaseModalOpen} onClose={() => setIsCreatePurchaseModalOpen(false)} title={createPurchaseForm.id ? "Edit Purchase" : "Create Purchase"} maxWidth="max-w-2xl">
+                <form onSubmit={handleSavePurchase} className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Type *</label>
+                            <select
+                                required
+                                value={createPurchaseForm.purchase_type || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_type: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            >
+                                <option value="">Select Type</option>
+                                <option value="NEW">NEW</option>
+                                <option value="USED">USED</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Equipment (Asset) *</label>
+                            <select
+                                required
+                                value={createPurchaseForm.asset_id || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, asset_id: parseInt(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            >
+                                <option value="">Select Equipment</option>
+                                {equipmentList.map(eq => (
+                                    <option key={eq.id} value={eq.id}>{eq.equipment_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Project</label>
+                            <select
+                                value={createPurchaseForm.project_id || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            >
+                                <option value="">Select Project</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">BOQ Item</label>
+                            <select
+                                value={createPurchaseForm.boq_item_id || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: parseInt(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            >
+                                <option value="">Select BOQ Item</option>
+                                {boqsList.map(b => (
+                                    <option key={b.id} value={b.id}>{b.item_name || b.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Date</label>
+                            <input
+                                type="date"
+                                value={createPurchaseForm.purchase_date || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Warranty End Date</label>
+                            <input
+                                type="date"
+                                value={createPurchaseForm.warranty_end_date || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, warranty_end_date: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Vendor Name</label>
+                            <input
+                                type="text"
+                                value={createPurchaseForm.vendor_name || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, vendor_name: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Invoice Number</label>
+                            <input
+                                type="text"
+                                value={createPurchaseForm.invoice_number || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quantity</label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={createPurchaseForm.quantity || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Unit Price</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={createPurchaseForm.unit_price || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Notes</label>
+                        <textarea
+                            value={createPurchaseForm.notes || ""}
+                            onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, notes: e.target.value })}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 min-h-[80px]"
+                        ></textarea>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-3 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Cancel</button>
+                        <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">Save Purchase</button>
+                    </div>
+                </form>
             </Modal>
 
             {/* View Usage Modal */}
@@ -2335,6 +2859,47 @@ const MachineryPage = () => {
                     </div>
                 </div>
             </Modal>
+            {/* View Purchase Modal */}
+            <Modal isOpen={isViewPurchaseModalOpen} onClose={() => setIsViewPurchaseModalOpen(false)} title="View Purchase" maxWidth="max-w-3xl">
+                <div className="p-6 font-inter bg-slate-50">
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
+                        {viewPurchaseData ? (
+                            <div className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
+                                <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
+                            </div>
+                        ) : (
+                            <div className="py-8 text-center text-slate-400 text-sm">No details available</div>
+                        )}
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setIsViewPurchaseModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Delete Purchase Modal */}
+            <ConfirmModal
+                isOpen={isDeletePurchaseModalOpen}
+                onClose={() => setIsDeletePurchaseModalOpen(false)}
+                onConfirm={handleDeletePurchase}
+                title="Delete Purchase"
+                message="Are you sure you want to delete this purchase? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+            />
         </>
     );
 };
