@@ -309,8 +309,16 @@ export const attendanceService = {
      */
     async getListAttendance(params: { user_id?: number; project_id?: number; page?: number; page_size?: number } = {}): Promise<AttendanceListResponse> {
         try {
-            const response = await api.get<AttendanceListResponse>("attendance/list", { params });
-            return response.data;
+            const response = await api.get<any>("attendance/list", { params });
+            const data = response.data;
+            const items = Array.isArray(data) ? data : (data?.data || data?.items || []);
+            return {
+                data: items,
+                total_count: data?.total ?? data?.total_count ?? items.length,
+                page: data?.page ?? params.page ?? 1,
+                page_size: data?.page_size ?? params.page_size ?? items.length,
+                total_pages: data?.total_pages ?? (Math.ceil(items.length / (params.page_size || 10)) || 1),
+            };
         } catch (error: any) {
             console.warn("getListAttendance failed, using mock storage:", error.message);
             try {
