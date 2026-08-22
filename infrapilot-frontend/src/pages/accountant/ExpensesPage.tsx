@@ -1077,22 +1077,31 @@ const BOQComparisonSection = () => {
     fetchProjects();
   }, []);
 
-  // Fetch BOQ when project changes
+  // Fetch BOQ & Summary when project changes
+  const [expenseSummary, setExpenseSummary] = useState<any>(null);
+
   useEffect(() => {
     if (!selectedProjectId) return;
-    const fetchBoq = async () => {
+    const fetchBoqAndSummary = async () => {
       try {
         setLoadingBoq(true);
         setBoqData(null);
-        const res = await expenseService.getBoqComparison(selectedProjectId);
-        setBoqData(res);
+        setExpenseSummary(null);
+        
+        // Fetch BOQ Comparison
+        const resBoq = await expenseService.getBoqComparison(selectedProjectId);
+        setBoqData(resBoq);
+
+        // Fetch missing Expense Summary API
+        const resSummary = await expenseService.getProjectExpenseSummary(selectedProjectId);
+        setExpenseSummary(resSummary);
       } catch (err) {
-        toast.error("Failed to fetch BOQ comparison");
+        toast.error("Failed to fetch BOQ or Expense Summary");
       } finally {
         setLoadingBoq(false);
       }
     };
-    fetchBoq();
+    fetchBoqAndSummary();
   }, [selectedProjectId]);
 
   // Normalize: API may return array or { items: [] } or { boq_items: [] }
@@ -1142,6 +1151,28 @@ const BOQComparisonSection = () => {
           )}
         </div>
       </div>
+
+      {/* Project Expense Summary (Newly integrated API) */}
+      {!loadingBoq && expenseSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Project Expense</p>
+              <p className="text-xl font-black text-rose-500">{fmt(expenseSummary.total_expense || 0)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-lg">💰</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Allocated BOQ</p>
+              <p className="text-xl font-black text-blue-600">
+                {fmt(boqItems.reduce((sum, item) => sum + (item.estimated ?? item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0)), 0))}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg">📈</div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center">

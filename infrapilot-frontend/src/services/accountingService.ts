@@ -60,6 +60,24 @@ export const accountingService = {
     return response.data;
   },
 
+  // Payment Vouchers
+  getPaymentVouchers: async (params?: any) => {
+    const response = await api.get("/payments/vouchers", { params });
+    return response.data;
+  },
+  createPaymentVoucher: async (data: any) => {
+    const response = await api.post("/payments/vouchers", data);
+    return response.data;
+  },
+  markVoucherPaid: async (id: string | number) => {
+    const response = await api.post(`/payments/vouchers/${id}/mark-paid`);
+    return response.data;
+  },
+  cancelVoucher: async (id: string | number) => {
+    const response = await api.post(`/payments/vouchers/${id}/cancel`);
+    return response.data;
+  },
+
   // Payables
   getPayables: async (params?: any) => {
     const response = await api.get("/accountant/payables", { params });
@@ -159,6 +177,11 @@ export const accountingService = {
     const response = await api.get("/accountant/petty-cash/ledger", { params });
     return response.data;
   },
+  createPettyCashTransaction: async (data: any) => {
+    const response = await api.post("/accountant/petty-cash/transactions", data);
+    return response.data;
+  },
+
 
   // Journal
   getJournal: async (params?: any) => {
@@ -187,7 +210,11 @@ export const accountingService = {
 
   // Assets
   getAssets: async (params?: any) => {
-    const response = await api.get("/reports/assets", { params });
+    const response = await api.get("/accountant/assets", { params });
+    return response.data;
+  },
+  getAssetDetail: async (id: number | string) => {
+    const response = await api.get(`/accountant/assets/${id}`);
     return response.data;
   },
   createAsset: async (data: any) => {
@@ -210,6 +237,24 @@ export const accountingService = {
   },
   getBalanceSheet: async (params?: any) => {
     const response = await api.get("/accountant/reports/balance-sheet", { params });
+    return response.data;
+  },
+
+  // Offers
+  getOffers: async (params?: any) => {
+    const response = await api.get("/accountant/offers", { params });
+    return response.data;
+  },
+  createOffer: async (data: any) => {
+    const response = await api.post("/accountant/offers", data);
+    return response.data;
+  },
+  generateOfferLetter: async (offerId: string | number) => {
+    const response = await api.get(`/accountant/offers/${offerId}/generate`);
+    return response.data;
+  },
+  downloadOfferPdf: async (offerId: string | number) => {
+    const response = await api.get(`/accountant/offers/${offerId}/pdf`, { responseType: 'blob' });
     return response.data;
   },
 
@@ -270,6 +315,18 @@ export const accountingService = {
     const response = await api.post("/accountant/gst/returns", data);
     return response.data;
   },
+  getGstReturn: async (id: number | string) => {
+    const response = await api.get(`/accountant/gst/returns/${id}`);
+    return response.data;
+  },
+  updateGstReturn: async (id: number | string, data: any) => {
+    const response = await api.patch(`/accountant/gst/returns/${id}`, data);
+    return response.data;
+  },
+  deleteGstReturn: async (id: number | string) => {
+    const response = await api.delete(`/accountant/gst/returns/${id}`);
+    return response.data;
+  },
   getGstInvoiceRegister: async (params?: any) => {
     const response = await api.get("/accountant/gst/invoice-register", { params });
     return response.data;
@@ -302,6 +359,22 @@ export const accountingService = {
   // TDS
   createTdsDeduction: async (data: any) => {
     const response = await api.post("/accountant/tds/deductions", data);
+    return response.data;
+  },
+  getTdsDeductions: async (params?: any) => {
+    const response = await api.get("/accountant/tds/deductions", { params });
+    return response.data;
+  },
+  getTdsDeduction: async (id: number | string) => {
+    const response = await api.get(`/accountant/tds/deductions/${id}`);
+    return response.data;
+  },
+  updateTdsDeduction: async (id: number | string, data: any) => {
+    const response = await api.patch(`/accountant/tds/deductions/${id}`, data);
+    return response.data;
+  },
+  deleteTdsDeduction: async (id: number | string) => {
+    const response = await api.delete(`/accountant/tds/deductions/${id}`);
     return response.data;
   }
 };

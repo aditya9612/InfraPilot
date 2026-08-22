@@ -87,6 +87,7 @@ api.interceptors.response.use(
         url.includes("accountant/") ||
         url.includes("labour/payroll") ||
         url.includes("labour/attendance") ||
+        url.includes("labour/wages") ||
         url.includes("projects/module-summary") ||
         url.includes("health-score") ||
         url.includes("resource-summary") ||

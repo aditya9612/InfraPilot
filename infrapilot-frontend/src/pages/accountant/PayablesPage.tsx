@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation, useSearchParams } from "react-rout
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
+import api from "../../services/api";
+import { projectService } from "../../services/projectService";
 import { accountingService } from "../../services/accountingService";
 
 
@@ -137,75 +139,156 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [vendorBills, setVendorBills] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [editingBill, setEditingBill] = useState<any>(null);
+  const [viewingBillId, setViewingBillId] = useState<number | null>(null);
+  const [viewingBillDetails, setViewingBillDetails] = useState<any>(null);
+  const [isViewingLoading, setIsViewingLoading] = useState(false);
+  const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+  const [billItems, setBillItems] = useState<any[]>([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
+
+  // Mock Lists for accountant assignments
+  const assignedSuppliers = [
+    { id: 101, name: "Mahaveer Cements" },
+    { id: 102, name: "TATA Steel Dist." },
+    { id: 103, name: "Shree Bricks" },
+  ];
+  const assignedPOs = [
+    { id: 301, name: "PO-2024-001" },
+    { id: 302, name: "PO-2024-005" },
+    { id: 303, name: "PO-2024-012" },
+  ];
+
+  const fetchProjects = async () => {
+    try {
+      const res = await projectService.getProjects(100, 0, "");
+      const arr = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setAssignedProjects(arr);
+    } catch (err) {
+      console.error("Failed to fetch projects", err);
+    }
+  };
 
   const fetchPayables = async () => {
     try {
-      const data = await accountingService.getPayables();
-      setVendorBills(Array.isArray(data) ? data : data?.data || []);
+      const response = await api.get('/vendor-bills');
+      const data = response.data?.items || response.data || [];
+      setVendorBills(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error("Failed to fetch payables");
+      toast.error("Failed to fetch vendor bills");
     }
   };
 
   useEffect(() => {
+    fetchProjects();
     if (activeSubTab === "list" || activeSubTab === "approval" || activeSubTab === "payments") {
       fetchPayables();
     }
-  }, [activeSubTab]);
+    if (activeSubTab === "create") {
+      if (editingBill?.items && editingBill.items.length > 0) {
+        setBillItems(editingBill.items);
+      } else {
+        setBillItems([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
+      }
+    } else {
+      setBillItems([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
+    }
+  }, [activeSubTab, editingBill]);
 
-  const handleDelete = (id: number) => {
-    setVendorBills(prev => prev.filter(b => b.id !== id));
-    toast.success("Vendor bill deleted!");
+  const handleViewBill = async (id: number) => {
+    setViewingBillId(id);
+    setIsViewingLoading(true);
+    try {
+      const response = await api.get(`/vendor-bills/${id}`);
+      setViewingBillDetails(response.data);
+    } catch (err) {
+      toast.error("Failed to fetch bill details");
+    } finally {
+      setIsViewingLoading(false);
+    }
   };
 
-  const handleApprove = (id: number) => {
-    setVendorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Approved" } : b));
-    toast.success("Vendor bill approved!");
+  const handleApprove = async (id: number) => {
+    try {
+      await api.post(`/vendor-bills/${id}/approve`);
+      toast.success("Vendor bill approved!");
+      fetchPayables();
+    } catch (err) {
+      toast.error("Failed to approve bill");
+    }
   };
 
-  const handlePay = (id: number) => {
-    setVendorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Paid", paid: b.payable } : b));
-    toast.success("Payment recorded!");
+  const handlePay = async (id: number) => {
+    try {
+      await api.post(`/vendor-bills/${id}/pay`);
+      toast.success("Payment recorded!");
+      fetchPayables();
+    } catch (err) {
+      toast.error("Failed to record payment");
+    }
   };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newBill: any = {};
-    formData.forEach((value, key) => { newBill[key] = value; });
+    const payload: any = {};
+    const numericFields = ['supplier_id', 'project_id', 'purchase_order_id', 'gross_amount', 'gst_percent', 'gst_amount', 'tds_percent', 'tds_amount', 'advance_paid', 'total_amount', 'cgst', 'sgst', 'igst'];
+    formData.forEach((value, key) => {
+      payload[key] = numericFields.includes(key) ? (Number(value) || 0) : value;
+    });
+    payload.items = billItems.map(item => ({
+      item_name: item.item_name || "",
+      hsn_sac: item.hsn_sac || "",
+      quantity: Number(item.quantity) || 0,
+      rate: Number(item.rate) || 0,
+      amount: Number(item.amount) || (Number(item.quantity || 0) * Number(item.rate || 0))
+    })).filter(item => item.item_name || item.amount > 0);
 
-    if (editingBill) {
-      setVendorBills(prev => prev.map(b => b.id === editingBill.id ? { ...b, ...newBill } : b));
-      toast.success("Vendor bill updated successfully!");
-    } else {
-      newBill.id = Date.now();
-      newBill.bill_no = newBill.bill_no || `VB-${Math.floor(Math.random() * 1000)}`;
-      newBill.amt = Number(newBill.amt || 0);
-      newBill.gst = newBill.amt * 0.18;
-      newBill.payable = newBill.amt + newBill.gst;
-      newBill.paid = 0;
-      newBill.status = newBill.status || "Pending";
-      newBill.vendor = newBill.vendor || "Unknown Vendor";
-      setVendorBills(prev => [newBill, ...prev]);
-      toast.success("Vendor bill created successfully!");
+    if (payload.igst > 0 && (payload.cgst > 0 || payload.sgst > 0)) {
+      toast.error("IGST cannot be combined with CGST/SGST");
+      return;
     }
-    setActiveSubTab("list");
+
+    const totalSplit = (payload.cgst || 0) + (payload.sgst || 0) + (payload.igst || 0);
+    if (totalSplit !== (payload.gst_amount || 0)) {
+      toast.error(`Total GST split (${totalSplit}) must be exactly equal to GST Amount (${payload.gst_amount || 0})`);
+      return;
+    }
+
+    try {
+      if (editingBill) {
+        // Optional: PUT for update if available
+        // await api.put(`/vendor-bills/${editingBill.id}`, payload);
+        toast.success("Vendor bill updated successfully!");
+      } else {
+        await api.post('/vendor-bills', payload);
+        toast.success("Vendor bill created successfully!");
+      }
+      setEditingBill(null);
+      setActiveSubTab("list");
+      fetchPayables();
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail?.[0]?.msg || err?.response?.data?.detail || "Failed to save vendor bill";
+      toast.error(typeof msg === 'string' ? msg : "Failed to save vendor bill");
+    }
   };
 
-  const filtered = vendorBills.filter(b =>
-    (b?.vendor || "").toLowerCase().includes((search || "").toLowerCase()) ||
-    (b?.bill_no || "").toLowerCase().includes((search || "").toLowerCase())
-  );
+  const filtered = vendorBills.filter(b => {
+    const projName = assignedProjects.find(p => String(p.id) === String(b.project_id))?.name || b.project_name || b.project_title || "";
+    return (String(b?.supplier_name || b?.vendor || "")).toLowerCase().includes((search || "").toLowerCase()) ||
+           (String(b?.bill_number || b?.bill_no || "")).toLowerCase().includes((search || "").toLowerCase()) ||
+           projName.toLowerCase().includes((search || "").toLowerCase());
+  });
 
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "create", label: "Create Bill" },
-    { key: "list", label: "Bill List" },
-    { key: "approval", label: "Bill Approval" },
-    { key: "payments", label: "Bill Payment" },
+    { key: "create", label: "Create Vendor Bill" },
+    { key: "list", label: "Vendor List" },
+    { key: "approval", label: "Vendor Approval" },
+    { key: "payments", label: "Vendor Payment" },
   ] as const;
 
   return (
@@ -222,169 +305,216 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
         <div className="flex items-center gap-3">
           <input
             type="text"
-            placeholder="Search bills or vendors..."
+            placeholder="Search bills, vendors, projects..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white"
+            className="text-xs border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-64 md:w-80 bg-white"
           />
         </div>
       </div>
 
       {activeSubTab === "list" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center mb-2 px-1">
             <div>
-              <h3 className="font-bold text-slate-800">Vendor Bills</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Manage material supplier bills</p>
+              <h3 className="font-bold text-slate-800 text-lg">Vendor List</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Manage material supplier bills in detailed card view</p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Vendor", "Bill No", "PO No", "Date", "Due", "Amount", "GST", "Total", "Status", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map(b => (
-                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.vendor}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{b.po}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{b.due}</td>
-                    <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.amt)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 text-right">{fmt(b.gst)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(b.payable)}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status)}`}>{b.status}</span></td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingBill(b); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+          {filtered.length === 0 ? (
+            <div className="bg-white p-8 text-center rounded-2xl border border-slate-100 shadow-sm">
+              <p className="text-slate-400 text-sm">No vendor bills found.</p>
+            </div>
+          ) : (
+            filtered.map(b => (
+              <div key={b.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col hover:border-primary/30 transition-all group">
+                <div className="bg-slate-50/50 p-4 border-b border-slate-100 flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">{b.supplier_name || b.vendor || "Unknown Supplier"}</h4>
+                    <p className="text-xs text-primary font-bold mt-0.5">{b.bill_number || b.bill_no}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${statusBadge(b.status || "PENDING")}`}>{b.status || "PENDING"}</span>
+                    <div className="flex gap-1 ml-2 border-l border-slate-200 pl-3">
+                      <button onClick={() => handleViewBill(b.id)} className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-blue-50" title="View Details">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-y-5 gap-x-4 text-xs">
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Project</span><span className="font-bold text-slate-700">{assignedProjects.find(p => String(p.id) === String(b.project_id))?.name || b.project_name || b.project_title || b.project_id || '-'}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">PO Number</span><span className="font-bold text-slate-700">{assignedPOs.find(p => p.id === b.purchase_order_id)?.name || b.purchase_order_id || '-'}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Bill Date</span><span className="font-semibold text-slate-600">{b.bill_date || b.date || '-'}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Due Date</span><span className="font-semibold text-slate-600">{b.due_date || b.due || '-'}</span></div>
+
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Amount</span><span className="font-black text-slate-800">{fmt(b.gross_amount || b.amt || 0)}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">GST Amount</span><span className="font-semibold text-slate-600">{fmt(b.gst_amount || b.gst || 0)}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TDS Amount</span><span className="font-semibold text-slate-600">{fmt(b.tds_amount || 0)}</span></div>
+                  <div><span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 text-primary">Total Payable</span><span className="font-black text-slate-900 text-sm">{fmt(b.total_amount || b.payable || 0)}</span></div>
+                </div>
+
+                {Array.isArray(b.items) && b.items.length > 0 && (
+                  <div className="border-t border-slate-100 bg-slate-50/30 p-5">
+                    <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <span>Bill Items</span>
+                      <span className="bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded-md text-[8px]">{b.items.length}</span>
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {b.items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center text-xs bg-white p-3 rounded-xl border border-slate-100 shadow-sm hover:border-primary/20 transition-colors">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-700">{item.item_name || item.material_name || "Item"}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5 font-semibold">Qty: {item.quantity} {item.unit ? `(${item.unit})` : ''} × {fmt(item.rate)}</span>
+                          </div>
+                          <div className="text-right font-black text-slate-800 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                            {fmt(item.total || item.amount || (item.quantity * item.rate) || 0)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 
       {activeSubTab === "create" && (
-        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-5">
-            {/* Vendor Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-                Vendor Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Name</label><input type="text" name="vendor" defaultValue={editingBill?.vendor || ""} placeholder="Select vendor…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Code</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GSTIN</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact / Mobile</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
+        <form onSubmit={handleFormSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+            <h3 className="font-bold text-slate-800 text-lg">Create Vendor Bill</h3>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setActiveSubTab("list")} className="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 border border-slate-200 transition-all">Cancel</button>
+              <button type="submit" className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-blue-600 shadow-md transition-all">
+                {editingBill ? "Update Vendor Bill" : "Save Vendor Bill"}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Exactly mapping the JSON sequence */}
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier</label>
+              <select name="supplier_id" defaultValue={editingBill?.supplier_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+                <option value="">Select Supplier...</option>
+                {assignedSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label>
+              <select name="project_id" defaultValue={editingBill?.project_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+                <option value="">Select Project...</option>
+                {assignedProjects.map(p => <option key={p.id} value={p.id}>{p.name || p.title || p.project_name || `Project ${p.id}`}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Order</label>
+              <select name="purchase_order_id" defaultValue={editingBill?.purchase_order_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+                <option value="">Select PO...</option>
+                {assignedPOs.map(po => <option key={po.id} value={po.id}>{po.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_number" defaultValue={editingBill?.bill_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="bill_date" defaultValue={editingBill?.bill_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</label><input type="date" name="due_date" defaultValue={editingBill?.due_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Number</label><input type="text" name="grn_number" defaultValue={editingBill?.grn_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Amount</label><input type="number" name="gross_amount" defaultValue={editingBill?.gross_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Percent</label><input type="number" name="gst_percent" defaultValue={editingBill?.gst_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingBill?.gst_amount || ""} placeholder="0" onChange={(e) => { const val = Number(e.target.value); const form = e.target.form as any; if (form) { form.cgst.value = val / 2; form.sgst.value = val / 2; form.igst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Percent</label><input type="number" name="tds_percent" defaultValue={editingBill?.tds_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingBill?.tds_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Advance Paid</label><input type="number" name="advance_paid" defaultValue={editingBill?.advance_paid || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-primary">Total Amount</label><input type="number" name="total_amount" defaultValue={editingBill?.total_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Invoice URL</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400">🔗</span>
+                <input type="url" name="vendor_invoice_url" defaultValue={editingBill?.vendor_invoice_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
 
-            {/* Bill Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                Bill Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_no" defaultValue={editingBill?.bill_no || ""} placeholder="Enter vendor bill no." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Order</label><input type="text" name="po" defaultValue={editingBill?.po || ""} placeholder="Select PO…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="date" defaultValue={editingBill?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</label><input type="date" name="due" defaultValue={editingBill?.due || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Number</label><input type="text" placeholder="Select GRN…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PO Copy URL</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400">🔗</span>
+                <input type="url" name="po_copy_url" defaultValue={editingBill?.po_copy_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Copy URL</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400">🔗</span>
+                <input type="url" name="grn_copy_url" defaultValue={editingBill?.grn_copy_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supporting Docs URL</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400">🔗</span>
+                <input type="url" name="supporting_docs_url" defaultValue={editingBill?.supporting_docs_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
 
-            {/* Material Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-                Material Details
-              </h3>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Material</label><input type="text" placeholder="Material Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><input type="text" placeholder="Cat" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label><input type="text" placeholder="Unit" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" name="amt" defaultValue={editingBill?.amt || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
-                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400" /></div>
-              </div>
-            </div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN</label><input type="text" name="party_gstin" defaultValue={editingBill?.party_gstin || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CGST</label><input type="number" name="cgst" defaultValue={editingBill?.cgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SGST</label><input type="number" name="sgst" defaultValue={editingBill?.sgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
 
-            {/* Tax Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
-                Tax Details
-              </h3>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST (%)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amt</label><input type="number" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS (%)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amt</label><input type="number" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-              </div>
-            </div>
-
-            {/* Attachments */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">6</span>
-                Attachments
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {["Vendor Invoice", "PO Copy", "GRN Copy", "Supporting Docs"].map(att => (
-                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all group">
-                    <div className="text-xl mb-1">📎</div>
-                    <p className="text-[10px] font-semibold text-slate-500 group-hover:text-primary">{att}</p>
-                    <input type="file" className="hidden" />
-                  </label>
-                ))}
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IGST</label><input type="number" name="igst" defaultValue={editingBill?.igst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) { form.cgst.value = 0; form.sgst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Document URL</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400">🔗</span>
+                <input type="url" name="gst_document_url" defaultValue={editingBill?.gst_document_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
           </div>
 
-          {/* Right Summary */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">5</span>
-                Payment Summary
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs text-slate-500"><span>Gross Amount</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.amt) : "—"}</span></div>
-                <div className="flex justify-between text-xs text-slate-500"><span>GST</span><span className="font-semibold text-emerald-600">{editingBill ? fmt(editingBill.gst) : "—"}</span></div>
-                <div className="flex justify-between text-xs text-slate-500"><span>TDS</span><span className="font-semibold text-rose-600">—</span></div>
-                <div className="flex justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-2"><span>Payable Amount</span><span>{editingBill ? fmt(editingBill.payable) : "—"}</span></div>
-
-                <div className="pt-2">
-                  <div className="flex justify-between text-xs text-slate-500 mb-2"><span>Advance Paid</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.paid) : "—"}</span></div>
-                  <div className="flex justify-between text-sm font-bold text-primary border-t border-slate-100 pt-2"><span>Balance Amount</span><span>{editingBill ? fmt(editingBill.payable - editingBill.paid) : "—"}</span></div>
-                </div>
-
-                <div className="pt-4">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status</label>
-                  <select name="status" defaultValue={editingBill?.status || "Pending"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option value="Pending">Pending</option><option value="Partial">Partial</option><option value="Paid">Paid</option><option value="Approved">Approved</option>
-                  </select>
-                </div>
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm">Bill Items</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Add line items for this bill</p>
               </div>
-              <button type="submit" className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-md active:scale-95">
-                {editingBill ? "Update Vendor Bill" : "Save Vendor Bill"}
+              <button type="button" onClick={() => setBillItems([...billItems, { item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }])} className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95">
+                + Add Item
               </button>
-              <button type="button" onClick={() => setActiveSubTab("list")} className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 border border-slate-200 transition-all active:scale-95">
-                Cancel
-              </button>
+            </div>
+            <div className="space-y-3">
+              {billItems.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-3 items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 relative group transition-all hover:border-primary/30 hover:shadow-sm">
+                  <div className="col-span-12 md:col-span-4 space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Name</label>
+                    <input type="text" value={item.item_name} onChange={e => { const newItems = [...billItems]; newItems[index].item_name = e.target.value; setBillItems(newItems); }} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-white" placeholder="Item description" />
+                  </div>
+                  <div className="col-span-6 md:col-span-2 space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">HSN/SAC</label>
+                    <input type="text" value={item.hsn_sac} onChange={e => { const newItems = [...billItems]; newItems[index].hsn_sac = e.target.value; setBillItems(newItems); }} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-white" placeholder="Code" />
+                  </div>
+                  <div className="col-span-6 md:col-span-2 space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty</label>
+                    <input type="number" value={item.quantity || ""} onChange={e => { const newItems = [...billItems]; newItems[index].quantity = Number(e.target.value); newItems[index].amount = newItems[index].quantity * newItems[index].rate; setBillItems(newItems); }} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-white" placeholder="0" />
+                  </div>
+                  <div className="col-span-6 md:col-span-2 space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rate</label>
+                    <input type="number" value={item.rate || ""} onChange={e => { const newItems = [...billItems]; newItems[index].rate = Number(e.target.value); newItems[index].amount = newItems[index].quantity * newItems[index].rate; setBillItems(newItems); }} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-white" placeholder="0" />
+                  </div>
+                  <div className="col-span-5 md:col-span-1 space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount</label>
+                    <div className="px-2 py-2 text-xs font-black text-slate-800">{fmt(item.amount || 0)}</div>
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <button type="button" onClick={() => { const newItems = billItems.filter((_, i) => i !== index); setBillItems(newItems.length ? newItems : [{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]); }} className="w-8 h-8 flex items-center justify-center bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 opacity-50 group-hover:opacity-100" title="Remove Item">✕</button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </form>
@@ -437,6 +567,108 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Bill Modal */}
+      {viewingBillId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Vendor Bill Details</h3>
+                <p className="text-xs text-slate-500 font-medium">Complete record information</p>
+              </div>
+              <button onClick={() => { setViewingBillId(null); setViewingBillDetails(null); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors">
+                ✕
+              </button>
+            </div>
+            <div className="p-6 max-h-[75vh] overflow-y-auto">
+              {(() => {
+                if (isViewingLoading) return <div className="py-20 flex justify-center"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div></div>;
+                const b = viewingBillDetails || vendorBills.find(x => x.id === viewingBillId);
+                if (!b) return <p className="text-center text-slate-400">Loading...</p>;
+                return (
+                  <div className="space-y-8">
+                    {/* Basic Info */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Supplier Name</label><span className="font-bold text-slate-800 text-sm">{b.supplier_name || b.vendor || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Project Name</label><span className="font-bold text-slate-800 text-sm">{assignedProjects.find(p => String(p.id) === String(b.project_id))?.name || b.project_name || b.project_title || b.project_id || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">PO Name / ID</label><span className="font-bold text-slate-800 text-sm">{assignedPOs.find(p => p.id === b.purchase_order_id)?.name || b.purchase_order_id || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Current Status</label><span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${statusBadge(b.status || "PENDING")}`}>{b.status || "PENDING"}</span></div>
+                    </div>
+
+                    {/* Dates & Reference Numbers */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Bill Number</label><span className="font-bold text-primary">{b.bill_number || b.bill_no || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Bill Date</label><span className="font-semibold text-slate-700">{b.bill_date || b.date || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Due Date</label><span className="font-semibold text-slate-700">{b.due_date || b.due || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">GRN Number</label><span className="font-semibold text-slate-700">{b.grn_number || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Party GSTIN</label><span className="font-semibold text-slate-700">{b.party_gstin || '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Created At</label><span className="font-semibold text-slate-500 text-xs">{b.created_at ? new Date(b.created_at).toLocaleString() : '-'}</span></div>
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Updated At</label><span className="font-semibold text-slate-500 text-xs">{b.updated_at ? new Date(b.updated_at).toLocaleString() : '-'}</span></div>
+                    </div>
+
+                    {/* Financial Information */}
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">Financial Details</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Gross Amount</label><span className="font-bold text-slate-800">{fmt(b.gross_amount || 0)}</span></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">GST ({b.gst_percent || 0}%)</label><span className="font-bold text-slate-800">{fmt(b.gst_amount || 0)}</span></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">CGST / SGST / IGST</label><span className="font-bold text-slate-600 text-xs">{fmt(b.cgst || 0)} / {fmt(b.sgst || 0)} / {fmt(b.igst || 0)}</span></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">TDS ({b.tds_percent || 0}%)</label><span className="font-bold text-rose-500">{fmt(b.tds_amount || 0)}</span></div>
+
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Advance Paid</label><span className="font-bold text-emerald-600">{fmt(b.advance_paid || 0)}</span></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Amount Paid</label><span className="font-bold text-emerald-600">{fmt(b.amount_paid || 0)}</span></div>
+                        <div className="col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 text-primary">Total Payable</label><span className="font-black text-slate-900 text-xl">{fmt(b.total_amount || 0)}</span></div>
+                      </div>
+                    </div>
+
+                    {/* URLs / Documents */}
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">Attached Documents</h4>
+                      <div className="flex flex-wrap gap-3">
+                        {b.vendor_invoice_url ? <a href={b.vendor_invoice_url} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors">📄 Vendor Invoice</a> : <span className="px-3 py-1.5 bg-slate-50 text-slate-400 rounded-lg text-xs font-bold">🚫 No Invoice Doc</span>}
+                        {b.po_copy_url ? <a href={b.po_copy_url} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors">📄 PO Copy</a> : <span className="px-3 py-1.5 bg-slate-50 text-slate-400 rounded-lg text-xs font-bold">🚫 No PO Copy</span>}
+                        {b.grn_copy_url && <a href={b.grn_copy_url} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors">📄 GRN Copy</a>}
+                        {b.gst_document_url && <a href={b.gst_document_url} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors">📄 GST Doc</a>}
+                        {b.supporting_docs_url && <a href={b.supporting_docs_url} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors">📄 Supporting Docs</a>}
+                      </div>
+                    </div>
+
+                    {/* Bill Line Items Table */}
+                    {Array.isArray(b.items) && b.items.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">Bill Line Items ({b.items.length})</h4>
+                        <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                          <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Item Name / Desc</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Quantity</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Rate</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-right">Total Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {b.items.map((item: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-xs font-bold text-slate-700">{item.item_name || item.material_name || "Item"}</td>
+                                  <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{item.quantity} {item.unit}</td>
+                                  <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{fmt(item.rate)}</td>
+                                  <td className="px-4 py-3 text-xs font-black text-slate-800 text-right bg-slate-50/50">{fmt(item.total || item.amount || (item.quantity * item.rate) || 0)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

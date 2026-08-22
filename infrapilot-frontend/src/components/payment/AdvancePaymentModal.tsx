@@ -78,15 +78,15 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
     };
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
             title={`Advance Request: ${labour?.labour_name}`}
             maxWidth="max-w-lg"
             footer={
                 <div className="flex gap-4">
                     <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
-                    <button 
+                    <button
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                         className="px-8 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
@@ -148,8 +148,8 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Requested Amount *</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 value={formData.amount || ''}
                                 onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
@@ -162,7 +162,7 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Reason / Emergency Note *</label>
                         <div className="relative">
                             <HelpCircle className="absolute left-4 top-4 w-4 h-4 text-slate-400" />
-                            <textarea 
+                            <textarea
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="State the reason for advance (Medical, Personal, etc.)"

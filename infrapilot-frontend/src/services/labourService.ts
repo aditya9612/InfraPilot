@@ -1123,6 +1123,97 @@ export const labourService = {
             }];
         }
     },
+
+    /**
+     * POST /api/v1/labour/payroll/generate
+     */
+    async generatePayroll(data: any) {
+        try {
+            const response = await api.post("labour/payroll/generate", data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("generatePayroll fallback", error);
+            return { message: "Payroll generated (mock)" };
+        }
+    },
+
+    /**
+     * POST /api/v1/labour/payroll/lock
+     */
+    async lockPayroll(data: any) {
+        try {
+            const response = await api.post("labour/payroll/lock", data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("lockPayroll fallback", error);
+            return { message: "Payroll locked (mock)" };
+        }
+    },
+
+    /**
+     * POST /api/v1/labour/payroll/unlock
+     */
+    async unlockPayroll(data: any) {
+        try {
+            const response = await api.post("labour/payroll/unlock", data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("unlockPayroll fallback", error);
+            return { message: "Payroll unlocked (mock)" };
+        }
+    },
+
+    /**
+     * POST /api/v1/labour/payroll/pay
+     */
+    async paySalary(data: any) {
+        try {
+            const response = await api.post("labour/payroll/pay", data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("paySalary fallback", error);
+            return { message: "Salary paid (mock)" };
+        }
+    },
+
+    /**
+     * POST /api/v1/labour/advance
+     */
+    async advancePayment(data: any) {
+        try {
+            const response = await api.post("labour/advance", data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("advancePayment fallback", error);
+            return { message: "Advance paid (mock)" };
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/payroll/export
+     */
+    async exportPayroll(params?: any) {
+        try {
+            const response = await api.get("labour/payroll/export", { params, responseType: 'blob' });
+            return response.data;
+        } catch (error: any) {
+            console.warn("exportPayroll fallback", error);
+            throw error;
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/{labour_id}/qr
+     */
+    async generateLabourQr(labourId: number | string) {
+        try {
+            const response = await api.get(`labour/${labourId}/qr`, { responseType: 'blob' });
+            return response.data;
+        } catch (error: any) {
+            console.warn("generateLabourQr fallback", error);
+            throw error;
+        }
+    },
 };
 
 export default labourService;

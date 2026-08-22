@@ -58,6 +58,19 @@ export const financeService = {
   },
 
   /**
+   * GET /api/v1/invoices/receivables/aging
+   */
+  async getReceivablesAging(): Promise<any> {
+    try {
+      const response = await api.get('/invoices/receivables/aging');
+      return response.data;
+    } catch (error: any) {
+      console.warn("Get Receivables Aging API Error:", error.message);
+      return [];
+    }
+  },
+
+  /**
    * Get receivable collections
    * GET /api/v1/invoices/receivables/collections
    */
@@ -259,6 +272,32 @@ export const financeService = {
         error.response?.data || error.message,
       );
       throw error;
+    }
+  },
+
+  /**
+   * POST /api/v1/invoices/{id}/pay
+   */
+  async payInvoice(id: number, data: any): Promise<any> {
+    try {
+      const response = await api.post(`/invoices/${id}/pay`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Pay Invoice ${id} Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * GET /api/v1/invoices/{id}/transactions
+   */
+  async getInvoiceTransactions(id: number): Promise<any> {
+    try {
+      const response = await api.get(`/invoices/${id}/transactions`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Get Invoice Transactions ${id} Error:`, error.response?.data || error.message);
+      return [];
     }
   },
 
