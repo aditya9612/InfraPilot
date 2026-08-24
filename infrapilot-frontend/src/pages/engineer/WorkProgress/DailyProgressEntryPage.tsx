@@ -153,18 +153,17 @@ const DailyProgressEntryPage = () => {
     try {
       if (!hasLoadedHistory) setLoading(true);
       const activityId = selectedActivityId === "all"
-        ? (activitiesList[0]?.id || 1)
+        ? undefined
         : Number(selectedActivityId);
-      const res = await workProgressService.getActivityHistory(activityId);
+      const res = await workProgressService.getActivityHistory(activityId, projectId);
       const rawHistory = res?.history || res?.data || (Array.isArray(res) ? res : []);
-      const parentActivity = res?.activity || activitiesList.find(a => Number(a.id) === activityId);
       
       const normalizedHistory = rawHistory.map((item: any) => ({
         ...item,
-        activity_id: activityId,
+        activity_id: item.activity_id || activityId,
         action: item.action || "DAILY_PROGRESS_UPDATE",
         new_value: item.new_value || {
-          status: item.status || parentActivity?.status || "ON_TRACK",
+          status: item.status || "ON_TRACK",
           today_progress: item.today_progress || 0,
           total_completed: item.running_total || item.total_completed || 0
         }
@@ -178,7 +177,7 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [hasLoadedHistory, selectedActivityId, activitiesList]);
+  }, [hasLoadedHistory, selectedActivityId, projectId]);
 
   const loadDelayReport = useCallback(async () => {
     try {

@@ -317,16 +317,20 @@ export const workProgressService = {
   },
 
 
-  async getActivityHistory(id: number): Promise<any> {
+  async getActivityHistory(activityId?: number, projectId?: number): Promise<any> {
     try {
-      const response = await api.get(`/work-progress/activities/${id}/progress-history`);
+      const params: Record<string, any> = {};
+      if (activityId !== undefined) params.activity_id = activityId;
+      if (projectId !== undefined) params.project_id = projectId;
+
+      const response = await api.get(`/work-progress/progress-history`, { params });
       return response.data;
     } catch (error: any) {
       console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
       return {
         data: [
           {
-            activity_id: id,
+            activity_id: activityId || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "ON_TRACK",
@@ -335,7 +339,7 @@ export const workProgressService = {
             }
           },
           {
-            activity_id: id,
+            activity_id: activityId || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "ON_TRACK",
@@ -344,7 +348,7 @@ export const workProgressService = {
             }
           },
           {
-            activity_id: id,
+            activity_id: activityId || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "Delay",
