@@ -299,10 +299,8 @@ const AdminClientPaymentPage = () => {
     const cleanId = String(targetPaymentParam).trim();
     const cleanNum = cleanId.replace(/\D/g, "");
     const match = clientPayments.find(p =>
-      String(p.id) === cleanId ||
-      (cleanNum && String(p.id) === cleanNum) ||
       (p.paymentId && p.paymentId.toLowerCase() === cleanId.toLowerCase()) ||
-      (p.paymentNo && p.paymentNo.toLowerCase() === cleanId.toLowerCase()) ||
+      (cleanNum && p.paymentId && p.paymentId.replace(/\\D/g, "") === cleanNum) ||
       (p.invoiceNo && p.invoiceNo.toLowerCase() === cleanId.toLowerCase())
     );
     if (match) {
@@ -725,7 +723,7 @@ const AdminClientPaymentPage = () => {
         const isClientRole = (user?.role || '').toLowerCase() === 'client';
         const currentUserName = (user?.name || '').toLowerCase().trim();
         const currentUserMobile = (user?.mobile || '').replace(/\D/g, '').trim();
-        const currentUserEmail = (user?.email || (user as any)?.username || '').toLowerCase().trim();
+        const currentUserEmail = ((user as any)?.email || (user as any)?.username || '').toLowerCase().trim();
         const currentUserId = user?.id ? String(user.id).trim() : '';
 
         // Filter list strictly for the specific client so other clients' quotations are never shown
@@ -1345,9 +1343,6 @@ const AdminClientPaymentPage = () => {
                 )}
               </div>
 
-              <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-200 active:scale-95 cursor-pointer">
-                <Plus className="w-4 h-4" /> Pay Payment
-              </button>
             </div>
           </div>
 
