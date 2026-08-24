@@ -190,6 +190,7 @@ const EquipmentRegistryPage = () => {
     const [equipmentAlerts, setEquipmentAlerts] = useState<EquipmentAlert[]>([]);
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
     const [availability, setAvailability] = useState<AvailabilityReport[]>([]);
+    const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
     const [conditionFilter, setConditionFilter] = useState("All");
     const [projects, setProjects] = useState<any[]>([]);
     const [boqItems, setBoqItems] = useState<any[]>([]);
@@ -267,15 +268,17 @@ const EquipmentRegistryPage = () => {
                 setMaintenanceAlerts(maintRes);
                 setAllMaintenanceLogs(allMaint || []);
             } else if (activeTab === "Rental") {
-                const [eqRes, cost, allRentals] = await Promise.all([
+                const [eqRes, cost, allRentals, allMaint] = await Promise.all([
                     equipmentService.listEquipment(params).catch(() => ({ items: [] })),
                     equipmentService.getCostReport(pIdObj).catch(() => []),
-                    equipmentService.getAllRentals(pIdObj).catch(() => [])
+                    equipmentService.getAllRentals(pIdObj).catch(() => []),
+                    equipmentService.getAllMaintenance({}).catch(() => [])
                 ]);
                 const eqList = eqRes.items || [];
                 setEquipmentList(eqList);
                 setRentalCostReport(cost);
                 setAllRentalLogs(allRentals || []);
+                setAllMaintenanceLogs(allMaint || []);
                 const currentEq = selectedEquipment || (eqList.length > 0 ? eqList[0] : null);
                 if (currentEq && !selectedEquipment) {
                     setSelectedEquipment(currentEq);
@@ -286,14 +289,16 @@ const EquipmentRegistryPage = () => {
                         .catch(() => setSelectedEquipmentLogs(prev => ({ ...prev, rental: [] })));
                 }
             } else if (activeTab === "Reports & Alerts") {
-                const [util, avail, alerts] = await Promise.all([
+                const [util, avail, alerts, purchaseRes] = await Promise.all([
                     equipmentService.getUtilizationReport(pIdObj).catch(() => []),
                     equipmentService.getAvailabilityReport(pIdObj).catch(() => []),
-                    equipmentService.getEquipmentAlerts(pIdObj).catch(() => [])
+                    equipmentService.getEquipmentAlerts(pIdObj).catch(() => []),
+                    equipmentService.getPurchaseReport(pIdObj).catch(() => [])
                 ]);
                 setUtilizationReport(util || []);
                 setAvailability(avail || []);
                 setEquipmentAlerts(alerts || []);
+                setPurchaseReport(purchaseRes || []);
             }
         } catch (err) {
             toast.error("Failed to load machinery data");
@@ -427,6 +432,31 @@ const EquipmentRegistryPage = () => {
             }
         })();
     }, [activeTab, selectedEquipment, effectiveProjectId]);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (isRentalModalOpen && !isRentalViewOnly) {
+            const fetchFreshData = async () => {
+                try {
+                    const pIdObj = effectiveProjectId ? { project_id: effectiveProjectId } : {};
+                    const [eqRes, allMaint, allRentals] = await Promise.all([
+                        equipmentService.listEquipment({ limit: 100, ...pIdObj }).catch(() => ({ items: [] })),
+                        equipmentService.getAllMaintenance({}).catch(() => []),
+                        equipmentService.getAllRentals(pIdObj).catch(() => [])
+                    ]);
+                    if (isMounted) {
+                        setEquipmentList(eqRes.items || []);
+                        setAllMaintenanceLogs(allMaint || []);
+                        setAllRentalLogs(allRentals || []);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch fresh data for modal", e);
+                }
+            };
+            fetchFreshData();
+        }
+        return () => { isMounted = false; };
+    }, [isRentalModalOpen, isRentalViewOnly, effectiveProjectId]);
 
     useEffect(() => {
         if (activeTab !== "Rental") return;
@@ -1369,47 +1399,10 @@ const EquipmentRegistryPage = () => {
                 </div>
 
                 <div className="rounded-2xl border border-slate-100 bg-white p-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
                         <h3 className="font-bold text-sm text-slate-800">Rental History</h3>
-                        <div className="text-sm text-slate-500">Select equipment</div>
                     </div>
-                    <div className="overflow-auto max-h-[220px]">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 text-[10px] uppercase font-bold text-slate-500">
-                                <tr><th className="p-3">Equipment Name</th><th className="p-3">Start Date</th><th className="p-3">End Date</th><th className="p-3">Rental Cost</th><th className="p-3">Client</th><th className="p-3">Notes</th><th className="p-3">Created At</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {selectedEquipment && isLoading ? (
-                                    <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading rental records...</td></tr>
-                                ) : selectedEquipment && selectedEquipmentLogs.rental.length > 0 ? selectedEquipmentLogs.rental.map((r: any) => (
-                                    <tr key={r.id} className="hover:bg-slate-50">
-                                        <td className="p-3 font-bold">{equipmentList.find(eq => eq.id === r.equipment_id)?.equipment_name || equipmentList.find(eq => eq.id === r.equipment_id)?.equipment_code || `EQ-${r.equipment_id}`}</td>
-                                        <td className="p-3 whitespace-nowrap">{r.start_date}</td>
-                                        <td className="p-3 whitespace-nowrap">{r.end_date}</td>
-                                        <td className="p-3 font-bold">₹{(r.rental_cost || 0).toLocaleString()}</td>
-                                        <td className="p-3">{r.client_name}</td>
-                                        <td className="p-3 text-slate-600">{r.notes}</td>
-                                        <td className="p-3 text-slate-500">{r.created_at ? r.created_at.split('T')[0] : '-'}</td>
-                                        <td className="p-3"><span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${r.status === 'CANCELLED' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>{r.status || 'ACTIVE'}</span></td>
-                                        <td className="p-3">
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => viewRental(r.id)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded" title="View"><Eye className="w-4 h-4" /></button>
-                                                <button onClick={() => { setSelectedEquipment(equipmentList.find(eq => eq.id === r.equipment_id) || null); setFormData({ id: r.id, equipment_id: r.equipment_id, start_date: r.start_date, end_date: r.end_date, rental_cost: r.rental_cost, client_name: r.client_name, notes: r.notes, project_id: r.project_id || effectiveProjectId }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                <button onClick={() => handleRentalDelete(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr><td colSpan={8} className="p-10 text-center text-slate-400">No rental records found</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-100 bg-white p-4">
-                    <h3 className="font-bold text-sm text-slate-800 mb-3">All Rental History</h3>
-                    <div className="overflow-auto max-h-[320px]">
+                    <div className="overflow-auto max-h-[500px]">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 sticky top-0 text-[10px] uppercase font-bold text-slate-500">
                                 <tr>
@@ -1418,36 +1411,56 @@ const EquipmentRegistryPage = () => {
                                     <th className="p-3">End Date</th>
                                     <th className="p-3">Rental Cost</th>
                                     <th className="p-3">Client</th>
-                                    <th className="p-3">Notes</th>
                                     <th className="p-3">Duration</th>
                                     <th className="p-3">Per Day Cost</th>
+                                    <th className="p-3">Notes</th>
+                                    <th className="p-3">Created At</th>
+                                    <th className="p-3">Status</th>
                                     <th className="p-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {isLoading ? (
-                                    <tr><td colSpan={9} className="p-8 text-center text-slate-400">Loading rental history...</td></tr>
-                                ) : allRentalLogs.length > 0 ? allRentalLogs.map((r: any) => (
-                                    <tr key={r.id} className="hover:bg-slate-50">
-                                        <td className="p-3 font-bold">{(() => { const eq = equipmentList.find(e => e.id === r.equipment_id); return eq ? eq.equipment_name || 'Equipment' : `EQ-${r.equipment_id}`; })()}</td>
-                                        <td className="p-3">{r.start_date}</td>
-                                        <td className="p-3">{r.end_date}</td>
-                                        <td className="p-3">₹{(r.rental_cost || 0).toLocaleString()}</td>
-                                        <td className="p-3">{r.client_name}</td>
-                                        <td className="p-3 text-slate-500 max-w-[200px] truncate" title={r.notes}>{r.notes || '-'}</td>
-                                        <td className="p-3">{r.duration ?? '-'}</td>
-                                        <td className="p-3">{r.per_day_cost ? `₹${r.per_day_cost.toLocaleString()}` : '-'}</td>
-                                        <td className="p-3 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => viewRental(r.id)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded" title="View"><Eye className="w-4 h-4" /></button>
-                                                <button onClick={() => { setIsRentalViewOnly(false); setSelectedEquipment(equipmentList.find(eq => eq.id === r.equipment_id) || null); setFormData({ id: r.id, equipment_id: r.equipment_id, start_date: r.start_date, end_date: r.end_date, rental_cost: r.rental_cost, client_name: r.client_name, notes: r.notes, project_id: r.project_id || effectiveProjectId, boq_item_id: r.boq_item_id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                <button onClick={() => handleRentalDelete(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr><td colSpan={9} className="p-10 text-center text-slate-400">No rental records found in history</td></tr>
-                                )}
+                                    <tr><td colSpan={11} className="p-8 text-center text-slate-400">Loading rental records...</td></tr>
+                                ) : (() => {
+                                    const displayedLogs = selectedEquipment
+                                        ? allRentalLogs.filter((r: any) => r.equipment_id === selectedEquipment.id)
+                                        : allRentalLogs;
+
+                                    if (displayedLogs.length === 0) {
+                                        return <tr><td colSpan={11} className="p-10 text-center text-slate-400">No rental records found</td></tr>;
+                                    }
+
+                                    return displayedLogs.map((r: any) => {
+                                        const eq = equipmentList.find(e => e.id === r.equipment_id);
+                                        const eqName = eq ? eq.equipment_name || eq.equipment_code : `EQ-${r.equipment_id}`;
+                                        return (
+                                            <tr key={r.id} className="hover:bg-slate-50">
+                                                <td className="p-3 font-bold text-slate-800">{eqName}</td>
+                                                <td className="p-3 whitespace-nowrap">{r.start_date}</td>
+                                                <td className="p-3 whitespace-nowrap">{r.end_date}</td>
+                                                <td className="p-3 font-bold text-violet-600">₹{(r.rental_cost || 0).toLocaleString()}</td>
+                                                <td className="p-3 font-medium text-slate-700">{r.client_name}</td>
+                                                <td className="p-3 text-slate-700 whitespace-nowrap">{r.duration ? `${r.duration} days` : '-'}</td>
+                                                <td className="p-3 text-slate-600 whitespace-nowrap">{r.per_day_cost ? `₹${r.per_day_cost.toLocaleString()}` : '-'}</td>
+                                                <td className="p-3 text-slate-500 max-w-[150px] truncate" title={r.notes}>{r.notes || '-'}</td>
+                                                <td className="p-3 text-xs text-slate-500 whitespace-nowrap">{r.created_at ? r.created_at.split('T')[0] : '-'}</td>
+                                                <td className="p-3 whitespace-nowrap">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${r.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {r.status || 'COMPLETED'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-right whitespace-nowrap">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button onClick={() => viewRental(r.id)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View"><Eye className="w-4 h-4" /></button>
+                                                        <button onClick={() => { setIsRentalViewOnly(false); setSelectedEquipment(equipmentList.find(e => e.id === r.equipment_id) || null); setFormData({ id: r.id, equipment_id: r.equipment_id, start_date: r.start_date, end_date: r.end_date, rental_cost: r.rental_cost, client_name: r.client_name, notes: r.notes, project_id: r.project_id || effectiveProjectId, boq_item_id: r.boq_item_id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                        <button onClick={() => handleRentalDelete(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
                             </tbody>
                         </table>
                     </div>
@@ -1861,7 +1874,7 @@ const EquipmentRegistryPage = () => {
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
-                            <select disabled={isRentalViewOnly} value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                            <select disabled={isRentalViewOnly} value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '', boq_item_id: '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                                 <option value="">-- Select Project --</option>
                                 {assignedProjects.map(project => (
                                     <option key={project.id} value={project.id}>{project.project_name || `Project ${project.id}`}</option>
@@ -1872,9 +1885,11 @@ const EquipmentRegistryPage = () => {
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
                             <select disabled={isRentalViewOnly} value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                                 <option value="">-- Choose BOQ Item --</option>
-                                {boqItems.map((boq: any) => (
-                                    <option key={boq.id} value={boq.id}>{boq.item_name || boq.name || `BOQ ${boq.id}`}</option>
-                                ))}
+                                {boqItems
+                                    .filter((boq: any) => !formData.project_id || Number(boq.project_id) === Number(formData.project_id))
+                                    .map((boq: any) => (
+                                        <option key={boq.id} value={boq.id}>{boq.item_name || boq.name || `BOQ ${boq.id}`}</option>
+                                    ))}
                             </select>
                         </div>
                         <div>

@@ -42,6 +42,7 @@ const FinancePage = () => {
   const [dateTo, setDateTo] = useState("");
   const [summaryData, setSummaryData] = useState<InvoiceSummary | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [profitData, setProfitData] = useState<Record<number, any>>({});
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [owners, setOwners] = useState<any[]>([]);
@@ -386,10 +387,23 @@ const FinancePage = () => {
     const expense = filteredExps.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
 
     if (subPage === "profit") {
+      let apiRevenue = 0;
+      let apiExpense = 0;
+      projects.filter(p => projectIdFilter === "all" || p.id === Number(projectIdFilter)).forEach((p) => {
+        if (profitData[p.id]) {
+          apiRevenue += Number(profitData[p.id].total_invoice || 0);
+          apiExpense += Number(profitData[p.id].total_expense || 0);
+        } else {
+          const pInvoices = filteredInvs.filter(i => i.project_id === p.id);
+          const pExpenses = filteredExps.filter(e => e.project_id === p.id);
+          apiRevenue += pInvoices.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+          apiExpense += pExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        }
+      });
       return {
-        billing: revenue,
-        pending: expense,
-        gst: revenue - expense,
+        billing: apiRevenue,
+        pending: apiExpense,
+        gst: apiRevenue - apiExpense,
       };
     }
 
@@ -408,13 +422,21 @@ const FinancePage = () => {
     return {
       billing: hasInvoices ? revenue : expense,
       pending: hasInvoices
-        ? filteredInvs.filter((i) => i.status === "pending").reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0)
+        ? filteredInvs.reduce((sum, i) => {
+          if (i.pending_amount !== undefined && i.pending_amount !== null) {
+            return sum + Number(i.pending_amount);
+          }
+          if (i.status === "pending" || i.status === "overdue") {
+            return sum + (Number(i.total_amount) || 0);
+          }
+          return sum;
+        }, 0)
         : cashModeExpenses,
       gst: hasInvoices
         ? filteredInvs.reduce((sum, inv) => sum + (Number(inv.gst_amount) || 0), 0)
         : Math.round(expense * 0.18), // 18% GST estimate on expenses when invoices unavailable
     };
-  }, [invoices, expenses, summaryData, projectIdFilter, subPage]);
+  }, [invoices, expenses, summaryData, projectIdFilter, subPage, projects, profitData]);
 
   // Reset to page 0 on tab, search or filter changes
   useEffect(() => {
@@ -432,6 +454,30 @@ const FinancePage = () => {
       return matchesProject && matchesSearch;
     });
   }, [projects, projectIdFilter, searchTerm]);
+
+  useEffect(() => {
+    if (subPage !== "profit") return;
+    const loadProfitData = async () => {
+      const missingProjects = filteredProjectsForProfit.filter(p => !profitData[p.id]);
+      if (missingProjects.length === 0) return;
+
+      const newProfitData: Record<number, any> = {};
+      await Promise.all(
+        missingProjects.map(async (p) => {
+          try {
+            const data = await projectService.getProjectProfitLoss(p.id);
+            newProfitData[p.id] = data;
+          } catch (e) {
+            console.error(e);
+          }
+        })
+      );
+      if (Object.keys(newProfitData).length > 0) {
+        setProfitData(prev => ({ ...prev, ...newProfitData }));
+      }
+    };
+    loadProfitData();
+  }, [subPage, filteredProjectsForProfit, profitData]);
 
   const totalItems = subPage === "expenses"
     ? filteredExpenses.length
@@ -843,11 +889,20 @@ const FinancePage = () => {
                   ))
                 ) : subPage === "profit" ? (
                   paginatedProjects.map((project) => {
-                    const projectInvs = invoices.filter(inv => inv.project_id === project.id);
-                    const projectExps = expenses.filter(exp => exp.project_id === project.id);
-                    const revenue = projectInvs.reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
-                    const expense = projectExps.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
-                    const profit = revenue - expense;
+                    let revenue = 0;
+                    let expense = 0;
+                    let profit = 0;
+                    if (profitData[project.id]) {
+                      revenue = Number(profitData[project.id].total_invoice || 0);
+                      expense = Number(profitData[project.id].total_expense || 0);
+                      profit = Number(profitData[project.id].profit || 0);
+                    } else {
+                      const projectInvs = invoices.filter(inv => inv.project_id === project.id);
+                      const projectExps = expenses.filter(exp => exp.project_id === project.id);
+                      revenue = projectInvs.reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+                      expense = projectExps.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+                      profit = revenue - expense;
+                    }
                     const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
                     return (
