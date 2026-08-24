@@ -41,6 +41,7 @@ import BOQDetailPage from "../pages/admin/BOQDetailPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 import QuotationsPage from "../pages/admin/QuotationsPage";
+import AdminClientPaymentPage from "../pages/admin/AdminClientPaymentPage";
 import ManagerApprovalsPage from "../pages/manager/ApprovalsPage";
 import QCGovernancePage from "../pages/manager/QCGovernancePage";
 import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
@@ -56,6 +57,7 @@ import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
 import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
 import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
 import ManagerIssuesPage from "../pages/manager/ManagerIssuesPage";
+import AdminIssuesPage from "../pages/admin/AdminIssuesPage";
 import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
 import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
 import ManagerMaterialReceiptPage from "../pages/manager/Resources/MaterialManagement/MaterialReceiptPage";
@@ -234,6 +236,7 @@ function AppRoutes() {
                 <Route path="/admin/finance/payments" element={<FinancePage />} />
                 <Route path="/admin/finance/expenses" element={<FinancePage />} />
                 <Route path="/admin/finance/profit" element={<FinancePage />} />
+                <Route path="/admin/client-payments" element={<AdminClientPaymentPage />} />
                 <Route path="/admin/approvals" element={<ApprovalsPage />} />
                 <Route path="compliance/qc" element={<QCGovernancePage />} />
                 <Route path="/admin/reports" element={<ReportsPage />} />
@@ -263,6 +266,7 @@ function AppRoutes() {
                   path="/admin/notifications/system"
                   element={<NotificationsPage filter="system" />}
                 />
+                <Route path="/admin/issues" element={<AdminIssuesPage />} />
                 <Route path="/admin/documents" element={<DocumentsPage />} />
                 <Route path="/admin/measurements" element={<MeasurementPage />} />
                 <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />

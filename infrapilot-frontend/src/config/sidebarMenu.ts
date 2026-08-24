@@ -117,6 +117,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/finance/profit",
           icon: "trending-up",
         },
+        {
+          label: "Client Payments",
+          path: "/admin/client-payments",
+          icon: "credit-card",
+        },
       ],
     },
     {
@@ -159,6 +164,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/notifications",
       icon: "bell",
     },
+    { label: "Issues", path: "/admin/issues", icon: "alert-triangle" },
     { label: "Documents", path: "/admin/documents", icon: "file-text" },
     {
       label: "Master Data",
