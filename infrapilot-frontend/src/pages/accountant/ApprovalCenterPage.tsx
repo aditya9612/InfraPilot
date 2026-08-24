@@ -43,66 +43,8 @@ export default function ApprovalCenterPage() {
             throw new Error("Empty data");
           }
         } catch (err) {
-          // Fallback to mock data if API fails (e.g. 401 Unauthorized) so user can still see the UI
-          const mockRaBills = [
-            {
-              id: 10, project_id: 4, contractor_id: 1, measurement_id: 1, work_order_id: 2, quotation_id: null,
-              bill_number: "RA-Bill-05", project_name: "Sara City Project", work_description: "no work discription", quantity: 1.0, rate: 2.0,
-              gross_amount: 2.0, deductions: 0.0, net_amount: 2.0, gst_percent: 0.0, total_amount: 2.0,
-              bill_date: "2026-08-20", status: "Approved", progress_percent: 100.0, total_billed_quantity: 11.0,
-              remaining_quantity: -10.0, available_to_bill: 48.0, approval_id: 10
-            },
-            {
-              id: 9, project_id: 12, contractor_id: 1, measurement_id: null, work_order_id: null, quotation_id: 8,
-              bill_number: "BILL-QT/2026/0008", project_name: "Residential Bungalow", work_description: "Residential Bungalow Construction", quantity: 1.0, rate: 677514.0,
-              gross_amount: 677514.0, deductions: 0.0, net_amount: 677514.0, gst_percent: 18.0, total_amount: 677514.0,
-              bill_date: "2026-08-11", status: "Submitted", progress_percent: null, total_billed_quantity: null,
-              remaining_quantity: null, available_to_bill: null, approval_id: 9
-            },
-            {
-              id: 8, project_id: 4, contractor_id: 1, measurement_id: 1, work_order_id: 2, quotation_id: null,
-              bill_number: "Bill-2", project_name: "Sara City Project", work_description: "Fine", quantity: 10.0, rate: 100.0,
-              gross_amount: 1000.0, deductions: 1.0, net_amount: 999.0, gst_percent: 8.0, total_amount: 1078.92,
-              bill_date: "2026-08-10", status: "draft", progress_percent: 1000.0, total_billed_quantity: 11.0,
-              remaining_quantity: -10.0, available_to_bill: 48.0, approval_id: 8
-            },
-            {
-              id: 7, project_id: 4, contractor_id: 1, measurement_id: 1, work_order_id: 1, quotation_id: null,
-              bill_number: "Bill-1", project_name: "Sara City Project", work_description: "work done", quantity: 1.0, rate: 1.0,
-              gross_amount: 1.0, deductions: 1.0, net_amount: 0.0, gst_percent: 1.0, total_amount: 0.0,
-              bill_date: "2026-08-06", status: "Paid", progress_percent: 1.0, total_billed_quantity: 3.0,
-              remaining_quantity: 97.0, available_to_bill: 100.0, approval_id: 7
-            },
-            {
-              id: 6, project_id: 4, contractor_id: 1, measurement_id: null, work_order_id: null, quotation_id: 5,
-              bill_number: "BILL-QT/2026/0005", project_name: "Sara City Project", work_description: "Residential Bungalow Construction", quantity: 1.0, rate: -5000.0,
-              gross_amount: -5000.0, deductions: 0.0, net_amount: -5000.0, gst_percent: 18.0, total_amount: -5000.0,
-              bill_date: "2026-07-28", status: "Paid", progress_percent: null, total_billed_quantity: null,
-              remaining_quantity: null, available_to_bill: null, approval_id: 6
-            },
-            {
-              id: 5, project_id: 4, contractor_id: 1, measurement_id: 3, work_order_id: 1, quotation_id: null,
-              bill_number: "null", project_name: "Sara City Project", work_description: "hgfbvhbdfvg", quantity: 1.0, rate: 100.0,
-              gross_amount: 100.0, deductions: 2.0, net_amount: 98.0, gst_percent: 2.0, total_amount: 99.96,
-              bill_date: "2026-07-22", status: "Paid", progress_percent: 1.0, total_billed_quantity: 3.0,
-              remaining_quantity: 97.0, available_to_bill: 100.0, approval_id: 5
-            },
-            {
-              id: 4, project_id: 4, contractor_id: 1, measurement_id: 3, work_order_id: 1, quotation_id: null,
-              bill_number: "RA-010", project_name: "Sara City Project", work_description: "hgfbvhbdfvg", quantity: 1.0, rate: 100.0,
-              gross_amount: 100.0, deductions: 2.0, net_amount: 98.0, gst_percent: 2.0, total_amount: 99.96,
-              bill_date: "2026-07-22", status: "Draft", progress_percent: 1.0, total_billed_quantity: 3.0,
-              remaining_quantity: 97.0, available_to_bill: 100.0, approval_id: 4
-            },
-            {
-              id: 3, project_id: 4, contractor_id: 1, measurement_id: null, work_order_id: null, quotation_id: 1,
-              bill_number: "BILL-QT/2026/0001", project_name: "Sara City Project", work_description: "Sara City", quantity: 1.0, rate: 2893160.0,
-              gross_amount: 2893160.0, deductions: 10.0, net_amount: 2893160.0, gst_percent: 18.0, total_amount: 2893160.0,
-              bill_date: "2026-07-16", status: "Paid", progress_percent: null, total_billed_quantity: null,
-              remaining_quantity: null, available_to_bill: null, approval_id: 3
-            }
-          ];
-          setRaBills(mockRaBills);
+
+          setRaBills([]);
         }
       } else if (activeTab === 'Payments') {
         const res = await api.get('/payments/vouchers?status=PENDING');

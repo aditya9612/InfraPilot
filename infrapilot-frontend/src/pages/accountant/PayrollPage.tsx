@@ -302,6 +302,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
+    period_type: period || "Daily",
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
     payment_mode: "Bank Transfer",
@@ -379,6 +380,15 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
               <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
                 <option value={0}>Select Project</option>
                 {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Type *</label>
+              <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                <option value="Daily">Daily</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Monthly">Monthly</option>
               </select>
             </div>
 
@@ -604,10 +614,7 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
   });
   const [loading, setLoading] = useState(false);
 
-  const mockBankAccounts = [
-    { id: 1, name: "SBI - 1001" },
-    { id: 2, name: "HDFC - 2002" }
-  ];
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -689,7 +696,6 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
                   <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
                     <option value={0}>Select Bank Account</option>
-                    {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
               )}
@@ -793,6 +799,8 @@ export const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
+  const [labours, setLabours] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
@@ -816,6 +824,12 @@ const LedgerSection = () => {
 
   useEffect(() => {
     fetchRegister();
+    import('../../services/labourService').then(({ labourService }) => {
+      labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(Array.isArray(res) ? res : res.items || res.data || []));
+    });
+    import('../../services/userService').then(({ userService }) => {
+      userService.getAllUsers(1000).then((res: any) => setUsers(Array.isArray(res) ? res : res.items || res.data || []));
+    });
   }, []);
 
   // Parse linked_to: "LABOUR-WAGE:5:2026-08-05" → "Labour Wage #5"
@@ -824,9 +838,15 @@ const LedgerSection = () => {
     const parts = linked_to.split(':');
     const category = parts[0]; // e.g. LABOUR-WAGE, CONTRACTOR-PAY, STAFF-SALARY
     const id = parts[1] || '';
-    if (category === 'LABOUR-WAGE') return `Labour Wage #${id}`;
+    if (category === 'LABOUR-WAGE') {
+      const labour = labours.find(l => String(l.id) === String(id) || String(l.labour_id) === String(id));
+      return labour ? (labour.labour_name || labour.name) : `Labour Wage #${id}`;
+    }
     if (category === 'CONTRACTOR-PAY') return `Contractor Pay #${id}`;
-    if (category === 'STAFF-SALARY') return `Staff Salary #${id}`;
+    if (category === 'STAFF-SALARY') {
+      const user = users.find(u => String(u.id) === String(id) || String(u.user_id) === String(id));
+      return user ? (user.full_name || user.name) : `Staff Salary #${id}`;
+    }
     return linked_to;
   };
 
@@ -1191,7 +1211,7 @@ const PayrollPage = () => {
         if (globalProjectId) params.project_id = Number(globalProjectId);
         
         const data = await payrollService.getLabourWageStats(params);
-        setSummaryData(data);
+        setSummaryData(data?.data || data || {});
       } catch (err) {
         console.error('Failed to fetch payroll summary', err);
       }
@@ -1300,7 +1320,7 @@ const PayrollPage = () => {
         </div>
 
         {/* ── KPI Stat Cards ─────────────────────────────── */}
-        {activeTab !== "offers" && <PayrollKPICards summary={summaryData} />}
+        {activeTab === "wages" && <PayrollKPICards summary={summaryData} />}
 
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}

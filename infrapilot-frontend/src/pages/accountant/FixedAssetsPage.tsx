@@ -226,11 +226,11 @@ const AssetViewModal = ({ assetId, onClose }: { assetId: number | string | null,
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p>
-                <p className="font-bold text-slate-800">{assetDetail.created_at ? new Date(assetDetail.created_at).toLocaleString() : "N/A"}</p>
+                <p className="font-bold text-slate-800">{assetDetail.created_at || "N/A"}</p>
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
-                <p className="font-bold text-slate-800">{assetDetail.updated_at ? new Date(assetDetail.updated_at).toLocaleString() : "N/A"}</p>
+                <p className="font-bold text-slate-800">{assetDetail.updated_at || "N/A"}</p>
               </div>
             </div>
           </div>
@@ -286,9 +286,11 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
         <div className="flex gap-2 overflow-x-auto">
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          Add Asset
-        </button>
+        {activeSubTab !== 'transfer' && (
+          <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
+            Add Asset
+          </button>
+        )}
       </div>
 
       <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchAssets} />
@@ -342,7 +344,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           />
         </div>
       )}
-      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.purchase_date || "N/A", `${a.useful_life || 0} Years`, a.depreciation_method || "SLM", `₹${a.salvage_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
+      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${a.purchase_value || 0}`, `${a.depreciation_rate || 0}%`, `₹${a.current_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );

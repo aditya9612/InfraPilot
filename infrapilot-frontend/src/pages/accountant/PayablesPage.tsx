@@ -8,7 +8,7 @@ import { projectService } from "../../services/projectService";
 import { accountingService } from "../../services/accountingService";
 
 
-// --- MOCK DATA ---
+// --- UTILS ---
 const fmt = (num: number) => `₹${(Number(num) || 0).toLocaleString("en-IN")}`;
 const statusBadge = (s: string) => {
   if (s === "Paid" || s === "Approved") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
@@ -16,31 +16,90 @@ const statusBadge = (s: string) => {
   return "bg-rose-100 text-rose-700 border border-rose-200";
 };
 
-const MOCK_VENDOR_BILLS = [
-  { id: 1, vendor: "Mahaveer Cements", bill_no: "BILL/24/401", po: "PO-2024-001", date: "2024-04-01", due: "2024-04-10", amt: 190000, gst: 34200, payable: 224200, paid: 224200, status: "Paid" },
-  { id: 2, vendor: "TATA Steel Dist.", bill_no: "TATA/FE/109", po: "PO-2024-005", date: "2024-04-05", due: "2024-04-15", amt: 310000, gst: 55800, payable: 365800, paid: 165800, status: "Partial" },
-  { id: 3, vendor: "Shree Bricks", bill_no: "SB-102", po: "PO-2024-012", date: "2024-04-20", due: "2024-05-05", amt: 85000, gst: 4250, payable: 89250, paid: 0, status: "Pending" },
-];
-
-const MOCK_CONTRACTOR_BILLS = [
-  { id: 1, contractor: "Ganesh Earthmovers", bill_no: "EXP/MAR/022", wo: "WO-24-01", date: "2024-03-20", due: "2024-03-25", amt: 450000, gst: 81000, tds: 4500, payable: 526500, paid: 526500, status: "Paid" },
-  { id: 2, contractor: "Apex Civil Works", bill_no: "ACW/005", wo: "WO-24-05", date: "2024-04-10", due: "2024-04-20", amt: 1200000, gst: 216000, tds: 12000, payable: 1404000, paid: 0, status: "Pending" },
-  { id: 3, contractor: "Skyline Electricals", bill_no: "SE/RA-1", wo: "WO-24-12", date: "2024-04-15", due: "2024-04-25", amt: 350000, gst: 63000, tds: 3500, payable: 409500, paid: 0, status: "Pending" },
-];
-
-
-
 // --- SECTIONS ---
 
-// 1. Dashboard
+const PaginationControls = ({ 
+  currentPage, 
+  setCurrentPage, 
+  recordsPerPage, 
+  setRecordsPerPage, 
+  filteredRecordsLength 
+}: { 
+  currentPage: number; 
+  setCurrentPage: (p: number | ((prev: number) => number)) => void; 
+  recordsPerPage: number; 
+  setRecordsPerPage: (v: number) => void; 
+  filteredRecordsLength: number; 
+}) => {
+  const totalPages = Math.ceil(filteredRecordsLength / recordsPerPage);
+  return (
+    <div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 rounded-b-2xl mt-4">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+        <select 
+          value={recordsPerPage} 
+          onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+          className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white cursor-pointer hover:border-slate-300"
+        >
+          {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      <span className="text-xs text-slate-500 font-semibold">
+        Showing {filteredRecordsLength === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredRecordsLength)} of {filteredRecordsLength} records
+      </span>
+      <div className="flex items-center gap-1">
+        <button 
+          onClick={() => setCurrentPage(p => Math.max(1, typeof p === 'number' ? p - 1 : p - 1))}
+          disabled={currentPage === 1}
+          className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all cursor-pointer"
+        >
+          Prev
+        </button>
+        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-xs font-bold">
+          {currentPage}
+        </span>
+        <button 
+          onClick={() => setCurrentPage(p => Math.min(totalPages, typeof p === 'number' ? p + 1 : p + 1))}
+          disabled={currentPage === totalPages || totalPages === 0}
+          className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all cursor-pointer"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// 1. Dashboard (Payable)
 const DashboardSection = () => {
   const [summary, setSummary] = useState<any>(null);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [dateRangePayables, setDateRangePayables] = useState<any[]>([]);
+  const [allPayables, setAllPayables] = useState<any[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+  const [payingBill, setPayingBill] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination for Date Range Payables
+  const [dateRangePage, setDateRangePage] = useState(1);
+  const [dateRangePerPage, setDateRangePerPage] = useState(10);
+  const paginatedDateRange = dateRangePayables.slice((dateRangePage - 1) * dateRangePerPage, dateRangePage * dateRangePerPage);
+
+  // Pagination for All Payables
+  const [allPayablesPage, setAllPayablesPage] = useState(1);
+  const [allPayablesPerPage, setAllPayablesPerPage] = useState(10);
+  const paginatedAllPayables = allPayables.slice((allPayablesPage - 1) * allPayablesPerPage, allPayablesPage * allPayablesPerPage);
 
   useEffect(() => {
     accountingService.getPayablesSummary().then(setSummary).catch(() => { });
+    accountingService.getPayables().then(res => {
+      const items = res?.items || res?.data || res || [];
+      setAllPayables(Array.isArray(items) ? items : []);
+    }).catch(() => {});
+    projectService.getProjects(100, 0, "").then(res => {
+      const arr = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setAssignedProjects(arr);
+    }).catch(() => {});
   }, []);
 
   const handleFetchDateRange = async (e: React.FormEvent) => {
@@ -50,10 +109,38 @@ const DashboardSection = () => {
     try {
       const res = await accountingService.getPayablesByDateRange(dateRange.start, dateRange.end);
       setDateRangePayables(Array.isArray(res) ? res : res?.data || []);
+      setDateRangePage(1); // Reset page on new search
     } catch (err) {
       toast.error("Failed to fetch payables by date");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConfirmPay = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!payingBill) return;
+
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      amount: Number(formData.get("amount")),
+      mode: formData.get("mode") as string,
+      reference: formData.get("reference") as string,
+    };
+
+    try {
+      const idToPay = payingBill.ra_id || payingBill.id;
+      await accountingService.payContractor(idToPay, payload);
+      
+      setAllPayables(prev => prev.map((item: any) => 
+        (item.ra_id === payingBill.ra_id || item.id === payingBill.id) 
+          ? { ...item, status: "Paid", paid_amount: (item.paid_amount || item.paid || 0) + payload.amount } 
+          : item
+      ));
+      toast.success("Payment recorded successfully!");
+      setPayingBill(null);
+    } catch (err) {
+      toast.error("Failed to record payment");
     }
   };
 
@@ -64,21 +151,21 @@ const DashboardSection = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Outstanding</p>
-            <p className="text-2xl font-black text-slate-800">{summary?.total_outstanding ? fmt(summary.total_outstanding) : "₹ 0"}</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.total ? fmt(summary.total) : "₹ 0"}</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl">📉</div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</p>
-            <p className="text-2xl font-black text-slate-800">{summary?.pending_approvals || "0"}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Amount</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.pending ? fmt(summary.pending) : "₹ 0"}</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 text-xl">⏳</div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Paid (This Month)</p>
-            <p className="text-2xl font-black text-slate-800">{summary?.total_paid ? fmt(summary.total_paid) : "₹ 0"}</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.paid ? fmt(summary.paid) : "₹ 0"}</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl">💸</div>
         </div>
@@ -102,32 +189,187 @@ const DashboardSection = () => {
         </form>
 
         {dateRangePayables.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Bill No", "Date", "Due", "Amount", "Status"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {dateRangePayables.map(b => (
-                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{b.due || "—"}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(b.payable || b.amount || 0)}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status || "Pending")}`}>{b.status || "Pending"}</span></td>
-                  </tr>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedDateRange.map((b, i) => {
+              const projectName = assignedProjects.find(p => p.id === b.project_id)?.name || b.project?.project_name || b.project_name || (b.project_id ? `Project ${b.project_id}` : "—");
+              const contractorName = b.contractor?.name || b.contractor?.full_name || b.contractor_name || (b.contractor_id ? `Contractor ${b.contractor_id}` : "—");
+              
+              return (
+                <div key={b.id || i} className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 hover:shadow-md transition-shadow">
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <h4 className="font-black text-primary text-base">{b.bill_number || b.bill_no || b.ra_id || "—"}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Date: {b.bill_date || b.date || "—"}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${statusBadge(b.status || "Pending")}`}>
+                      {b.status || "Pending"}
+                    </span>
+                  </div>
+
+                  {/* Core Info */}
+                  <div className="space-y-3 mb-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Project</span>
+                      <span className="font-bold text-slate-800 text-right">{projectName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Contractor</span>
+                      <span className="font-bold text-slate-800 text-right">{contractorName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Description</span>
+                      <span className="font-medium text-slate-700 text-right truncate max-w-[150px] ml-4" title={b.work_description || "—"}>{b.work_description || "—"}</span>
+                    </div>
+                  </div>
+
+                  {/* Financial Details Grid */}
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-3 mb-4 text-xs">
+                    <div>
+                      <p className="text-slate-400 font-medium">Rate × Qty</p>
+                      <p className="font-bold text-slate-700">{b.rate || 0} × {b.quantity || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 font-medium">Gross</p>
+                      <p className="font-bold text-slate-700">{fmt(b.gross_amount || 0)}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 font-medium">Deductions</p>
+                      <p className="font-bold text-rose-500">-{fmt(b.deductions || 0)}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 font-medium">GST ({b.gst_percent || 0}%)</p>
+                      <p className="font-bold text-slate-700">{fmt((b.total_amount || 0) - (b.net_amount || 0))}</p>
+                    </div>
+                  </div>
+
+                  {/* Footer Totals */}
+                  <div className="flex items-center justify-between pt-2">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net Amount</p>
+                      <p className="font-black text-slate-600">{fmt(b.net_amount || 0)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
+                      <p className="text-lg font-black text-slate-800">{fmt(b.total_amount || b.payable || b.amount || 0)}</p>
+                    </div>
+                  </div>
+                  
+                  {/* References */}
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap gap-2 text-[10px] font-medium text-slate-400">
+                    {b.work_order_id && <span className="bg-slate-100 px-2 py-1 rounded">WO: {b.work_order_id}</span>}
+                    {b.quotation_id && <span className="bg-slate-100 px-2 py-1 rounded">QT: {b.quotation_id}</span>}
+                    {b.measurement_id && <span className="bg-slate-100 px-2 py-1 rounded">MB: {b.measurement_id}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <PaginationControls 
+            currentPage={dateRangePage} setCurrentPage={setDateRangePage} 
+            recordsPerPage={dateRangePerPage} setRecordsPerPage={setDateRangePerPage} 
+            filteredRecordsLength={dateRangePayables.length} 
+          />
+        </>
+      ) : (
+        <div className="text-center py-8 text-slate-400 text-sm">No payables found in this date range. Select dates and search.</div>
+      )}
+    </div>
+
+    {allPayables.length > 0 && (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6">
+        <h3 className="font-bold text-slate-800 mb-4">All Payables</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/60 border-b border-slate-100">
+              <tr>
+                {["Bill No", "Project", "Contractor", "Total Amount", "Paid Amount", "Pending Amount", "Status", "Actions"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paginatedAllPayables.map((b, i) => {
+                  const projectName = assignedProjects.find(p => p.id === b.project_id)?.name || b.project?.project_name || b.project_name || (b.project_id ? `Project ${b.project_id}` : "—");
+                  const billNo = b.bill_number || b.bill_no || (b.ra_id ? `RA-${b.ra_id}` : (b.id ? `Bill-${b.id}` : "—"));
+                  const contractorName = b.contractor?.name || b.contractor?.full_name || b.contractor_name || (b.contractor_id ? `Contractor ${b.contractor_id}` : "—");
+                  
+                  return (
+                    <tr key={b.ra_id || b.id || i} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3 text-xs font-bold text-primary">{billNo}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{projectName}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{contractorName}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(b.total_amount || b.payable || b.amount || 0)}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-emerald-600">{fmt(b.paid_amount || b.paid || 0)}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-rose-600">{fmt(b.pending_amount || (b.total_amount ? (b.total_amount - (b.paid_amount || 0)) : 0) || 0)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${statusBadge(b.status || "Pending")}`}>
+                          {b.status || "Pending"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(!b.status || ["pending", "approved", "partial"].includes(b.status.toLowerCase())) && (
+                          <button onClick={() => setPayingBill(b)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">
+                            Pay
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="text-center py-8 text-slate-400 text-sm">No payables found in this date range. Select dates and search.</div>
-        )}
-      </div>
+          <PaginationControls 
+            currentPage={allPayablesPage} setCurrentPage={setAllPayablesPage} 
+            recordsPerPage={allPayablesPerPage} setRecordsPerPage={setAllPayablesPerPage} 
+            filteredRecordsLength={allPayables.length} 
+          />
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {payingBill && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleConfirmPay} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-800">Record Payment</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Bill: {payingBill.bill_number || payingBill.bill_no || (payingBill.ra_id ? `RA-${payingBill.ra_id}` : `Bill-${payingBill.id}`)}</p>
+              </div>
+              <button type="button" onClick={() => setPayingBill(null)} className="text-slate-400 hover:text-slate-600">✖</button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">
+                  Amount to Pay (Due: {fmt((payingBill.pending_amount || (payingBill.total_amount ? (payingBill.total_amount - (payingBill.paid_amount || 0)) : 0) || 0))})
+                </label>
+                <input type="number" name="amount" defaultValue={(payingBill.pending_amount || (payingBill.total_amount ? (payingBill.total_amount - (payingBill.paid_amount || 0)) : 0) || 0)} required max={(payingBill.pending_amount || (payingBill.total_amount ? (payingBill.total_amount - (payingBill.paid_amount || 0)) : 0) || 0)} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Mode</label>
+                <select name="mode" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference (Optional)</label>
+                <input type="text" name="reference" placeholder="e.g. UTR / Cheque No" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <button type="button" onClick={() => setPayingBill(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all">Submit Payment</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
@@ -145,17 +387,55 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
   const [billItems, setBillItems] = useState<any[]>([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
 
-  // Mock Lists for accountant assignments
-  const assignedSuppliers = [
-    { id: 101, name: "Mahaveer Cements" },
-    { id: 102, name: "TATA Steel Dist." },
-    { id: 103, name: "Shree Bricks" },
-  ];
-  const assignedPOs = [
-    { id: 301, name: "PO-2024-001" },
-    { id: 302, name: "PO-2024-005" },
-    { id: 303, name: "PO-2024-012" },
-  ];
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [assignedSuppliers, setAssignedSuppliers] = useState<any[]>([]);
+  const [assignedPOs, setAssignedPOs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeSubTab === "create") {
+      setSelectedProjectId(editingBill?.project_id ? String(editingBill.project_id) : "");
+    }
+  }, [activeSubTab, editingBill]);
+
+  useEffect(() => {
+    const fetchPOsAndSuppliers = async () => {
+      if (!selectedProjectId) {
+        setAssignedSuppliers([]);
+        setAssignedPOs([]);
+        return;
+      }
+      try {
+        const [posRes, suppliersRes] = await Promise.all([
+          api.get('/materials/purchase-orders', { params: { project_id: selectedProjectId, limit: 500 } }),
+          api.get('/materials/suppliers') // Fetch all to get their names
+        ]);
+
+        const dataPOs = posRes.data;
+        const pos = Array.isArray(dataPOs) ? dataPOs : (dataPOs?.items || dataPOs?.data || []);
+
+        const dataSuppliers = suppliersRes.data;
+        const allSuppliers = Array.isArray(dataSuppliers) ? dataSuppliers : (dataSuppliers?.items || dataSuppliers?.data || []);
+        
+        // Extract unique supplier IDs from POs
+        const poSupplierIds = new Set(pos.map((p: any) => p.supplier_id).filter(Boolean));
+
+        // Filter actual suppliers using the IDs from POs to get their real names
+        const filteredSuppliers = allSuppliers.filter((s: any) => poSupplierIds.has(s.id || s.user_id));
+        setAssignedSuppliers(filteredSuppliers);
+
+        // Populate POs with descriptive names
+        const formattedPOs = pos.map((p: any) => ({
+          ...p,
+          name: p.material_name || p.name || p.po_number || 'Material'
+        }));
+        setAssignedPOs(formattedPOs);
+      } catch (err) {
+        console.error("Failed to fetch POs and suppliers", err);
+      }
+    };
+    fetchPOsAndSuppliers();
+  }, [selectedProjectId]);
 
   const fetchProjects = async () => {
     try {
@@ -169,9 +449,9 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   const fetchPayables = async () => {
     try {
-      const response = await api.get('/vendor-bills');
-      const data = response.data?.items || response.data || [];
-      setVendorBills(Array.isArray(data) ? data : []);
+      const data = await accountingService.getPayables();
+      const items = data?.items || data?.data || data || [];
+      setVendorBills(Array.isArray(items) ? items : []);
     } catch (err) {
       toast.error("Failed to fetch vendor bills");
     }
@@ -280,6 +560,16 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
            projName.toLowerCase().includes((search || "").toLowerCase());
   });
 
+  const filteredApproval = vendorBills.filter(b => b.status === "Pending");
+  const filteredPayments = vendorBills.filter(b => b.status === "Approved" || b.status === "Partial");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSubTab, search]);
+
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
@@ -327,7 +617,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <p className="text-slate-400 text-sm">No vendor bills found.</p>
             </div>
           ) : (
-            filtered.map(b => (
+            filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
               <div key={b.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col hover:border-primary/30 transition-all group">
                 <div className="bg-slate-50/50 p-4 border-b border-slate-100 flex justify-between items-center">
                   <div>
@@ -380,6 +670,13 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </div>
             ))
           )}
+          {filtered.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filtered.length} 
+            />
+          )}
         </div>
       )}
 
@@ -401,12 +698,12 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier</label>
               <select name="supplier_id" defaultValue={editingBill?.supplier_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">Select Supplier...</option>
-                {assignedSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {assignedSuppliers.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
               </select>
             </div>
 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label>
-              <select name="project_id" defaultValue={editingBill?.project_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+              <select name="project_id" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">Select Project...</option>
                 {assignedProjects.map(p => <option key={p.id} value={p.id}>{p.name || p.title || p.project_name || `Project ${p.id}`}</option>)}
               </select>
@@ -530,7 +827,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             </div>
           </div>
           <div className="divide-y divide-slate-50">
-            {vendorBills.filter(b => b.status === "Pending").map(b => (
+            {filteredApproval.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
               <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
@@ -543,6 +840,13 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </div>
             ))}
           </div>
+          {filteredApproval.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filteredApproval.length} 
+            />
+          )}
         </div>
       )}
 
@@ -555,7 +859,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             </div>
           </div>
           <div className="divide-y divide-slate-50">
-            {vendorBills.filter(b => b.status === "Approved" || b.status === "Partial").map(b => (
+            {filteredPayments.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
               <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
@@ -568,6 +872,13 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </div>
             ))}
           </div>
+          {filteredPayments.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filteredPayments.length} 
+            />
+          )}
         </div>
       )}
 
@@ -681,7 +992,7 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval" | "payments">(
     (initialSubTab as any) || "list"
   );
-  const [contractorBills, setContractorBills] = useState<any[]>(MOCK_CONTRACTOR_BILLS);
+  const [contractorBills, setContractorBills] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [editingBill, setEditingBill] = useState<any>(null);
 
@@ -752,6 +1063,16 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
     b.bill_no.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredApproval = contractorBills.filter(b => b.status === "Pending");
+  const filteredPayments = contractorBills.filter(b => b.status === "Approved" || b.status === "Partial");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSubTab, search]);
+
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
@@ -801,7 +1122,7 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map(b => (
+                {filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
                   <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.contractor}</td>
                     <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
@@ -813,7 +1134,10 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status)}`}>{b.status}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
+                        {(!b.status || b.status === "Pending" || b.status === "Approved" || b.status === "Partial") && (
+                          <button onClick={() => handlePay(b)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all" title="Pay">💳</button>
+                        )}
+                        <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
                         <button onClick={() => { setEditingBill(b); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
                         <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
                       </div>
@@ -823,6 +1147,13 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
               </tbody>
             </table>
           </div>
+          {filtered.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filtered.length} 
+            />
+          )}
         </div>
       )}
 
@@ -945,7 +1276,7 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
             </div>
           </div>
           <div className="divide-y divide-slate-50">
-            {contractorBills.filter(b => b.status === "Pending").map(b => (
+            {filteredApproval.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
               <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{b.contractor} — {b.bill_no}</p>
@@ -958,6 +1289,13 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
               </div>
             ))}
           </div>
+          {filteredApproval.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filteredApproval.length} 
+            />
+          )}
         </div>
       )}
 
@@ -970,11 +1308,11 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
             </div>
           </div>
           <div className="divide-y divide-slate-50">
-            {contractorBills.filter(b => b.status === "Approved" || b.status === "Partial").map(b => (
+            {filteredPayments.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
               <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{b.contractor} — {b.bill_no}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Due: {b.due || b.date}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Due: {b.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-slate-800">{fmt(b.payable - (b.paid || 0))} Due</span>
@@ -983,6 +1321,13 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
               </div>
             ))}
           </div>
+          {filteredPayments.length > 0 && (
+            <PaginationControls 
+              currentPage={currentPage} setCurrentPage={setCurrentPage} 
+              recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+              filteredRecordsLength={filteredPayments.length} 
+            />
+          )}
         </div>
       )}
 
@@ -1031,49 +1376,104 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
 };
 
 // 4. Payment Requests
-const PaymentRequestsSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
-    <div className="text-4xl mb-4">💳</div><h3 className="text-lg font-bold text-slate-800">Payment Requests</h3>
-    <p className="text-slate-500 text-sm mt-1">Approve or reject pending payment requests.</p>
-  </div>
-);
+const PaymentRequestsSection = () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const requests: any[] = []; // Currently empty placeholder
+  const paginated = requests.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100">
+        <h3 className="font-bold text-slate-800">Payment Requests</h3>
+        <p className="text-xs text-slate-400 mt-0.5">Approve or reject pending payment requests.</p>
+      </div>
+      
+      {requests.length === 0 ? (
+        <div className="p-10 text-center">
+          <div className="text-4xl mb-4">💳</div>
+          <p className="text-slate-500 text-sm">No pending payment requests.</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Request ID", "Date", "Amount", "Status"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {paginated.map((_, i) => (
+                  <tr key={i}>
+                    {/* Placeholder columns */}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls 
+            currentPage={currentPage} setCurrentPage={setCurrentPage} 
+            recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+            filteredRecordsLength={requests.length} 
+          />
+        </>
+      )}
+    </div>
+  );
+};
 
 // 5. Outstanding Payables
-const OutstandingPayablesSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100">
-      <h3 className="font-bold text-slate-800">Outstanding Payables</h3>
-      <p className="text-xs text-slate-400 mt-0.5">All pending vendor and contractor bills</p>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/60 border-b border-slate-100">
-          <tr>
-            {["Party Name", "Type", "Bill No", "Bill Date", "Due Date", "Amount", "Paid", "Balance"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {[...MOCK_VENDOR_BILLS.map(b => ({ ...b, name: b.vendor, type: "Vendor" })), ...MOCK_CONTRACTOR_BILLS.map(b => ({ ...b, name: b.contractor, type: "Contractor" }))]
-            .filter(b => b.payable > b.paid)
-            .map(b => (
+const OutstandingPayablesSection = () => {
+  const allOutstanding: any[] = [];
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const paginated = allOutstanding.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100">
+        <h3 className="font-bold text-slate-800">Outstanding Payables</h3>
+        <p className="text-xs text-slate-400 mt-0.5">All pending vendor and contractor bills</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/60 border-b border-slate-100">
+            <tr>
+              {["Party Name", "Type", "Bill No", "Bill Date", "Due Date", "Amount", "Paid", "Balance"].map(h => (
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {paginated.map(b => (
               <tr key={b.id + b.type} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.name}</td>
                 <td className="px-4 py-3"><span className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600">{b.type}</span></td>
                 <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
-                <td className="px-4 py-3 text-xs font-semibold text-rose-500">{b.due}</td>
+                <td className="px-4 py-3 text-xs font-semibold text-rose-500">{b.due || b.date}</td>
                 <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.payable)}</td>
-                <td className="px-4 py-3 text-xs text-emerald-600 text-right">{fmt(b.paid)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 text-right">{fmt(b.payable - b.paid)}</td>
+                <td className="px-4 py-3 text-xs text-emerald-600 text-right">{fmt(b.paid || 0)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 text-right">{fmt(b.payable - (b.paid || 0))}</td>
               </tr>
             ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
+      {allOutstanding.length > 0 && (
+        <PaginationControls 
+          currentPage={currentPage} setCurrentPage={setCurrentPage} 
+          recordsPerPage={recordsPerPage} setRecordsPerPage={setRecordsPerPage} 
+          filteredRecordsLength={allOutstanding.length} 
+        />
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // 6 & 7. Ledger Section (reused)
 
@@ -1087,7 +1487,7 @@ const OutstandingPayablesSection = () => (
 type TabKey = "dashboard" | "vendor-bills" | "outstanding" | "payment-requests";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
+  { key: "dashboard", label: "Payable" },
   { key: "vendor-bills", label: "Vendor Bills" },
   { key: "outstanding", label: "Outstanding" },
   { key: "payment-requests", label: "Payment Requests" },
@@ -1135,17 +1535,6 @@ const PayablesPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payables</h1>
             <p className="text-slate-500 text-sm mt-1">Manage vendor bills, contractor payments, and outstanding liabilities.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📥</span> Import
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📤</span> Export
-            </button>
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> New Payable
-            </button>
           </div>
         </div>
 
