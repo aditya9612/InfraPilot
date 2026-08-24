@@ -16,7 +16,7 @@ interface IssueFilterModalProps {
     onConfirm: (filters: IssueFilterSelection) => void;
 }
 
-const STATUS_OPTIONS = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
+const STATUS_OPTIONS = ["OPEN", "CLOSED"];
 const PRIORITY_OPTIONS = ["HIGH", "MEDIUM", "LOW"];
 
 const IssueFilterModal = ({ isOpen, onClose, format, onConfirm }: IssueFilterModalProps) => {
@@ -70,11 +70,10 @@ const IssueFilterModal = ({ isOpen, onClose, format, onConfirm }: IssueFilterMod
                         <button
                             type="button"
                             onClick={() => setStatus("")}
-                            className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
-                                status === ""
+                            className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${status === ""
                                     ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
                                     : "bg-white text-slate-500 border-slate-200 hover:border-primary/40 hover:text-primary"
-                            }`}
+                                }`}
                         >
                             All
                         </button>
@@ -83,11 +82,10 @@ const IssueFilterModal = ({ isOpen, onClose, format, onConfirm }: IssueFilterMod
                                 key={s}
                                 type="button"
                                 onClick={() => setStatus(s)}
-                                className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
-                                    status === s
+                                className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${status === s
                                         ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
                                         : "bg-white text-slate-500 border-slate-200 hover:border-primary/40 hover:text-primary"
-                                }`}
+                                    }`}
                             >
                                 {s.replace("_", " ")}
                             </button>
@@ -104,31 +102,29 @@ const IssueFilterModal = ({ isOpen, onClose, format, onConfirm }: IssueFilterMod
                         <button
                             type="button"
                             onClick={() => setPriority("")}
-                            className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
-                                priority === ""
+                            className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${priority === ""
                                     ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
                                     : "bg-white text-slate-500 border-slate-200 hover:border-primary/40 hover:text-primary"
-                            }`}
+                                }`}
                         >
                             All
                         </button>
                         {PRIORITY_OPTIONS.map(p => {
                             const color =
                                 p === "HIGH" ? "bg-rose-50 text-rose-600 border-rose-200" :
-                                p === "MEDIUM" ? "bg-amber-50 text-amber-600 border-amber-200" :
-                                "bg-emerald-50 text-emerald-600 border-emerald-200";
+                                    p === "MEDIUM" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                                        "bg-emerald-50 text-emerald-600 border-emerald-200";
                             const activeColor =
                                 p === "HIGH" ? "bg-rose-500 text-white border-rose-500" :
-                                p === "MEDIUM" ? "bg-amber-500 text-white border-amber-500" :
-                                "bg-emerald-500 text-white border-emerald-500";
+                                    p === "MEDIUM" ? "bg-amber-500 text-white border-amber-500" :
+                                        "bg-emerald-500 text-white border-emerald-500";
                             return (
                                 <button
                                     key={p}
                                     type="button"
                                     onClick={() => setPriority(p)}
-                                    className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
-                                        priority === p ? activeColor : color
-                                    }`}
+                                    className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${priority === p ? activeColor : color
+                                        }`}
                                 >
                                     {p}
                                 </button>

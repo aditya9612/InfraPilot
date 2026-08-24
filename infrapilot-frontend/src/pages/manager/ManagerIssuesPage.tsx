@@ -18,6 +18,7 @@ const ManagerIssuesPage = () => {
 
     // Filters
     const [searchTerm, setSearchTerm] = useState("");
+    const [projectFilter, setProjectFilter] = useState<number | "all">(selectedProjectId || "all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [priorityFilter, setPriorityFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -82,17 +83,22 @@ const ManagerIssuesPage = () => {
     const fetchIssues = useCallback(async () => {
         setIsLoading(true);
         try {
-            if (selectedProjectId) {
-                const res = await issueService.getIssuesByProject(selectedProjectId);
+            if (projectFilter !== "all" && projectFilter !== 0) {
+                const res = await issueService.getIssuesByProject(projectFilter as number);
                 setIssues(res.items || []);
             } else {
-                setIssues([]);
+                const res = await issueService.getIssues();
+                setIssues(res.items || []);
             }
         } catch (error) {
             toast.error("Failed to load issues");
         } finally {
             setIsLoading(false);
         }
+    }, [projectFilter]);
+
+    useEffect(() => {
+        setProjectFilter(selectedProjectId || "all");
     }, [selectedProjectId]);
 
     useEffect(() => {
@@ -115,7 +121,7 @@ const ManagerIssuesPage = () => {
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, priorityFilter, categoryFilter, selectedProjectId]);
+    }, [searchTerm, statusFilter, priorityFilter, categoryFilter, projectFilter]);
 
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -124,9 +130,9 @@ const ManagerIssuesPage = () => {
 
     const stats = useMemo(() => {
         const total = issues.length;
-        const open = issues.filter(i => i.status === "Open").length;
-        const closed = issues.filter(i => i.status === "Closed").length;
-        const critical = issues.filter(i => i.priority === "Critical" && i.status === "Open").length;
+        const open = issues.filter(i => i.status === 'Open').length;
+        const closed = issues.filter(i => i.status === 'Closed').length;
+        const critical = issues.filter(i => i.priority === 'Critical' && i.status === 'Open').length;
         return { total, open, closed, critical };
     }, [issues]);
 
@@ -142,7 +148,11 @@ const ManagerIssuesPage = () => {
         }
         setIsSubmitting(true);
         try {
-            await issueService.createIssue({ ...formData, project_id: selectedProjectId || formData.project_id });
+            await issueService.createIssue({
+                ...formData,
+                project_id: selectedProjectId || formData.project_id,
+                assigned_to: Number(formData.assigned_to) === 0 ? null : Number(formData.assigned_to)
+            });
             toast.success("Issue reported successfully!");
             setIsCreateModalOpen(false);
             setFormData({
@@ -222,6 +232,12 @@ const ManagerIssuesPage = () => {
 
     const handleUpdate = async () => {
         if (!selectedIssue) return;
+
+        if (formData.status === "Closed" && (!formData.resolution || formData.resolution.trim() === "")) {
+            toast.error("Resolution is required to close the issue.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await issueService.updateIssue(selectedIssue.id, {
@@ -229,9 +245,9 @@ const ManagerIssuesPage = () => {
                 category: formData.category,
                 description: formData.description,
                 priority: formData.priority,
-                status: selectedIssue.status, // We could have a dropdown for this in edit too
-                assigned_to: selectedIssue.assigned_to,
-                resolution: selectedIssue.resolution
+                status: formData.status,
+                assigned_to: Number(formData.assigned_to) === 0 ? null : Number(formData.assigned_to),
+                resolution: formData.resolution
             });
             toast.success("Issue updated successfully!");
             setIsEditModalOpen(false);
@@ -392,6 +408,14 @@ const ManagerIssuesPage = () => {
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                            <select value={projectFilter} onChange={e => setProjectFilter(e.target.value === "all" ? "all" : Number(e.target.value))} className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none max-w-[200px] truncate">
+                                <option value="all">All Assigned Projects</option>
+                                {assignedProjects.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.project_name || (p as any).name || `Project ${p.id}`}
+                                    </option>
+                                ))}
+                            </select>
                             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
                                 <Filter className="w-4 h-4 text-slate-400" />
                                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-transparent text-xs font-bold text-slate-600 outline-none">
@@ -518,8 +542,8 @@ const ManagerIssuesPage = () => {
                                                 key={page}
                                                 onClick={() => setCurrentPage(page)}
                                                 className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                        ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                        : "text-slate-500 hover:bg-slate-100"
+                                                    ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                    : "text-slate-500 hover:bg-slate-100"
                                                     }`}
                                             >
                                                 {page}
@@ -827,13 +851,13 @@ const ManagerIssuesPage = () => {
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Status</label>
                         <div className="flex flex-wrap gap-2">
-                            {['all', 'open', 'in progress', 'resolved', 'closed'].map(s => (
+                            {['all', 'open', 'closed'].map(s => (
                                 <button
                                     key={s}
                                     onClick={() => setExportFilters({ ...exportFilters, status: s })}
                                     className={`px-4 py-2 rounded-full text-[11px] font-bold uppercase transition-all ${exportFilters.status === s
-                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                                            : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                        : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                                         }`}
                                 >
                                     {s}
