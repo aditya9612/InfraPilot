@@ -349,7 +349,6 @@ const ApprovalsPage = () => {
                 className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 pr-8"
               >
                 <option value="all">Every Type</option>
-                <option value="all">Every Type</option>
                 <option value="boq">BOQ</option>
                 <option value="ra bill">RA Bill</option>
                 <option value="final measurement">Final Measurement</option>

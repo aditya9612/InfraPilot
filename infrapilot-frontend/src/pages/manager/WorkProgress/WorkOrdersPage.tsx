@@ -17,6 +17,7 @@ const WorkOrdersPage = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
+  const [modalContractors, setModalContractors] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,12 +67,26 @@ const WorkOrdersPage = () => {
     }
   };
 
-  const loadContractors = async (projId: number) => {
+  const loadContractors = async (projId: number | 'all') => {
     try {
-      const data = await contractorService.getContractorsByProject(projId);
+      const data = projId === 'all' ? await contractorService.getContractors() : await contractorService.getContractorsByProject(projId as number);
       setContractors(data);
     } catch (error) {
       console.error("Failed to fetch contractors", error);
+    }
+  };
+
+  const loadModalContractors = async (projId: number) => {
+    try {
+      if (!projId || String(projId) === 'all') {
+        setModalContractors([]);
+        return;
+      }
+      const data = await contractorService.getContractorsByProject(projId);
+      setModalContractors(data);
+    } catch (error) {
+      setModalContractors([]);
+      console.error("Failed to fetch modal contractors", error);
     }
   };
 
@@ -79,9 +94,16 @@ const WorkOrdersPage = () => {
     fetchProjects();
     loadWorkOrders();
     if (projectId) {
-      loadContractors(projectId);
+      loadContractors(projectId as any);
     }
   }, [projectId]);
+
+  // Load modal contractors when modal project_id changes globally or locally
+  useEffect(() => {
+    if (formData.project_id && (isCreateModalOpen || isEditModalOpen)) {
+      loadModalContractors(Number(formData.project_id));
+    }
+  }, [formData.project_id, isCreateModalOpen, isEditModalOpen]);
 
   const handleView = async (id: number) => {
     const toastId = toast.loading("Loading details...");
@@ -360,7 +382,7 @@ const WorkOrdersPage = () => {
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
-                <select name="project_id" value={formData.project_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
+                <select name="project_id" value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -368,7 +390,7 @@ const WorkOrdersPage = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   <option value="">Unassigned (Optional)</option>
-                  {contractors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {modalContractors.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
@@ -407,7 +429,7 @@ const WorkOrdersPage = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   <option value="">Unassigned (Optional)</option>
-                  {contractors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {modalContractors.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>

@@ -54,6 +54,10 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.invoice_number || !formData.invoice_number.trim()) {
+            toast.error("Invoice number is required.");
+            return;
+        }
         if (!formData.asset_id || formData.asset_id === 0) {
             toast.error("Please select an asset.");
             return;
@@ -183,13 +187,14 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Invoice Number */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Invoice Number
+                                    Invoice Number <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="invoice_number"
                                     value={formData.invoice_number}
                                     onChange={handleChange}
+                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                     placeholder="Enter invoice number"
                                 />

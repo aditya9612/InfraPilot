@@ -865,18 +865,37 @@ const ManagerBOQPage = () => {
                                                                 {Number(item.variance_cost) > 0 ? `+${formatCompactCurrency(Number(item.variance_cost))}` : formatCompactCurrency(Number(item.variance_cost) || 0)}
                                                             </td>
                                                             <td className="px-6 py-5 text-center">
-                                                                <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${item.status === "ACTIVE" || item.status === "Ongoing" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-500 border-slate-100"}`}>
-                                                                    {item.status || "Planned"}
-                                                                </span>
+                                                                {(() => {
+                                                                    const status = (item.status || "Planned").toUpperCase();
+                                                                    let colorClass = "bg-slate-50 text-slate-500 border-slate-100";
+                                                                    if (status === "ACTIVE" || status === "ONGOING") colorClass = "bg-emerald-50 text-emerald-600 border-emerald-100";
+                                                                    else if (status === "COMPLETED") colorClass = "bg-blue-50 text-blue-600 border-blue-100";
+                                                                    else if (status === "PENDING" || status === "UNDER REVIEW") colorClass = "bg-amber-50 text-amber-600 border-amber-100";
+                                                                    else if (status === "DRAFT") colorClass = "bg-slate-100 text-slate-600 border-slate-200";
+
+                                                                    return (
+                                                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${colorClass}`}>
+                                                                            {item.status || "Planned"}
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                             <td className="px-6 py-5 text-center">
-                                                                <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${item.approval_status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
-                                                                    item.approval_status === 'REJECTED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                                                        item.approval_status === 'UNDER_REVIEW' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                                                            'bg-slate-50 text-slate-400 border-slate-100'
-                                                                    }`}>
-                                                                    {item.approval_status || 'PENDING'}
-                                                                </span>
+                                                                {(() => {
+                                                                    const approvalStatus = (item.approval_status || "PENDING").toUpperCase();
+                                                                    let colorClass = "bg-slate-50 text-slate-400 border-slate-100";
+                                                                    if (approvalStatus === "APPROVED") colorClass = "bg-emerald-50 text-emerald-600 border-emerald-100";
+                                                                    else if (approvalStatus === "REJECTED") colorClass = "bg-rose-50 text-rose-600 border-rose-100";
+                                                                    else if (approvalStatus === "UNDER_REVIEW" || approvalStatus === "UNDER REVIEW") colorClass = "bg-amber-50 text-amber-600 border-amber-100";
+                                                                    else if (approvalStatus === "PENDING") colorClass = "bg-violet-50 text-violet-600 border-violet-100";
+                                                                    else if (approvalStatus === "DRAFT") colorClass = "bg-slate-100 text-slate-600 border-slate-200";
+
+                                                                    return (
+                                                                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${colorClass}`}>
+                                                                            {item.approval_status || 'PENDING'}
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                             <td className="px-6 py-5 text-right">
                                                                 <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">

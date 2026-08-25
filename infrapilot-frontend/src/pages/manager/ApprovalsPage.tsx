@@ -522,7 +522,7 @@ const ApprovalsPage = () => {
                     {filteredApprovals.length > 0 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Page {currentPage + 1} of {Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE)}
+                                Showing {filteredApprovals.length > 0 ? currentPage * ITEMS_PER_PAGE + 1 : 0}–{Math.min((currentPage + 1) * ITEMS_PER_PAGE, filteredApprovals.length)} of {filteredApprovals.length} Approvals
                             </span>
                             <div className="flex gap-1">
                                 <button
@@ -538,25 +538,24 @@ const ApprovalsPage = () => {
                                     // Show first, last, current, and adjacent pages
                                     const totalPages = Math.ceil(filteredApprovals.length / ITEMS_PER_PAGE);
                                     if (
-                                        i === 0 || 
-                                        i === totalPages - 1 || 
+                                        i === 0 ||
+                                        i === totalPages - 1 ||
                                         (i >= currentPage - 1 && i <= currentPage + 1)
                                     ) {
                                         return (
                                             <button
                                                 key={i}
                                                 onClick={() => setCurrentPage(i)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-                                                    currentPage === i
+                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === i
                                                         ? "bg-primary text-white shadow-sm shadow-primary/20"
                                                         : "text-slate-500 hover:bg-slate-100"
-                                                }`}
+                                                    }`}
                                             >
                                                 {i + 1}
                                             </button>
                                         );
                                     } else if (
-                                        i === currentPage - 2 || 
+                                        i === currentPage - 2 ||
                                         i === currentPage + 2
                                     ) {
                                         return <span key={i} className="text-slate-400 font-bold px-1">...</span>;

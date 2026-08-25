@@ -201,33 +201,36 @@ export const equipmentService = {
         return response.data;
     },
 
-    async deallocateEquipment(id: number): Promise<AllocationStatus> {
-        await api.put(`/equipment/deallocate`, { equipment_ids: [id], project_id: null });
+    async deallocateEquipment(id: number, currentProjectId?: number): Promise<AllocationStatus> {
+        // The endpoint strictly requires project_id as an integer. If the frontend doesn't supply it, fallback to 0.
+        const payload = { equipment_ids: [id], project_id: currentProjectId || 0 };
+        await api.put(`/equipment/deallocate`, payload);
         return { equipment_id: id, allocated: false, project_id: null };
     },
 
     // ==========================================
     // 3. Usage
     // ==========================================
-    async createUsage(equipment_id: number, data: { working_hours: number, fuel_used: number, usage_date: string, notes?: string }): Promise<UsageItem> {
+    async createUsage(equipment_id: number, data: { working_hours: number, fuel_used: number, usage_date: string, notes?: string, boq_item_id?: number | null }): Promise<UsageItem> {
         const payload = {
             working_hours: data.working_hours,
             fuel_used: data.fuel_used,
             usage_date: data.usage_date,
-            notes: data.notes
+            notes: data.notes,
+            boq_item_id: data.boq_item_id
         };
         const response = await api.post<UsageItem>(`/equipment/${equipment_id}/usage`, payload);
         return response.data;
     },
 
-    async updateUsage(usage_id: number, data: { equipment_id: number, working_hours: number, fuel_used: number, usage_date: string, notes?: string, boq_item_id?: number }): Promise<UsageItem> {
+    async updateUsage(usage_id: number, data: { equipment_id: number, working_hours: number, fuel_used: number, usage_date: string, notes?: string, boq_item_id?: number | null }): Promise<UsageItem> {
         const payload = {
             equipment_id: data.equipment_id,
             working_hours: data.working_hours,
             fuel_used: data.fuel_used,
             usage_date: data.usage_date,
             notes: data.notes,
-            boq_item_id: data.boq_item_id || 0
+            boq_item_id: data.boq_item_id
         };
         const response = await api.put<UsageItem>(`/equipment/usage/${usage_id}`, payload);
         return response.data;
@@ -258,29 +261,28 @@ export const equipmentService = {
     // ==========================================
     // 4. Maintenance
     // ==========================================
-    async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number }): Promise<MaintenanceItem> {
+    async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number | null }): Promise<MaintenanceItem> {
         const payload: any = {
             description: data.description,
             maintenance_date: data.maintenance_date,
             cost: data.cost,
-            next_maintenance_date: data.next_maintenance_date || null
+            next_maintenance_date: data.next_maintenance_date || null,
+            project_id: data.project_id || undefined,
+            boq_item_id: data.boq_item_id
         };
-        if (data.project_id) payload.project_id = data.project_id;
-        if (data.boq_item_id) payload.boq_item_id = data.boq_item_id;
-
         const response = await api.post<MaintenanceItem>(`/equipment/${equipment_id}/maintenance`, payload);
         return response.data;
     },
 
-    async updateMaintenance(maintenance_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number }): Promise<MaintenanceItem> {
+    async updateMaintenance(maintenance_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number | null }): Promise<MaintenanceItem> {
         const payload: any = {
             description: data.description,
             maintenance_date: data.maintenance_date,
             cost: data.cost,
-            next_maintenance_date: data.next_maintenance_date || null
+            next_maintenance_date: data.next_maintenance_date || null,
+            project_id: data.project_id || undefined,
+            boq_item_id: data.boq_item_id
         };
-        if (data.project_id) payload.project_id = data.project_id;
-        if (data.boq_item_id) payload.boq_item_id = data.boq_item_id;
         const response = await api.put<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`, payload);
         return response.data;
     },
@@ -347,7 +349,7 @@ export const equipmentService = {
             rental_cost: data.rental_cost,
             client_name: data.client_name,
             notes: data.notes,
-            project_id: data.project_id || null,
+            project_id: data.project_id || undefined,
             boq_item_id: data.boq_item_id || null
         };
         const response = await api.post<RentalItem>(`/equipment/${equipment_id}/rental`, payload);
@@ -403,7 +405,7 @@ export const equipmentService = {
             rental_cost: data.rental_cost,
             client_name: data.client_name,
             notes: data.notes,
-            project_id: data.project_id || null,
+            project_id: data.project_id || undefined,
             boq_item_id: data.boq_item_id || null
         };
         const response = await api.put<RentalItem>(`/equipment/rental/${rental_id}`, payload);
@@ -439,7 +441,7 @@ export const equipmentService = {
     },
 
     async listPurchase(params?: { purchase_type?: string, asset_id?: number, project_id?: number, boq_item_id?: number, vendor_name?: string, purchase_date_from?: string, purchase_date_to?: string, limit?: number; offset?: number }): Promise<any> {
-        const response = await api.get('/equipment/purchase', { params });
+        const response = await api.get('/equipment/purchase/history', { params });
         return response.data;
     },
 
