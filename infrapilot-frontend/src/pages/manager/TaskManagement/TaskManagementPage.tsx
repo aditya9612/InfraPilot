@@ -239,18 +239,16 @@ const TaskManagementPage = () => {
         fetchDetails();
     }, [selectedTask, modalTab, projectId]);
 
-    // Fetch Task Requests when Project Tasks tab is active
+    // Fetch Task Requests when project changes
     useEffect(() => {
-        if (activeTab === "Project Tasks" && projectId && projectId !== ('all' as any)) {
-            fetchTaskRequests();
-        }
-    }, [activeTab, projectId]);
+        fetchTaskRequests();
+    }, [projectId]);
 
     const fetchTaskRequests = async () => {
-        if (!projectId || projectId === ('all' as any)) return;
         setIsLoadingTaskRequests(true);
         try {
-            const requests = await projectService.getTaskRequests(projectId as any);
+            const fetchParams = (projectId && projectId !== 'all') ? projectId : {};
+            const requests = await projectService.getTaskRequests(fetchParams as any);
             setTaskRequests(Array.isArray(requests) ? requests : (requests?.items || requests?.data || []));
         } catch (error) {
             console.error("Failed to fetch task requests:", error);
@@ -1834,76 +1832,81 @@ const TaskManagementPage = () => {
                                                         )}
 
                                                         {/* Task Requests Section */}
-                                                        <div className="border-t border-slate-200 p-6">
-                                                            <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                    <FileText className="w-4 h-4 text-amber-600" />
-                                                                </div>
-                                                                Task Requests ({taskRequests.length})
-                                                            </h4>
-
-                                                            {isLoadingTaskRequests ? (
-                                                                <div className="flex items-center justify-center py-8">
-                                                                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                                                                </div>
-                                                            ) : taskRequests.length > 0 ? (
-                                                                <div className="space-y-3">
-                                                                    {taskRequests.map((request) => (
-                                                                        <div
-                                                                            key={request.id}
-                                                                            className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
-                                                                        >
-                                                                            <div className="flex-1">
-                                                                                <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
-                                                                                <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
-                                                                                <div className="flex items-center gap-3 flex-wrap">
-                                                                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
-                                                                                        request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                                                                                            'bg-emerald-100 text-emerald-700'
-                                                                                        }`}>
-                                                                                        {request.priority || 'MEDIUM'}
-                                                                                    </span>
-                                                                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                                                        request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                            'bg-rose-100 text-rose-700'
-                                                                                        }`}>
-                                                                                        {request.status || 'PENDING'}
-                                                                                    </span>
-                                                                                    {request.due_date && (
-                                                                                        <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                                                            <Calendar className="w-3 h-3" />
-                                                                                            {new Date(request.due_date).toLocaleDateString()}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 ml-4">
-                                                                                <button
-                                                                                    onClick={() => handleEditTaskRequest(request)}
-                                                                                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                                                                                    title="Edit"
-                                                                                >
-                                                                                    <Edit2 className="w-4 h-4" />
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => handleDeleteTaskRequest(request.id)}
-                                                                                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
-                                                                                    title="Delete"
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </button>
-                                                                            </div>
+                                                        {(() => {
+                                                            const projectTaskRequests = taskRequests.filter(req => req.project_id === project.id || String(req.project_id) === String(project.id));
+                                                            return (
+                                                                <div className="border-t border-slate-200 p-6">
+                                                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                                                        <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                            <FileText className="w-4 h-4 text-amber-600" />
                                                                         </div>
-                                                                    ))}
+                                                                        Task Requests ({projectTaskRequests.length})
+                                                                    </h4>
+
+                                                                    {isLoadingTaskRequests ? (
+                                                                        <div className="flex items-center justify-center py-8">
+                                                                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                                                        </div>
+                                                                    ) : projectTaskRequests.length > 0 ? (
+                                                                        <div className="space-y-3">
+                                                                            {projectTaskRequests.map((request) => (
+                                                                                <div
+                                                                                    key={request.id}
+                                                                                    className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
+                                                                                >
+                                                                                    <div className="flex-1">
+                                                                                        <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
+                                                                                        <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
+                                                                                        <div className="flex items-center gap-3 flex-wrap">
+                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
+                                                                                                request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                                                                                    'bg-emerald-100 text-emerald-700'
+                                                                                                }`}>
+                                                                                                {request.priority || 'MEDIUM'}
+                                                                                            </span>
+                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                                                                request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                                    'bg-rose-100 text-rose-700'
+                                                                                                }`}>
+                                                                                                {request.status || 'PENDING'}
+                                                                                            </span>
+                                                                                            {request.due_date && (
+                                                                                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                                                                    <Calendar className="w-3 h-3" />
+                                                                                                    {new Date(request.due_date).toLocaleDateString()}
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 ml-4">
+                                                                                        <button
+                                                                                            onClick={() => handleEditTaskRequest(request)}
+                                                                                            className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                                                            title="Edit"
+                                                                                        >
+                                                                                            <Edit2 className="w-4 h-4" />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteTaskRequest(request.id)}
+                                                                                            className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
+                                                                                            title="Delete"
+                                                                                        >
+                                                                                            <Trash2 className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-center py-8 text-slate-500">
+                                                                            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                                                            <p className="text-sm font-bold">No task requests yet</p>
+                                                                            <p className="text-xs mt-1">Create your first task request to get started</p>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            ) : (
-                                                                <div className="text-center py-8 text-slate-500">
-                                                                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                                                    <p className="text-sm font-bold">No task requests yet</p>
-                                                                    <p className="text-xs mt-1">Create your first task request to get started</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>

@@ -387,7 +387,7 @@ const ApprovalsPage = () => {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-4">Entity Type & ID</th>
+                  <th className="px-6 py-4">Entity Type</th>
                   <th className="px-6 py-4">Requested By</th>
                   <th className="px-6 py-4">Remarks / Details</th>
                   <th className="px-6 py-4">Status</th>
@@ -409,7 +409,6 @@ const ApprovalsPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
-                        <span className="text-[10px] text-slate-400 font-medium tracking-widest">ID: {item.entity_id}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-600">

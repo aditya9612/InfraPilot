@@ -279,26 +279,27 @@ const EquipmentRegistryPage = () => {
                 setRentalCostReport(cost);
                 setAllRentalLogs(allRentals || []);
                 setAllMaintenanceLogs(allMaint || []);
-                const currentEq = selectedEquipment || (eqList.length > 0 ? eqList[0] : null);
-                if (currentEq && !selectedEquipment) {
-                    setSelectedEquipment(currentEq);
-                }
+                const currentEq = selectedEquipment;
                 if (currentEq) {
                     equipmentService.listRental(currentEq.id)
                         .then(res => setSelectedEquipmentLogs(prev => ({ ...prev, rental: res })))
                         .catch(() => setSelectedEquipmentLogs(prev => ({ ...prev, rental: [] })));
                 }
             } else if (activeTab === "Reports & Alerts") {
-                const [util, avail, alerts, purchaseRes] = await Promise.all([
+                const [util, avail, alerts, purchaseRes, usageRes, costRes] = await Promise.all([
                     equipmentService.getUtilizationReport(pIdObj).catch(() => []),
                     equipmentService.getAvailabilityReport(pIdObj).catch(() => []),
                     equipmentService.getEquipmentAlerts(pIdObj).catch(() => []),
-                    equipmentService.getPurchaseReport(pIdObj).catch(() => [])
+                    equipmentService.getPurchaseReport(pIdObj).catch(() => []),
+                    equipmentService.getUsageReport(pIdObj).catch(() => []),
+                    equipmentService.getCostReport(pIdObj).catch(() => [])
                 ]);
                 setUtilizationReport(util || []);
                 setAvailability(avail || []);
                 setEquipmentAlerts(alerts || []);
                 setPurchaseReport(purchaseRes || []);
+                setUsageReport(usageRes || []);
+                setRentalCostReport(costRes || []);
             }
         } catch (err) {
             toast.error("Failed to load machinery data");
@@ -622,9 +623,14 @@ const EquipmentRegistryPage = () => {
 
     const handleDeallocate = async () => {
         if (!selectedEquipment) return;
+        const pId = allocationStatus.project_id || selectedEquipment.project_id || effectiveProjectId || formData.project_id;
+        if (!pId) {
+            toast.error("Cannot determine project ID to deallocate from");
+            return;
+        }
         setIsLoading(true);
         try {
-            await equipmentService.deallocateEquipment(selectedEquipment.id);
+            await equipmentService.deallocateEquipment(selectedEquipment.id, Number(pId));
             toast.success("Equipment deallocated!");
             setIsAllocateModalOpen(false);
             fetchData();
@@ -1528,6 +1534,82 @@ const EquipmentRegistryPage = () => {
                         </table>
                     </div>
                 </div>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-blue-500" /> <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
+                    </div>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
+                                <tr><th className="p-4">Equipment</th><th className="p-4">Total Hrs</th><th className="p-4">Total Fuel</th><th className="p-4">Avg Hrs</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {(usageReport || []).map(u => (
+                                    <tr key={u.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{u.total_hours}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{u.total_fuel} L</td>
+                                        <td className="p-4 text-slate-600 font-medium">{u.avg_hours}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-violet-500" /> <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
+                    </div>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
+                                <tr><th className="p-4">Equipment</th><th className="p-4">Total Cost</th><th className="p-4">Rentals</th><th className="p-4">Rev/Day</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {(rentalCostReport || []).map(c => (
+                                    <tr key={c.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                        <td className="p-4 text-slate-600 font-bold text-violet-600">₹{c.total_cost?.toLocaleString()}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{c.rental_count}</td>
+                                        <td className="p-4 text-slate-600 font-medium">₹{c.revenue_per_day?.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-amber-500" /> <h3 className="font-bold text-sm text-slate-800">Purchase Report</h3>
+                    </div>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
+                                <tr><th className="p-4">Type</th><th className="p-4">Asset Name</th><th className="p-4">Count</th><th className="p-4">Quantity</th><th className="p-4 text-right">Total Amount</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {purchaseReport.map((p, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50">
+                                        <td className="p-4 font-medium text-slate-700">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${p.purchase_type === 'NEW' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                {p.purchase_type || 'NEW'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 font-bold text-slate-800">{p.asset_name || '-'}</td>
+                                        <td className="p-4 font-medium text-slate-600">{p.purchase_count || 0}</td>
+                                        <td className="p-4 text-slate-500 whitespace-nowrap">{p.total_quantity || 0}</td>
+                                        <td className="p-4 text-right font-bold text-primary">₹{(p.total_purchase_amount || 0).toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                                {purchaseReport.length === 0 && (
+                                    <tr><td colSpan={5} className="p-8 text-center text-slate-400 text-sm">No purchase items found</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1706,13 +1788,7 @@ const EquipmentRegistryPage = () => {
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">ALLOCATION STATUS *</label>
-                            <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                                <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
-                                <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
-                            </div>
-                        </div>
+
 
                         <div className="flex justify-end gap-3 mt-8">
                             <button
@@ -1781,7 +1857,13 @@ const EquipmentRegistryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || selectedEquipment?.id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {activeEquipmentList.filter(eq => formData.project_id ? eq.project_id === formData.project_id : true).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {equipmentList.filter(eq => {
+                                if (formData.equipment_id && Number(eq.id) === Number(formData.equipment_id)) return true;
+                                const isUnassigned = !eq.project_id;
+                                const isUnderMaintenance = allMaintenanceLogs.some(m => Number(m.equipment_id) === Number(eq.id) && m.status !== 'COMPLETED');
+                                const isOnRent = allRentalLogs.some(r => Number(r.equipment_id) === Number(eq.id) && r.status !== 'CANCELLED' && r.status !== 'COMPLETED');
+                                return isUnassigned && !isUnderMaintenance && !isOnRent;
+                            }).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
