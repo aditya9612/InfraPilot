@@ -298,8 +298,9 @@ export default function PaymentTracker() {
             <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <th className="p-4">Owner</th>
               <th className="p-4">Project</th>
-              <th className="p-4">Date</th>
+              <th className="p-4">Due Date</th>
               <th className="p-4">Description</th>
+              <th className="p-4">Milestone</th>
               <th className="p-4 text-right">Amount (₹)</th>
               <th className="p-4">Status</th>
               <th className="p-4 text-center">Action</th>
@@ -308,7 +309,7 @@ export default function PaymentTracker() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="p-16 text-center">
+                <td colSpan={8} className="p-16 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Fetching Payments...</p>
@@ -343,6 +344,9 @@ export default function PaymentTracker() {
                   <td className="p-4 text-sm text-slate-600">
                     {txn.description}
                   </td>
+                  <td className="p-4 text-sm font-semibold text-slate-600">
+                    {txn.milestone_name || "-"}
+                  </td>
                   <td className="p-4 text-sm font-semibold text-slate-800 text-right">
                     {txn.type === "Credit" ? "▲" : "▼"} {txn.amount.toLocaleString()}
                   </td>
@@ -371,7 +375,7 @@ export default function PaymentTracker() {
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={8}
                   className="p-8 text-center text-slate-500 py-12"
                 >
                   No payments matched your filters.

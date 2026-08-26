@@ -221,47 +221,6 @@ export default function AddMaterialModal({
               )}
             </div>
 
-            <div className="md:col-span-2 space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Material name
-              </label>
-              <input
-                type="text"
-                name="material_name"
-                value={formData.material_name}
-                disabled
-                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
-                placeholder="Auto-filled from Master"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Category
-              </label>
-              <input
-                type="text"
-                name="category"
-                value={formData.category}
-                disabled
-                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
-                placeholder="Auto-filled"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Unit
-              </label>
-              <input
-                type="text"
-                name="unit"
-                value={formData.unit}
-                disabled
-                className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm outline-none cursor-not-allowed text-gray-500"
-                placeholder="Auto-filled"
-              />
-            </div>
 
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">

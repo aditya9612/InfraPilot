@@ -16,6 +16,7 @@ import {
 import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormModal";
 import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
 import TransferEquipmentModal from "../../components/forms/TransferEquipmentModal";
+import CreatePurchaseModal from "../../components/forms/CreatePurchaseModal";
 import { useProject } from "../../context/ProjectContext";
 
 const conditionColors: Record<string, string> = {
@@ -35,6 +36,7 @@ const EquipmentPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterCondition, setFilterCondition] = useState("All");
     const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
     const [globalEquipment, setGlobalEquipment] = useState<any[]>([]);
     const [globalRentals, setGlobalRentals] = useState<any[]>([]);
@@ -50,14 +52,15 @@ const EquipmentPage = () => {
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [qrEquipmentCode, setQrEquipmentCode] = useState('');
+    const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
     const [allocationStatus, setAllocationStatus] = useState({ allocated: false, project_id: null as number | null });
 
     const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
     const [boqsList, setBoqsList] = useState<any[]>([]);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
-    const modalEquipmentList = equipmentList;
     const [isViewMode, setIsViewMode] = useState(false);
     const [formData, setFormData] = useState<any>({});
+    const modalEquipmentList = equipmentList.filter(eq => !eq.project_id || eq.project_id === 0 || eq.id === formData?.equipment_id);
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
 
@@ -131,11 +134,25 @@ const EquipmentPage = () => {
         let isMounted = true;
 
         // Fetch fresh globals whenever a modal needing them opens
-        if (isRentalModalOpen) {
+        if (isRentalModalOpen || isTransferModalOpen) {
             const loadGlobals = async () => {
                 try {
+                    // Fetch equipment in batches of 100 to avoid backend 422 limit validation errors
+                    const fetchAllEquipment = async () => {
+                        let allEq: any[] = [];
+                        let offset = 0;
+                        while (true) {
+                            const res = await equipmentService.listEquipment({ limit: 100, offset }).catch(() => ({ items: [] }));
+                            const items = res.items || [];
+                            allEq = allEq.concat(items);
+                            if (items.length < 100) break;
+                            offset += 100;
+                        }
+                        return { items: allEq };
+                    };
+
                     const [eqRes, rRes, mRes] = await Promise.all([
-                        equipmentService.listEquipment({ limit: 100 }).catch(() => ({ items: [] })),
+                        fetchAllEquipment(),
                         equipmentService.listRental().catch(() => []),
                         equipmentService.getAllMaintenance({}).catch(() => [])
                     ]);
@@ -151,7 +168,7 @@ const EquipmentPage = () => {
         }
 
         return () => { isMounted = false; };
-    }, [isRentalModalOpen]);
+    }, [isRentalModalOpen, isTransferModalOpen]);
 
     useEffect(() => {
         fetchData();
@@ -159,10 +176,22 @@ const EquipmentPage = () => {
 
     useEffect(() => {
         let isMounted = true;
-        if (selectedProjectId) {
-            boqService.getBoqsByProject(selectedProjectId)
+
+        // Priority: if a modal is open and has a project/equipment selected, prioritize that.
+        let targetProjectId = selectedProjectId;
+        if ((isRentalModalOpen || isUsageModalOpen || isMaintenanceModalOpen) && formData.project_id) {
+            targetProjectId = formData.project_id;
+        } else if ((isUsageModalOpen || isMaintenanceModalOpen) && formData.equipment_id) {
+            const eq = equipmentList.find(e => e.id === formData.equipment_id) || globalEquipment.find(e => e.id === formData.equipment_id);
+            if (eq && eq.project_id) {
+                targetProjectId = eq.project_id;
+            }
+        }
+
+        if (targetProjectId) {
+            boqService.getBoqsByProject(Number(targetProjectId))
                 .then(res => {
-                    if (isMounted) setBoqsList(res);
+                    if (isMounted) setBoqsList(Array.isArray(res) ? res : []);
                 })
                 .catch(err => {
                     console.error("Failed to fetch project BOQs", err);
@@ -172,7 +201,7 @@ const EquipmentPage = () => {
             setBoqsList([]);
         }
         return () => { isMounted = false; };
-    }, [selectedProjectId]);
+    }, [selectedProjectId, isRentalModalOpen, isUsageModalOpen, formData.project_id, formData.equipment_id, globalEquipment, equipmentList]);
 
     useEffect(() => {
         let isMounted = true;
@@ -238,10 +267,11 @@ const EquipmentPage = () => {
         const term = searchTerm.toLowerCase();
         switch (activeTab) {
             case "Equipment List":
-                return equipmentList.filter(item =>
-                    (item.equipment_name || "").toLowerCase().includes(term) ||
-                    (item.equipment_code || "").toLowerCase().includes(term)
-                );
+                return equipmentList.filter(item => {
+                    const matchesSearch = (item.equipment_name || "").toLowerCase().includes(term) || (item.equipment_code || "").toLowerCase().includes(term);
+                    const matchesCondition = filterCondition === "All" || (item.condition || "GOOD").toUpperCase() === filterCondition.toUpperCase();
+                    return matchesSearch && matchesCondition;
+                });
             case "Usage & Tracking":
                 return usageReport.filter(u => (u.equipment_code || "").toLowerCase().includes(term));
             case "Maintenance":
@@ -266,12 +296,12 @@ const EquipmentPage = () => {
             default:
                 return [];
         }
-    }, [activeTab, searchTerm, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
+    }, [activeTab, searchTerm, filterCondition, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
 
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     // Reset page
-    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, selectedProjectId]);
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, selectedProjectId]);
 
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this equipment?")) return;
@@ -353,7 +383,7 @@ const EquipmentPage = () => {
         e.preventDefault();
         try {
             const eqFromList = equipmentList.find(eq => eq.id === formData.equipment_id);
-            const derivedProjectId = allocationStatus?.project_id || selectedEquipment?.project_id || eqFromList?.project_id || undefined;
+            const derivedProjectId = formData.project_id || allocationStatus?.project_id || selectedEquipment?.project_id || eqFromList?.project_id || undefined;
 
             if (formData.maintenance_id) {
                 await equipmentService.updateMaintenance(formData.maintenance_id, {
@@ -361,7 +391,8 @@ const EquipmentPage = () => {
                     maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0],
                     cost: Number(formData.cost),
                     next_maintenance_date: formData.next_maintenance_date,
-                    project_id: derivedProjectId
+                    project_id: derivedProjectId,
+                    boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : undefined
                 });
             } else {
                 await equipmentService.createMaintenance(formData.equipment_id, {
@@ -369,7 +400,8 @@ const EquipmentPage = () => {
                     maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0],
                     cost: Number(formData.cost),
                     next_maintenance_date: formData.next_maintenance_date,
-                    project_id: derivedProjectId
+                    project_id: derivedProjectId,
+                    boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : undefined
                 });
             }
             setIsMaintenanceModalOpen(false);
@@ -869,6 +901,10 @@ const EquipmentPage = () => {
                             <button onClick={() => { setFormData({}); setIsViewMode(false); setIsEquipmentModalOpen(true); }} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 h-10 transition-all active:scale-95 hover:bg-primary/90">
                                 <Plus className="w-4 h-4" /> Add Equipment
                             </button>
+                        ) : activeTab === "Purchases" ? (
+                            <button onClick={() => setIsCreatePurchaseModalOpen(true)} className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-500/20 h-10 transition-all active:scale-95 hover:bg-blue-600">
+                                <Plus className="w-4 h-4" /> Add Purchase
+                            </button>
                         ) : null}
                         <div className="flex gap-2">
                             <button onClick={exportExcel} className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-2 font-bold text-sm" title="Export Excel">
@@ -924,12 +960,27 @@ const EquipmentPage = () => {
 
                 {/* Main Content Pane */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
-                        <div className="relative max-w-md flex-1">
-                            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder={`Search in ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex w-full md:max-w-md items-center gap-3 flex-1">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="text" placeholder={`Search in ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            {activeTab === "Equipment List" && (
+                                <select
+                                    value={filterCondition}
+                                    onChange={(e) => setFilterCondition(e.target.value)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm"
+                                >
+                                    <option value="All">Condition: All</option>
+                                    <option value="Good">Good</option>
+                                    <option value="Repair">Repair</option>
+                                    <option value="Damaged">Damaged</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                </select>
+                            )}
                         </div>
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
                             Total: {currentListData.length}
                         </div>
                     </div>
@@ -982,7 +1033,7 @@ const EquipmentPage = () => {
             <TransferEquipmentModal
                 isOpen={isTransferModalOpen}
                 onClose={() => setIsTransferModalOpen(false)}
-                equipmentList={equipmentList}
+                equipmentList={globalEquipment}
                 projects={assignedProjects}
                 onSubmit={async (data: any) => {
                     try {
@@ -998,6 +1049,18 @@ const EquipmentPage = () => {
                     } catch (err) {
                         toast.error("Failed to transfer equipment");
                     }
+                }}
+            />
+
+            <CreatePurchaseModal
+                isOpen={isCreatePurchaseModalOpen}
+                onClose={() => setIsCreatePurchaseModalOpen(false)}
+                projectId={selectedProjectId || 0}
+                projectName={assignedProjects.find(p => p.id === selectedProjectId)?.project_name || "Unknown Project"}
+                projects={assignedProjects}
+                onSuccess={() => {
+                    fetchData();
+                    setIsCreatePurchaseModalOpen(false);
                 }}
             />
 
@@ -1058,6 +1121,19 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <select
+                            value={formData.project_id || ''}
+                            onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                        >
+                            <option value="">-- Select Project --</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
                             value={formData.boq_item_id || ''}
@@ -1108,6 +1184,32 @@ const EquipmentPage = () => {
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DESCRIPTION *</label>
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <select
+                            value={formData.project_id || ''}
+                            onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                        >
+                            <option value="">-- Select Project --</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
+                        <select
+                            value={formData.boq_item_id || ''}
+                            onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                        >
+                            <option value="">-- No BOQ item linked --</option>
+                            {boqsList.map(boq => (
+                                <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>
+                            ))}
+                        </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

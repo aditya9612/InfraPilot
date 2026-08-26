@@ -129,7 +129,7 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                   >
                     <option value="">Select Material</option>
                     {allMaterials.map((m) => (
-                      <option key={m.id} value={m.id}>{m.material_name}</option>
+                      <option key={m.id} value={m.id}>{m.name || m.material_name}</option>
                     ))}
                   </select>
                 </div>

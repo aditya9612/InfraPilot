@@ -374,6 +374,13 @@ export const materialService = {
     return response.data;
   },
 
+  async getMaterialTransactions(material_id: number, limit = 50, offset = 0) {
+    const response = await api.get(`/materials/${material_id}/transactions`, {
+      params: { limit, offset }
+    });
+    return response.data;
+  },
+
   async createTransfer(data: TransferCreate): Promise<Transfer> {
     const response = await api.post<Transfer>("/materials/transfers", data);
     return response.data;
@@ -416,13 +423,13 @@ export const materialService = {
 
   async getPriceHistory(material_id: number): Promise<PriceHistory[]> {
     const endpoint = `/materials/price-history/${material_id}`;
-    console.log(`GET /api/v1${endpoint}`);
     try {
       const response = await api.get(endpoint);
-      console.log(`Success! GET /api/v1${endpoint} returned:`, response.data);
       return Array.isArray(response.data) ? response.data : (response.data.data || []);
     } catch (e: any) {
-      console.error(`Endpoint /api/v1${endpoint} failed:`, e.response?.data || e.message);
+      if (e.response?.status !== 404) {
+        console.warn(`Price history request failed: ${e.message}`);
+      }
       return [];
     }
   },
