@@ -134,10 +134,12 @@ const DocumentsPage = () => {
           parent_id: folderId,
           ...(selectedProjectId ? { project_id: selectedProjectId } : {})
         }),
-        documentService.getStats().catch(() => null),
+        documentService.getStats(selectedProjectId ? { project_id: selectedProjectId } : undefined).catch(() => null),
         // At root level on Drawings tab, also fetch specialized drawings
-        (folderId === null && mainTab === "Drawings" && selectedProjectId)
-          ? drawingService.getVersions(selectedProjectId).catch(() => [])
+        (folderId === null && mainTab === "Drawings")
+          ? (selectedProjectId
+            ? drawingService.getVersions(selectedProjectId).catch(() => [])
+            : drawingService.getList({ latest_only: true }).catch(() => []))
           : Promise.resolve([])
       ]);
 
@@ -517,13 +519,20 @@ const DocumentsPage = () => {
         </div>
 
         {/* Document Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Storage"
             icon={<FileText className="w-5 h-5" />}
             value={stats ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : "..."}
             sub={`${stats?.total_storage_gb || 0} GB used of 10 GB`}
             accent="text-primary"
+          />
+          <StatCard
+            title="Total Storage Bytes"
+            icon={<Folder className="w-5 h-5 text-indigo-500" />}
+            value={stats ? stats.total_storage_bytes.toLocaleString() : "..."}
+            sub="Exact bytes on disk"
+            accent="text-indigo-500"
           />
           <StatCard
             title="Pending Approval"
@@ -535,7 +544,7 @@ const DocumentsPage = () => {
           <StatCard
             title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
             icon={<FileText className="w-5 h-5 text-emerald-500" />}
-            value={filteredDocuments.length.toString()}
+            value={stats ? stats.total_documents.toString() : "..."}
             sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
             accent="text-emerald-500"
           />

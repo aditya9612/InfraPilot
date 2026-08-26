@@ -182,7 +182,7 @@ const AdminIssuesPage = () => {
             setIsExportingPdf(true);
             try {
                 const blob = await issueService.exportIssuesPdf({
-                    project_id: selectedProjectId || undefined,
+                    project_id: projectFilter !== "all" ? Number(projectFilter) : undefined,
                     status: exportFilters.status !== "all" ? exportFilters.status : undefined,
                     priority: exportFilters.priority !== "all" ? exportFilters.priority : undefined,
                     start_date: exportFilters.start_date || undefined,
@@ -208,7 +208,7 @@ const AdminIssuesPage = () => {
             setIsExportingExcel(true);
             try {
                 const blob = await issueService.exportIssuesExcel({
-                    project_id: selectedProjectId || undefined,
+                    project_id: projectFilter !== "all" ? Number(projectFilter) : undefined,
                     status: exportFilters.status !== "all" ? exportFilters.status : undefined,
                     priority: exportFilters.priority !== "all" ? exportFilters.priority : undefined,
                     start_date: exportFilters.start_date || undefined,

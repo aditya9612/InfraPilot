@@ -149,9 +149,12 @@ const ManagerIssuesPage = () => {
         setIsSubmitting(true);
         try {
             await issueService.createIssue({
-                ...formData,
                 project_id: selectedProjectId || formData.project_id,
-                assigned_to: Number(formData.assigned_to) === 0 ? null : Number(formData.assigned_to)
+                title: formData.title,
+                category: formData.category,
+                description: formData.description,
+                reported_date: formData.reported_date,
+                priority: formData.priority
             });
             toast.success("Issue reported successfully!");
             setIsCreateModalOpen(false);
@@ -254,7 +257,7 @@ const ManagerIssuesPage = () => {
             setSelectedIssue(null);
             fetchIssues();
         } catch (error) {
-            toast.error("Failed to update issue");
+            console.error(error); toast.error(error.response?.data?.message || "Failed to update issue");
         } finally {
             setIsSubmitting(false);
         }

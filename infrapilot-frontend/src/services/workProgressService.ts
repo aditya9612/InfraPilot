@@ -317,9 +317,11 @@ export const workProgressService = {
   },
 
 
-  async getActivityHistory(id: number): Promise<any> {
+  async getActivityHistory(id: number, project_id?: number): Promise<any> {
     try {
-      const response = await api.get(`/work-progress/activities/${id}/progress-history`);
+      const params: Record<string, any> = { activity_id: id };
+      if (project_id) params.project_id = project_id;
+      const response = await api.get(`/work-progress/progress-history`, { params });
       return response.data;
     } catch (error: any) {
       console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
