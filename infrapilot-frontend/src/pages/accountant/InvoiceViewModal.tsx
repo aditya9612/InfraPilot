@@ -4,6 +4,20 @@ import api from "../../services/api";
 import Modal from "../../components/common/Modal";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
+import { PROJECTS } from "../../config/projectSeed";
+
+const KNOWN_PROJECT_MAP: Record<string, string> = {
+  "1": "Sara City",
+  "2": "Metro Heights",
+  "3": "Green Gardens",
+  "4": "Skyline Towers",
+  "5": "Riverfront Residency",
+  "6": "Emerald Park",
+  "7": "City Plaza",
+  "8": "Royal Palms",
+  "9": "Grand Horizons",
+  "10": "Ocean View Residences",
+};
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose }: { invoiceId: number | null; projects: any[]; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
@@ -18,16 +32,26 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
         const res = await api.get(`/invoices/${invoiceId}`);
         setData(res.data);
         
-        if (res.data?.project_id) {
-          const p = projects?.find(proj => String(proj.id) === String(res.data.project_id));
+        if (res.data?.project_name) {
+          setFetchedProjectName(res.data.project_name);
+        } else if (res.data?.project_id) {
+          const strId = String(res.data.project_id).trim();
+          const p = projects?.find(proj => String(proj.id ?? proj.project_id) === strId);
           if (p) {
             setFetchedProjectName(p.name || p.project_name || p.client_name);
           } else {
-            try {
-              const proj = await projectService.getProjectById(res.data.project_id);
-              setFetchedProjectName(proj.name || proj.project_name || String(res.data.project_id));
-            } catch (e) {
-              setFetchedProjectName(String(res.data.project_id));
+            const seed = PROJECTS.find(proj => String(proj.id) === strId);
+            if (seed) {
+              setFetchedProjectName(seed.project_name || seed.name);
+            } else if (KNOWN_PROJECT_MAP[strId]) {
+              setFetchedProjectName(KNOWN_PROJECT_MAP[strId]);
+            } else {
+              try {
+                const proj = await projectService.getProjectById(res.data.project_id);
+                setFetchedProjectName(proj.name || proj.project_name || KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+              } catch (e) {
+                setFetchedProjectName(KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+              }
             }
           }
         }

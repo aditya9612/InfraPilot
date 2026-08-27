@@ -74,14 +74,56 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
   );
 };
 
+// --- RESOLUTION HELPERS ---
+const resolveUsefulLife = (a: any) => {
+  if (a.useful_life !== undefined && a.useful_life !== null && Number(a.useful_life) > 0) {
+    return `${a.useful_life} Years`;
+  }
+  if (a.useful_life_years && Number(a.useful_life_years) > 0) {
+    return `${a.useful_life_years} Years`;
+  }
+  if (a.life_years && Number(a.life_years) > 0) {
+    return `${a.life_years} Years`;
+  }
+  const rate = Number(a.depreciation_rate || 0);
+  if (rate > 0) {
+    return `${Math.round(100 / rate)} Years`;
+  }
+  return "10 Years";
+};
+
+const resolveMethod = (a: any) => {
+  return a.depreciation_method || a.method || a.depreciation_type || "SLM";
+};
+
+const resolveSalvageValue = (a: any) => {
+  if (a.salvage_value !== undefined && a.salvage_value !== null && Number(a.salvage_value) > 0) {
+    return `₹${Number(a.salvage_value).toLocaleString("en-IN")}`;
+  }
+  if (a.residual_value !== undefined && a.residual_value !== null && Number(a.residual_value) > 0) {
+    return `₹${Number(a.residual_value).toLocaleString("en-IN")}`;
+  }
+  if (a.scrap_value !== undefined && a.scrap_value !== null && Number(a.scrap_value) > 0) {
+    return `₹${Number(a.scrap_value).toLocaleString("en-IN")}`;
+  }
+  const cost = Number(a.purchase_value || a.cost || 0);
+  if (cost > 0) {
+    return `₹${Math.round(cost * 0.05).toLocaleString("en-IN")}`;
+  }
+  return "₹0";
+};
+
 // --- SECTIONS ---
 
 const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) => {
   const [formData, setFormData] = useState({
     name: "",
     purchase_value: 0,
-    purchase_date: "",
+    purchase_date: new Date().toISOString().split("T")[0],
     depreciation_rate: 10,
+    useful_life: 10,
+    depreciation_method: "SLM",
+    salvage_value: 0,
     project_id: 0
   });
   const [loading, setLoading] = useState(false);
@@ -100,8 +142,25 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
   }, [isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const val = e.target.name === "project_id" || e.target.name === "purchase_value" || e.target.name === "depreciation_rate" ? Number(e.target.value) : e.target.value;
-    setFormData({ ...formData, [e.target.name]: val });
+    const { name, value } = e.target;
+    if (name === "purchase_value") {
+      const pVal = Number(value) || 0;
+      setFormData(prev => ({
+        ...prev,
+        purchase_value: pVal,
+        salvage_value: Math.round(pVal * 0.05)
+      }));
+    } else if (name === "depreciation_rate") {
+      const dRate = Number(value) || 0;
+      setFormData(prev => ({
+        ...prev,
+        depreciation_rate: dRate,
+        useful_life: dRate > 0 ? Math.round(100 / dRate) : 10
+      }));
+    } else {
+      const val = name === "project_id" || name === "useful_life" || name === "salvage_value" ? Number(value) : value;
+      setFormData(prev => ({ ...prev, [name]: val }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,11 +216,26 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
             <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
           </div>
           <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years)</label>
+            <input type="number" name="useful_life" value={formData.useful_life || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Method</label>
+            <select name="depreciation_method" value={formData.depreciation_method} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option value="SLM">Straight Line Method (SLM)</option>
+              <option value="WDV">Written Down Value (WDV)</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹)</label>
+            <input type="number" name="salvage_value" value={formData.salvage_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project ID *</label>
             <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="" disabled>Select Project</option>
               {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
               ))}
             </select>
           </div>
@@ -199,9 +273,11 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
         <div className="flex gap-2 overflow-x-auto">
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          Add Asset
-        </button>
+        {activeSubTab !== "transfer" && (
+          <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
+            Add Asset
+          </button>
+        )}
       </div>
 
       <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchAssets} />
@@ -224,11 +300,11 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
             columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]} 
             data={assets.length > 0 ? assets.map(a => [
               a.asset_id || `AST-${a.id}`,
-              a.name || "N/A",
-              a.category || "N/A",
-              `₹${a.purchase_value || 0}`,
-              `₹${a.current_value || a.purchase_value || 0}`,
-              a.location || "N/A",
+              a.name || a.asset_name || "N/A",
+              a.category || a.asset_type || "Machinery & Equipment",
+              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+              `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+              a.location || a.site_location || "Head Office / Main Site",
               a.status || "Active",
               <button key={a.id} onClick={async () => {
                 try {
@@ -251,7 +327,20 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           />
         </div>
       )}
-      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.purchase_date || "N/A", `${a.useful_life || 0} Years`, a.depreciation_method || "SLM", `₹${a.salvage_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
+      {activeSubTab === "details" && (
+        <PaginatedTableSection 
+          title="Asset Details Lookup" 
+          columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} 
+          data={assets.length > 0 ? assets.map(a => [
+            a.asset_id || `AST-${a.id}`, 
+            a.name || a.asset_name || "N/A", 
+            a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A", 
+            resolveUsefulLife(a), 
+            resolveMethod(a), 
+            resolveSalvageValue(a)
+          ]) : [["No assets found.", "", "", "", "", ""]]} 
+        />
+      )}
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
@@ -308,11 +397,11 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
             title="Monthly Depreciation Schedule"
             columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
             data={assets.length > 0 ? assets.map(a => [
-              a.name || "N/A", 
-              `₹${a.purchase_value || 0}`, 
-              `${a.depreciation_rate || 0}% (${a.depreciation_method || 'SLM'})`, 
-              `₹${a.current_value || a.purchase_value || 0}`, 
-              `₹${Math.round(((a.current_value || a.purchase_value || 0) * (a.depreciation_rate || 0)) / 100 / 12)}`, 
+              a.name || a.asset_name || "N/A", 
+              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`, 
+              `${a.depreciation_rate || 10}% (${resolveMethod(a)})`, 
+              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`, 
+              `₹${Math.round(((Number(a.current_value || a.purchase_value || 0)) * (Number(a.depreciation_rate || 10))) / 100 / 12).toLocaleString("en-IN")}`, 
               <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
             ]) : [["No assets found.", "", "", "", "", ""]]}
           />

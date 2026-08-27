@@ -4,13 +4,172 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
+import api from "../../services/api";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-
-
+import { PROJECTS } from "../../config/projectSeed";
 
 const PETTY_CASH_CATEGORIES = ["Tea Expenses", "Diesel", "Site Travel", "Local Material Purchase", "Stationery", "Miscellaneous"];
 const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equipment Owner", "Land Owner", "Legal Entity"];
+
+// --- DATE HELPERS (Exact API Response String) ---
+const formatDateTimeDMY = (dateStr: any): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null" || dateStr === "undefined") return "-";
+  return String(dateStr);
+};
+
+const formatDateOnlyDMY = (dateStr: any): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null" || dateStr === "undefined") return "-";
+  return String(dateStr);
+};
+
+// --- PROJECT NAME RESOLUTION COMPONENT ---
+const KNOWN_PROJECT_MAP: Record<string, string> = {
+  "1": "Sara City",
+  "2": "Metro Heights",
+  "3": "Green Gardens",
+  "4": "Skyline Towers",
+  "5": "Riverfront Residency",
+  "6": "Emerald Park",
+  "7": "City Plaza",
+  "8": "Royal Palms",
+  "9": "Grand Horizons",
+  "10": "Ocean View Residences",
+};
+
+const resolveProjectName = (
+  projectId: number | string | null | undefined,
+  item?: any,
+  projects?: any[]
+): string => {
+  // 1. Direct project name on item
+  const directName =
+    item?.project_name ||
+    item?.project?.name ||
+    item?.project?.project_name ||
+    item?.projectName;
+  if (directName && typeof directName === "string" && isNaN(Number(directName))) {
+    return directName;
+  }
+
+  // 2. If projectId is already a text name (e.g. "Sara City")
+  if (
+    typeof projectId === "string" &&
+    isNaN(Number(projectId)) &&
+    projectId.trim() !== "" &&
+    projectId !== "null" &&
+    projectId !== "undefined" &&
+    projectId !== "-"
+  ) {
+    return projectId;
+  }
+
+  if (
+    projectId === null ||
+    projectId === undefined ||
+    projectId === "" ||
+    projectId === "-" ||
+    projectId === "null" ||
+    projectId === "undefined" ||
+    projectId === 0
+  ) {
+    return "—";
+  }
+
+  const strId = String(projectId).trim();
+
+  // 3. Search in projects array passed from API
+  if (Array.isArray(projects) && projects.length > 0) {
+    const p = projects.find(
+      (proj) => String(proj.id ?? proj.project_id) === strId
+    );
+    if (p && (p.name || p.project_name || p.title)) {
+      return p.name || p.project_name || p.title;
+    }
+  }
+
+  // 4. Search in seed PROJECTS
+  const seedProj = PROJECTS.find((p) => String(p.id) === strId);
+  if (seedProj && (seedProj.project_name || seedProj.name)) {
+    return seedProj.project_name || seedProj.name;
+  }
+
+  // 5. Check static known project map
+  if (KNOWN_PROJECT_MAP[strId]) {
+    return KNOWN_PROJECT_MAP[strId];
+  }
+
+  return `Project #${strId}`;
+};
+
+const ProjectNameCell = ({
+  projectId,
+  item,
+  projects,
+}: {
+  projectId: number | string | null | undefined;
+  item?: any;
+  projects?: any[];
+}) => {
+  const [name, setName] = useState<string>(() =>
+    resolveProjectName(projectId, item, projects)
+  );
+
+  useEffect(() => {
+    const resolved = resolveProjectName(projectId, item, projects);
+    if (resolved && !resolved.startsWith("Project #")) {
+      setName(resolved);
+      return;
+    }
+
+    // Try fetching from API asynchronously
+    const strId = String(projectId ?? "").trim();
+    const numId = Number(projectId);
+
+    // Check linked invoice
+    const refStr = String(item?.reference || "");
+    const invId =
+      item?.invoice_id ||
+      item?.invoice_name ||
+      (refStr.toLowerCase().startsWith("inv:")
+        ? refStr.replace(/^inv:/i, "").trim()
+        : null);
+
+    if (invId && !isNaN(Number(invId))) {
+      api
+        .get(`/invoices/${invId}`)
+        .then((res) => {
+          const inv = res.data;
+          const invPName =
+            inv?.project_name ||
+            inv?.project?.name ||
+            inv?.project?.project_name ||
+            inv?.client_name;
+          if (invPName) setName(invPName);
+        })
+        .catch(() => {});
+    }
+
+    if (!isNaN(numId) && numId > 0) {
+      projectService
+        .getProjectById(numId)
+        .then((proj) => {
+          if (proj && (proj.name || proj.project_name)) {
+            setName(proj.name || proj.project_name);
+          } else {
+            setName(resolveProjectName(projectId, item, projects));
+          }
+        })
+        .catch(() => {
+          setName(resolveProjectName(projectId, item, projects));
+        });
+    } else {
+      setName(resolved || "—");
+    }
+  }, [projectId, item, projects]);
+
+  return <>{name || resolveProjectName(projectId, item, projects)}</>;
+};
 
 // --- SECTIONS ---
 
@@ -18,8 +177,8 @@ const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equip
 
 
 const MOCK_PAYMENTS = [
-  { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" },
-  { id: "PAY-210", date: "2024-05-16", party: "Ramesh Labor Contractor", type: "Contractor Payment", amount: 220000, mode: "Cheque", status: "Paid" }
+  { id: "PAY-210", date: "2024-05-16", party: "Ramesh Labor Contractor", type: "Contractor Payment", amount: 220000, mode: "Cheque", status: "Paid" },
+  { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" }
 ];
 
 // 1. Transactions removed (Moved to Fund Transfer)
@@ -45,13 +204,22 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   }, [initialSubTab]);
 
   useEffect(() => {
-    projectService.getProjects().then(res => setProjects(res.items || []));
+    projectService.getProjects(200).then(res => {
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setProjects(list);
+    }).catch(() => {});
   }, []);
 
   const fetchReceipts = async () => {
     try {
       const data = await accountingService.getReceipts();
-      setReceipts(Array.isArray(data) ? data : data?.data || []);
+      const raw = Array.isArray(data) ? data : data?.data || [];
+      const sorted = [...raw].sort((a: any, b: any) => {
+        const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
+        const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
+        return timeB - timeA;
+      });
+      setReceipts(sorted);
       
       const sumData = await accountingService.getReceiptsSummary();
       setSummary(sumData);
@@ -98,7 +266,11 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-  const filtered = receipts;
+  const filtered = [...receipts].sort((a: any, b: any) => {
+    const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
+    const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
+    return timeB - timeA;
+  });
   
   const totalPages = Math.ceil(filtered.length / recordsPerPage);
   const paginatedItems = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
@@ -154,12 +326,14 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.linked_to || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.invoice_name || r.invoice_id || '-'}</td>
-                    <td className="px-4 py-3 text-slate-700 font-medium">{projects.find(p => p.id === r.project_id)?.name || r.project_id || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      <ProjectNameCell projectId={r.project_id} item={r} projects={projects} />
+                    </td>
                     <td className="px-4 py-3 font-bold text-emerald-600">₹ {(r.amount || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.reference || '-'}</td>
                     <td className="px-4 py-3 text-slate-700 text-xs">
-                      <div><span className="text-slate-400">Cre:</span> {r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
-                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? new Date(r.updated_at).toLocaleString() : '-'}</div>
+                      <div><span className="text-slate-400">Cre:</span> {r.created_at ? formatDateTimeDMY(r.created_at) : '-'}</div>
+                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? formatDateTimeDMY(r.updated_at) : '-'}</div>
                     </td>
 
                   </tr>
@@ -219,7 +393,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <select name="project_id" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
                 <option value="">Select Project</option>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name || `Project #${p.id || p.project_id}`}</option>
                 ))}
               </select>
             </div>
@@ -263,7 +437,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div key={r.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{r.party} — {r.id}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{r.mode} · Date: {r.date}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{r.mode} · Date: {formatDateOnlyDMY(r.date || r.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-emerald-600">₹{r.amount?.toLocaleString("en-IN")}</span>
@@ -278,7 +452,6 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   );
 };
 
-// 3. Payments Section (Make Payment)
 // 3. Payments Section (Make Payment)
 const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
@@ -323,7 +496,11 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     setActiveSubTab("list");
   };
 
-  const filtered = payments;
+  const filtered = [...payments].sort((a: any, b: any) => {
+    const timeA = new Date(a.date || a.created_at || 0).getTime() || (Number(String(a.id).replace(/\D/g, '')) || 0);
+    const timeB = new Date(b.date || b.created_at || 0).getTime() || (Number(String(b.id).replace(/\D/g, '')) || 0);
+    return timeB - timeA;
+  });
 
   const subTabs = [
     { key: "create", label: "Make Payment" },
@@ -362,7 +539,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <tbody className="divide-y divide-slate-50">
                 {filtered.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs text-slate-500">{p.date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY(p.date || p.created_at)}</td>
                     <td className="px-4 py-3 text-xs font-bold text-rose-600">{p.id}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-700">{p.party}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{p.type}</td>
@@ -481,7 +658,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div key={p.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{p.party} — {p.id}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{p.type} · Date: {p.date}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{p.type} · Date: {formatDateOnlyDMY(p.date || p.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-rose-600">₹{p.amount?.toLocaleString("en-IN")}</span>
@@ -550,7 +727,7 @@ const PettyCashSection = () => {
         <tbody className="divide-y divide-slate-50">
           <tr className="hover:bg-slate-50/50 transition-colors">
             <td className="px-4 py-3 text-xs font-bold text-slate-600">PC-1001</td>
-            <td className="px-4 py-3 text-xs text-slate-500">2024-05-15</td>
+            <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-15")}</td>
             <td className="px-4 py-3 text-xs font-semibold text-slate-700">Site Travel</td>
             <td className="px-4 py-3 text-xs text-slate-500">Taxi for site visit</td>
             <td className="px-4 py-3 text-xs text-slate-600">Amit Singh</td>
@@ -655,12 +832,23 @@ const BankTransactionsSection = () => {
   const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    projectService.getProjects().then(res => setProjects(res.items || [])).catch(() => {});
+    projectService.getProjects(200).then(res => {
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setProjects(list);
+    }).catch(() => {});
   }, []);
 
   const fetchTransfers = () => {
     setIsLoading(true);
-    accountingService.getFundTransfers().then(res => setTransfers(Array.isArray(res) ? res : res?.data || [])).finally(() => setIsLoading(false));
+    accountingService.getFundTransfers().then(res => {
+      const raw = Array.isArray(res) ? res : res?.data || [];
+      const sorted = [...raw].sort((a: any, b: any) => {
+        const timeA = new Date(a.transfer_date || a.created_at || 0).getTime() || (Number(a.id) || 0);
+        const timeB = new Date(b.transfer_date || b.created_at || 0).getTime() || (Number(b.id) || 0);
+        return timeB - timeA;
+      });
+      setTransfers(sorted);
+    }).finally(() => setIsLoading(false));
   };
 
   const subTabs = [
@@ -674,7 +862,13 @@ const BankTransactionsSection = () => {
     if (activeSubTab === "history") {
       setIsLoading(true);
       accountingService.getTransactions().then(res => {
-        setTransactions(Array.isArray(res) ? res : res?.data || []);
+        const raw = Array.isArray(res) ? res : res?.data || [];
+        const sorted = [...raw].sort((a: any, b: any) => {
+          const timeA = new Date(a.created_at || a.date || a.transaction_date || 0).getTime() || (Number(a.id) || 0);
+          const timeB = new Date(b.created_at || b.date || b.transaction_date || 0).getTime() || (Number(b.id) || 0);
+          return timeB - timeA;
+        });
+        setTransactions(sorted);
       }).catch(() => {
         toast.error("Failed to fetch transactions");
       }).finally(() => {
@@ -726,12 +920,14 @@ const BankTransactionsSection = () => {
                     <tr key={t.id || t.reference || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t.type || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">{t.mode || '-'}</td>
-                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">{projects.find(p => p.id === t.project_id)?.name || t.project_id || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">
+                        <ProjectNameCell projectId={t.project_id} item={t} projects={projects} />
+                      </td>
                       <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹ {Number(t.amount || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-xs text-slate-500 font-mono">{t.reference || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">
-                        <div><span className="text-slate-400">Cre:</span> {t.created_at ? new Date(t.created_at).toLocaleString() : '-'}</div>
-                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? new Date(t.updated_at).toLocaleString() : '-'}</div>
+                        <div><span className="text-slate-400">Cre:</span> {t.created_at ? formatDateTimeDMY(t.created_at) : '-'}</div>
+                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? formatDateTimeDMY(t.updated_at) : '-'}</div>
                       </td>
                     </tr>
                   ))
@@ -766,7 +962,7 @@ const BankTransactionsSection = () => {
                 ) : (
                   transfers.map(tr => (
                     <tr key={tr.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-3 text-xs text-slate-500">{tr.transfer_date}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY(tr.transfer_date || tr.created_at)}</td>
                       <td className="px-4 py-3 text-xs font-bold text-indigo-600">{tr.reference_number}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.from_account_id}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.to_account_id}</td>
@@ -797,7 +993,7 @@ const BankTransactionsSection = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-18")}</td>
                   <td className="px-4 py-3 text-xs font-bold text-indigo-600">TRX-001</td>
                   <td className="px-4 py-3 text-xs font-semibold text-slate-700">Sample {subTabs.find(t => t.key === activeSubTab)?.label}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,50,000</td>

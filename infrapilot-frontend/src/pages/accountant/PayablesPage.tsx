@@ -904,17 +904,6 @@ const PayablesPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payables</h1>
             <p className="text-slate-500 text-sm mt-1">Manage vendor bills, contractor payments, and outstanding liabilities.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📥</span> Import
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📤</span> Export
-            </button>
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> New Payable
-            </button>
-          </div>
         </div>
 
         {/* Tab Navigation */}

@@ -9,6 +9,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Modal from "../../components/common/Modal";
 import { expenseService } from "../../services/expenseService";
 import { projectService } from "../../services/projectService";
+import { boqService } from "../../services/boqService";
 import api from "../../services/api";
 import type { ExpenseCreateData } from "../../types/expense";
 
@@ -210,28 +211,87 @@ const ExpenseEntrySection = () => {
   );
 };
 
-const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
+const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const PROJECT_MAP: any = { 1: "Wing A", 4: "Metro" };
-  const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
+  const [projectName, setProjectName] = useState<string>("");
+  const [boqItemName, setBoqItemName] = useState<string>("");
 
   useEffect(() => {
+    let isMounted = true;
     const load = async () => {
       if (!expense) return;
       try {
         setLoading(true);
         const res = await expenseService.getExpenseById(expense.id);
+        if (!isMounted) return;
         setData(res);
+
+        // Resolve Project Name from API response body project_id
+        const projId = res?.project_id ?? expense?.project_id;
+        if (projId !== undefined && projId !== null && projId !== "") {
+          if (res?.project_name) {
+            setProjectName(res.project_name);
+          } else if (res?.project?.project_name || res?.project?.name) {
+            setProjectName(res.project?.project_name || res.project?.name);
+          } else {
+            const matchedProj = projects?.find(
+              (p: any) => String(p.id) === String(projId) || String(p.project_id) === String(projId)
+            );
+            if (matchedProj) {
+              setProjectName(matchedProj.project_name || matchedProj.name || `Project ${projId}`);
+            } else {
+              try {
+                const projData = await projectService.getProjectById(Number(projId));
+                if (isMounted) {
+                  setProjectName(projData?.project_name || projData?.name || projData?.title || `Project ${projId}`);
+                }
+              } catch (e) {
+                if (isMounted) setProjectName(`Project ${projId}`);
+              }
+            }
+          }
+        } else {
+          setProjectName("—");
+        }
+
+        // Resolve BOQ Item Name from boq_item_id
+        const boqId = res?.boq_item_id ?? expense?.boq_item_id;
+        if (boqId !== undefined && boqId !== null && boqId !== "") {
+          if (res?.boq_item_name || res?.boq_name || res?.boq_item?.item_name) {
+            setBoqItemName(res.boq_item_name || res.boq_name || res.boq_item?.item_name);
+          } else {
+            try {
+              const boqData = await boqService.getBoqById(Number(boqId));
+              if (isMounted) {
+                setBoqItemName(boqData?.item_name || boqData?.description || `BOQ Item #${boqId}`);
+              }
+            } catch (e) {
+              if (isMounted) setBoqItemName(`BOQ #${boqId}`);
+            }
+          }
+        } else {
+          setBoqItemName("—");
+        }
       } catch (err) {
         toast.error("Failed to load expense details");
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
-    if (isOpen && expense) load();
-    else setData(null);
-  }, [isOpen, expense]);
+
+    if (isOpen && expense) {
+      load();
+    } else {
+      setData(null);
+      setProjectName("");
+      setBoqItemName("");
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, expense, projects]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Expense Profile" maxWidth="max-w-4xl">
@@ -255,7 +315,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
                 </div>
                 <p className="text-white/70 text-xs font-bold mb-2">Expense #{data.id}</p>
                 <div className="flex flex-wrap gap-2">
-                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{PROJECT_MAP[data.project_id] || data.project_id || '—'}</span>
+                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projectName || '—'}</span>
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
                 </div>
               </div>
@@ -265,12 +325,12 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: 'Expense No', value: `EXP-${data.id}` },
-              { label: 'Project', value: PROJECT_MAP[data.project_id] || data.project_id || '—' },
+              { label: 'Project', value: projectName || '—' },
               { label: 'Category', value: data.category || '—' },
               { label: 'Payment Mode', value: data.payment_mode || '—' },
               { label: 'Expense Date', value: data.expense_date || '—' },
               { label: 'Amount (₹)', value: `₹${Number(data.amount).toLocaleString("en-IN")}`, highlight: true },
-              { label: 'BOQ Item', value: BOQ_MAP[data.boq_item_id] || data.boq_item_id || '—' },
+              { label: 'BOQ Item', value: boqItemName || '—' },
             ].map(({ label, value, highlight }: any) => (
               <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
@@ -288,23 +348,28 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
   );
 };
 
-const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
+const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propProjects }: any) => {
   const [formData, setFormData] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>(propProjects || []);
+  const [boqItems, setBoqItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (expense) setFormData({ ...expense });
   }, [expense]);
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       try {
-        const data = await projectService.getProjects(100, 0);
-        setProjects(Array.isArray(data) ? data : (data as any).items || []);
+        if (!propProjects || propProjects.length === 0) {
+          const data = await projectService.getProjects(100, 0);
+          setProjects(Array.isArray(data) ? data : (data as any).items || []);
+        }
+        const boqRes = await boqService.getBoqs({ limit: 100 });
+        setBoqItems(boqRes?.items || []);
       } catch (err) {}
     };
-    if (isOpen) fetchProjects();
-  }, [isOpen]);
+    if (isOpen) fetchData();
+  }, [isOpen, propProjects]);
 
   if (!formData) return null;
 
@@ -322,7 +387,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
             <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
               {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
               ))}
               {projects.length === 0 && <option value={formData.project_id}>{formData.project_id}</option>}
             </select>
@@ -347,13 +412,22 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
               <option value="Cash">Cash</option>
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
+              <option value="auto">Auto Payment</option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">BOQ Item</label>
-            <select value={formData.boq_item_id} onChange={e => setFormData({ ...formData, boq_item_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
-              <option value="1">Civil Work</option>
-              <option value="4">Sand & Cement</option>
+            <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+              <option value="">None</option>
+              {boqItems.map((b: any) => (
+                <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
+              ))}
+              {boqItems.length === 0 && (
+                <>
+                  <option value="1">Civil Work</option>
+                  <option value="4">Sand & Cement</option>
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -375,21 +449,24 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
 };
 
 const CreateExpenseModal = ({ isOpen, onClose }: any) => {
-  const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: 1, amount: 0, description: "" });
+  const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: undefined, amount: 0, description: "" });
   const [projects, setProjects] = useState<any[]>([]);
+  const [boqItems, setBoqItems] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       try {
         const data = await projectService.getProjects(100, 0);
         const list = Array.isArray(data) ? data : (data as any).items || [];
         setProjects(list);
         if (list.length > 0) {
-          setFormData(f => ({ ...f, project_id: list[0].id }));
+          setFormData(f => ({ ...f, project_id: list[0].id || list[0].project_id }));
         }
+        const boqRes = await boqService.getBoqs({ limit: 100 });
+        setBoqItems(boqRes?.items || []);
       } catch (err) {}
     };
-    if (isOpen) fetchProjects();
+    if (isOpen) fetchData();
   }, [isOpen]);
 
   const handleSubmit = async (e: any) => {
@@ -417,7 +494,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Project *</label>
               <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
                 ))}
               </select>
             </div>
@@ -437,17 +514,26 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Mode *</label>
-              <select onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <select onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} value={formData.payment_mode} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
                 <option value="Cash">Cash</option>
                 <option value="Online">Online</option>
                 <option value="Cheque">Cheque</option>
+                <option value="auto">Auto Payment</option>
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">BOQ Item *</label>
-              <select onChange={e => setFormData({ ...formData, boq_item_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
-                <option value="1">Civil Work</option>
-                <option value="4">Sand & Cement</option>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">BOQ Item</label>
+              <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                <option value="">None</option>
+                {boqItems.map(b => (
+                  <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
+                ))}
+                {boqItems.length === 0 && (
+                  <>
+                    <option value="1">Civil Work</option>
+                    <option value="4">Sand & Cement</option>
+                  </>
+                )}
               </select>
             </div>
             <div>
@@ -470,20 +556,33 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
 };
 
 const ExpenseListSection = () => {
-  const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
+  const [boqMap, setBoqMap] = useState<Record<number, string>>({});
   const fmt = (num: number) => `₹${Number(num).toLocaleString("en-IN")}`;
 
   const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchProjectsAndBoqs = async () => {
       try {
         const data = await projectService.getProjects(100, 0);
         const list = Array.isArray(data) ? data : (data as any).items || [];
         setProjects(list);
       } catch (err) { }
+
+      try {
+        const boqRes = await boqService.getBoqs({ limit: 100 });
+        const items = boqRes?.items || [];
+        const map: Record<number, string> = {};
+        items.forEach((item: any) => {
+          const id = item.id || item.boq_id;
+          if (id) {
+            map[id] = item.item_name || item.description || `BOQ #${id}`;
+          }
+        });
+        setBoqMap(map);
+      } catch (err) { }
     };
-    fetchProjects();
+    fetchProjectsAndBoqs();
   }, []);
 
 
@@ -549,9 +648,33 @@ const ExpenseListSection = () => {
     }
     try {
       const data = await expenseService.getExpensesByPaymentMode(val);
-      setExpenses(data);
+      if (Array.isArray(data) && data.length > 0) {
+        setExpenses(data);
+      } else {
+        const all = await expenseService.listExpenses();
+        const filtered = (Array.isArray(all) ? all : []).filter(
+          (item: any) => {
+            const m = String(item.payment_mode || "").toLowerCase();
+            const target = val.toLowerCase();
+            return m === target || (target === "auto" && m.includes("auto"));
+          }
+        );
+        setExpenses(filtered);
+      }
     } catch (err) {
-      toast.error("Failed to fetch expenses by payment mode");
+      try {
+        const all = await expenseService.listExpenses();
+        const filtered = (Array.isArray(all) ? all : []).filter(
+          (item: any) => {
+            const m = String(item.payment_mode || "").toLowerCase();
+            const target = val.toLowerCase();
+            return m === target || (target === "auto" && m.includes("auto"));
+          }
+        );
+        setExpenses(filtered);
+      } catch {
+        toast.error("Failed to fetch expenses by payment mode");
+      }
     }
   };
 
@@ -612,7 +735,8 @@ const ExpenseListSection = () => {
     const descMatch = (expense.description || "").toLowerCase().includes(q);
     const catMatch = (expense.category || "").toLowerCase().includes(q);
     const modeMatch = (expense.payment_mode || "").toLowerCase().includes(q);
-    const projMatch = (projects.find(p => String(p.id) === String(expense.project_id))?.project_name || expense.project_id?.toString() || "").toLowerCase().includes(q);
+    const proj = projects.find(p => String(p.id) === String(expense.project_id) || String(p.project_id) === String(expense.project_id));
+    const projMatch = (proj?.project_name || proj?.name || expense.project_name || expense.project_id?.toString() || "").toLowerCase().includes(q);
     return idMatch || descMatch || catMatch || modeMatch || projMatch;
   });
 
@@ -636,7 +760,7 @@ const ExpenseListSection = () => {
             <select onChange={e => handleProjectChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
               <option value="">All Projects</option>
               {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
               ))}
             </select>
             <select onChange={e => handleCategoryDropdownChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
@@ -652,6 +776,7 @@ const ExpenseListSection = () => {
               <option value="Cash">Cash</option>
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
+              <option value="auto">Auto Payment</option>
             </select>
             <input type="date" value={startDate} onChange={e => handleDateChange('start', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />
             <input type="date" value={endDate} onChange={e => handleDateChange('end', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />
@@ -676,14 +801,14 @@ const ExpenseListSection = () => {
                   </td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">
                     {(() => {
-                      const p = projects.find(x => String(x.id) === String(e.project_id));
-                      return p ? (p.project_name || p.name || e.project_id) : e.project_id;
+                      const p = projects.find(x => String(x.id) === String(e.project_id) || String(x.project_id) === String(e.project_id));
+                      return p ? (p.project_name || p.name || `Project ${e.project_id}`) : (e.project_name || (e.project_id ? `Project ${e.project_id}` : "—"));
                     })()}
                   </td>
                   <td className="px-5 py-4 text-xs font-semibold text-slate-500 max-w-[200px] truncate">{e.description}</td>
                   <td className="px-5 py-4 text-sm font-black text-rose-500">{fmt(e.amount)}</td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">{e.payment_mode}</td>
-                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{BOQ_MAP[e.boq_item_id] || e.boq_item_id || "-"}</td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{e.boq_item_id ? (boqMap[e.boq_item_id] || e.boq_item_name || `BOQ #${e.boq_item_id}`) : "—"}</td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
                       <button onClick={() => setViewingExpense(e)} className="p-2 text-slate-400 hover:text-primary transition-colors">
@@ -745,8 +870,8 @@ const ExpenseListSection = () => {
         </div>
       </div>
 
-      <EditExpenseModal isOpen={!!editingExpense} onClose={() => setEditingExpense(null)} expense={editingExpense} onSubmit={handleEditSubmit} />
-      <ViewExpenseModal isOpen={!!viewingExpense} onClose={() => setViewingExpense(null)} expense={viewingExpense} />
+      <EditExpenseModal isOpen={!!editingExpense} onClose={() => setEditingExpense(null)} expense={editingExpense} onSubmit={handleEditSubmit} projects={projects} />
+      <ViewExpenseModal isOpen={!!viewingExpense} onClose={() => setViewingExpense(null)} expense={viewingExpense} projects={projects} />
       <ConfirmationModal
         isOpen={!!deleteTarget}
         title="Delete Expense"

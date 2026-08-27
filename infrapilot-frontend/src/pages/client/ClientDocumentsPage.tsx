@@ -135,14 +135,14 @@ const ClientDocumentsPage = () => {
   };
 
   const handleView = async (doc: any) => {
-    if (!doc.id && !doc.file_url) return;
+    if (!doc) return;
     setFetchingDetail(true);
     setIsPreviewOpen(true);
     try {
       let file_url = doc.file_url;
       let currentDoc = { ...doc };
 
-      if (doc.id && doc.type !== "Drawing") {
+      if (doc.id && doc.type !== "Drawing" && !doc.is_folder) {
         try {
           const detail = await documentService.getDocument(doc.id);
           if (detail) {
@@ -150,53 +150,33 @@ const ClientDocumentsPage = () => {
             file_url = detail.file_url || file_url;
           }
         } catch (e) {
-          console.warn("Failed to fetch fresh metadata, using list data");
+          console.warn("Failed to fetch fresh metadata, using list data", e);
         }
       }
-
-      if (!file_url) throw new Error("No file path");
-
-      const fullUrl = buildFileUrl(file_url);
-      const userString = localStorage.getItem("infrapilot_user");
-      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
-
-      const response = await fetch(fullUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const contentType = response.headers.get("content-type") || 'application/pdf';
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
 
       setSelectedPreview({ 
         ...currentDoc, 
         name: currentDoc.drawing_name || currentDoc.title || currentDoc.name || "Preview", 
-        previewUrl: blobUrl, 
-        previewType: contentType, 
-        fullUrl, 
+        file_url: file_url,
         remarks: (currentDoc.remarks !== undefined && currentDoc.remarks !== null) ? currentDoc.remarks : (doc.remarks || ""), 
         uploaded_at: currentDoc.uploaded_at || currentDoc.date || doc.date, 
-        date: currentDoc.date || currentDoc.uploaded_at || doc.date,
+        date: currentDoc.date || currentDoc.uploaded_at || doc.date, 
         project_name: (currentDoc.project_name && currentDoc.project_name !== "—") ? currentDoc.project_name : (projectName || "General"), 
         uploaded_by: currentDoc.uploaded_by || currentDoc.created_by || currentDoc.user_name || doc.uploaded_by || "Site Engineer",
         file_size: currentDoc.file_size,
-        type: doc.type || (doc.is_folder ? "Folder" : "Drawing")
+        type: doc.type || (doc.is_folder ? "Folder" : "Drawing"),
+        isDrawing: doc.type === "Drawing" || (activeTab === "Drawings")
       });
     } catch (err: any) {
       console.error("View failed:", err);
-      const baseUrl = getBaseUrl();
-      const fallbackUrl = doc.file_url?.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url?.replace(/^\//, '')}`;
       setSelectedPreview({ 
         ...doc, 
         name: doc.drawing_name || doc.title || doc.name || "Preview",
         project_name: (doc.project_name && doc.project_name !== "—") ? doc.project_name : (projectName || "General"),
         uploaded_by: doc.uploaded_by || doc.created_by || doc.user_name || "Site Engineer",
         remarks: doc.remarks || "",
-        previewUrl: fallbackUrl, 
-        previewType: null, 
-        fullUrl: fallbackUrl 
+        file_url: doc.file_url,
+        isDrawing: doc.type === "Drawing" || (activeTab === "Drawings")
       });
     } finally {
       setFetchingDetail(false);

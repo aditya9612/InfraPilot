@@ -5,6 +5,8 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
+import { projectService } from "../../services/projectService";
+import { PROJECTS } from "../../config/projectSeed";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage } from "lucide-react";
 export interface GSTReturn {
@@ -157,7 +159,117 @@ const DashboardSection = () => {
 };
 
 // 2. GST Invoices
-const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: () => void; type: string }) => {
+// 2. GST Invoices
+const GSTInvoiceModal = ({
+  isOpen,
+  onClose,
+  type,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  type: string;
+  onSuccess?: (newInv: any) => void;
+}) => {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    party_name: "",
+    gstin: "",
+    invoice_number: "",
+    invoice_date: new Date().toISOString().split("T")[0],
+    project_name: "",
+    project_id: "",
+    taxable_amount: 0,
+    gst_rate: "18%",
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    total_gst: 0,
+    invoice_total: 0,
+  });
+
+  useEffect(() => {
+    projectService
+      .getProjects(200)
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : res?.items || res?.data || [];
+        setProjects(list.length > 0 ? list : PROJECTS);
+      })
+      .catch(() => {
+        setProjects(PROJECTS);
+      });
+  }, []);
+
+  // Compute taxes whenever taxable_amount or gst_rate changes
+  useEffect(() => {
+    const amt = Number(formData.taxable_amount) || 0;
+    const ratePct =
+      formData.gst_rate === "Exempt" ? 0 : parseFloat(formData.gst_rate) || 0;
+    const totalGst = (amt * ratePct) / 100;
+    const halfGst = totalGst / 2;
+    setFormData((prev) => ({
+      ...prev,
+      cgst: halfGst,
+      sgst: halfGst,
+      igst: 0,
+      total_gst: totalGst,
+      invoice_total: amt + totalGst,
+    }));
+  }, [formData.taxable_amount, formData.gst_rate]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    if (name === "project_name") {
+      const selected = projects.find(
+        (p: any) =>
+          (p.name || p.project_name) === value ||
+          String(p.id || p.project_id) === value
+      );
+      setFormData((prev) => ({
+        ...prev,
+        project_name: value,
+        project_id: selected
+          ? String(selected.id || selected.project_id)
+          : prev.project_id,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.project_name) {
+      toast.error("Please select a Project");
+      return;
+    }
+    const newRecord = {
+      id: Date.now(),
+      invoice_date: formData.invoice_date,
+      date: formData.invoice_date,
+      invoice_number:
+        formData.invoice_number ||
+        `INV-${Math.floor(100 + Math.random() * 900)}`,
+      invoice_no:
+        formData.invoice_number ||
+        `INV-${Math.floor(100 + Math.random() * 900)}`,
+      type: type,
+      party_name: formData.party_name || "Unknown Party",
+      gstin: formData.gstin || "N/A",
+      project_name: formData.project_name,
+      project_id: formData.project_id,
+      taxable_amount: Number(formData.taxable_amount) || 0,
+      total_gst: formData.total_gst,
+      invoice_total: formData.invoice_total,
+      total_amount: formData.invoice_total,
+    };
+    if (onSuccess) onSuccess(newRecord);
+    toast.success(`${type} Invoice Recorded!`);
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -166,76 +278,249 @@ const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: 
       maxWidth="max-w-4xl"
       footer={
         <>
-          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+          >
             Cancel
           </button>
-          <button onClick={() => { toast.success(`${type} Invoice Recorded!`); onClose(); }} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">
+          <button
+            onClick={handleSubmit}
+            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
+          >
             Save Record
           </button>
         </>
       }
     >
-      <form onSubmit={(e) => { e.preventDefault(); toast.success(`${type} Invoice Recorded!`); onClose(); }} className="space-y-6">
-    <div className="lg:col-span-2 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Basic Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client / Vendor Name *</label><input type="text" placeholder="Select Party" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN *</label><input type="text" placeholder="27ABCDE1234F1Z5" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number *</label><input type="text" placeholder="INV-001" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><input type="text" placeholder="Select Project" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">
+                1
+              </span>
+              Basic Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Client / Vendor Name *
+                </label>
+                <input
+                  type="text"
+                  name="party_name"
+                  value={formData.party_name}
+                  onChange={handleChange}
+                  placeholder="Select Party"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Party GSTIN *
+                </label>
+                <input
+                  type="text"
+                  name="gstin"
+                  value={formData.gstin}
+                  onChange={handleChange}
+                  placeholder="27ABCDE1234F1Z5"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Invoice Number *
+                </label>
+                <input
+                  type="text"
+                  name="invoice_number"
+                  value={formData.invoice_number}
+                  onChange={handleChange}
+                  placeholder="INV-001"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Invoice Date *
+                </label>
+                <input
+                  type="date"
+                  name="invoice_date"
+                  value={formData.invoice_date}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Project Name *
+                </label>
+                <select
+                  name="project_name"
+                  required
+                  value={formData.project_name}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer font-medium text-slate-700"
+                >
+                  <option value="">Select Project</option>
+                  {projects.map((p: any) => {
+                    const pName =
+                      p.name || p.project_name || `Project #${p.id || p.project_id}`;
+                    const pId = p.id || p.project_id;
+                    return (
+                      <option key={pId} value={pName}>
+                        {pName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Tax Details
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Amount (₹) *</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Rate (%) *</label>
-            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-              <option>18%</option><option>12%</option><option>5%</option><option>28%</option><option>Exempt</option>
-            </select>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">
+                2
+              </span>
+              Tax Details
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Taxable Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  name="taxable_amount"
+                  value={formData.taxable_amount || ""}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  GST Rate (%) *
+                </label>
+                <select
+                  name="gst_rate"
+                  value={formData.gst_rate}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                >
+                  <option value="18%">18%</option>
+                  <option value="12%">12%</option>
+                  <option value="5%">5%</option>
+                  <option value="28%">28%</option>
+                  <option value="Exempt">Exempt</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  CGST
+                </label>
+                <input
+                  type="number"
+                  readOnly
+                  value={formData.cgst ? formData.cgst.toFixed(2) : "0"}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-semibold text-slate-600"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  SGST
+                </label>
+                <input
+                  type="number"
+                  readOnly
+                  value={formData.sgst ? formData.sgst.toFixed(2) : "0"}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-semibold text-slate-600"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  IGST
+                </label>
+                <input
+                  type="number"
+                  readOnly
+                  value={formData.igst ? formData.igst.toFixed(2) : "0"}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-semibold text-slate-600"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Total GST
+                </label>
+                <input
+                  type="number"
+                  readOnly
+                  value={formData.total_gst ? formData.total_gst.toFixed(2) : "0"}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 text-indigo-700 font-bold"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total GST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 text-indigo-700 font-bold" /></div>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-          Attachment
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Copy</label>
-            <input type="file" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">
+                3
+              </span>
+              Attachment
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Invoice Copy
+                </label>
+                <input
+                  type="file"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  GST Document
+                </label>
+                <input
+                  type="file"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Document</label>
-            <input type="file" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+            <h3 className="text-sm font-bold text-slate-800 mb-3">
+              Invoice Summary
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Taxable Amount</span>
+                <span className="font-semibold text-slate-700">
+                  ₹{Number(formData.taxable_amount || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs text-indigo-500">
+                <span>Total GST ({formData.gst_rate})</span>
+                <span className="font-semibold">
+                  ₹{Number(formData.total_gst || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-slate-800 border-t border-slate-200 pt-3">
+                <span>Invoice Total</span>
+                <span className="text-primary font-black">
+                  ₹{Number(formData.invoice_total || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">Invoice Summary</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-xs text-slate-500"><span>Taxable Amount</span><span className="font-semibold text-slate-700">—</span></div>
-            <div className="flex justify-between text-xs text-indigo-500"><span>Total GST</span><span className="font-semibold">—</span></div>
-            <div className="flex justify-between text-sm font-bold text-slate-800 border-t border-slate-200 pt-3"><span>Invoice Total</span><span>—</span></div>
-          </div>
-        </div>
-      </div>
       </form>
     </Modal>
   );
@@ -406,6 +691,7 @@ const GSTInvoicesWrapperSection = () => {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         type={modalType} 
+        onSuccess={(newInv) => setInvoices(prev => [newInv, ...prev])}
       />
     </div>
   );
