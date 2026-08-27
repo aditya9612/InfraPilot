@@ -349,7 +349,6 @@ const ApprovalsPage = () => {
                 className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 pr-8"
               >
                 <option value="all">Every Type</option>
-                <option value="all">Every Type</option>
                 <option value="boq">BOQ</option>
                 <option value="ra bill">RA Bill</option>
                 <option value="final measurement">Final Measurement</option>
@@ -388,7 +387,7 @@ const ApprovalsPage = () => {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-4">Entity Type & ID</th>
+                  <th className="px-6 py-4">Entity Type</th>
                   <th className="px-6 py-4">Requested By</th>
                   <th className="px-6 py-4">Remarks / Details</th>
                   <th className="px-6 py-4">Status</th>
@@ -410,7 +409,6 @@ const ApprovalsPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
-                        <span className="text-[10px] text-slate-400 font-medium tracking-widest">ID: {item.entity_id}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-600">

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import type { Material, Supplier, POCreate } from "../../../types/material";
+import { boqService } from "../../../services/boqService";
 
 interface CreatePOModalProps {
     isOpen: boolean;
@@ -26,18 +27,43 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
         rate: 0,
     });
     const [loading, setLoading] = useState(false);
+    const [boqItems, setBoqItems] = useState<any[]>([]);
+    const [loadingBoqs, setLoadingBoqs] = useState(false);
 
-    // Filter materials based on selected supplier primarily
+    // Fetch BOQ items dynamically when a project is selected
+    useEffect(() => {
+        if (formData.project_id) {
+            let active = true;
+            const fetchBoqs = async () => {
+                setLoadingBoqs(true);
+                try {
+                    const items = await boqService.getBoqItems(formData.project_id);
+                    if (active) setBoqItems(items);
+                } catch (error) {
+                    console.error("Failed to fetch BOQ items", error);
+                } finally {
+                    if (active) setLoadingBoqs(false);
+                }
+            };
+            fetchBoqs();
+            return () => { active = false; };
+        } else {
+            setBoqItems([]);
+        }
+    }, [formData.project_id]);
+
+    // Present supplier materials for explicit procurement mapping
     const filteredMaterials = useMemo(() => {
         return inventory.filter(m =>
+            m.project_id === formData.project_id &&
             (formData.supplier_id === 0 || m.supplier_id === formData.supplier_id)
         );
-    }, [inventory, formData.supplier_id]);
+    }, [inventory, formData.project_id, formData.supplier_id]);
 
     // Reset material if it's no longer in the filtered list
     useEffect(() => {
         if (formData.material_id !== 0) {
-            const isValid = filteredMaterials.some(m => m.id === formData.material_id);
+            const isValid = filteredMaterials.some((m: any) => m.id === formData.material_id || m.material_id === formData.material_id);
             if (!isValid) {
                 setFormData(prev => ({ ...prev, material_id: 0, rate: 0 }));
             }
@@ -53,11 +79,16 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
         }
         setLoading(true);
         try {
-            await onSubmit(formData);
+            const payload = { ...formData };
+            if (!payload.boq_item_id) {
+                delete payload.boq_item_id;
+            }
+            await onSubmit(payload);
             setFormData({
                 supplier_id: 0,
                 project_id: 0,
                 material_id: 0,
+                boq_item_id: 0,
                 quantity: 0,
                 rate: 0,
             });
@@ -125,8 +156,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                                 value={formData.material_id || ""}
                                 onChange={(e) => {
                                     const mid = Number(e.target.value);
-                                    const mat = inventory.find(m => m.id === mid);
-                                    setFormData({ ...formData, material_id: mid, rate: mat?.purchase_rate || 0 });
+                                    const mat = filteredMaterials.find((m: any) => m.id === mid || m.material_id === mid);
+                                    setFormData({ ...formData, material_id: mid, rate: mat?.purchase_rate || mat?.rate || mat?.avg_rate || 0 });
                                 }}
                                 className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${(!formData.supplier_id || !formData.project_id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
@@ -134,11 +165,37 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                                     {!formData.project_id || !formData.supplier_id
                                         ? "Select Project & Supplier First"
                                         : filteredMaterials.length === 0
-                                            ? "No materials for this supplier at this site"
+                                            ? "No materials associated with this supplier at this site"
                                             : "Select Material"}
                                 </option>
-                                {filteredMaterials.map(m => (
-                                    <option key={m.id} value={m.id}>{m.material_name}</option>
+                                {filteredMaterials.map((m: any) => (
+                                    <option key={m.id || m.material_id} value={m.material_id || m.id}>
+                                        {m.name || m.material_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* BOQ Selection (Optional) */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">BOQ Item (Optional)</label>
+                            <select
+                                disabled={!formData.project_id || loadingBoqs}
+                                value={formData.boq_item_id || 0}
+                                onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) })}
+                                className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${(!formData.project_id || loadingBoqs) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <option value={0}>
+                                    {!formData.project_id
+                                        ? "Select Project First"
+                                        : loadingBoqs
+                                            ? "Loading BOQ items..."
+                                            : "None"}
+                                </option>
+                                {boqItems.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.item_name || b.name}
+                                    </option>
                                 ))}
                             </select>
                         </div>

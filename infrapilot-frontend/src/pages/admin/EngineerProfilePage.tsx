@@ -212,8 +212,20 @@ const EngineerProfilePage: React.FC = () => {
                 const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
                 const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
 
-                const activeActivities = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
-                const progress = (activities as any[]).length > 0 ? Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / (activities as any[]).length) : 0;
+                const ap = activeProjectId ? assignedProjects.find(p => p.id === activeProjectId) : null;
+                let activeActivitiesCount = 0;
+                let progress = 0;
+                let activeActivitiesList = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
+
+                if ((activities as any[]).length > 0) {
+                    activeActivitiesCount = activeActivitiesList.length;
+                    progress = Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / (activities as any[]).length);
+                } else if (ap) {
+                    const totalT = Number(ap.total_tasks) || 0;
+                    const compT = Number(ap.completed_tasks) || 0;
+                    activeActivitiesCount = Math.max(0, totalT - compT);
+                    progress = Math.round(Number(ap.completion_percentage) || Number(ap.execution_completion_percentage) || 0);
+                }
                 const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
                 const totalExpenses = (expenses as any[]).reduce((sum: number, e: any) => sum + (e.amount || e.total_amount || 0), 0);
 
@@ -228,7 +240,7 @@ const EngineerProfilePage: React.FC = () => {
                     total_labour_today: activeLabourCount,
                     skilled_labour: skilledCount,
                     unskilled_labour: unskilledCount,
-                    active_activities: activeActivities.length,
+                    active_activities: activeActivitiesCount,
                     open_issues: { total: openIssues.length, high_priority: highPriorityIssues.length },
                     total_expenses: totalExpenses,
                     progress
@@ -255,7 +267,7 @@ const EngineerProfilePage: React.FC = () => {
 
                 const u = engineerData;
                 const activeProject = assignedProjects.find(p => p.id === activeProjectId);
-                const activeTask = activeActivities[0]?.activity_name || allDsrs[0]?.work_done?.split('.')[0] || "Site Supervision";
+                const activeTask = activeActivitiesList[0]?.activity_name || allDsrs[0]?.work_done?.split('.')[0] || "Site Supervision";
 
                 setEngineer({
                     id: u.user_id,

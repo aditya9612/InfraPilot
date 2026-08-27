@@ -11,7 +11,7 @@ import { issueService } from "../../services/issueService";
 import { projectService } from "../../services/projectService";
 import type { IssueItem, CreateIssueRequest, UpdateIssueRequest } from "../../types/issue";
 
-const ManagerIssuesPage = () => {
+const AdminIssuesPage = () => {
     const { selectedProjectId, assignedProjects } = useProject();
     const [issues, setIssues] = useState<IssueItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -182,7 +182,7 @@ const ManagerIssuesPage = () => {
             setIsExportingPdf(true);
             try {
                 const blob = await issueService.exportIssuesPdf({
-                    project_id: selectedProjectId || undefined,
+                    project_id: projectFilter !== "all" ? Number(projectFilter) : undefined,
                     status: exportFilters.status !== "all" ? exportFilters.status : undefined,
                     priority: exportFilters.priority !== "all" ? exportFilters.priority : undefined,
                     start_date: exportFilters.start_date || undefined,
@@ -208,7 +208,7 @@ const ManagerIssuesPage = () => {
             setIsExportingExcel(true);
             try {
                 const blob = await issueService.exportIssuesExcel({
-                    project_id: selectedProjectId || undefined,
+                    project_id: projectFilter !== "all" ? Number(projectFilter) : undefined,
                     status: exportFilters.status !== "all" ? exportFilters.status : undefined,
                     priority: exportFilters.priority !== "all" ? exportFilters.priority : undefined,
                     start_date: exportFilters.start_date || undefined,
@@ -257,7 +257,7 @@ const ManagerIssuesPage = () => {
             setSelectedIssue(null);
             fetchIssues();
         } catch (error) {
-            console.error(error); toast.error(error.response?.data?.message || "Failed to update issue");
+            toast.error("Failed to update issue");
         } finally {
             setIsSubmitting(false);
         }
@@ -343,8 +343,8 @@ const ManagerIssuesPage = () => {
 
     return (
         <>
-            <Navbar title="Issue Management" breadcrumb={["Manager", "Safety", "Issues"]} />
-            <PageTransition key="manager-issues" className="p-6 bg-slate-50 min-h-screen">
+            <Navbar title="Issue Management" breadcrumb={["Admin", "Operations", "Issues"]} />
+            <PageTransition key="admin-issues" className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Issues</h1>
@@ -962,4 +962,4 @@ const ManagerIssuesPage = () => {
     );
 };
 
-export default ManagerIssuesPage;
+export default AdminIssuesPage;

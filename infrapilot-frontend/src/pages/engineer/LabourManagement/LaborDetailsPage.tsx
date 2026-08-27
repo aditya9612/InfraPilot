@@ -17,7 +17,9 @@ import {
     ChevronRight,
     FileSpreadsheet,
     FileDown,
-    X
+    X,
+    QrCode,
+    Download
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
@@ -84,6 +86,12 @@ const LaborDetailsPage = () => {
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [labourTypes, setLabourTypes] = useState<any[]>([]);
 
+    // QR State
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [currentQrLabour, setCurrentQrLabour] = useState<{ id: number; name: string } | null>(null);
+    const [qrImageBlob, setQrImageBlob] = useState<string | null>(null);
+    const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
     // Assign Project Modal State
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assignTargetLabourId, setAssignTargetLabourId] = useState<number | null>(null);
@@ -101,6 +109,31 @@ const LaborDetailsPage = () => {
     // Dashboard Stats & Skill Summary (new APIs)
     const [dashboardStats, setDashboardStats] = useState<any>(null);
     const [skillSummary, setSkillSummary] = useState<any[]>([]);
+
+    const handleViewQr = async (labourId: number, name: string) => {
+        setIsGeneratingQr(true);
+        setCurrentQrLabour({ id: labourId, name });
+        try {
+            const blob = await labourService.generateLabourQr(labourId);
+            const url = URL.createObjectURL(blob);
+            setQrImageBlob(url);
+            setIsQrModalOpen(true);
+        } catch (error) {
+            toast.error("Failed to generate QR Code");
+            setCurrentQrLabour(null);
+        } finally {
+            setIsGeneratingQr(false);
+        }
+    };
+
+    const closeQrModal = () => {
+        setIsQrModalOpen(false);
+        setTimeout(() => {
+            if (qrImageBlob) URL.revokeObjectURL(qrImageBlob);
+            setQrImageBlob(null);
+            setCurrentQrLabour(null);
+        }, 300);
+    };
 
     const handleExportDistribution = async (format: 'excel' | 'pdf') => {
         setIsExporting(true);
@@ -803,6 +836,18 @@ const LaborDetailsPage = () => {
                                                             <Eye className="w-4 h-4" />
                                                         )}
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleViewQr(labor.id, labor.labour_name)}
+                                                        disabled={isGeneratingQr && currentQrLabour?.id === labor.id}
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                        title="View QR Code"
+                                                    >
+                                                        {isGeneratingQr && currentQrLabour?.id === labor.id ? (
+                                                            <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                                        ) : (
+                                                            <QrCode className="w-4 h-4" />
+                                                        )}
+                                                    </button>
                                                     <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", profile_image: labor.profile_image || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
@@ -897,6 +942,35 @@ const LaborDetailsPage = () => {
                     </div>
                 </div>
             </PageTransition>
+
+            {/* QR Code Modal */}
+            <Modal isOpen={isQrModalOpen} onClose={closeQrModal} title="Labour QR Code" maxWidth="max-w-sm">
+                <div className="flex flex-col items-center justify-center space-y-4 p-4 text-center">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        {qrImageBlob ? (
+                            <img src={qrImageBlob} alt={`${currentQrLabour?.name} QR`} className="w-48 h-48 object-contain" />
+                        ) : (
+                            <div className="w-48 h-48 flex items-center justify-center text-slate-400">
+                                <QrCode className="w-12 h-12 opacity-50" />
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-lg">{currentQrLabour?.name}</h3>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Scan for attendance</p>
+                    </div>
+                    {qrImageBlob && (
+                        <a 
+                            href={qrImageBlob} 
+                            download={`QR_${currentQrLabour?.name?.replace(/\s+/g, '_')}.png`}
+                            className="mt-4 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/30 flex items-center gap-2 hover:bg-primary/90 transition-colors"
+                        >
+                            <Download className="w-4 h-4" />
+                            Download QR
+                        </a>
+                    )}
+                </div>
+            </Modal>
 
             {/* ── Form Modal ── */}
             <Modal

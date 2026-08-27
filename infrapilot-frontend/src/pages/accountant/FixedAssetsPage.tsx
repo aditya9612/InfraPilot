@@ -6,7 +6,7 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, QrCode } from "lucide-react";
 
 // --- GENERIC COMPONENTS ---
 const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
@@ -246,20 +246,101 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
   );
 };
 
+const AssetViewModal = ({ assetId, onClose }: { assetId: number | string | null, onClose: () => void }) => {
+  const [assetDetail, setAssetDetail] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!assetId) return;
+    const fetchDetail = async () => {
+      setIsLoading(true);
+      try {
+        const data = await accountingService.getAssetDetail(assetId);
+        setAssetDetail(data);
+      } catch (err: any) {
+        toast.error("Failed to fetch asset details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [assetId]);
+
+  return (
+    <Modal isOpen={!!assetId} onClose={onClose} title="Asset Details" maxWidth="max-w-2xl">
+      <div className="p-6">
+        {isLoading ? (
+          <div className="text-center py-8 text-slate-500">Loading...</div>
+        ) : assetDetail ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name</p>
+                <p className="font-bold text-slate-800">{assetDetail.name || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</p>
+                <p className="font-bold text-slate-800">{assetDetail.project_name || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value</p>
+                <p className="font-bold text-slate-800">₹{assetDetail.purchase_value || 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</p>
+                <p className="font-bold text-slate-800">{assetDetail.purchase_date || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate</p>
+                <p className="font-bold text-slate-800">{assetDetail.depreciation_rate || 0}%</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Value</p>
+                <p className="font-bold text-indigo-600">₹{assetDetail.current_value || 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p>
+                <p className="font-bold text-slate-800">{assetDetail.created_at || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
+                <p className="font-bold text-slate-800">{assetDetail.updated_at || "N/A"}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-500">Asset details not found.</div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+
 const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "list");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewAssetId, setViewAssetId] = useState<number | string | null>(null);
   const [assets, setAssets] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [filterProject, setFilterProject] = useState("");
+  const [filterPurchaseDate, setFilterPurchaseDate] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState({ project: "", purchaseDate: "" });
+
   const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
 
   const fetchAssets = async () => {
     try {
       const data = await accountingService.getAssets();
-      setAssets(Array.isArray(data) ? data : data?.data || []);
+      setAssets(Array.isArray(data) ? data : data?.items || data?.data || []);
     } catch (err) {
       toast.error("Failed to fetch assets");
     }
   };
+
+  useEffect(() => {
+    projectService.getProjects().then(res => setProjects(res.items || res.data || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeSubTab === 'list' || activeSubTab === 'details') {
@@ -267,13 +348,23 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
     }
   }, [activeSubTab]);
 
+  const filteredAssets = assets.filter(a => {
+    if (appliedFilters.project && String(a.project_id) !== String(appliedFilters.project)) return false;
+    if (appliedFilters.purchaseDate && a.purchase_date !== appliedFilters.purchaseDate) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex gap-2 overflow-x-auto">
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
+<<<<<<< HEAD
         {activeSubTab !== "transfer" && (
+=======
+        {activeSubTab !== 'transfer' && (
+>>>>>>> testing
           <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
             Add Asset
           </button>
@@ -281,6 +372,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
       </div>
 
       <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchAssets} />
+      <AssetViewModal assetId={viewAssetId} onClose={() => setViewAssetId(null)} />
       {activeSubTab === "list" && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-wrap gap-4 items-center">
@@ -289,14 +381,15 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
               <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Filter By:</span>
             </div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option value="">All</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>Active</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
-            <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5">Apply</button>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" value={filterPurchaseDate} onChange={(e) => setFilterPurchaseDate(e.target.value)} className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
+            <button onClick={() => setAppliedFilters({ project: filterProject, purchaseDate: filterPurchaseDate })} className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5 hover:bg-slate-700 transition-colors">Apply</button>
           </div>
           <PaginatedTableSection 
             title="Asset List" 
+<<<<<<< HEAD
             columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]} 
             data={assets.length > 0 ? assets.map(a => [
               a.asset_id || `AST-${a.id}`,
@@ -323,10 +416,42 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
                   toast.error("Failed to generate QR", { id: "qr" });
                 }
               }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
+=======
+            columns={["Asset ID", "Name", "Purchase Value", "Purchase Date", "Depr. Rate (%)", "Current Value", "Project", "Action"]} 
+            data={filteredAssets.length > 0 ? filteredAssets.map(a => [
+              `AST-${a.id}`,
+              a.name || "N/A",
+              `₹${a.purchase_value || 0}`,
+              a.purchase_date || "N/A",
+              `${a.depreciation_rate || 0}%`,
+              `₹${a.current_value || 0}`,
+              a.project_name || "N/A",
+              <div key={a.id} className="flex gap-2">
+                <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
+                <button title="QR Code" onClick={async () => {
+                  try {
+                    toast.loading("Generating QR...", { id: "qr" });
+                    const blob = await accountingService.generateAssetQR(a.id);
+                    const url = URL.createObjectURL(blob);
+                    const aTag = document.createElement("a");
+                    aTag.href = url;
+                    aTag.download = `AST-${a.id}_QR.png`;
+                    document.body.appendChild(aTag);
+                    aTag.click();
+                    document.body.removeChild(aTag);
+                    URL.revokeObjectURL(url);
+                    toast.success("QR Generated!", { id: "qr" });
+                  } catch(e) {
+                    toast.error("Failed to generate QR", { id: "qr" });
+                  }
+                }} className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><QrCode size={14}/></button>
+              </div>
+>>>>>>> testing
             ]) : [["No assets found.", "", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
+<<<<<<< HEAD
       {activeSubTab === "details" && (
         <PaginatedTableSection 
           title="Asset Details Lookup" 
@@ -341,6 +466,9 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           ]) : [["No assets found.", "", "", "", "", ""]]} 
         />
       )}
+=======
+      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${a.purchase_value || 0}`, `${a.depreciation_rate || 0}%`, `₹${a.current_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
+>>>>>>> testing
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
@@ -359,7 +487,7 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const fetchAssets = async () => {
     try {
       const data = await accountingService.getAssets();
-      setAssets(Array.isArray(data) ? data : data?.data || []);
+      setAssets(Array.isArray(data) ? data : data?.items || data?.data || []);
     } catch (err) {
       toast.error("Failed to fetch assets for depreciation");
     }

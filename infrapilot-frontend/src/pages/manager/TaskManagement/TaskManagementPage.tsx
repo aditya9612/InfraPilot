@@ -153,6 +153,7 @@ const TaskManagementPage = () => {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
+    const [editModalActivities, setEditModalActivities] = useState<any[]>([]);
 
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
@@ -212,6 +213,16 @@ const TaskManagementPage = () => {
             setIsFetchingDetails(true);
             try {
                 const pid = selectedTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
+
+                // Dynamically fetch project members for the task's project if currently unresolvable
+                if (pid && (projectId === ('all' as any) || projectMembers.length === 0)) {
+                    try {
+                        const resM = await projectService.getProjectMembers(pid as number);
+                        const m = Array.isArray(resM) ? resM : (resM.items || resM.data || []);
+                        if (m.length > 0) setProjectMembers(m);
+                    } catch (e) { }
+                }
+
                 if (modalTab === "Comments") {
                     const res = await projectService.getTaskComments(pid as number, selectedTask.id);
                     setTaskComments(Array.isArray(res) ? res : (res.items || res.data || []));
@@ -228,18 +239,16 @@ const TaskManagementPage = () => {
         fetchDetails();
     }, [selectedTask, modalTab, projectId]);
 
-    // Fetch Task Requests when Project Tasks tab is active
+    // Fetch Task Requests when project changes
     useEffect(() => {
-        if (activeTab === "Project Tasks" && projectId && projectId !== ('all' as any)) {
-            fetchTaskRequests();
-        }
-    }, [activeTab, projectId]);
+        fetchTaskRequests();
+    }, [projectId]);
 
     const fetchTaskRequests = async () => {
-        if (!projectId || projectId === ('all' as any)) return;
         setIsLoadingTaskRequests(true);
         try {
-            const requests = await projectService.getTaskRequests(projectId as any);
+            const fetchParams = (projectId && projectId !== 'all') ? projectId : {};
+            const requests = await projectService.getTaskRequests(fetchParams as any);
             setTaskRequests(Array.isArray(requests) ? requests : (requests?.items || requests?.data || []));
         } catch (error) {
             console.error("Failed to fetch task requests:", error);
@@ -527,10 +536,23 @@ const TaskManagementPage = () => {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const openEditModal = (task: FrontendTask) => {
+    const openEditModal = async (task: FrontendTask) => {
         setSelectedEditTask(task);
         setEditAudioBlob(null);
         setIsEditModalOpen(true);
+
+        const targetProjId = task.project_id || (projectId === ('all' as any) ? null : projectId);
+        if (targetProjId) {
+            try {
+                const activities = await workProgressService.listActivities(targetProjId);
+                setEditModalActivities(Array.isArray(activities) ? activities : activities.items || activities.data || []);
+            } catch (err) {
+                console.error(err);
+                setEditModalActivities([]);
+            }
+        } else {
+            setEditModalActivities([]);
+        }
     };
 
     const handleEditFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -599,6 +621,11 @@ const TaskManagementPage = () => {
         if (editAudioBlob) {
             const audioFile = new File([editAudioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
             payload.append('audio_file', audioFile);
+        } else {
+            const audioUploadFile = formData.get('audio_upload') as File;
+            if (audioUploadFile && audioUploadFile.size > 0) {
+                payload.append('audio_file', audioUploadFile);
+            }
         }
 
         if (instructionImage && instructionImage.size > 0) {
@@ -1598,9 +1625,12 @@ const TaskManagementPage = () => {
                                         const projectIdKey = (p.id || p.project_id) as number;
                                         const projectName = p.project_name || p.name || `Project ${projectIdKey}`;
                                         const projectTasks = projectTasksMap[projectIdKey] || [];
+                                        const projectTasksGlobal = tasks.filter(t => (t.project_id && (t.project_id === projectIdKey)) || t.projectName === projectName);
+                                        const tasksCount = Math.max(projectTasks.length, projectTasksGlobal.length, p.tasks_count || 0, p.total_tasks || 0);
                                         const isExpanded = expandedProjects.includes(projectIdKey);
                                         const isProjLoading = !!projectLoadingMap[projectIdKey];
-                                        const project = { id: projectIdKey, name: projectName, tasksCount: projectTasks.length, status: p.status || 'Planned', tasks: projectTasks };
+                                        const projectStatus = p.status || p.project_status || 'Planned';
+                                        const project = { id: projectIdKey, name: projectName, tasksCount: tasksCount, status: projectStatus, tasks: projectTasks };
                                         return (
                                             <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                                 <div
@@ -1618,7 +1648,11 @@ const TaskManagementPage = () => {
                                                                     <Calendar className="w-3 h-3" />
                                                                     {project.tasksCount} Tasks
                                                                 </div>
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${project.status === 'Planned' ? 'border-slate-200 text-slate-500' : 'border-emerald-200 text-emerald-500 bg-emerald-50'
+                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${project.status?.toLowerCase() === 'completed' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
+                                                                    project.status?.toLowerCase() === 'ongoing' ? 'border-blue-200 text-blue-600 bg-blue-50' :
+                                                                        project.status?.toLowerCase() === 'delayed' ? 'border-rose-200 text-rose-600 bg-rose-50' :
+                                                                            project.status?.toLowerCase() === 'on hold' ? 'border-amber-200 text-amber-600 bg-amber-50' :
+                                                                                'border-slate-200 text-slate-600 bg-slate-50'
                                                                     }`}>
                                                                     {project.status}
                                                                 </span>
@@ -1798,76 +1832,81 @@ const TaskManagementPage = () => {
                                                         )}
 
                                                         {/* Task Requests Section */}
-                                                        <div className="border-t border-slate-200 p-6">
-                                                            <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                    <FileText className="w-4 h-4 text-amber-600" />
-                                                                </div>
-                                                                Task Requests ({taskRequests.length})
-                                                            </h4>
-
-                                                            {isLoadingTaskRequests ? (
-                                                                <div className="flex items-center justify-center py-8">
-                                                                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                                                                </div>
-                                                            ) : taskRequests.length > 0 ? (
-                                                                <div className="space-y-3">
-                                                                    {taskRequests.map((request) => (
-                                                                        <div
-                                                                            key={request.id}
-                                                                            className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
-                                                                        >
-                                                                            <div className="flex-1">
-                                                                                <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
-                                                                                <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
-                                                                                <div className="flex items-center gap-3 flex-wrap">
-                                                                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
-                                                                                        request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                                                                                            'bg-emerald-100 text-emerald-700'
-                                                                                        }`}>
-                                                                                        {request.priority || 'MEDIUM'}
-                                                                                    </span>
-                                                                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                                                        request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                            'bg-rose-100 text-rose-700'
-                                                                                        }`}>
-                                                                                        {request.status || 'PENDING'}
-                                                                                    </span>
-                                                                                    {request.due_date && (
-                                                                                        <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                                                            <Calendar className="w-3 h-3" />
-                                                                                            {new Date(request.due_date).toLocaleDateString()}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 ml-4">
-                                                                                <button
-                                                                                    onClick={() => handleEditTaskRequest(request)}
-                                                                                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                                                                                    title="Edit"
-                                                                                >
-                                                                                    <Edit2 className="w-4 h-4" />
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => handleDeleteTaskRequest(request.id)}
-                                                                                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
-                                                                                    title="Delete"
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </button>
-                                                                            </div>
+                                                        {(() => {
+                                                            const projectTaskRequests = taskRequests.filter(req => req.project_id === project.id || String(req.project_id) === String(project.id));
+                                                            return (
+                                                                <div className="border-t border-slate-200 p-6">
+                                                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                                                        <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                            <FileText className="w-4 h-4 text-amber-600" />
                                                                         </div>
-                                                                    ))}
+                                                                        Task Requests ({projectTaskRequests.length})
+                                                                    </h4>
+
+                                                                    {isLoadingTaskRequests ? (
+                                                                        <div className="flex items-center justify-center py-8">
+                                                                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                                                        </div>
+                                                                    ) : projectTaskRequests.length > 0 ? (
+                                                                        <div className="space-y-3">
+                                                                            {projectTaskRequests.map((request) => (
+                                                                                <div
+                                                                                    key={request.id}
+                                                                                    className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
+                                                                                >
+                                                                                    <div className="flex-1">
+                                                                                        <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
+                                                                                        <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
+                                                                                        <div className="flex items-center gap-3 flex-wrap">
+                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
+                                                                                                request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                                                                                    'bg-emerald-100 text-emerald-700'
+                                                                                                }`}>
+                                                                                                {request.priority || 'MEDIUM'}
+                                                                                            </span>
+                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                                                                request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                                    'bg-rose-100 text-rose-700'
+                                                                                                }`}>
+                                                                                                {request.status || 'PENDING'}
+                                                                                            </span>
+                                                                                            {request.due_date && (
+                                                                                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                                                                    <Calendar className="w-3 h-3" />
+                                                                                                    {new Date(request.due_date).toLocaleDateString()}
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 ml-4">
+                                                                                        <button
+                                                                                            onClick={() => handleEditTaskRequest(request)}
+                                                                                            className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                                                            title="Edit"
+                                                                                        >
+                                                                                            <Edit2 className="w-4 h-4" />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteTaskRequest(request.id)}
+                                                                                            className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
+                                                                                            title="Delete"
+                                                                                        >
+                                                                                            <Trash2 className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-center py-8 text-slate-500">
+                                                                            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                                                            <p className="text-sm font-bold">No task requests yet</p>
+                                                                            <p className="text-xs mt-1">Create your first task request to get started</p>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            ) : (
-                                                                <div className="text-center py-8 text-slate-500">
-                                                                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                                                    <p className="text-sm font-bold">No task requests yet</p>
-                                                                    <p className="text-xs mt-1">Create your first task request to get started</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>
@@ -2171,7 +2210,7 @@ const TaskManagementPage = () => {
                                                 {taskComments.map((c: any, i) => (
                                                     <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
                                                         <span className="text-xs font-bold text-slate-800 mb-1">
-                                                            {c.author_user_id === 1 ? 'Clients' : (projectMembers.find(m => m.user_id === c.author_user_id)?.full_name || `User ${c.author_user_id}`)}
+                                                            {c.author_user_id === 1 ? 'Clients' : (c.author_name || c.user_name || c.full_name || c.author_full_name || projectMembers.find(m => m.user_id === c.author_user_id)?.full_name || `User ${c.author_user_id}`)}
                                                         </span>
                                                         <p className="text-sm text-slate-700 mb-2">{c.content || c.comment || c.text || ""}</p>
                                                         <span className="text-[10px] text-slate-400">Just now</span>
@@ -2314,6 +2353,19 @@ const TaskManagementPage = () => {
                                 <select
                                     name="project_id"
                                     defaultValue={selectedEditTask?.project_id || projectId || 1}
+                                    onChange={async (e) => {
+                                        const projId = Number(e.target.value);
+                                        if (projId && !isNaN(projId)) {
+                                            try {
+                                                const activities = await workProgressService.listActivities(projId);
+                                                setEditModalActivities(Array.isArray(activities) ? activities : (activities as any).items || (activities as any).data || []);
+                                            } catch (err) {
+                                                setEditModalActivities([]);
+                                            }
+                                        } else {
+                                            setEditModalActivities([]);
+                                        }
+                                    }}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     required
                                 >
@@ -2398,7 +2450,16 @@ const TaskManagementPage = () => {
                                     )}
 
                                     {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
-                                        <span className="text-sm text-slate-400">Click to record a new voice note</span>
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-sm text-slate-400">Click to record a new voice note</span>
+                                            <span className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center my-1">OR</span>
+                                            <input
+                                                type="file"
+                                                name="audio_upload"
+                                                accept="audio/*"
+                                                className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer font-inter"
+                                            />
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -2532,7 +2593,7 @@ const TaskManagementPage = () => {
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
                                         <option value="">None</option>
-                                        {projectActivities.map((a: any) => (
+                                        {editModalActivities.map((a: any) => (
                                             <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
                                         ))}
                                     </select>

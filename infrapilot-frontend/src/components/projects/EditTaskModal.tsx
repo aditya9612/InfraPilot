@@ -3,7 +3,7 @@ import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import { boqService } from "../../services/boqService";
 import { projectService } from "../../services/projectService";
-import { masterService, type MasterEntity } from "../../services/masterService";
+import { workProgressService } from "../../services/workProgressService";
 import type { BoqItem } from "../../types/boq";
 import type { Task, TaskStatus, ProjectMember } from "../../types/project";
 import { Mic, Square, Trash } from "lucide-react";
@@ -42,7 +42,7 @@ const EditTaskModal = ({
 
   const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
-  const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
+  const [activityTypes, setActivityTypes] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -117,7 +117,7 @@ const EditTaskModal = ({
         const [boqRes, milestoneRes, activityRes] = await Promise.all([
           boqService.getBoqs({ project_id: task.project_id }),
           projectService.getMilestones(task.project_id),
-          masterService.getEntities("activity-types")
+          workProgressService.listActivities(task.project_id)
         ]);
         setBoqItems(boqRes.items || []);
         setMilestones(milestoneRes || []);
@@ -550,7 +550,7 @@ const EditTaskModal = ({
                 >
                   <option value="">None</option>
                   {activityTypes.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
+                    <option key={a.id} value={a.id}>{a.activity_name || a.name}</option>
                   ))}
                 </select>
               </div>

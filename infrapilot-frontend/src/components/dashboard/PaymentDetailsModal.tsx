@@ -42,15 +42,12 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ payment, onCl
                     <div className="grid grid-cols-2 gap-4 text-sm text-slate-600">
                         <div>
                             <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Client</p>
-                            <p className="font-bold text-slate-700">{payment.user_name || "N/A"}</p>
+                            <p className="font-bold text-slate-700">{payment.user_name || payment.client_name || "N/A"}</p>
                         </div>
-                        <div>
-                            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Project Name</p>
-                            <p className="font-bold text-slate-700">{payment.project_name || "N/A"}</p>
-                        </div>
+
                         <div>
                             <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Payment Mode</p>
-                            <p className="font-bold text-slate-700 uppercase">{payment.payment_method}</p>
+                            <p className="font-bold text-slate-700 uppercase">{payment.payment_method || payment.method || "N/A"}</p>
                         </div>
                         {payment.bank_name && (
                             <div>
@@ -100,14 +97,12 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ payment, onCl
                         )}
                     </div>
 
-                    {payment.remarks && (
-                        <div>
-                            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Remarks</p>
-                            <div className="p-3 bg-slate-50 text-slate-600 text-sm rounded-xl border border-slate-100">
-                                {payment.remarks}
-                            </div>
+                    <div>
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Remarks</p>
+                        <div className="p-3 bg-slate-50 text-slate-500 text-sm rounded-xl border border-slate-100 italic">
+                            {payment.remarks || "No remarks provided."}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">

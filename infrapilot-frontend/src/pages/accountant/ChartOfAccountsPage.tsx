@@ -11,8 +11,6 @@ import { accountingService } from "../../services/accountingService";
 import type { ChartAccount, AccountType } from "../../types/accounting";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// We will fetch from API instead of mock
-const MOCK_COA: ChartAccount[] = [];
 
 
 const accountTypeStyle: Record<string, string> = {
@@ -67,7 +65,7 @@ const sortAccountsDesc = (accounts: ChartAccount[]): ChartAccount[] => {
 
 const ChartOfAccountsPage = () => {
   const { category } = useParams<{ category: string }>();
-  const [coa, setCoa] = useState<ChartAccount[]>(MOCK_COA);
+  const [coa, setCoa] = useState<ChartAccount[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<ChartAccount | null>(null);
   const [activeTab, setActiveTab] = useState<AccountType | "All">("Asset");

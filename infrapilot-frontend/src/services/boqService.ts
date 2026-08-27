@@ -133,7 +133,8 @@ export const boqService = {
   async getBoqsByProject(projectId: number): Promise<BoqItem[]> {
     try {
       const response = await api.get(`/boq/project/${projectId}`);
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? data : data.items || data.data || [];
     } catch (error: any) {
       console.error(
         `Get Boqs for Project ${projectId} Error:`,

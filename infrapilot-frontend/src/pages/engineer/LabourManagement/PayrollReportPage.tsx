@@ -109,10 +109,10 @@ const PayrollReportPage: React.FC = () => {
     const handleExport = async (format: string = 'excel') => {
         setIsExportingExcel(true);
         try {
-            await paymentService.exportPayroll({ 
-                month: selectedMonth, 
+            await paymentService.exportPayroll({
+                month: selectedMonth,
                 year: selectedYear,
-                format: format 
+                format: format
             });
             toast.success(`Payroll exported as ${format.toUpperCase()} successfully`);
         } catch (error) {
@@ -308,6 +308,9 @@ const PayrollReportPage: React.FC = () => {
                                         <th className="px-6 py-4 text-center">OT Hours</th>
                                         <th className="px-6 py-4 text-center">Total Wage Earned</th>
                                         <th className="px-6 py-4 text-center">Status</th>
+                                        {activeTab === 'payroll_list' && (
+                                            <th className="px-6 py-4 text-center">Actions</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -363,6 +366,30 @@ const PayrollReportPage: React.FC = () => {
                                                     {r.status || (r.is_paid ? 'Paid' : 'Pending')}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 text-center space-x-2">
+                                                {(r.status?.toLowerCase() !== 'locked' && r.status?.toLowerCase() !== 'paid' && !r.is_paid) && (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            await paymentService.lockPayroll({ id: r.id });
+                                                            fetchReports();
+                                                        }}
+                                                        className="px-2 py-1 bg-rose-50 text-rose-600 rounded text-[10px] font-bold uppercase hover:bg-rose-100"
+                                                    >
+                                                        Lock
+                                                    </button>
+                                                )}
+                                                {r.status?.toLowerCase() === 'locked' && (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            await paymentService.unlockPayroll({ id: r.id });
+                                                            fetchReports();
+                                                        }}
+                                                        className="px-2 py-1 bg-amber-50 text-amber-600 rounded text-[10px] font-bold uppercase hover:bg-amber-100"
+                                                    >
+                                                        Unlock
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
 
@@ -406,16 +433,16 @@ const PayrollReportPage: React.FC = () => {
                                     ))}
 
                                     {((filteredReports.length === 0 && activeTab === 'aggregate') ||
-                                      (payrollList.length === 0 && activeTab === 'payroll_list') ||
-                                      (contractorLiability.length === 0 && activeTab === 'contractor_liability') ||
-                                      (disbursementHistory.length === 0 && activeTab === 'disbursement') ||
-                                      (weeklyVelocity.length === 0 && activeTab === 'velocity')) && !isLoading && (
-                                        <tr>
-                                            <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest">No payroll records found</p>
-                                            </td>
-                                        </tr>
-                                    )}
+                                        (payrollList.length === 0 && activeTab === 'payroll_list') ||
+                                        (contractorLiability.length === 0 && activeTab === 'contractor_liability') ||
+                                        (disbursementHistory.length === 0 && activeTab === 'disbursement') ||
+                                        (weeklyVelocity.length === 0 && activeTab === 'velocity')) && !isLoading && (
+                                            <tr>
+                                                <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest">No payroll records found</p>
+                                                </td>
+                                            </tr>
+                                        )}
 
                                 </tbody>
                             </table>
@@ -481,8 +508,8 @@ const PayrollReportPage: React.FC = () => {
                                                     key={`page-${pageNum}`}
                                                     onClick={() => setCurrentPage(pageNum)}
                                                     className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                         }`}
                                                 >
                                                     {pageNum}

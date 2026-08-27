@@ -211,12 +211,24 @@ export default function AgreementUploadPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatCard
             title="Total Agreements"
             value={stats ? String(stats.total_agreements) : "..."}
             sub="Lifetime documents secured"
             accent="text-primary"
+          />
+          <StatCard
+            title="Active Contracts"
+            value={stats?.active_contracts !== undefined ? String(stats.active_contracts) : "..."}
+            sub="Currently active"
+            accent="text-blue-500"
+          />
+          <StatCard
+            title="Missing Docs"
+            value={stats?.missing_docs !== undefined ? String(stats.missing_docs) : "..."}
+            sub="Action required"
+            accent="text-rose-500"
           />
           <StatCard
             title="Recent Uploads"

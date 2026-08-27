@@ -7,7 +7,8 @@ export interface ClientPayment {
     invoice_id?: number | null;
     project_id?: number | null;
     amount: string | number;
-    payment_method: string;
+    payment_method?: string;
+    method?: string;
     bank_name?: string | null;
     cheque_no?: string | null;
     reference_no?: string | null;
@@ -21,6 +22,7 @@ export interface ClientPayment {
     created_at?: string;
     updated_at?: string;
     user_name?: string;
+    client_name?: string;
     project_name?: string;
     invoice_no?: string;
     invoice_status?: string;

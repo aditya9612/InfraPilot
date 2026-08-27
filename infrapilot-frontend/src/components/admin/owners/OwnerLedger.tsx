@@ -3,6 +3,7 @@ import { ownerService } from "../../../services/ownerService";
 import type { Owner, OwnerLedgerResponse } from "../../../types/owner";
 import toast from "react-hot-toast";
 import { formatCurrency } from "../../../utils/currencyUtils";
+import { useProject } from "../../../context/ProjectContext";
 
 export default function OwnerLedger() {
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -11,6 +12,9 @@ export default function OwnerLedger() {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const { assignedProjects } = useProject();
+  const [selectedFilterProjectId, setSelectedFilterProjectId] = useState<number | "ALL">("ALL");
 
   // Fetch owners to populate dropdown
   useEffect(() => {
@@ -135,6 +139,21 @@ export default function OwnerLedger() {
           </div>
 
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+            <label htmlFor="projectSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Project Site:</label>
+            <select
+              id="projectSelect"
+              value={selectedFilterProjectId}
+              onChange={(e) => setSelectedFilterProjectId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
+              className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[140px] cursor-pointer"
+            >
+              <option value="ALL">All Projects</option>
+              {assignedProjects.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
             <label htmlFor="ownerSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Select Account:</label>
             <select
               id="ownerSelect"
@@ -168,109 +187,137 @@ export default function OwnerLedger() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-slate-50/30 border-b border-slate-100">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credit</p>
-          <p className="text-xl font-black text-emerald-600">{formatCurrency(ledgerData?.total_credit || 0)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debit</p>
-          <p className="text-xl font-black text-rose-600">{formatCurrency(ledgerData?.total_debit || 0)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Closing Balance</p>
-          <p className={`text-xl font-black ${(ledgerData?.balance || 0) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            {formatCurrency(ledgerData?.balance || 0)}
-          </p>
-        </div>
-      </div>
+      {/* Computed Filter Summaries */}
+      {(() => {
+        const filteredTransactions = ledgerData ? ledgerData.transactions.filter((t: any) =>
+          selectedFilterProjectId === "ALL" || Number(t.project_id) === Number(selectedFilterProjectId)
+        ) : [];
 
-      {/* Transactions Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-md z-10">
-              <th className="p-4 pl-6">Particulars</th>
-              <th className="p-4">Reference</th>
-              <th className="p-4">Type</th>
-              <th className="p-4 pr-6 text-right">Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100/50">
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="p-16 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Loading Records...</p>
-                  </div>
-                </td>
-              </tr>
-            ) : !ledgerData || ledgerData.transactions.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="p-16 text-center text-slate-400 italic text-sm font-medium">
-                  Zero transactions found for the specified account.
-                </td>
-              </tr>
-            ) : (
-              ledgerData.transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((txn) => (
-                <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
-                  <td className="p-4 pl-6 text-sm font-bold text-slate-700">
-                    {txn.description}
-                  </td>
-                  <td className="p-4 text-sm">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                      {txn.reference_type}: {txn.reference_id}
-                    </p>
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${txn.type.toLowerCase() === "credit"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                        : "bg-rose-50 text-rose-700 border-rose-100"
-                        }`}
-                    >
-                      {txn.type}
-                    </span>
-                  </td>
-                  <td
-                    className={`p-4 pr-6 text-sm font-black text-right ${txn.type.toLowerCase() === "credit" ? "text-emerald-700" : "text-rose-700"}`}
-                  >
-                    {txn.type.toLowerCase() === "credit" ? "▲" : "▼"} {formatCurrency(txn.amount)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+        const displayCredit = selectedFilterProjectId === "ALL"
+          ? (ledgerData?.total_credit || 0)
+          : filteredTransactions.reduce((acc, t: any) => t.type.toLowerCase() === "credit" ? acc + Number(t.amount) : acc, 0);
 
-      {ledgerData && ledgerData.transactions.length > itemsPerPage && (
-        <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between mt-auto">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-            Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, ledgerData.transactions.length)} of {ledgerData.transactions.length}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
-              {currentPage}
+        const displayDebit = selectedFilterProjectId === "ALL"
+          ? (ledgerData?.total_debit || 0)
+          : filteredTransactions.reduce((acc, t: any) => t.type.toLowerCase() === "debit" ? acc + Number(t.amount) : acc, 0);
+
+        const displayBalance = displayCredit - displayDebit;
+
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-slate-50/30 border-b border-slate-100">
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credit</p>
+                <p className="text-xl font-black text-emerald-600">{formatCurrency(displayCredit)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debit</p>
+                <p className="text-xl font-black text-rose-600">{formatCurrency(displayDebit)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Closing Balance</p>
+                <p className={`text-xl font-black ${displayBalance >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                  {formatCurrency(displayBalance)}
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(Math.ceil(ledgerData.transactions.length / itemsPerPage), p + 1))}
-              disabled={currentPage === Math.ceil(ledgerData.transactions.length / itemsPerPage)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-            </button>
-          </div>
-        </div>
-      )}
+
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-md z-10">
+                    <th className="p-4 pl-6">Description</th>
+                    <th className="p-4">Reference</th>
+                    <th className="p-4">Project Site</th>
+                    <th className="p-4">Type</th>
+                    <th className="p-4 pr-6 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/50">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="p-16 text-center">
+                        <div className="flex flex-col items-center justify-center gap-4">
+                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Loading Records...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-16 text-center text-slate-400 italic text-sm font-medium">
+                        Zero transactions found for the specified account and/or project.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((txn) => (
+                      <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
+                        <td className="p-4 pl-6 text-sm font-bold text-slate-700">
+                          {txn.description}
+                        </td>
+                        <td className="p-4 text-sm">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                            {txn.reference_type}: {txn.reference_id}
+                          </p>
+                        </td>
+                        <td className="p-4 min-w-[120px]">
+                          <p className="text-[11px] font-bold text-slate-600 uppercase tracking-tighter truncate">
+                            {assignedProjects.find((p: any) => Number(p.id) === Number(txn.project_id))?.project_name || (txn.project_id ? `ID: ${txn.project_id}` : "N/A")}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${txn.type.toLowerCase() === "credit"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : "bg-rose-50 text-rose-700 border-rose-100"
+                              }`}
+                          >
+                            {txn.type}
+                          </span>
+                        </td>
+                        <td
+                          className={`p-4 pr-6 text-sm font-black text-right ${txn.type.toLowerCase() === "credit" ? "text-emerald-700" : "text-rose-700"}`}
+                        >
+                          {txn.type.toLowerCase() === "credit" ? "▲" : "▼"} {formatCurrency(txn.amount)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredTransactions.length > itemsPerPage && (
+              <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between mt-auto">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                    {currentPage}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredTransactions.length / itemsPerPage), p + 1))}
+                    disabled={currentPage === Math.ceil(filteredTransactions.length / itemsPerPage)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
+
+
     </div>
   );
 }

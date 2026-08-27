@@ -30,6 +30,8 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
             <th className="px-6 py-4">Quantity</th>
             <th className="px-6 py-4">Rate (₹)</th>
             <th className="px-6 py-4">Total Amount</th>
+            <th className="px-6 py-4">Amount Paid</th>
+            <th className="px-6 py-4">Payment Pending</th>
             <th className="px-6 py-4">Issue Type</th>
           </tr>
         </thead>
@@ -61,6 +63,16 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
               <td className="px-6 py-4 text-sm font-bold text-slate-800">
                 ₹{log.total_amount.toLocaleString()}
               </td>
+              <td className="px-6 py-4">
+                <p className="text-sm font-bold text-emerald-600">
+                  ₹{(log.amount_paid || 0).toLocaleString()}
+                </p>
+              </td>
+              <td className="px-6 py-4">
+                <p className={`text-sm font-bold ${log.payment_pending && log.payment_pending > 0 ? "text-amber-500" : "text-emerald-500"}`}>
+                  ₹{(log.payment_pending || 0).toLocaleString()}
+                </p>
+              </td>
               <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                 {log.issue_type}
               </td>
@@ -68,7 +80,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
           ))}
           {logs.length === 0 && (
             <tr>
-              <td colSpan={7} className="py-12 text-center text-slate-400">
+              <td colSpan={9} className="py-12 text-center text-slate-400">
                 No activity logs found.
               </td>
             </tr>

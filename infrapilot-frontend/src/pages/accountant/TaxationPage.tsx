@@ -6,9 +6,12 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
+<<<<<<< HEAD
 import { PROJECTS } from "../../config/projectSeed";
+=======
+>>>>>>> testing
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage, Trash2, AlertTriangle } from "lucide-react";
 export interface GSTReturn {
   id: number;
   filing_period: string;
@@ -159,6 +162,7 @@ const DashboardSection = () => {
 };
 
 // 2. GST Invoices
+<<<<<<< HEAD
 // 2. GST Invoices
 const GSTInvoiceModal = ({
   isOpen,
@@ -269,6 +273,15 @@ const GSTInvoiceModal = ({
     toast.success(`${type} Invoice Recorded!`);
     onClose();
   };
+=======
+const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: () => void; type: string }) => {
+  const [projects, setProjects] = useState<any[]>([]);
+  useEffect(() => {
+    if (isOpen) {
+      projectService.getProjects().then(res => setProjects(res.items || res.data || res || [])).catch(() => {});
+    }
+  }, [isOpen]);
+>>>>>>> testing
 
   return (
     <Modal
@@ -294,6 +307,7 @@ const GSTInvoiceModal = ({
         </>
       }
     >
+<<<<<<< HEAD
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
@@ -381,6 +395,23 @@ const GSTInvoiceModal = ({
               </div>
             </div>
           </div>
+=======
+      <form onSubmit={(e) => { e.preventDefault(); toast.success(`${type} Invoice Recorded!`); onClose(); }} className="space-y-6">
+    <div className="lg:col-span-2 space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+          Basic Information
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client / Vendor Name *</label><input type="text" placeholder="Select Party" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN *</label><input type="text" placeholder="27ABCDE1234F1Z5" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number *</label><input type="text" placeholder="INV-001" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="">Select Project</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}</select></div>
+        </div>
+      </div>
+>>>>>>> testing
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
@@ -697,7 +728,7 @@ const GSTInvoicesWrapperSection = () => {
   );
 };
 
-const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; initialReturnType: string }) => {
+const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, initialData }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; initialReturnType: string; initialData?: any }) => {
   const [formData, setFormData] = useState({
     filing_period: "",
     filing_date: new Date().toISOString().split('T')[0],
@@ -738,8 +769,12 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
   };
 
   useEffect(() => {
-    setFormData(prev => ({ ...prev, return_type: initialReturnType }));
-  }, [initialReturnType, isOpen]);
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData(prev => ({ ...prev, return_type: initialReturnType, filing_period: "", filing_date: new Date().toISOString().split('T')[0], status: "Draft", taxable_value: 0, gst_liability: 0, itc_available: 0, net_gst_payable: 0 }));
+    }
+  }, [initialReturnType, isOpen, initialData]);
 
   useEffect(() => {
     setFormData(prev => ({
@@ -752,26 +787,31 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await accountingService.createGstReturn(formData);
-      toast.success("GST Return created successfully!");
+      if (initialData?.id) {
+        await accountingService.updateGstReturn(initialData.id, formData);
+        toast.success("GST Return updated successfully!");
+      } else {
+        await accountingService.createGstReturn(formData);
+        toast.success("GST Return created successfully!");
+      }
       onSuccess();
       onClose();
     } catch (err) {
-      toast.error("Failed to create GST Return");
+      toast.error(initialData?.id ? "Failed to update GST Return" : "Failed to create GST Return");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create GST Return" maxWidth="max-w-2xl" footer={
+    <Modal isOpen={isOpen} onClose={onClose} title={initialData?.id ? "Edit GST Return" : "Create GST Return"} maxWidth="max-w-2xl" footer={
       <>
         <button type="button" onClick={handleGenerate} disabled={isGenerating || !formData.filing_period} className="mr-auto px-6 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-50">
           {isGenerating ? "Generating..." : "⚡ Auto-Generate Values"}
         </button>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
         <button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50">
-          {isSubmitting ? "Creating..." : "Create GST Return"}
+          {isSubmitting ? "Saving..." : (initialData?.id ? "Update GST Return" : "Create GST Return")}
         </button>
       </>
     }>
@@ -827,45 +867,109 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType }:
   );
 };
 
+const GstReturnViewModal = ({ returnId, onClose }: { returnId: number | string | null, onClose: () => void }) => {
+  const [detail, setDetail] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!returnId) return;
+    const fetchDetail = async () => {
+      setIsLoading(true);
+      try {
+        const data = await accountingService.getGstReturn(returnId);
+        setDetail(data);
+      } catch (err: any) {
+        toast.error("Failed to fetch GST return details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [returnId]);
+
+  return (
+    <Modal isOpen={!!returnId} onClose={onClose} title="GST Return Details" maxWidth="max-w-3xl">
+      <div className="p-6">
+        {isLoading ? (
+          <div className="text-center py-8 text-slate-500">Loading...</div>
+        ) : detail ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</p><p className="font-bold text-slate-800">{detail.filing_period || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Return Type</p><p className="font-bold text-slate-800">{detail.return_type || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Value</p><p className="font-bold text-slate-800">₹{detail.taxable_value?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Liability</p><p className="font-bold text-slate-800">₹{detail.gst_liability?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ITC Available</p><p className="font-bold text-slate-800">₹{detail.itc_available?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable</p><p className="font-bold text-indigo-700">₹{detail.net_gst_payable?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Date</p><p className="font-bold text-slate-800">{detail.filing_date || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{detail.status || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{detail.created_at ? new Date(detail.created_at).toLocaleString() : "N/A"}</p></div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-500">Details not found.</div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 // 3. GST Returns
 const GSTReturnsWrapperSection = () => {
 
   const [returnsList, setReturnsList] = useState<GSTReturn[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [editData, setEditData] = useState<GSTReturn | null>(null);
+  const [viewReturnId, setViewReturnId] = useState<number | string | null>(null);
+  const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  const fetchReturns = async () => {
+    setIsLoading(true);
+    try {
+      const res = await accountingService.getGstReturns();
+      if (res.data) setReturnsList(res.data);
+      else if (Array.isArray(res)) setReturnsList(res);
+    } catch (err) {
+      console.error("Failed to fetch GST returns", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchReturns = async () => {
-      setIsLoading(true);
-      try {
-        const res = await accountingService.getGstReturns();
-        if (res.data) {
-          setReturnsList(res.data);
-        } else if (Array.isArray(res)) {
-          setReturnsList(res);
-        }
-      } catch (err) {
-        console.error("Failed to fetch GST returns", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchReturns();
   }, []);
 
-
+  const confirmDelete = async () => {
+    if (!deleteModalId) return;
+    setIsDeleting(true);
+    try {
+      await accountingService.deleteGstReturn(deleteModalId);
+      toast.success("GST Return deleted!");
+      fetchReturns();
+    } catch (err) {
+      toast.error("Failed to delete GST Return");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalId(null);
+    }
+  };
 
   const handleSuccess = async () => {
-    const res = await accountingService.getGstReturns();
-    if (res.data) setReturnsList(res.data);
-    else if (Array.isArray(res)) setReturnsList(res);
+    fetchReturns();
   };
+
+  const totalPages = Math.ceil(returnsList.length / recordsPerPage);
+  const paginatedReturns = returnsList.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center border-b border-slate-200 pb-2">
         <div></div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-primary/90 transition-all">
+        <button onClick={() => { setEditData(null); setIsModalOpen(true); }} className="bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-primary/90 transition-all">
           Create GST Return
         </button>
       </div>
@@ -875,7 +979,31 @@ const GSTReturnsWrapperSection = () => {
         onClose={() => setIsModalOpen(false)} 
         onSuccess={handleSuccess} 
         initialReturnType="" 
+        initialData={editData}
       />
+
+      <GstReturnViewModal 
+        returnId={viewReturnId} 
+        onClose={() => setViewReturnId(null)} 
+      />
+
+      <Modal isOpen={!!deleteModalId} onClose={() => setDeleteModalId(null)} title="Delete GST Return" maxWidth="max-w-md" footer={
+        <div className="flex w-full justify-center gap-4">
+          <button type="button" onClick={() => setDeleteModalId(null)} disabled={isDeleting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">
+            Cancel
+          </button>
+          <button onClick={confirmDelete} disabled={isDeleting} className="px-6 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50">
+            {isDeleting ? "Deleting..." : "Confirm Deletion"}
+          </button>
+        </div>
+      }>
+        <div className="py-6 flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <p className="text-slate-600 text-sm">Are you sure you want to delete this record?</p>
+        </div>
+      </Modal>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6">
         <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
@@ -896,10 +1024,11 @@ const GSTReturnsWrapperSection = () => {
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Net Payable</th>
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Filing Date</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {returnsList
+                {paginatedReturns
                   .map((ret, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-bold text-slate-700">{ret.filing_period}</td>
@@ -932,17 +1061,44 @@ const GSTReturnsWrapperSection = () => {
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-slate-500 tabular-nums text-right">{ret.filing_date}</td>
+                      <td className="px-5 py-3.5 text-center flex justify-center gap-2">
+                        <button onClick={() => setViewReturnId(ret.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View"><Eye size={14} /></button>
+                        <button onClick={() => { setEditData(ret); setIsModalOpen(true); }} className="w-7 h-7 flex items-center justify-center text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors" title="Edit"><Pencil size={14} /></button>
+                        <button onClick={() => setDeleteModalId(ret.id)} className="w-7 h-7 flex items-center justify-center text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors" title="Delete"><Trash2 size={14} /></button>
+                      </td>
                     </tr>
                   ))}
                 {returnsList.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-500">
                       No returns found
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        {returnsList.length > 0 && !isLoading && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-4 rounded-b-2xl">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, returnsList.length)} of {returnsList.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -953,43 +1109,48 @@ const GSTReturnsWrapperSection = () => {
 // 4. Input GST (Purchases)
 // 5. Output GST (Sales)
 // 6. TDS Management
-const CreateTdsDeductionModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) => {
+const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; initialData?: any }) => {
   const [formData, setFormData] = useState({
-    party_name: "",
-    pan_number: "",
-    invoice_number: "",
-    payment_amount: 0,
-    tds_section: "",
-    tds_rate: 0,
-    tds_amount: 0,
-    deposit_date: new Date().toISOString().split('T')[0],
-    status: "Pending",
-    vendor_bill_id: null as number | null,
-    ra_bill_id: null as number | null
+    party_name: "", pan_number: "", invoice_number: "", payment_amount: 0, tds_section: "", tds_rate: 0, tds_amount: 0, deposit_date: new Date().toISOString().split('T')[0], status: "Pending", vendor_bill_id: null as number | null, ra_bill_id: null as number | null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({
+        party_name: "", pan_number: "", invoice_number: "", payment_amount: 0, tds_section: "", tds_rate: 0, tds_amount: 0, deposit_date: new Date().toISOString().split('T')[0], status: "Pending", vendor_bill_id: null, ra_bill_id: null
+      });
+    }
+  }, [initialData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await accountingService.createTdsDeduction(formData);
-      toast.success("TDS Deduction Created!");
+      if (initialData?.id) {
+        await accountingService.updateTdsDeduction(initialData.id, formData);
+        toast.success("TDS Deduction Updated!");
+      } else {
+        await accountingService.createTdsDeduction(formData);
+        toast.success("TDS Deduction Created!");
+      }
       onSuccess();
       onClose();
     } catch (err) {
-      toast.error("Failed to create TDS Deduction");
+      toast.error(initialData?.id ? "Failed to update TDS Deduction" : "Failed to create TDS Deduction");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create TDS Deduction" maxWidth="max-w-3xl" footer={
+    <Modal isOpen={isOpen} onClose={onClose} title={initialData?.id ? "Edit TDS Deduction" : "Create TDS Deduction"} maxWidth="max-w-3xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
         <button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">
-          {isSubmitting ? "Creating..." : "Record TDS Deduction"}
+          {isSubmitting ? "Saving..." : (initialData?.id ? "Update TDS Deduction" : "Record TDS Deduction")}
         </button>
       </>
     }>
@@ -997,7 +1158,7 @@ const CreateTdsDeductionModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">party_name *</label><input type="text" required value={formData.party_name} onChange={(e) => setFormData({...formData, party_name: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pan_number *</label><input type="text" required value={formData.pan_number} onChange={(e) => setFormData({...formData, pan_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label><input type="text" value={formData.invoice_number} onChange={(e) => setFormData({...formData, invoice_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label><input type="text" value={formData.invoice_number || ""} onChange={(e) => setFormData({...formData, invoice_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">payment_amount</label><input type="number" required value={formData.payment_amount || ""} onChange={(e) => setFormData({...formData, payment_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
           <div className="col-span-2 space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_section *</label>
@@ -1008,20 +1169,139 @@ const CreateTdsDeductionModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
               <option value="194I">194I - Equipment Rental</option>
             </select>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_rate</label><input type="number" required value={formData.tds_rate || ""} onChange={(e) => setFormData({...formData, tds_rate: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_rate (%)</label><input type="number" required value={formData.tds_rate || ""} onChange={(e) => setFormData({...formData, tds_rate: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_amount</label><input type="number" required value={formData.tds_amount || ""} onChange={(e) => setFormData({...formData, tds_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date} onChange={(e) => setFormData({...formData, deposit_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><input type="text" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor_bill_id</label><input type="number" value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra_bill_id</label><input type="number" value={formData.ra_bill_id || ""} onChange={(e) => setFormData({...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date || ""} onChange={(e) => setFormData({...formData, deposit_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="Pending">Pending</option><option value="Deposited">Deposited</option></select></div>
+          
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor bill</label>
+            <select value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option value="">Select Vendor Bill</option>
+              <option value="1">ABC Corp</option>
+              <option value="2">XYZ Steel</option>
+              <option value="3">L&T</option>
+              <option value="4">GHI Tech</option>
+              {initialData?.vendor_bill_id && !["1","2","3","4"].includes(String(initialData.vendor_bill_id)) && <option value={initialData.vendor_bill_id}>Vendor Bill {initialData.vendor_bill_id}</option>}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra bill</label>
+            <select value={formData.ra_bill_id || ""} onChange={(e) => setFormData({...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option value="">Select RA Bill</option>
+              <option value="1">Excavation</option>
+              <option value="2">Concreting</option>
+              <option value="9">Finishing</option>
+              {initialData?.ra_bill_id && !["1","2","9"].includes(String(initialData.ra_bill_id)) && <option value={initialData.ra_bill_id}>RA Bill {initialData.ra_bill_id}</option>}
+            </select>
+          </div>
         </div>
       </form>
     </Modal>
   );
 };
 
+const TdsViewModal = ({ tdsId, onClose }: { tdsId: number | string | null, onClose: () => void }) => {
+  const [tdsDetail, setTdsDetail] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!tdsId) return;
+    const fetchDetail = async () => {
+      setIsLoading(true);
+      try {
+        const data = await accountingService.getTdsDeduction(tdsId);
+        setTdsDetail(data);
+      } catch (err: any) {
+        toast.error("Failed to fetch TDS details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [tdsId]);
+
+  return (
+    <Modal isOpen={!!tdsId} onClose={onClose} title="TDS Deduction Details" maxWidth="max-w-3xl">
+      <div className="p-6">
+        {isLoading ? (
+          <div className="text-center py-8 text-slate-500">Loading...</div>
+        ) : tdsDetail ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party Name</p><p className="font-bold text-slate-800">{tdsDetail.party_name || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PAN Number</p><p className="font-bold text-slate-800 font-mono">{tdsDetail.pan_number || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number</p><p className="font-bold text-slate-800">{tdsDetail.invoice_number || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Amount</p><p className="font-bold text-slate-800">₹{tdsDetail.payment_amount || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section</p><p className="font-bold text-slate-800">{tdsDetail.tds_section || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Rate</p><p className="font-bold text-slate-800">{tdsDetail.tds_rate || 0}%</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</p><p className="font-bold text-amber-600">₹{tdsDetail.tds_amount || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deposit Date</p><p className="font-bold text-slate-800">{tdsDetail.deposit_date || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{tdsDetail.status || "N/A"}</p></div>
+            {tdsDetail.vendor_bill_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Bill</p><p className="font-bold text-slate-800">{tdsDetail.vendor_bill_name}</p></div>}
+            {tdsDetail.ra_bill_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RA Bill</p><p className="font-bold text-slate-800">{tdsDetail.ra_bill_name}</p></div>}
+            {tdsDetail.created_by_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created By</p><p className="font-bold text-slate-800">{tdsDetail.created_by_name}</p></div>}
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{tdsDetail.created_at ? new Date(tdsDetail.created_at).toLocaleString() : "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated At</p><p className="font-bold text-slate-800">{tdsDetail.updated_at ? new Date(tdsDetail.updated_at).toLocaleString() : "N/A"}</p></div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-500">Details not found.</div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 const TDSManagementSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewTdsId, setViewTdsId] = useState<number | string | null>(null);
+  const [tdsList, setTdsList] = useState<any[]>([]);
+  const [editData, setEditData] = useState<any>(null);
+  const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  const fetchTdsList = async () => {
+    try {
+      const data = await accountingService.getTdsDeductions();
+      setTdsList(data?.items || data?.data || data || []);
+    } catch (err) {
+      toast.error("Failed to fetch TDS deductions");
+    }
+  };
+
+  useEffect(() => {
+    fetchTdsList();
+  }, []);
+
+  const confirmDelete = async () => {
+    if (!deleteModalId) return;
+    setIsDeleting(true);
+    try {
+      await accountingService.deleteTdsDeduction(deleteModalId);
+      toast.success("TDS Deduction deleted!");
+      fetchTdsList();
+    } catch (err) {
+      toast.error("Failed to delete TDS deduction");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalId(null);
+    }
+  };
+
+  const totalPages = Math.ceil(tdsList.length / recordsPerPage);
+  const paginatedTdsList = tdsList.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  const showVendorBill = tdsList.some(r => r.vendor_bill_name);
+  const showRABill = tdsList.some(r => r.ra_bill_name);
+  const showCreatedBy = tdsList.some(r => r.created_by_name);
+
+  const headers = ["Party Name", "PAN Number", "Invoice Number", "Payment Amount", "TDS Section", "TDS Rate", "TDS Amount", "Deposit Date", "Status"];
+  if (showVendorBill) headers.push("Vendor Bill");
+  if (showRABill) headers.push("RA Bill");
+  if (showCreatedBy) headers.push("Created By");
+  headers.push("Actions");
 
   return (
     <div className="space-y-6">
@@ -1030,23 +1310,97 @@ const TDSManagementSection = () => {
           <h2 className="text-base font-bold text-slate-800">TDS Management</h2>
           <p className="text-xs text-slate-500">Manage TDS deductions and payments</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm">
+        <button onClick={() => { setEditData(null); setIsModalOpen(true); }} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm">
           + Create TDS Deduction
         </button>
       </div>
       
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          Recent TDS Deductions
-        </h3>
-        <p className="text-sm text-slate-500">No recent deductions found.</p>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Recent TDS Deductions</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                {headers.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paginatedTdsList.length > 0 ? paginatedTdsList.map((row, i) => (
+                <tr key={i} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 text-xs text-slate-800 font-bold whitespace-nowrap">{row.party_name}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap font-mono">{row.pan_number}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.invoice_number || "N/A"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap font-bold">₹{row.payment_amount}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.tds_section}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.tds_rate}%</td>
+                  <td className="px-4 py-3 text-xs text-amber-600 whitespace-nowrap font-bold">₹{row.tds_amount}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.deposit_date}</td>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap"><span className={`px-2 py-1 rounded-md font-bold text-[10px] uppercase ${row.status === 'Deposited' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.status}</span></td>
+                  {showVendorBill && <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.vendor_bill_name}</td>}
+                  {showRABill && <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.ra_bill_name}</td>}
+                  {showCreatedBy && <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{row.created_by_name}</td>}
+                  <td className="px-4 py-3 text-xs whitespace-nowrap flex gap-2">
+                    <button onClick={() => setViewTdsId(row.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View"><Eye size={14} /></button>
+                    <button onClick={() => { setEditData(row); setIsModalOpen(true); }} className="w-7 h-7 flex items-center justify-center text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors" title="Edit"><Pencil size={14} /></button>
+                    <button onClick={() => setDeleteModalId(row.id)} className="w-7 h-7 flex items-center justify-center text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors" title="Delete"><Trash2 size={14} /></button>
+                  </td>
+                </tr>
+              )) : <tr><td colSpan={headers.length} className="text-center py-8 text-sm text-slate-500">No recent deductions found.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {tdsList.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, tdsList.length)} of {tdsList.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-500 text-white text-xs font-bold shadow-sm">{currentPage}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <CreateTdsDeductionModal 
+      <TdsDeductionModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={() => {}} 
+        onClose={() => { setIsModalOpen(false); setEditData(null); }} 
+        onSuccess={fetchTdsList}
+        initialData={editData}
       />
+      <TdsViewModal 
+        tdsId={viewTdsId} 
+        onClose={() => setViewTdsId(null)} 
+      />
+
+      <Modal isOpen={!!deleteModalId} onClose={() => setDeleteModalId(null)} title="Delete TDS Deduction" maxWidth="max-w-md" footer={
+        <div className="flex w-full justify-center gap-4">
+          <button type="button" onClick={() => setDeleteModalId(null)} disabled={isDeleting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">
+            Cancel
+          </button>
+          <button onClick={confirmDelete} disabled={isDeleting} className="px-6 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50">
+            {isDeleting ? "Deleting..." : "Confirm Deletion"}
+          </button>
+        </div>
+      }>
+        <div className="py-6 flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <p className="text-slate-600 text-sm">Are you sure you want to delete this record?</p>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -511,39 +511,39 @@ const EngineerDashboard = () => {
                                 {timelinePhases.slice((timelinePage - 1) * timelineItemsPerPage, timelinePage * timelineItemsPerPage).map((phase: any, index: number) => {
                                     const globalIndex = (timelinePage - 1) * timelineItemsPerPage + index;
                                     return (
-                                    <div key={phase.id} className="flex gap-4 items-start">
-                                        <div className="flex flex-col items-center shrink-0">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-500 border-emerald-500 text-white" : phase.status?.toUpperCase() === "IN_PROGRESS" || phase.status?.toUpperCase() === "IN PROGRESS" ? "bg-primary border-primary text-white" : "bg-white border-slate-200 text-slate-400"}`}>
-                                                {phase.status?.toUpperCase() === "COMPLETED" ? (
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                                                ) : (
-                                                    <span>{globalIndex + 1}</span>
+                                        <div key={phase.id} className="flex gap-4 items-start">
+                                            <div className="flex flex-col items-center shrink-0">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-500 border-emerald-500 text-white" : phase.status?.toUpperCase() === "IN_PROGRESS" || phase.status?.toUpperCase() === "IN PROGRESS" ? "bg-primary border-primary text-white" : "bg-white border-slate-200 text-slate-400"}`}>
+                                                    {phase.status?.toUpperCase() === "COMPLETED" ? (
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                                    ) : (
+                                                        <span>{globalIndex + 1}</span>
+                                                    )}
+                                                </div>
+                                                {index < Math.min(timelineItemsPerPage, timelinePhases.length - (timelinePage - 1) * timelineItemsPerPage) - 1 && (
+                                                    <div className={`w-0.5 h-8 mt-1 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-200" : "bg-slate-100"}`} />
                                                 )}
                                             </div>
-                                            {index < Math.min(timelineItemsPerPage, timelinePhases.length - (timelinePage - 1) * timelineItemsPerPage) - 1 && (
-                                                <div className={`w-0.5 h-8 mt-1 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-200" : "bg-slate-100"}`} />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 pb-4">
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                                <div>
-                                                    <p className="text-sm font-bold text-slate-800">{phase.phase}</p>
-                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">{phase.start} → {phase.end}</p>
+                                            <div className="flex-1 pb-4">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-800">{phase.phase}</p>
+                                                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{phase.start} → {phase.end}</p>
+                                                    </div>
+                                                    <span className={`w-fit px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-widest shrink-0 ${phaseStatusStyle[phase.status] || phaseStatusStyle[phase.status?.toUpperCase()] || phaseStatusStyle["Upcoming"]}`}>
+                                                        {phase.status}
+                                                    </span>
                                                 </div>
-                                                <span className={`w-fit px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-widest shrink-0 ${phaseStatusStyle[phase.status] || phaseStatusStyle[phase.status?.toUpperCase()] || phaseStatusStyle["Upcoming"]}`}>
-                                                    {phase.status}
-                                                </span>
+                                                {phase.status?.toUpperCase() !== "UPCOMING" && phase.status?.toUpperCase() !== "PLANNED" && (
+                                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-700 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-400" : "bg-primary"}`}
+                                                            style={{ width: `${phase.progress}%` }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
-                                            {phase.status?.toUpperCase() !== "UPCOMING" && phase.status?.toUpperCase() !== "PLANNED" && (
-                                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-700 ${phase.status?.toUpperCase() === "COMPLETED" ? "bg-emerald-400" : "bg-primary"}`}
-                                                        style={{ width: `${phase.progress}%` }}
-                                                    />
-                                                </div>
-                                            )}
                                         </div>
-                                    </div>
                                     );
                                 })}
                             </div>

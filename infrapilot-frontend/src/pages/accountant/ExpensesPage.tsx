@@ -214,11 +214,33 @@ const ExpenseEntrySection = () => {
 const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
   const [projectName, setProjectName] = useState<string>("");
   const [boqItemName, setBoqItemName] = useState<string>("");
 
   useEffect(() => {
     let isMounted = true;
+=======
+  const [projects, setProjects] = useState<any[]>([]);
+  const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const pdata = await projectService.getProjects(100, 0);
+        setProjects(Array.isArray(pdata) ? pdata : (pdata as any).items || []);
+      } catch (err) {}
+    };
+    if (isOpen) fetchProjects();
+  }, [isOpen]);
+
+  const getProjectName = (id: any) => {
+    const p = projects.find(p => String(p.id) === String(id));
+    return p ? (p.project_name || p.name) : (id || '—');
+  };
+
+  useEffect(() => {
+>>>>>>> testing
     const load = async () => {
       if (!expense) return;
       try {
@@ -315,7 +337,11 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
                 </div>
                 <p className="text-white/70 text-xs font-bold mb-2">Expense #{data.id}</p>
                 <div className="flex flex-wrap gap-2">
+<<<<<<< HEAD
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projectName || '—'}</span>
+=======
+                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{getProjectName(data.project_id)}</span>
+>>>>>>> testing
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
                 </div>
               </div>
@@ -325,7 +351,11 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: 'Expense No', value: `EXP-${data.id}` },
+<<<<<<< HEAD
               { label: 'Project', value: projectName || '—' },
+=======
+              { label: 'Project', value: getProjectName(data.project_id) },
+>>>>>>> testing
               { label: 'Category', value: data.category || '—' },
               { label: 'Payment Mode', value: data.payment_mode || '—' },
               { label: 'Expense Date', value: data.expense_date || '—' },
@@ -1202,22 +1232,31 @@ const BOQComparisonSection = () => {
     fetchProjects();
   }, []);
 
-  // Fetch BOQ when project changes
+  // Fetch BOQ & Summary when project changes
+  const [expenseSummary, setExpenseSummary] = useState<any>(null);
+
   useEffect(() => {
     if (!selectedProjectId) return;
-    const fetchBoq = async () => {
+    const fetchBoqAndSummary = async () => {
       try {
         setLoadingBoq(true);
         setBoqData(null);
-        const res = await expenseService.getBoqComparison(selectedProjectId);
-        setBoqData(res);
+        setExpenseSummary(null);
+        
+        // Fetch BOQ Comparison
+        const resBoq = await expenseService.getBoqComparison(selectedProjectId);
+        setBoqData(resBoq);
+
+        // Fetch missing Expense Summary API
+        const resSummary = await expenseService.getProjectExpenseSummary(selectedProjectId);
+        setExpenseSummary(resSummary);
       } catch (err) {
-        toast.error("Failed to fetch BOQ comparison");
+        toast.error("Failed to fetch BOQ or Expense Summary");
       } finally {
         setLoadingBoq(false);
       }
     };
-    fetchBoq();
+    fetchBoqAndSummary();
   }, [selectedProjectId]);
 
   // Normalize: API may return array or { items: [] } or { boq_items: [] }
@@ -1267,6 +1306,28 @@ const BOQComparisonSection = () => {
           )}
         </div>
       </div>
+
+      {/* Project Expense Summary (Newly integrated API) */}
+      {!loadingBoq && expenseSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Project Expense</p>
+              <p className="text-xl font-black text-rose-500">{fmt(expenseSummary.total_expense || 0)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-lg">💰</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Allocated BOQ</p>
+              <p className="text-xl font-black text-blue-600">
+                {fmt(boqItems.reduce((sum, item) => sum + (item.estimated ?? item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0)), 0))}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg">📈</div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center">

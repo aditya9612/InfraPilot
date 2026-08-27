@@ -160,6 +160,8 @@ export interface InventoryLog {
   payment_pending: number;
   issue_type: string;
   project_id: number;
+  boq_item_id?: number | null;
+  task_id?: number | null;
   created_at: string;
 }
 

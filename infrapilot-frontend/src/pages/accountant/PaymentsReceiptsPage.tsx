@@ -7,10 +7,15 @@ import Modal from "../../components/common/Modal";
 import api from "../../services/api";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
+<<<<<<< HEAD
 import { PROJECTS } from "../../config/projectSeed";
 
 const PETTY_CASH_CATEGORIES = ["Tea Expenses", "Diesel", "Site Travel", "Local Material Purchase", "Stationery", "Miscellaneous"];
 const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equipment Owner", "Land Owner", "Legal Entity"];
+=======
+import { materialService } from "../../services/materialService";
+import api from "../../services/api";
+>>>>>>> testing
 
 // --- DATE HELPERS (Exact API Response String) ---
 const formatDateTimeDMY = (dateStr: any): string => {
@@ -173,6 +178,7 @@ const ProjectNameCell = ({
 
 // --- SECTIONS ---
 
+<<<<<<< HEAD
 
 
 
@@ -181,7 +187,10 @@ const MOCK_PAYMENTS = [
   { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" }
 ];
 
+=======
+>>>>>>> testing
 // 1. Transactions removed (Moved to Fund Transfer)
+
 
 // 2. Receipts Section (Receive Payment)
 const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
@@ -238,7 +247,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   const handleApprove = (id: string) => {
     setReceipts(prev => prev.map(r => r.id === id ? { ...r, status: "Cleared" } : r));
-    toast.success("Receipt cleared! (Mock)");
+    toast.success("Receipt cleared!");
   };
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -266,10 +275,15 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
+<<<<<<< HEAD
   const filtered = [...receipts].sort((a: any, b: any) => {
     const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
     const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
     return timeB - timeA;
+=======
+  const filtered = [...receipts].sort((a, b) => {
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+>>>>>>> testing
   });
   
   const totalPages = Math.ceil(filtered.length / recordsPerPage);
@@ -326,6 +340,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.linked_to || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.invoice_name || r.invoice_id || '-'}</td>
+<<<<<<< HEAD
                     <td className="px-4 py-3 text-slate-700 font-medium">
                       <ProjectNameCell projectId={r.project_id} item={r} projects={projects} />
                     </td>
@@ -334,6 +349,14 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700 text-xs">
                       <div><span className="text-slate-400">Cre:</span> {r.created_at ? formatDateTimeDMY(r.created_at) : '-'}</div>
                       <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? formatDateTimeDMY(r.updated_at) : '-'}</div>
+=======
+                    <td className="px-4 py-3 text-slate-700 font-medium">{projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.project_name || projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.name || r.project_id || '-'}</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">₹ {(r.amount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.reference || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 text-xs">
+                      <div><span className="text-slate-400">Cre:</span> {r.created_at || '-'}</div>
+                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at || '-'}</div>
+>>>>>>> testing
                     </td>
 
                   </tr>
@@ -458,42 +481,72 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     (initialSubTab as any) || "create"
   );
   
-  const [payments, setPayments] = useState<any[]>(MOCK_PAYMENTS);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [vendorBills, setVendorBills] = useState<any[]>([]);
 
   const [editingPayment, setEditingPayment] = useState<any>(null);
+
+  useEffect(() => {
+    materialService.getSuppliers().then(res => setSuppliers(res || [])).catch(()=>null);
+    api.get("/vendor-bills").then(res => setVendorBills(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(()=>null);
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      const data = await accountingService.getPaymentVouchers();
+      setPayments(Array.isArray(data) ? data : data?.data || data?.items || []);
+    } catch (err) {
+      toast.error("Failed to fetch payment vouchers");
+    }
+  };
 
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
 
-  const handleDelete = (id: string) => {
-    setPayments(prev => prev.filter(p => p.id !== id));
-    toast.success("Payment voucher deleted!");
+  useEffect(() => {
+    if (activeSubTab === "list" || activeSubTab === "approval") {
+      fetchPayments();
+    }
+  }, [activeSubTab]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await accountingService.cancelVoucher(id);
+      toast.success("Payment voucher cancelled!");
+      fetchPayments();
+    } catch (err) {
+      toast.error("Failed to cancel payment voucher");
+    }
   };
 
-  const handleApprove = (id: string) => {
-    setPayments(prev => prev.map(p => p.id === id ? { ...p, status: "Paid" } : p));
-    toast.success("Payment approved!");
+  const handleApprove = async (id: string) => {
+    try {
+      await accountingService.markVoucherPaid(id);
+      toast.success("Payment approved!");
+      fetchPayments();
+    } catch (err) {
+      toast.error("Failed to approve payment");
+    }
   };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newPay: any = {};
     formData.forEach((value, key) => { newPay[key] = value; });
+    newPay.amount = Number(newPay.amount || 0);
 
-    if (editingPayment) {
-      setPayments(prev => prev.map(p => p.id === editingPayment.id ? { ...p, ...newPay, amount: Number(newPay.amount || 0) } : p));
-      toast.success("Payment updated!");
-    } else {
-      newPay.id = `PAY-${Math.floor(Math.random() * 1000)}`;
-      newPay.amount = Number(newPay.amount || 0);
-      newPay.status = newPay.status || "Pending";
-      newPay.type = newPay.type || "Vendor Payment";
-      setPayments(prev => [newPay, ...prev]);
+    try {
+      await accountingService.createPaymentVoucher(newPay);
       toast.success("Payment voucher submitted!");
+      fetchPayments();
+      setActiveSubTab("list");
+      setEditingPayment(null);
+    } catch (err) {
+      toast.error("Failed to save payment voucher");
     }
-    setActiveSubTab("list");
   };
 
   const filtered = [...payments].sort((a: any, b: any) => {
@@ -567,25 +620,46 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
                 <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-                Vendor / Contractor Information
+                Voucher Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Voucher Number *</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date *</label><input type="date" name="date" defaultValue={editingPayment?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date *</label><input type="datetime-local" name="payment_date" defaultValue={editingPayment?.payment_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required /></div>
+                
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party Type *</label>
-                  <select name="type" defaultValue={editingPayment?.type || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                  <select name="party_type" defaultValue={editingPayment?.party_type || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
                     <option value="">Select Type...</option>
-                    {PARTY_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="Supplier">Supplier</option>
+                    <option value="Contractor">Contractor</option>
                   </select>
                 </div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor / Contractor Name *</label><input type="text" name="party" defaultValue={editingPayment?.party || ""} placeholder="Select Party" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier *</label>
+                  <select name="supplier_id" defaultValue={editingPayment?.supplier_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="">None</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor *</label>
+                  <select name="contractor_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="0">None</option>
+                    <option value="1">Contractor X</option>
+                    <option value="2">Contractor Y</option>
+                  </select>
+                </div>
+
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Linked Bill (Optional)</label>
-                  <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option>Select Pending Bill...</option>
-                    <option>BILL-VEN-102 (₹2,50,000 pending)</option>
-                    <option>BILL-CON-045 (₹10,00,000 pending)</option>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Bill *</label>
+                  <select name="vendor_bill_id" defaultValue={editingPayment?.vendor_bill_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="">None</option>
+                    {vendorBills.map(b => (
+                      <option key={b.id} value={b.id}>{b.bill_number || `Bill #${b.id}`} - {b.vendor_name || b.supplier_name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -594,30 +668,52 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
                 <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                Payment Details
+                Amount Details
               </h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Amount (Base) *</label><input type="number" name="amount" defaultValue={editingPayment?.amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Deduction</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS / Retention Deduction</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable Amount *</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Amount *</label><input type="number" name="base_amount" defaultValue={editingPayment?.base_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingPayment?.gst_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                
+                <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Amount</label><input type="number" name="gross_amount" defaultValue={editingPayment?.gross_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold" /></div>
+                
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingPayment?.tds_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" /></div>
+                
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retention Amount</label><input type="number" name="retention_amount" defaultValue={editingPayment?.retention_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" /></div>
+                
+                <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable Amount *</label><input type="number" name="net_payable_amount" defaultValue={editingPayment?.net_payable_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" /></div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+                Payment Execution
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
-                  <select name="mode" defaultValue={editingPayment?.mode || "BankTransfer"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Method *</label>
+                  <select name="payment_method" defaultValue={editingPayment?.payment_method || "BankTransfer"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
                     <option value="BankTransfer">Bank Transfer</option>
                     <option value="Cheque">Cheque</option>
                     <option value="Cash">Cash</option>
                     <option value="UPI">UPI</option>
-                    <option value="Adjustment">Adjustment</option>
                   </select>
                 </div>
+                
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pay From Bank Account *</label>
-                  <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option>HDFC Bank - Current A/c - 1234</option><option>SBI Bank - Escrow A/c - 5678</option>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
+                  <select name="bank_account_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="0">Select Bank Account...</option>
+                    <option value="1">HDFC Bank - Current A/c - 1234</option>
+                    <option value="2">SBI Bank - Escrow A/c - 5678</option>
                   </select>
                 </div>
-                <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Number / Remarks</label><input type="text" placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference No</label>
+                  <input type="text" name="reference_no" defaultValue={editingPayment?.reference_no || ""} placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+                </div>
               </div>
             </div>
           </div>
@@ -676,6 +772,76 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 // 4. Petty Cash Section
 const PettyCashSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [pettyCashData, setPettyCashData] = useState<any[]>([]);
+  const [expenseAccounts, setExpenseAccounts] = useState<any[]>([]);
+
+  const fetchPettyCash = async () => {
+    try {
+      const res = await accountingService.getPettyCashLedger();
+      setPettyCashData(Array.isArray(res) ? res : res?.items || res?.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+    accountingService.getAccounts({ limit: 100 }).then(res => {
+      const accounts = Array.isArray(res) ? res : res?.items || res?.data || [];
+      setExpenseAccounts(accounts.filter((a: any) => a.type === 'Expense' || a.account_type === 'Expense'));
+    }).catch(() => {});
+    fetchPettyCash();
+  }, []);
+
+  const [formData, setFormData] = useState({
+    type: "CASH_OUT",
+    transaction_date: new Date().toISOString().split("T")[0],
+    category_id: 0,
+    source_account_id: 0,
+    amount: 0,
+    paid_to_received_from: "",
+    approved_by: 0,
+    remarks: ""
+  });
+
+  const handleSaveTransaction = async () => {
+    if (!formData.amount || !formData.category_id || !formData.source_account_id) {
+      toast.error("Please fill required fields (Category, Source Account, Amount)");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await accountingService.createPettyCashTransaction({
+        type: formData.type,
+        transaction_date: formData.transaction_date,
+        category_id: Number(formData.category_id),
+        source_account_id: Number(formData.source_account_id),
+        amount: Number(formData.amount),
+        paid_to_received_from: formData.paid_to_received_from,
+        approved_by: Number(formData.approved_by),
+        remarks: formData.remarks
+      });
+      toast.success("Petty Cash transaction added successfully!");
+      setIsModalOpen(false);
+      setFormData({
+        type: "CASH_OUT",
+        transaction_date: new Date().toISOString().split("T")[0],
+        category_id: 0,
+        source_account_id: 0,
+        amount: 0,
+        paid_to_received_from: "",
+        approved_by: 0,
+        remarks: ""
+      });
+      fetchPettyCash();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to add transaction");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -695,17 +861,20 @@ const PettyCashSection = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record New Transaction" maxWidth="max-w-2xl">
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Cash Out (Expense)</option><option>Cash In (Top-up)</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="">Select...</option>{PETTY_CASH_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹)</label><input type="number" placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><input type="text" placeholder="Manager Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" value={formData.transaction_date} onChange={(e) => setFormData({...formData, transaction_date: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category *</label><select value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select...</option>{expenseAccounts.map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Account *</label><select value={formData.source_account_id} onChange={(e) => setFormData({...formData, source_account_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹) *</label><input type="number" value={formData.amount || ""} onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})} placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" value={formData.paid_to_received_from} onChange={(e) => setFormData({...formData, paid_to_received_from: e.target.value})} placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><select value={formData.approved_by} onChange={(e) => setFormData({...formData, approved_by: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Approver...</option><option value={1}>Admin</option><option value={2}>Manager</option></select></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           </div>
           <div className="flex justify-end pt-4 border-t border-slate-100 gap-3">
             <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-            <button onClick={() => { toast.success("Petty Cash transaction added"); setIsModalOpen(false); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95">Save Transaction</button>
+            <button onClick={handleSaveTransaction} disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95">
+              {isSubmitting ? "Saving..." : "Save Transaction"}
+            </button>
           </div>
         </div>
       </Modal>
@@ -725,6 +894,7 @@ const PettyCashSection = () => {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
+<<<<<<< HEAD
           <tr className="hover:bg-slate-50/50 transition-colors">
             <td className="px-4 py-3 text-xs font-bold text-slate-600">PC-1001</td>
             <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-15")}</td>
@@ -735,6 +905,22 @@ const PettyCashSection = () => {
             <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,500</td>
             <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹24,500</td>
           </tr>
+=======
+          {pettyCashData.length > 0 ? pettyCashData.map((item, index) => (
+            <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-500">{item.date ? item.date.split('T')[0] : (item.transaction_date ? item.transaction_date.split('T')[0] : '-')}</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">{item.category?.name || item.category || expenseAccounts.find(c => c.id === item.category_id)?.account_name || item.category_id || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-500">{item.remarks || item.description || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-600">{item.paid_to || item.paid_to_received_from || '-'}</td>
+              <td className="px-4 py-3 text-xs text-emerald-600 text-right">{parseFloat(item.cash_in) > 0 ? `₹${item.cash_in}` : (item.type === 'CASH_IN' ? `₹${item.amount}` : '—')}</td>
+              <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">{parseFloat(item.cash_out) > 0 ? `₹${item.cash_out}` : (item.type === 'CASH_OUT' ? `₹${item.amount}` : '—')}</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{item.balance || '0'}</td>
+            </tr>
+          )) : (
+            <tr><td colSpan={8} className="text-center py-8 text-xs text-slate-400">No transactions found</td></tr>
+          )}
+>>>>>>> testing
         </tbody>
       </table>
     </div>
@@ -920,6 +1106,7 @@ const BankTransactionsSection = () => {
                     <tr key={t.id || t.reference || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t.type || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">{t.mode || '-'}</td>
+<<<<<<< HEAD
                       <td className="px-4 py-3 text-xs text-slate-700 font-medium">
                         <ProjectNameCell projectId={t.project_id} item={t} projects={projects} />
                       </td>
@@ -928,6 +1115,14 @@ const BankTransactionsSection = () => {
                       <td className="px-4 py-3 text-xs text-slate-500">
                         <div><span className="text-slate-400">Cre:</span> {t.created_at ? formatDateTimeDMY(t.created_at) : '-'}</div>
                         <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? formatDateTimeDMY(t.updated_at) : '-'}</div>
+=======
+                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">{projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.project_name || projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.name || t.project_id || '-'}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹ {Number(t.amount || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500 font-mono">{t.reference || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        <div><span className="text-slate-400">Cre:</span> {t.created_at || '-'}</div>
+                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at || '-'}</div>
+>>>>>>> testing
                       </td>
                     </tr>
                   ))

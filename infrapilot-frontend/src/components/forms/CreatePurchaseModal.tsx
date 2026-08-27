@@ -9,6 +9,7 @@ interface CreatePurchaseModalProps {
     onClose: () => void;
     projectId: number;
     projectName: string;
+    projects?: any[];
     onSuccess: () => void;
 }
 
@@ -17,6 +18,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     onClose,
     projectId,
     projectName,
+    projects,
     onSuccess,
 }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,14 +35,39 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         warranty_end_date: "",
         notes: "",
         boq_item_id: 0,
+        project_id: projectId || 0
     });
 
     useEffect(() => {
-        if (isOpen && projectId) {
-            equipmentService.listEquipment({ project_id: projectId }).then(res => setAssets(res.items || []));
-            boqService.getBoqsByProject(projectId).then(res => setBoqItems(res || []));
+        if (isOpen) {
+            setFormData(prev => ({ ...prev, project_id: projectId || 0, boq_item_id: 0 }));
+
+            // Load all available equipment recursively to bypass 100 limit
+            const fetchAssets = async () => {
+                let allEq: any[] = [];
+                let offset = 0;
+                while (true) {
+                    const res = await equipmentService.listEquipment({ limit: 100, offset }).catch(() => ({ items: [] }));
+                    const items = res.items || [];
+                    allEq = allEq.concat(items);
+                    if (items.length < 100) break;
+                    offset += 100;
+                }
+                setAssets(allEq);
+            };
+            fetchAssets();
         }
     }, [isOpen, projectId]);
+
+    useEffect(() => {
+        if (isOpen) {
+            if (formData.project_id && formData.project_id > 0) {
+                boqService.getBoqsByProject(formData.project_id).then(res => setBoqItems(res || []));
+            } else {
+                setBoqItems([]);
+            }
+        }
+    }, [isOpen, formData.project_id]);
 
     if (!isOpen) return null;
 
@@ -48,25 +75,26 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: ["asset_id", "quantity", "unit_price", "boq_item_id"].includes(name) ? Number(value) : value
+            [name]: ["asset_id", "quantity", "unit_price", "boq_item_id", "project_id"].includes(name) ? Number(value) : value
         }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.invoice_number || !formData.invoice_number.trim()) {
+            toast.error("Invoice number is required.");
+            return;
+        }
         if (!formData.asset_id || formData.asset_id === 0) {
             toast.error("Please select an asset.");
             return;
         }
-        if (!projectId || projectId === 0) {
-            toast.error("No project selected. Please select a project first.");
-            return;
-        }
+
         setIsSubmitting(true);
         try {
             await equipmentService.createPurchase({
                 ...formData,
-                project_id: projectId,
+                project_id: formData.project_id && formData.project_id > 0 ? formData.project_id : 0,
                 // send null when no BOQ item selected (0 fails BE validation)
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
                 // send null when no warranty date
@@ -183,13 +211,14 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Invoice Number */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Invoice Number
+                                    Invoice Number <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="invoice_number"
                                     value={formData.invoice_number}
                                     onChange={handleChange}
+                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                     placeholder="Enter invoice number"
                                 />
@@ -257,17 +286,31 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                 />
                             </div>
 
-                            {/* Project Name (Read Only) */}
+                            {/* Project Name (Dropdown or Read Only) */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Project Name <span className="text-rose-500">*</span>
+                                    Project Name
                                 </label>
-                                <input
-                                    type="text"
-                                    value={projectName}
-                                    readOnly
-                                    className="w-full px-5 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-500 cursor-not-allowed"
-                                />
+                                {projects && projects.length > 0 ? (
+                                    <select
+                                        name="project_id"
+                                        value={formData.project_id}
+                                        onChange={handleChange}
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all appearance-none"
+                                    >
+                                        <option value={0}>Global / Unassigned</option>
+                                        {projects.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.project_name || p.name || `Project #${p.id}`}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={projectName}
+                                        readOnly
+                                        className="w-full px-5 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-500 cursor-not-allowed"
+                                    />
+                                )}
                             </div>
 
                             {/* BOQ Item ID */}

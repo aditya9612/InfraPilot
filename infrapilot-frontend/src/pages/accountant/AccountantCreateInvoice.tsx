@@ -1314,8 +1314,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
-                    <input
-                      list="projects-list"
+                    <select
                       value={projectDetails.name}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1329,13 +1328,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       }}
                       disabled={isReadOnly}
                       className={`w-full px-4 py-2.5 pr-10 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                      placeholder="Type or select Project..."
-                    />
-                    <datalist id="projects-list">
-                      {projects.map(p => (
-                        <option key={p.id} value={(p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`} />
-                      ))}
-                    </datalist>
+                    >
+                      <option value="">Select Project...</option>
+                      {projects.map(p => {
+                        const label = (p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`;
+                        return <option key={p.id} value={label}>{label}</option>
+                      })}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { FileText } from "lucide-react";
+import { FileText, CreditCard } from "lucide-react";
 import api from "../../services/api";
 import Modal from "../../components/common/Modal";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
+<<<<<<< HEAD
 import { PROJECTS } from "../../config/projectSeed";
 
 const KNOWN_PROJECT_MAP: Record<string, string> = {
@@ -18,19 +19,31 @@ const KNOWN_PROJECT_MAP: Record<string, string> = {
   "9": "Grand Horizons",
   "10": "Ocean View Residences",
 };
+=======
+import { financeService } from "../../services/financeService";
+import toast from "react-hot-toast";
+>>>>>>> testing
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose }: { invoiceId: number | null; projects: any[]; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetchedOwnerName, setFetchedOwnerName] = useState<string>("");
   const [fetchedProjectName, setFetchedProjectName] = useState<string>("");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentData, setPaymentData] = useState({ amount: "", mode: "Bank Transfer", reference: "" });
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/invoices/${invoiceId}`);
+        const [res, txRes] = await Promise.all([
+          api.get(`/invoices/${invoiceId}`),
+          financeService.getInvoiceTransactions(invoiceId as number)
+        ]);
         setData(res.data);
+        setTransactions(txRes || []);
         
         if (res.data?.project_name) {
           setFetchedProjectName(res.data.project_name);
@@ -81,6 +94,34 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
 
   const projectName = fetchedProjectName || data?.project_id;
   const ownerName = fetchedOwnerName || data?.owner_id;
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invoiceId) return;
+    setIsPaying(true);
+    try {
+      await financeService.payInvoice(invoiceId, {
+        amount: Number(paymentData.amount),
+        mode: paymentData.mode,
+        reference: paymentData.reference
+      });
+      toast.success("Payment recorded successfully!");
+      setShowPaymentForm(false);
+      setPaymentData({ amount: "", mode: "Bank Transfer", reference: "" });
+      
+      // Refresh data
+      const [res, txRes] = await Promise.all([
+        api.get(`/invoices/${invoiceId}`),
+        financeService.getInvoiceTransactions(invoiceId as number)
+      ]);
+      setData(res.data);
+      setTransactions(txRes || []);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to record payment");
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   return (
     <Modal isOpen={!!invoiceId} onClose={onClose} title="Invoice Profile" maxWidth="max-w-4xl">
@@ -172,6 +213,76 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">created_at</p>
               <p className="text-sm font-semibold text-slate-700">{data.created_at}</p>
             </div>
+          </div>
+
+          {/* Payment Section */}
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+              <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-slate-400" /> Transactions & Payments</h4>
+              {data.status !== "Paid" && data.status !== "certified" && (
+                <button onClick={() => setShowPaymentForm(!showPaymentForm)} className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors shadow-sm">
+                  {showPaymentForm ? "Cancel" : "Record Payment"}
+                </button>
+              )}
+            </div>
+            
+            {showPaymentForm && (
+              <form onSubmit={handlePaymentSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Amount</label>
+                    <input type="number" step="any" required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Enter amount" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Payment Mode</label>
+                    <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" value={paymentData.mode} onChange={e => setPaymentData({...paymentData, mode: e.target.value})}>
+                      <option>Bank Transfer</option>
+                      <option>Cash</option>
+                      <option>Cheque</option>
+                      <option>UPI</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Reference No.</label>
+                    <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. UTR/Cheque No." value={paymentData.reference} onChange={e => setPaymentData({...paymentData, reference: e.target.value})} />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button type="submit" disabled={isPaying || !paymentData.amount} className="bg-emerald-500 text-white text-xs font-bold px-6 py-2 rounded-lg hover:bg-emerald-600 transition-colors shadow-sm disabled:opacity-50">
+                    {isPaying ? "Saving..." : "Submit Payment"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {transactions.length === 0 ? (
+              <div className="text-center py-6 border border-slate-100 rounded-xl bg-slate-50/50">
+                <p className="text-sm text-slate-400 font-semibold">No transactions found for this invoice.</p>
+              </div>
+            ) : (
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                      <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
+                      <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mode</th>
+                      <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {transactions.map((tx: any, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-xs text-slate-500">{tx.date || tx.payment_date || tx.created_at || "—"}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-emerald-600">₹{Number(tx.amount).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tx.mode || tx.payment_mode || "—"}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{tx.reference || tx.ref_no || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       ) : (

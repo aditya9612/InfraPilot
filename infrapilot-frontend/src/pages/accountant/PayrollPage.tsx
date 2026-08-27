@@ -5,16 +5,21 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
+<<<<<<< HEAD
 import { paymentService } from "../../services/paymentService";
 import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
 import { projectService } from "../../services/projectService";
+=======
+import { accountingService } from "../../services/accountingService";
+>>>>>>> testing
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
 
+<<<<<<< HEAD
 const PayrollKPICards = ({ summary }: { summary?: any }) => {
   const s = summary?.data || summary || {};
 
@@ -36,6 +41,13 @@ const PayrollKPICards = ({ summary }: { summary?: any }) => {
         </div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
         <p className="text-xl font-bold text-slate-800">{formatCurrency(pending)}</p>
+=======
+const PayrollKPICards = ({ summary }: { summary?: any }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+>>>>>>> testing
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
         <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
@@ -52,8 +64,20 @@ const PayrollKPICards = ({ summary }: { summary?: any }) => {
         <p className="text-xl font-bold text-slate-800">{formatCurrency(advance)}</p>
       </div>
     </div>
+<<<<<<< HEAD
   );
 };
+=======
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+      </div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0'}</p>
+    </div>
+  </div>
+);
+>>>>>>> testing
 
 const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [formData, setFormData] = useState({
@@ -313,7 +337,11 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
+<<<<<<< HEAD
     period_type: period ? (period.charAt(0).toUpperCase() + period.slice(1).toLowerCase()) : "Daily",
+=======
+    period_type: period || "Daily",
+>>>>>>> testing
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
     payment_mode: "Bank Transfer",
@@ -414,7 +442,11 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Type *</label>
+<<<<<<< HEAD
               <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
+=======
+              <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+>>>>>>> testing
                 <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
                 <option value="Monthly">Monthly</option>
@@ -422,6 +454,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
+<<<<<<< HEAD
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
               <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
                 <option value="Bank Transfer">Bank Transfer</option>
@@ -431,6 +464,8 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
+=======
+>>>>>>> testing
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
               <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
@@ -452,18 +487,57 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   );
 };
 
-const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
+const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?: string, onProjectChange?: (id: string) => void }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState("Daily");
   const [wages, setWages] = useState<any[]>([]);
+<<<<<<< HEAD
   const [labourMap, setLabourMap] = useState<Record<number, string>>({});
   const [dateFilter, setDateFilter] = useState({
+=======
+
+
+  const [filters, setFilters] = useState({
+>>>>>>> testing
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
-    end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]
+    end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0],
+    period_type: "",
+    status: "",
+    labour_id: "",
+    project_id: ""
   });
+  const [labours, setLabours] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    import('../../services/projectService').then(({ projectService }) => {
+      projectService.getProjects().then((res: any) => setProjects(Array.isArray(res) ? res : res.items || res.data || []));
+    });
+    import('../../services/labourService').then(({ labourService }) => {
+      labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(Array.isArray(res) ? res : res.items || res.data || []));
+    });
+  }, []);
   const [wagePage, setWagePage] = useState(1);
   const [wageRpp, setWageRpp] = useState(10);
+
+  const fetchWages = async () => {
+    try {
+      const params: any = {
+        start_date: filters.start_date,
+        end_date: filters.end_date,
+      };
+      if (filters.period_type) params.period_type = filters.period_type;
+      if (filters.status) params.status = filters.status;
+      if (filters.labour_id) params.labour_id = Number(filters.labour_id);
+      if (filters.project_id) params.project_id = Number(filters.project_id);
+
+      const data = await payrollService.getLabourWages(params);
+      setWages(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to load labour wages");
+    }
+  };
 
   useEffect(() => {
     labourService.getLabours(undefined, { limit: 200 }).then((res: any) => {
@@ -480,17 +554,20 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   useEffect(() => {
     if (activeSubTab === "register") {
-      const fetchWages = async () => {
-        try {
-          const data = await payrollService.getLabourWages(dateFilter.start_date, dateFilter.end_date);
-          setWages(Array.isArray(data) ? data : data?.data || []);
-        } catch (err) {
-          toast.error("Failed to load labour wages");
-        }
-      };
       fetchWages();
+      if (onProjectChange) onProjectChange(filters.project_id);
     }
-  }, [activeSubTab, dateFilter.start_date, dateFilter.end_date]);
+  }, [activeSubTab, filters.start_date, filters.end_date, filters.period_type, filters.status, filters.labour_id, filters.project_id]);
+
+  const handlePayWage = async (id: number | string) => {
+    try {
+      await payrollService.payLabourWageById(id, { payment_mode: "Bank Transfer" });
+      toast.success("Wage paid successfully");
+      fetchWages();
+    } catch (error) {
+      toast.error("Failed to pay wage");
+    }
+  };
 
   const openModal = (period: string) => {
     setModalPeriod(period);
@@ -512,30 +589,56 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => openModal("Daily")} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all shadow-sm">+ Daily Wage</button>
-          <button onClick={() => openModal("Weekly")} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all shadow-sm">+ Weekly Wage</button>
-          <button onClick={() => openModal("Monthly")} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm">+ Monthly Wage</button>
+          <button onClick={() => openModal("Daily")} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm">+ Create Labour Wage</button>
         </div>
       </div>
 
-      <LaborWagesModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} period={modalPeriod} />
+      <LaborWagesModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); fetchWages(); }} period={modalPeriod} />
 
       {activeSubTab === "register" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
-            <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
-            <div className="flex items-center gap-3">
-              <input type="date" value={dateFilter.start_date} onChange={e => setDateFilter(prev => ({ ...prev, start_date: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none" />
-              <span className="text-slate-400 text-sm font-bold tracking-widest">TO</span>
-              <input type="date" value={dateFilter.end_date} onChange={e => setDateFilter(prev => ({ ...prev, end_date: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none" />
+        <div className="space-y-6">
+
+          
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
+              <div className="flex items-center flex-wrap gap-3">
+                <select value={filters.period_type} onChange={e => setFilters(prev => ({ ...prev, period_type: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                  <option value="">All Periods</option>
+                  <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Monthly">Monthly</option>
+                </select>
+                <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                  <option value="">All Statuses</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+                <select value={filters.project_id} onChange={e => setFilters(prev => ({ ...prev, project_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                  <option value="">All Projects</option>
+                  {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
+                </select>
+                <select value={filters.labour_id} onChange={e => setFilters(prev => ({ ...prev, labour_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                  <option value="">All Labours</option>
+                  {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name || "Unknown"}</option>)}
+                </select>
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2">
+                  <input type="date" value={filters.start_date} onChange={e => setFilters(prev => ({ ...prev, start_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                  <span className="text-slate-400 text-xs font-bold tracking-widest">TO</span>
+                  <input type="date" value={filters.end_date} onChange={e => setFilters(prev => ({ ...prev, end_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                </div>
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+                <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
+<<<<<<< HEAD
                 {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
                   const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
                   const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
@@ -556,6 +659,28 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
                   );
                 }) : (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+=======
+                {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{wage.labor_name || 'Labor'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{wage.type || 'Skilled'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{wage.period || 'Weekly'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">₹{wage.gross_wage || 0}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{wage.net_wage || 0}</td>
+                    <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wage.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wage.status || 'Paid'}</span></td>
+                    <td className="px-4 py-3 text-xs">
+                      {wage.status === 'Pending' ? (
+                        <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
+                          PAY NOW
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">-</span>
+                      )}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+>>>>>>> testing
                 )}
               </tbody>
             </table>
@@ -577,6 +702,7 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
             </div>
           )}
         </div>
+      </div>
       )}
     </div>
   );
@@ -593,10 +719,7 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
   });
   const [loading, setLoading] = useState(false);
 
-  const mockBankAccounts = [
-    { id: 1, name: "SBI - 1001" },
-    { id: 2, name: "HDFC - 2002" }
-  ];
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -678,7 +801,6 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
                   <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
                     <option value={0}>Select Bank Account</option>
-                    {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
               )}
@@ -782,6 +904,8 @@ export const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
+  const [labours, setLabours] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
@@ -893,6 +1017,7 @@ const LedgerSection = () => {
 
   useEffect(() => {
     fetchRegister();
+<<<<<<< HEAD
     loadLookupData();
   }, [loadLookupData]);
 
@@ -1004,6 +1129,32 @@ const LedgerSection = () => {
 
     // 4. Fallback to reference or item.party_name or '—'
     return item.party_name || item.reference || '—';
+=======
+    import('../../services/labourService').then(({ labourService }) => {
+      labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(Array.isArray(res) ? res : res.items || res.data || []));
+    });
+    import('../../services/userService').then(({ userService }) => {
+      userService.getAllUsers(1000).then((res: any) => setUsers(Array.isArray(res) ? res : res.items || res.data || []));
+    });
+  }, []);
+
+  // Parse linked_to: "LABOUR-WAGE:5:2026-08-05" → "Labour Wage #5"
+  const parseLinkedTo = (linked_to: string | null, reference: string) => {
+    if (!linked_to) return reference || '—';
+    const parts = linked_to.split(':');
+    const category = parts[0]; // e.g. LABOUR-WAGE, CONTRACTOR-PAY, STAFF-SALARY
+    const id = parts[1] || '';
+    if (category === 'LABOUR-WAGE') {
+      const labour = labours.find(l => String(l.id) === String(id) || String(l.labour_id) === String(id));
+      return labour ? (labour.labour_name || labour.name) : `Labour Wage #${id}`;
+    }
+    if (category === 'CONTRACTOR-PAY') return `Contractor Pay #${id}`;
+    if (category === 'STAFF-SALARY') {
+      const user = users.find(u => String(u.id) === String(id) || String(u.user_id) === String(id));
+      return user ? (user.full_name || user.name) : `Staff Salary #${id}`;
+    }
+    return linked_to;
+>>>>>>> testing
   };
 
   const paged = registerData.slice((ledgerPage - 1) * ledgerRpp, ledgerPage * ledgerRpp);
@@ -1107,7 +1258,7 @@ const LedgerSection = () => {
   );
 };
 
-const CreateOfferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) => {
+const CreateOfferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: (id: number, projectName: string) => void }) => {
   const [formData, setFormData] = useState({
     project_name: "",
     society_name: "",
@@ -1148,9 +1299,10 @@ const CreateOfferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onC
     }
     setLoading(true);
     try {
-      await payrollService.createOffer(formData);
+      const res = await accountingService.createOffer(formData);
       toast.success("Offer Created!");
-      onSuccess();
+      const newId = res?.id || res?.data?.id || Math.floor(Math.random() * 1000); // fallback if ID is missing
+      onSuccess(newId, formData.project_name);
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Failed to create offer");
@@ -1222,43 +1374,38 @@ const CreateOfferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onC
 };
 
 const OfferLettersWrapper = () => {
-  const [offers, setOffers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [rpp, setRpp] = useState(10);
+  const [currentOfferId, setCurrentOfferId] = useState<number | null>(null);
+  const [currentProjectName, setCurrentProjectName] = useState<string>("");
+  const [offerStatus, setOfferStatus] = useState<"pending" | "created" | "generated">("pending");
 
-  const fetchOffers = async () => {
-    try {
-      const data = await payrollService.getOffers();
-      setOffers(Array.isArray(data) ? data : data?.data || data?.items || []);
-    } catch (err) {
-      toast.error("Failed to load offers");
-    }
+  const handleCreateSuccess = (id: number, projectName: string) => {
+    setCurrentOfferId(id);
+    setCurrentProjectName(projectName);
+    setOfferStatus("created");
   };
 
-  useEffect(() => {
-    fetchOffers();
-  }, []);
-
-  const handleGenerate = async (id: number) => {
+  const handleGenerate = async () => {
+    if (!currentOfferId) return;
     try {
       toast.loading("Generating offer letter...", { id: "gen-offer" });
-      await payrollService.generateOfferLetter(id);
+      await accountingService.generateOfferLetter(currentOfferId);
       toast.success("Offer letter generated successfully!", { id: "gen-offer" });
-      fetchOffers(); // Refresh status
+      setOfferStatus("generated");
     } catch (err: any) {
       toast.error(err.message || "Failed to generate offer", { id: "gen-offer" });
     }
   };
 
-  const handleDownload = async (id: number, name: string) => {
+  const handleDownload = async () => {
+    if (!currentOfferId) return;
     try {
       toast.loading("Downloading PDF...", { id: "dl-offer" });
-      const blob = await payrollService.downloadOfferPdf(id);
+      const blob = await accountingService.downloadOfferPdf(currentOfferId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Offer_Letter_${name.replace(/\s+/g, "_")}.pdf`;
+      a.download = `Offer_Letter_${currentProjectName.replace(/\s+/g, "_") || 'Document'}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1271,73 +1418,61 @@ const OfferLettersWrapper = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-        <h2 className="font-bold text-slate-800">Recruitment Offers</h2>
-        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          + Create Offer
-        </button>
-      </div>
+      <div className="bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-slate-100 max-w-4xl mx-auto mt-8">
+        <h2 className="text-xl font-bold text-slate-800 mb-12 text-center">Offer Letter Generation Flow</h2>
+        
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 relative">
+          <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-1.5 bg-slate-100 -z-10 -translate-y-1/2 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: offerStatus === 'generated' ? '100%' : offerStatus === 'created' ? '50%' : '0%' }}></div>
+          </div>
 
-      <CreateOfferModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchOffers} />
+          <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'pending' ? 'bg-blue-600 text-white hover:scale-105' : 'bg-emerald-500 text-white'}`}
+            >
+              {offerStatus === 'pending' ? '1' : '✓'}
+            </button>
+            <span className={`font-bold text-sm ${offerStatus === 'pending' ? 'text-blue-600' : 'text-emerald-600'}`}>Create Offer</span>
+          </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                {["ID", "Project Name", "Society", "Developer", "Email", "Phone", "Status", "Actions"].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {offers.length > 0 ? offers.slice((page - 1) * rpp, page * rpp).map((offer, idx) => (
-                <tr key={offer.id || idx} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 text-xs font-mono">OFF-{offer.id}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{offer.project_name}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{offer.society_name}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{offer.developer_name || "-"}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{offer.contact_email || "-"}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{offer.contact_phone || "-"}</td>
-                  <td className="px-4 py-3 text-xs">
-                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${offer.status === 'Generated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {offer.status || 'Draft'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    <div className="flex gap-2">
-                      <button onClick={() => handleGenerate(offer.id)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded text-xs transition-colors">
-                        Generate
-                      </button>
-                      <button onClick={() => handleDownload(offer.id, offer.project_name)} className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded text-xs transition-colors">
-                        PDF
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No offers found.</td></tr>
-              )}
-            </tbody>
-          </table>
+          <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
+            <button 
+              onClick={handleGenerate}
+              disabled={offerStatus === 'pending'}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'created' ? 'bg-blue-600 text-white hover:scale-105' : offerStatus === 'generated' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+            >
+              {offerStatus === 'generated' ? '✓' : '2'}
+            </button>
+            <span className={`font-bold text-sm ${offerStatus === 'created' ? 'text-blue-600' : offerStatus === 'generated' ? 'text-emerald-600' : 'text-slate-400'}`}>Generate Letter</span>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
+            <button 
+              onClick={handleDownload}
+              disabled={offerStatus !== 'generated'}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'generated' ? 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+            >
+              3
+            </button>
+            <span className={`font-bold text-sm ${offerStatus === 'generated' ? 'text-blue-600' : 'text-slate-400'}`}>Download PDF</span>
+          </div>
         </div>
-        {offers.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select value={rpp} onChange={(e) => { setRpp(Number(e.target.value)); setPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
-                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <span className="text-xs text-slate-500 font-semibold">Showing {(page - 1) * rpp + 1} – {Math.min(page * rpp, offers.length)} of {offers.length} records</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{page}</span>
-              <button onClick={() => setPage(p => Math.min(Math.ceil(offers.length / rpp), p + 1))} disabled={page === Math.ceil(offers.length / rpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-            </div>
+        
+        {currentOfferId && (
+          <div className="mt-16 text-center p-5 bg-slate-50 rounded-xl border border-slate-100 max-w-sm mx-auto shadow-sm">
+            <p className="text-sm text-slate-600">Current Offer ID: <span className="font-bold text-slate-800">OFF-{currentOfferId}</span></p>
+            <p className="text-xs text-slate-500 font-semibold mb-4">{currentProjectName}</p>
+            <button onClick={() => { setCurrentOfferId(null); setOfferStatus("pending"); }} className="text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-100 transition-colors shadow-sm">Start New Flow</button>
           </div>
         )}
       </div>
+
+      <CreateOfferModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={handleCreateSuccess} 
+      />
     </div>
   );
 };
@@ -1374,10 +1509,12 @@ const PayrollPage = () => {
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
   const [summaryData, setSummaryData] = useState<any>(null);
+  const [globalProjectId, setGlobalProjectId] = useState<string>("");
 
   useEffect(() => {
     const fetchSummary = async () => {
       try {
+<<<<<<< HEAD
         let combinedData: any = {};
 
         // 1. Fetch from accountant payroll summary (no hardcoded project_id)
@@ -1419,12 +1556,19 @@ const PayrollPage = () => {
         }
 
         setSummaryData(combinedData);
+=======
+        const params: any = {};
+        if (globalProjectId) params.project_id = Number(globalProjectId);
+        
+        const data = await payrollService.getLabourWageStats(params);
+        setSummaryData(data?.data || data || {});
+>>>>>>> testing
       } catch (err) {
         console.error('Failed to fetch payroll summary', err);
       }
     };
     fetchSummary();
-  }, []);
+  }, [globalProjectId]);
 
   useEffect(() => {
     setActiveTab(resolveTab());
@@ -1526,8 +1670,14 @@ const PayrollPage = () => {
           ))}
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* ── KPI Stat Cards ─────────────────────────────── */}
+        {activeTab === "wages" && <PayrollKPICards summary={summaryData} />}
+
+>>>>>>> testing
         {/* ── Content Rendering ──────────────────────────── */}
-        {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} />}
+        {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}
         {activeTab === "ledger" && <LedgerSection />}
         {activeTab === "offers" && <OfferLettersWrapper />}
       </PageTransition>

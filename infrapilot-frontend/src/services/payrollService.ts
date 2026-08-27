@@ -56,8 +56,13 @@ export const payrollService = {
     return response.data;
   },
 
-  getLabourWages: async (start_date: string, end_date: string) => {
-    const response = await api.get(`/accountant/payroll/labour/wages?start_date=${start_date}&end_date=${end_date}`);
+  getLabourWages: async (params: any = {}) => {
+    const response = await api.get(`/accountant/payroll/labour/wages`, { params });
+    return response.data;
+  },
+
+  getLabourWageStats: async (params: any = {}) => {
+    const response = await api.get(`/labour/wages/stats`, { params });
     return response.data;
   },
 
@@ -82,7 +87,13 @@ export const payrollService = {
   },
 
   payLabourWages: async (data: any) => {
-    const response = await api.post('/accountant/payroll/labour/pay', data);
+    // This is essentially create wage record
+    const response = await api.post('/labour/wages', data);
+    return response.data;
+  },
+
+  payLabourWageById: async (id: number | string, data: any = {}) => {
+    const response = await api.post(`/labour/wages/${id}/pay`, data);
     return response.data;
   },
 

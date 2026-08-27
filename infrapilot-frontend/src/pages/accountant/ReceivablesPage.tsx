@@ -88,11 +88,6 @@ const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -247,11 +242,11 @@ const InvoicesSection = ({
     try {
       setIsDeleting(true);
       await quotationService.deleteQuotation(deleteModalId);
-      
+
       // Refetch from server as requested
       const data = await quotationService.getQuotations();
       setInvoices(data);
-      
+
       toast.success("Quotation deleted successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to delete quotation");
@@ -266,12 +261,12 @@ const InvoicesSection = ({
       toast.loading("Converting to invoice...", { id: "convert-invoice" });
       const res = await api.post(`/invoices/from-quotation/${inv.id}`);
       const newInvoice = res.data;
-      
+
       setInvoices(prev => {
         const updated = prev.map(p => p.id === inv.id ? { ...p, status: "converted" } : p);
         return [newInvoice, ...updated];
       });
-      
+
       toast.success("Converted to invoice successfully!", { id: "convert-invoice" });
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to convert to invoice", { id: "convert-invoice" });
@@ -315,10 +310,10 @@ const InvoicesSection = ({
 
   const filtered = [...invoices].filter(inv => {
     const matchSearch = (inv.quotation_no || inv.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
-                        (inv.client_name || "").toLowerCase().includes(search.toLowerCase());
+      (inv.client_name || "").toLowerCase().includes(search.toLowerCase());
     const matchProject = selectedProject === "All" || inv.project_name === selectedProject;
     const matchStatus = selectedStatus === "All" || (inv.status || inv.payment_status || "draft").toLowerCase() === selectedStatus.toLowerCase();
-    
+
     if (!matchSearch || !matchProject || !matchStatus) return false;
 
     if (activeSubTab === "quotation_list") return !isConverted(inv);
@@ -338,10 +333,10 @@ const InvoicesSection = ({
   const allQuotations = invoices.filter(inv => !isConverted(inv));
   const activeQuotations = allQuotations.filter(inv => inv.status?.toLowerCase() !== "rejected" && inv.status?.toLowerCase() !== "declined");
   const totalPipelineValue = activeQuotations.reduce((sum, inv) => sum + (Number(inv.grand_total) || Number(inv.total_with_gst) || 0), 0);
-  
+
   const approvedQuotationsCount = allQuotations.filter(inv => inv.status?.toLowerCase() === "approved" || inv.is_approved).length;
   const winRate = allQuotations.length > 0 ? Math.round((approvedQuotationsCount / allQuotations.length) * 100) : 0;
-  
+
   const pendingDraftsCount = allQuotations.filter(inv => !inv.status || inv.status?.toLowerCase() === "draft").length;
 
   return (
@@ -394,12 +389,12 @@ const InvoicesSection = ({
             {projects.map(p => <option key={p.id} value={p.project_name || p.name}>{p.project_name || p.name}</option>)}
           </select>
           <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.xlsx,.xls" onChange={handleImportReceivables} />
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
             📥 Import
           </button>
-          <button 
+          <button
             onClick={handleExportReceivables}
             className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
             📤 Export
@@ -437,7 +432,7 @@ const InvoicesSection = ({
                     <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due ?? inv.pending_amount ?? 0)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0,10)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0, 10)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-row gap-3 items-center justify-start flex-nowrap">
@@ -485,8 +480,8 @@ const InvoicesSection = ({
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -497,7 +492,7 @@ const InvoicesSection = ({
               Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -507,7 +502,7 @@ const InvoicesSection = ({
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -569,7 +564,7 @@ const InvoicesSection = ({
 
 // 2.5 Client Invoices Section
 const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"create_labour" | "labour_list" | "create_material" | "material_list">(
+  const [activeSubTab, setActiveSubTab] = useState<"create_labour" | "labour_list" | "create_material" | "material_list" | "create_measurement">(
     (initialSubTab as any) || "labour_list"
   );
   const [search, setSearch] = useState("");
@@ -652,17 +647,17 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
     try {
       toast.loading("Generating PDF...", { id: "pdf-toast" });
       const response = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' });
-      
+
       // Create a URL for the blob
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      
+
       // Create a temporary link element to trigger the download
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Invoice_${id}.pdf`);
       document.body.appendChild(link);
       link.click();
-      
+
       // Clean up
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
@@ -677,7 +672,8 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
     { key: "create_labour", label: "Create Labour Invoice" },
     { key: "labour_list", label: "Labour Invoice List" },
     { key: "create_material", label: "Create Material Invoice" },
-    { key: "material_list", label: "Material Invoice List" }
+    { key: "material_list", label: "Material Invoice List" },
+    { key: "create_measurement", label: "Create from Measurement" }
   ];
 
   const activeInvoices = activeSubTab.includes("labour") ? labourInvoices : materialInvoices;
@@ -685,14 +681,14 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
   const filtered = activeInvoices.filter(inv => {
     const pName = projects.find(p => p.id === inv.project_id)?.project_name || "";
     const cName = projects.find(p => p.id === inv.project_id)?.client_name || "";
-    
-    const matchType = selectedTypeFilter === "ALL INVOICE" || 
-                      inv.type?.toUpperCase() === selectedTypeFilter || 
-                      (selectedTypeFilter === "INVOICE" && (inv.type?.toUpperCase() === "INVOICE" || inv.type?.toUpperCase() === "OWNER"));
+
+    const matchType = selectedTypeFilter === "ALL INVOICE" ||
+      inv.type?.toUpperCase() === selectedTypeFilter ||
+      (selectedTypeFilter === "INVOICE" && (inv.type?.toUpperCase() === "INVOICE" || inv.type?.toUpperCase() === "OWNER"));
     const matchProject = selectedProjectFilter === "All" || String(inv.project_id) === selectedProjectFilter;
     const matchSearch = `INV-${inv.id}`.toLowerCase().includes(search.toLowerCase()) ||
-                        pName.toLowerCase().includes(search.toLowerCase()) ||
-                        cName.toLowerCase().includes(search.toLowerCase());
+      pName.toLowerCase().includes(search.toLowerCase()) ||
+      cName.toLowerCase().includes(search.toLowerCase());
     const matchStatus = selectedStatus === "All" || inv.status?.toLowerCase() === selectedStatus.toLowerCase();
     return matchType && matchProject && matchSearch && matchStatus;
   });
@@ -708,9 +704,19 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
   const [formData, setFormData] = useState({
     project_id: "",
     start_date: "",
-    end_date: ""
+    end_date: "",
+    measurement_id: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [measurements, setMeasurements] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (formData.project_id && activeSubTab === "create_measurement") {
+      measurementService.getMeasurementsByProject(Number(formData.project_id))
+        .then(data => setMeasurements(data))
+        .catch(err => console.error("Failed to load measurements:", err));
+    }
+  }, [formData.project_id, activeSubTab]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -718,7 +724,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
       toast.error("Please select a project.");
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       if (activeSubTab === "create_labour") {
@@ -729,12 +735,21 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         });
         toast.success("Labour Invoice created successfully!");
         setActiveSubTab("labour_list");
+      } else if (activeSubTab === "create_measurement") {
+        if (!formData.measurement_id) {
+          toast.error("Please enter a measurement ID.");
+          setIsSubmitting(false);
+          return;
+        }
+        await financeService.createInvoiceFromMeasurement(Number(formData.measurement_id));
+        toast.success("Measurement Invoice created successfully!");
+        setActiveSubTab("labour_list"); // fallback list
       } else {
         await api.post(`/invoices/material?project_id=${Number(formData.project_id)}`);
         toast.success("Material Invoice created successfully!");
         setActiveSubTab("material_list");
       }
-      setFormData({ project_id: "", start_date: "", end_date: "" });
+      setFormData({ project_id: "", start_date: "", end_date: "", measurement_id: "" });
     } catch (err: any) {
       let errorMsg = "Failed to create invoice";
       if (err.response?.data?.detail) {
@@ -772,8 +787,8 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
+      <div className="flex flex-col xl:flex-row justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap h-fit">
           {subTabs.map(t => (
             <button key={t.key} onClick={() => { setActiveSubTab(t.key as any); }}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
@@ -782,16 +797,16 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
           ))}
         </div>
         {(activeSubTab === "labour_list" || activeSubTab === "material_list") && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
             <select value={selectedTypeFilter} onChange={e => setSelectedTypeFilter(e.target.value)}
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer w-full sm:w-auto flex-1 sm:flex-none">
               <option value="ALL INVOICE">ALL INVOICE</option>
               <option value="INVOICE">INVOICE</option>
               <option value="LABOUR">LABOUR</option>
               <option value="MATERIAL">MATERIAL</option>
             </select>
             <select value={selectedProjectFilter} onChange={e => setSelectedProjectFilter(e.target.value)}
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer w-full sm:w-auto flex-1 sm:flex-none max-w-full sm:max-w-[200px]">
               <option value="All">All Projects</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.project_name}</option>
@@ -799,9 +814,9 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
             </select>
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search…"
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-full sm:w-44 bg-white flex-1 sm:flex-none" />
             <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer w-full sm:w-auto flex-1 sm:flex-none">
               <option value="All">ALL STATUS</option>
               <option value="Pending">PENDING</option>
               <option value="Paid">PAID</option>
@@ -833,40 +848,41 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                   </tr>
                 ) : paginatedInvoices.map(inv => {
                   return (
-                  <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs text-slate-600">
-                      <ProjectNameCell projectId={inv.project_id} projects={projects} />
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.type}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.amount}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_percent}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_amount}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_percent}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_amount}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.total_amount}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.paid_amount}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.pending_amount}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status)}`}>{inv.status || "PENDING"}</span></td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.description}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{inv.created_at ? new Date(inv.created_at).toLocaleString() : ''}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-row gap-3 items-center justify-start">
-                        <button onClick={() => setViewInvoiceId(inv.id)} title="View" className="text-slate-400 hover:text-primary transition-colors"><Eye className="w-4 h-4" /></button>
-                        <button onClick={() => handleDownloadPdf(inv.id)} title="Download PDF" className="text-slate-400 hover:text-emerald-500 transition-colors"><Download className="w-4 h-4" /></button>
-                        <button onClick={() => setEditInvoiceId(inv.id)} title="Edit" className="text-slate-400 hover:text-blue-500 transition-colors"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteInvoiceId(inv.id)} title="Delete" className="text-slate-400 hover:text-red-500 transition-colors"><Trash className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                )})}
+                    <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-slate-600">
+                        <ProjectNameCell projectId={inv.project_id} projects={projects} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.type}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.amount}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_percent}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_amount}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_percent}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_amount}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.total_amount}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.paid_amount}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.pending_amount}</td>
+                      <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status)}`}>{inv.status || "PENDING"}</span></td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.description}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.created_at ? new Date(inv.created_at).toLocaleString() : ''}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-row gap-3 items-center justify-start">
+                          <button onClick={() => setViewInvoiceId(inv.id)} title="View" className="text-slate-400 hover:text-primary transition-colors"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => handleDownloadPdf(inv.id)} title="Download PDF" className="text-slate-400 hover:text-emerald-500 transition-colors"><Download className="w-4 h-4" /></button>
+                          <button onClick={() => setEditInvoiceId(inv.id)} title="Edit" className="text-slate-400 hover:text-blue-500 transition-colors"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => setDeleteInvoiceId(inv.id)} title="Delete" className="text-slate-400 hover:text-red-500 transition-colors"><Trash className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -877,7 +893,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -887,7 +903,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -899,18 +915,18 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         </div>
       )}
 
-      {(activeSubTab === "create_labour" || activeSubTab === "create_material") && (
+      {(activeSubTab === "create_labour" || activeSubTab === "create_material" || activeSubTab === "create_measurement") && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-2xl mx-auto">
           <h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4">
-            {activeSubTab === "create_labour" ? "Create Labour Invoice" : "Create Material Invoice"}
+            {activeSubTab === "create_labour" ? "Create Labour Invoice" : activeSubTab === "create_measurement" ? "Create Measurement Invoice" : "Create Material Invoice"}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Project</label>
-              <select 
+              <select
                 required
-                value={formData.project_id} 
-                onChange={e => setFormData({...formData, project_id: e.target.value})}
+                value={formData.project_id}
+                onChange={e => setFormData({ ...formData, project_id: e.target.value })}
                 className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
               >
                 <option value="">-- Choose Project --</option>
@@ -924,37 +940,67 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Start Date</label>
-                  <input 
+                  <input
                     type="date"
                     required
                     value={formData.start_date}
-                    onChange={e => setFormData({...formData, start_date: e.target.value})}
+                    onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                     className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">End Date</label>
-                  <input 
+                  <input
                     type="date"
                     required
                     value={formData.end_date}
-                    onChange={e => setFormData({...formData, end_date: e.target.value})}
+                    onChange={e => setFormData({ ...formData, end_date: e.target.value })}
                     className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
                   />
                 </div>
               </div>
             )}
 
+            {activeSubTab === "create_measurement" && (
+              <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Measurement</label>
+                <select
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white disabled:opacity-50"
+                  value={formData.measurement_id}
+                  onChange={e => setFormData({ ...formData, measurement_id: e.target.value })}
+                  disabled={!formData.project_id}
+                >
+                  <option value="">-- Choose Measurement --</option>
+                  {measurements.map(m => (
+                    <option key={m.id} value={m.id}>Measurement #{m.id} - {m.status}</option>
+                  ))}
+                </select>
+                {!formData.project_id && (
+                  <p className="text-xs text-amber-600 mt-2 font-medium">
+                    Please select a project first to view its measurements.
+                  </p>
+                )}
+                {formData.project_id && measurements.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-2 font-medium">
+                    No measurements found for this project.
+                  </p>
+                )}
+                <p className="text-xs text-blue-600 mt-2">
+                  Invoice will be generated using the approved quantities and rates from this measurement record.
+                </p>
+              </div>
+            )}
+
             <div className="pt-4 flex justify-end gap-3">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setActiveSubTab(activeSubTab === "create_labour" ? "labour_list" : "material_list")}
                 className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting}
                 className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
               >
@@ -968,7 +1014,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
       {viewInvoiceId && (
         <InvoiceViewModal invoiceId={viewInvoiceId} projects={projects} onClose={() => setViewInvoiceId(null)} />
       )}
-      
+
       {editInvoiceId && (
         <InvoiceEditModal invoiceId={editInvoiceId} onClose={() => setEditInvoiceId(null)} onSuccess={() => { setEditInvoiceId(null); refreshInvoices(); }} />
       )}
@@ -1085,7 +1131,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
         const woList = Array.isArray(woRes.data) ? woRes.data : (woRes.data?.items || []);
         setWorkOrders(woList);
 
-      } catch (_) {}
+      } catch (_) { }
       setDropdownLoading(false);
     };
     fetchAll();
@@ -1098,7 +1144,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     // re-fetch measurements for the selected project
     measurementService.getMeasurementsByProject(Number(formData.project_id))
       .then(d => { if (d.length > 0) setMeasurements(Array.isArray(d) ? d : []); })
-      .catch(() => {}); // on error keep existing full list
+      .catch(() => { }); // on error keep existing full list
 
     // re-fetch work orders for the selected project
     api.get("/work-orders", { params: { project_id: formData.project_id, limit: 200 } })
@@ -1107,7 +1153,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
         const list = Array.isArray(d) ? d : (d?.items || []);
         if (list.length > 0) setWorkOrders(list);
       })
-      .catch(() => {}); // on error keep existing full list
+      .catch(() => { }); // on error keep existing full list
   }, [formData.project_id]);
 
   // ── fetch RA bills list when "list" tab is active ──
@@ -1142,7 +1188,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             work_type: c.work_type || "",
           })));
         }
-        
+
         if (measResults.status === "fulfilled") {
           const allMeas: any[] = [];
           (measResults.value as any[]).forEach((r: any) => {
@@ -1150,7 +1196,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
           });
           setMeasurements(allMeas);
         }
-        
+
         if (woRes.status === "fulfilled") {
           const raw = woRes.value?.data;
           setWorkOrders(Array.isArray(raw) ? raw : (raw?.items || []));
@@ -1196,7 +1242,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const handlePayRABill = (id: number) => {
     const b = raBills.find(x => x.id === id);
-    if(b) {
+    if (b) {
       setPayingRABill(b);
       setPayForm({ date: new Date().toISOString().split("T")[0], mode: "Bank Transfer", reference: "", remarks: "" });
     }
@@ -1234,7 +1280,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const handleReject = (id: number) => {
     const b = raBills.find(x => x.id === id);
-    if(b) {
+    if (b) {
       setRejectingRABill(b);
       setRejectRemarks("");
     }
@@ -1295,7 +1341,11 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
         gst_percent: formData.gst_percent ? Number(formData.gst_percent) : 0,
         bill_date: formData.bill_date,
       };
-      await api.post("/billing", payload);
+      if (editingRABill) {
+        await api.put(`/billing/${editingRABill.id}`, payload);
+      } else {
+        await api.post("/billing", payload);
+      }
       toast.success(editingRABill ? "RA Bill updated!" : "RA Bill created successfully!");
       setFormData(defaultForm);
       setRefreshTrigger(prev => prev + 1);
@@ -1329,7 +1379,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     let tabMatch = true;
     if (activeSubTab === "approval") tabMatch = rb.status === "Submitted" || rb.status === "Pending Approval";
     else if (activeSubTab === "payments") tabMatch = rb.status === "Approved" || rb.status === "Certified";
-    
+
     // Check Date Range
     let dateMatch = true;
     if (filterDateFrom && rb.bill_date < filterDateFrom) dateMatch = false;
@@ -1340,7 +1390,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       (filterProject === "All" || rb.project_id?.toString() === filterProject) &&
       (filterContractor === "All" || rb.contractor_id?.toString() === filterContractor) &&
       ((rb.bill_number?.toLowerCase() || "").includes(search.toLowerCase()) ||
-       (rb.work_description?.toLowerCase() || "").includes(search.toLowerCase()));
+        (rb.work_description?.toLowerCase() || "").includes(search.toLowerCase()));
   });
 
   const raTotalPages = Math.ceil(filtered.length / raRecordsPerPage);
@@ -1403,14 +1453,14 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
           <div className="p-5 border-b border-slate-100 flex justify-between items-center">
             <div>
               <h3 className="font-bold text-slate-800">
-                {activeSubTab === "approval" ? "Approval Queue" : 
-                 activeSubTab === "payments" ? "Payment Queue" : 
-                 "Running Account Bills"}
+                {activeSubTab === "approval" ? "Approval Queue" :
+                  activeSubTab === "payments" ? "Payment Queue" :
+                    "Running Account Bills"}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                {activeSubTab === "approval" ? "Review bills pending your approval" : 
-                 activeSubTab === "payments" ? "Record payments for approved bills" : 
-                 "Progress billing based on site measurements"}
+                {activeSubTab === "approval" ? "Review bills pending your approval" :
+                  activeSubTab === "payments" ? "Record payments for approved bills" :
+                    "Progress billing based on site measurements"}
               </p>
             </div>
           </div>
@@ -1448,7 +1498,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3 justify-end">
                         <button onClick={() => handleView(rb.id)} className="text-slate-400 hover:text-primary transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                        
+
                         {activeSubTab === "approval" && (
                           <>
                             <button onClick={() => handleApprove(rb.id)} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="Approve"><Check className="w-4 h-4" /></button>
@@ -1463,7 +1513,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                         {activeSubTab === "list" && rb.status === "Draft" && (
                           <button onClick={() => handleSubmitRABill(rb.id)} className="text-slate-400 hover:text-blue-500 transition-colors" title="Submit for Approval"><Send className="w-4 h-4" /></button>
                         )}
-                        
+
                         {activeSubTab === "list" && (
                           <>
                             <button onClick={() => setEditingRABill(rb)} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
@@ -1476,41 +1526,41 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select
+                value={raRecordsPerPage}
+                onChange={(e) => { setRaRecordsPerPage(Number(e.target.value)); setRaCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
             </div>
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-                <select 
-                  value={raRecordsPerPage} 
-                  onChange={(e) => { setRaRecordsPerPage(Number(e.target.value)); setRaCurrentPage(1); }}
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
-                >
-                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <span className="text-xs text-slate-500 font-semibold">
-                Showing {filtered.length === 0 ? 0 : (raCurrentPage - 1) * raRecordsPerPage + 1} - {Math.min(raCurrentPage * raRecordsPerPage, filtered.length)} of {filtered.length} records
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {filtered.length === 0 ? 0 : (raCurrentPage - 1) * raRecordsPerPage + 1} - {Math.min(raCurrentPage * raRecordsPerPage, filtered.length)} of {filtered.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setRaCurrentPage(p => Math.max(1, p - 1))}
+                disabled={raCurrentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {raCurrentPage}
               </span>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setRaCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={raCurrentPage === 1}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
-                  {raCurrentPage}
-                </span>
-                <button 
-                  onClick={() => setRaCurrentPage(p => Math.min(raTotalPages, p + 1))}
-                  disabled={raCurrentPage === raTotalPages || raTotalPages === 0}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                onClick={() => setRaCurrentPage(p => Math.min(raTotalPages, p + 1))}
+                disabled={raCurrentPage === raTotalPages || raTotalPages === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
+          </div>
         </div>
       )}
 
@@ -1762,23 +1812,23 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
 
       {viewingRABill && (
-        <ViewRABillModal 
-          bill={viewingRABill} 
+        <ViewRABillModal
+          bill={viewingRABill}
           projects={projects}
           contractors={contractors}
           measurements={measurements}
           workOrders={workOrders}
           quotations={quotations}
-          onClose={() => setViewingRABill(null)} 
+          onClose={() => setViewingRABill(null)}
         />
       )}
 
       {editingRABill && activeSubTab === "list" && (
-        <EditRABillModal 
-          bill={editingRABill} 
-          workOrders={workOrders} 
-          onClose={() => setEditingRABill(null)} 
-          onSuccess={() => { setEditingRABill(null); setRefreshTrigger(prev => prev + 1); }} 
+        <EditRABillModal
+          bill={editingRABill}
+          workOrders={workOrders}
+          onClose={() => setEditingRABill(null)}
+          onSuccess={() => { setEditingRABill(null); setRefreshTrigger(prev => prev + 1); }}
         />
       )}
 
@@ -1794,12 +1844,12 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               <p className="text-sm text-slate-600">Please provide a reason for rejecting Bill <strong>{rejectingRABill.bill_number}</strong>.</p>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Remarks <span className="text-rose-500">*</span></label>
-                <textarea 
-                  value={rejectRemarks} 
-                  onChange={e => setRejectRemarks(e.target.value)} 
-                  rows={3} 
-                  placeholder="Mandatory rejection reason..." 
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none" 
+                <textarea
+                  value={rejectRemarks}
+                  onChange={e => setRejectRemarks(e.target.value)}
+                  rows={3}
+                  placeholder="Mandatory rejection reason..."
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none"
                 />
               </div>
             </div>
@@ -1825,11 +1875,11 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Date</label>
-                <input type="date" value={payForm.date} onChange={e => setPayForm({...payForm, date: e.target.value})} required className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                <input type="date" value={payForm.date} onChange={e => setPayForm({ ...payForm, date: e.target.value })} required className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Mode</label>
-                <select value={payForm.mode} onChange={e => setPayForm({...payForm, mode: e.target.value})} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer">
+                <select value={payForm.mode} onChange={e => setPayForm({ ...payForm, mode: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer">
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque">Cheque</option>
                   <option value="UPI">UPI</option>
@@ -1838,11 +1888,11 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference Number / UTR</label>
-                <input type="text" value={payForm.reference} onChange={e => setPayForm({...payForm, reference: e.target.value})} placeholder="e.g. UTR123456789" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                <input type="text" value={payForm.reference} onChange={e => setPayForm({ ...payForm, reference: e.target.value })} placeholder="e.g. UTR123456789" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Remarks</label>
-                <textarea value={payForm.remarks} onChange={e => setPayForm({...payForm, remarks: e.target.value})} rows={2} placeholder="Optional notes..." className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+                <textarea value={payForm.remarks} onChange={e => setPayForm({ ...payForm, remarks: e.target.value })} rows={2} placeholder="Optional notes..." className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
               </div>
             </div>
             <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
@@ -1873,6 +1923,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 const CollectionsSection = () => {
   const [summary, setSummary] = useState<any>(null);
   const [collections, setCollections] = useState<any[]>([]);
+  const [aging, setAging] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
@@ -1882,12 +1933,14 @@ const CollectionsSection = () => {
   const fetchCollectionsData = async () => {
     setIsLoading(true);
     try {
-      const [sumRes, collRes] = await Promise.all([
+      const [sumRes, collRes, agingRes] = await Promise.all([
         financeService.getReceivablesSummary(),
-        financeService.getReceivablesCollections()
+        financeService.getReceivablesCollections(),
+        financeService.getReceivablesAging()
       ]);
       setSummary(sumRes);
       setCollections(collRes);
+      setAging(agingRes);
     } catch (error) {
       toast.error("Failed to fetch collections data");
     } finally {
@@ -1941,6 +1994,30 @@ const CollectionsSection = () => {
           </div>
         ))}
       </div>
+
+      {/* Receivable Aging Summary */}
+      {aging && (
+        <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-slate-100 mb-6">
+          <div className="mb-4">
+            <h3 className="font-bold text-slate-800">Receivable Aging Summary</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Aging analysis of overdue receivables</p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {Array.isArray(aging) ? aging.map((item, i) => (
+              <div key={i} className="flex-1 min-w-[120px] p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.bucket || item.range || `Bucket ${i + 1}`}</span>
+                <span className="text-lg font-black text-rose-600 mt-1">{fmt(item.amount || item.value || 0)}</span>
+              </div>
+            )) : Object.entries(aging).map(([key, value]) => (
+              <div key={key} className="flex-1 min-w-[120px] p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{key.replace(/_/g, ' ')}</span>
+                <span className="text-lg font-black text-rose-600 mt-1">{fmt(value as any || 0)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center">
           <div>
@@ -2003,8 +2080,8 @@ const CollectionsSection = () => {
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select 
-              value={recordsPerPage} 
+            <select
+              value={recordsPerPage}
               onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
             >
@@ -2015,7 +2092,7 @@ const CollectionsSection = () => {
             Showing {collections.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, collections.length)} of {collections.length} records
           </span>
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -2025,7 +2102,7 @@ const CollectionsSection = () => {
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
               {currentPage}
             </span>
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -2066,7 +2143,7 @@ const ClientLedgerSection = () => {
           id: String(owner.id),
           name: owner.name || owner.company_name || `Client ${owner.id}`
         }));
-        
+
         setClients(clientsList);
         if (clientsList.length > 0) {
           setSelectedClientId(clientsList[0].id);
@@ -2098,7 +2175,7 @@ const ClientLedgerSection = () => {
   }, [selectedClientId]);
 
   const selectedClientName = clients.find(c => c.id === selectedClientId)?.name || "—";
-  
+
   const totalBilled = ledgerData?.total_billed || ledgerData?.transactions?.reduce((sum: number, t: any) => sum + (Number(t.debit) || 0), 0) || 0;
   const totalReceived = ledgerData?.total_received || ledgerData?.transactions?.reduce((sum: number, t: any) => sum + (Number(t.credit) || 0), 0) || 0;
   const outstanding = ledgerData?.outstanding || (totalBilled - totalReceived);
@@ -2130,8 +2207,8 @@ const ClientLedgerSection = () => {
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="space-y-1.5 flex-1">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Client</label>
-            <select 
-              value={selectedClientId} 
+            <select
+              value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
               disabled={isLoadingClients}
               className="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50">
@@ -2211,8 +2288,8 @@ const ClientLedgerSection = () => {
           <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -2223,7 +2300,7 @@ const ClientLedgerSection = () => {
               Showing {transactions.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, transactions.length)} of {transactions.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -2233,7 +2310,7 @@ const ClientLedgerSection = () => {
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(Math.ceil(transactions.length / recordsPerPage), p + 1))}
                 disabled={currentPage === Math.ceil(transactions.length / recordsPerPage) || Math.ceil(transactions.length / recordsPerPage) === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -2321,11 +2398,10 @@ const ReceivablesPage = () => {
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
                   ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
                   : "text-slate-500 hover:text-slate-700"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -2372,7 +2448,7 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
   const woName = workOrders?.find((w: any) => w.id === bill.work_order_id)?.work_order_number || bill.work_order_id || "—";
 
   const fmt = (v: any) => v != null ? `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
-  
+
   const statuses = ["Draft", "Submitted", "Approved", "Paid"];
   let currentStep = statuses.indexOf(bill.status);
   if (currentStep === -1) currentStep = bill.status === "Certified" ? 2 : bill.status === "Pending Approval" ? 1 : 0;
@@ -2391,7 +2467,7 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
   return (
     <Modal isOpen={!!bill} onClose={onClose} title="RA Bill Profile" maxWidth="max-w-4xl">
       <div className="p-6 font-inter h-full overflow-y-auto space-y-6">
-        
+
         {/* Header card */}
         <div className="bg-primary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
           <div className="flex items-center gap-5">
@@ -2402,12 +2478,11 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-xl font-bold tracking-tight">RA Bill {bill.bill_number}</h3>
-                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                  bill.status === 'Paid' ? 'bg-emerald-500/30 text-emerald-100' : 
-                  bill.status === 'Approved' ? 'bg-emerald-500/30 text-emerald-100' :
-                  bill.status === 'Rejected' ? 'bg-rose-500/30 text-rose-100' :
-                  'bg-amber-500/30 text-amber-100'
-                }`}>{bill.status}</span>
+                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${bill.status === 'Paid' ? 'bg-emerald-500/30 text-emerald-100' :
+                    bill.status === 'Approved' ? 'bg-emerald-500/30 text-emerald-100' :
+                      bill.status === 'Rejected' ? 'bg-rose-500/30 text-rose-100' :
+                        'bg-amber-500/30 text-amber-100'
+                  }`}>{bill.status}</span>
               </div>
               <p className="text-white/70 text-xs font-bold mb-2">Generated on {bill.bill_date || "—"}</p>
               <div className="flex flex-wrap gap-2">
@@ -2417,110 +2492,109 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
             </div>
           </div>
         </div>
-          
-          {/* Workflow Indicator */}
-          {bill.status !== "Rejected" && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-center">
-              {statuses.map((step, idx, arr) => {
-                const isPast = idx <= currentStep;
-                const isCurrent = idx === currentStep;
-                return (
-                  <div key={step} className="flex-1 flex items-center">
-                    <div className={`flex flex-col items-center flex-1 ${isPast ? "text-primary" : "text-slate-300"}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-2 transition-all ${
-                        isCurrent ? "bg-primary text-white shadow-md shadow-primary/30 ring-4 ring-primary/10" : 
+
+        {/* Workflow Indicator */}
+        {bill.status !== "Rejected" && (
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-center">
+            {statuses.map((step, idx, arr) => {
+              const isPast = idx <= currentStep;
+              const isCurrent = idx === currentStep;
+              return (
+                <div key={step} className="flex-1 flex items-center">
+                  <div className={`flex flex-col items-center flex-1 ${isPast ? "text-primary" : "text-slate-300"}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-2 transition-all ${isCurrent ? "bg-primary text-white shadow-md shadow-primary/30 ring-4 ring-primary/10" :
                         isPast ? "bg-primary text-white" : "bg-slate-100 text-slate-400"
                       }`}>
-                        {isPast && !isCurrent ? <Check size={16} /> : idx + 1}
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{step}</span>
+                      {isPast && !isCurrent ? <Check size={16} /> : idx + 1}
                     </div>
-                    {idx < arr.length - 1 && <div className={`h-1 flex-1 mx-2 rounded-full ${idx < currentStep ? "bg-primary/50" : "bg-slate-100"}`} />}
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{step}</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  {idx < arr.length - 1 && <div className={`h-1 flex-1 mx-2 rounded-full ${idx < currentStep ? "bg-primary/50" : "bg-slate-100"}`} />}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><User size={14}/> Contractor Details</p>
-              <p className="text-sm font-bold text-slate-800">{contrName}</p>
-              <p className="text-xs text-slate-500 mt-1">Vendor ID: {bill.contractor_id || "—"}</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Briefcase size={14}/> Project Details</p>
-              <p className="text-sm font-bold text-slate-800">{projName}</p>
-              <p className="text-xs text-slate-500 mt-1">Project ID: {bill.project_id || "—"}</p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm col-span-2 flex justify-between items-center">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><FileText size={14}/> Work Order</p>
-                <p className="text-sm font-bold text-slate-800">{woName}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
-                <p className="text-sm font-semibold text-slate-700">{bill.work_description || "—"}</p>
-              </div>
-            </div>
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><User size={14} /> Contractor Details</p>
+            <p className="text-sm font-bold text-slate-800">{contrName}</p>
+            <p className="text-xs text-slate-500 mt-1">Vendor ID: {bill.contractor_id || "—"}</p>
           </div>
 
-          {/* Amount Summary */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Banknote size={14}/> Amount Summary</p>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-semibold">Gross Amount</span>
-                <span className="text-sm font-bold text-slate-800">{fmt(grossAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-semibold">GST ({bill.gst_percent || 0}%)</span>
-                <span className="text-sm font-bold text-slate-700">+ {fmt(gstAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-500 font-semibold">Total Amount</span>
-                <span className="text-sm font-black text-slate-800">{fmt(totalAmount)}</span>
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Briefcase size={14} /> Project Details</p>
+            <p className="text-sm font-bold text-slate-800">{projName}</p>
+            <p className="text-xs text-slate-500 mt-1">Project ID: {bill.project_id || "—"}</p>
           </div>
 
-          {/* Deductions */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertCircle size={14}/> Deductions</p>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-semibold">TDS Amount</span>
-                <span className="text-sm font-bold text-rose-600">– {fmt(tds)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-semibold">Retention Amount</span>
-                <span className="text-sm font-bold text-rose-600">– {fmt(retention)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-semibold">Security Deposit Recovery</span>
-                <span className="text-sm font-bold text-rose-600">– {fmt(sec)}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-500 font-semibold">Total Deductions</span>
-                <span className="text-sm font-black text-rose-600">– {fmt(totalDeductions)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Final Net Payable */}
-          <div className="bg-primary rounded-2xl p-6 shadow-md shadow-primary/20 text-white flex justify-between items-center">
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm col-span-2 flex justify-between items-center">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary-200 mb-1">Net Payable Amount</p>
-              <p className="text-3xl font-black tracking-tight">{fmt(netPayable)}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><FileText size={14} /> Work Order</p>
+              <p className="text-sm font-bold text-slate-800">{woName}</p>
             </div>
-            {bill.status === "Paid" && <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-white"/></div>}
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+              <p className="text-sm font-semibold text-slate-700">{bill.work_description || "—"}</p>
+            </div>
           </div>
+        </div>
+
+        {/* Amount Summary */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Banknote size={14} /> Amount Summary</p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-semibold">Gross Amount</span>
+              <span className="text-sm font-bold text-slate-800">{fmt(grossAmount)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-semibold">GST ({bill.gst_percent || 0}%)</span>
+              <span className="text-sm font-bold text-slate-700">+ {fmt(gstAmount)}</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-100 pt-3">
+              <span className="text-xs text-slate-500 font-semibold">Total Amount</span>
+              <span className="text-sm font-black text-slate-800">{fmt(totalAmount)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Deductions */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertCircle size={14} /> Deductions</p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-semibold">TDS Amount</span>
+              <span className="text-sm font-bold text-rose-600">– {fmt(tds)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-semibold">Retention Amount</span>
+              <span className="text-sm font-bold text-rose-600">– {fmt(retention)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-semibold">Security Deposit Recovery</span>
+              <span className="text-sm font-bold text-rose-600">– {fmt(sec)}</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-100 pt-3">
+              <span className="text-xs text-slate-500 font-semibold">Total Deductions</span>
+              <span className="text-sm font-black text-rose-600">– {fmt(totalDeductions)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Final Net Payable */}
+        <div className="bg-primary rounded-2xl p-6 shadow-md shadow-primary/20 text-white flex justify-between items-center">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary-200 mb-1">Net Payable Amount</p>
+            <p className="text-3xl font-black tracking-tight">{fmt(netPayable)}</p>
+          </div>
+          {bill.status === "Paid" && <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-white" /></div>}
+        </div>
 
 
-          
+
       </div>
     </Modal>
   );
@@ -2571,13 +2645,13 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white">
           <h2 className="text-lg font-bold text-slate-800">Edit RA Bill</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><XCircle size={20}/></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><XCircle size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className={labelClasses}>Work Order</label>
-              <select className={inputClasses} value={formData.work_order_id} onChange={e => setFormData({...formData, work_order_id: e.target.value})}>
+              <select className={inputClasses} value={formData.work_order_id} onChange={e => setFormData({ ...formData, work_order_id: e.target.value })}>
                 <option value="">-- Select Work Order --</option>
                 {workOrders.map(w => (
                   <option key={w.id} value={w.id}>{w.title || w.work_order_no || w.order_no || `Work Order #${w.id}`}</option>
@@ -2586,27 +2660,27 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
             </div>
             <div className="col-span-2">
               <label className={labelClasses}>Work Description</label>
-              <input type="text" className={inputClasses} value={formData.work_description} onChange={e => setFormData({...formData, work_description: e.target.value})} />
+              <input type="text" className={inputClasses} value={formData.work_description} onChange={e => setFormData({ ...formData, work_description: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>Quantity</label>
-              <input type="number" step="any" className={inputClasses} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
+              <input type="number" step="any" className={inputClasses} value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>Rate</label>
-              <input type="number" step="any" className={inputClasses} value={formData.rate} onChange={e => setFormData({...formData, rate: e.target.value})} />
+              <input type="number" step="any" className={inputClasses} value={formData.rate} onChange={e => setFormData({ ...formData, rate: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>Deductions</label>
-              <input type="number" step="any" className={inputClasses} value={formData.deductions} onChange={e => setFormData({...formData, deductions: e.target.value})} />
+              <input type="number" step="any" className={inputClasses} value={formData.deductions} onChange={e => setFormData({ ...formData, deductions: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>GST Percent</label>
-              <input type="number" step="any" className={inputClasses} value={formData.gst_percent} onChange={e => setFormData({...formData, gst_percent: e.target.value})} />
+              <input type="number" step="any" className={inputClasses} value={formData.gst_percent} onChange={e => setFormData({ ...formData, gst_percent: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>Status</label>
-              <select className={inputClasses} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+              <select className={inputClasses} value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
                 <option value="Draft">Draft</option>
                 <option value="Submitted">Submitted</option>
                 <option value="Certified">Certified</option>
@@ -2616,7 +2690,7 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
             </div>
             <div>
               <label className={labelClasses}>Bill Date</label>
-              <input type="date" className={inputClasses} value={formData.bill_date} onChange={e => setFormData({...formData, bill_date: e.target.value})} />
+              <input type="date" className={inputClasses} value={formData.bill_date} onChange={e => setFormData({ ...formData, bill_date: e.target.value })} />
             </div>
           </div>
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">

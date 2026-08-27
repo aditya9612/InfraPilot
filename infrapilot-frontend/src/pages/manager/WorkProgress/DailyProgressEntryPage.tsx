@@ -245,7 +245,7 @@ const DailyProgressEntryPage = () => {
       let historyArr: any[] = [];
       if (selectedActivityId === "all") {
         // Fetch history for all activities in parallel
-        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id).catch(() => null));
+        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id, projectId).catch(() => null));
         const results = await Promise.all(promises);
         results.forEach(r => {
           if (!r) return;
@@ -262,7 +262,7 @@ const DailyProgressEntryPage = () => {
           historyArr = historyArr.concat(hist);
         });
       } else {
-        const r = await workProgressService.getActivityHistory(Number(selectedActivityId));
+        const r = await workProgressService.getActivityHistory(Number(selectedActivityId), projectId);
         let hist: any[] = [];
         if (Array.isArray(r)) hist = r;
         else if (r && Array.isArray((r as any).history)) hist = (r as any).history;
@@ -463,8 +463,8 @@ const DailyProgressEntryPage = () => {
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
     return baseHistoryEntries.filter(e => {
-      if (activeStatFilter === "Progress Updates") return Number(e.today_progress) > 0 || Number(e.new_value?.today_progress) > 0;
-      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.status && e.status !== e.old_value?.status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
       return true;
     });
   }, [baseHistoryEntries, activeStatFilter]);
@@ -575,14 +575,13 @@ const DailyProgressEntryPage = () => {
       cards = [
         { label: "All Logs", count: base.length, colorClass: "text-slate-800", sub: "Total Entries" },
         { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
-        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
-        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "delay"; }).length, colorClass: "text-rose-500", sub: "Critical Items" }
+        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" }
       ];
     } else if (activeTab === 'history') {
       cards = [
         { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
-        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.today_progress) > 0 || Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
-        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.status && e.status !== e.old_value?.status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
+        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
       ];
     } else if (activeTab === 'delay') {
       cards = [
@@ -595,8 +594,10 @@ const DailyProgressEntryPage = () => {
 
     if (cards.length === 0) return null;
 
+    const gridCols = cards.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
+
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+      <div className={`grid grid-cols-1 ${gridCols} gap-6 mb-8 font-inter`}>
         {cards.map(c => (
           <div
             key={c.label}
@@ -1140,23 +1141,23 @@ const DailyProgressEntryPage = () => {
                                 {e.activity_name || currentActivity?.activity_name || "-"}
                               </td>
                               <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.status || e.new_value?.status || currentActivity?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
-                                  {e.status || e.new_value?.status || currentActivity?.status || "DELAY"}
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.status || e.new_value?.status || currentActivity?.status || ""] || "bg-emerald-50 text-emerald-600"} font-inter`}>
+                                  {e.status || e.new_value?.status || currentActivity?.status || "ON_TRACK"}
                                 </span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
                                   <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
                                   <span className="text-sm font-bold text-primary font-inter">
-                                    {e.today_progress || e.new_value?.today_progress || 0} {e.unit || currentActivity?.unit || ""}
+                                    {e.today_progress || e.new_value?.today_progress || 0} {currentActivity?.unit || ""}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
-                                {e.running_total || e.completed_quantity || e.new_value?.total_completed || 0} {e.unit || currentActivity?.unit || ""}
+                                {e.running_total || e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
-                                {e.action || "DAILY_PROGRESS_UPDATE"}
+                                {e.action || "DAILY_PROGRESS"}
                               </td>
                             </tr>
                           );

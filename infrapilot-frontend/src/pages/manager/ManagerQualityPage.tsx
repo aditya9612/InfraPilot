@@ -463,13 +463,13 @@ const ManagerQualityPage = () => {
                                 <table className="w-full text-left min-w-[900px]">
                                     <thead>
                                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                            <th className="px-6 py-4">Audit Details</th>
-                                            <th className="px-6 py-4">Project</th>
-                                            <th className="px-6 py-4">Test Description</th>
-                                            <th className="px-6 py-4">Status</th>
-                                            <th className="px-6 py-4">Values</th>
-                                            <th className="px-6 py-4">Auditor</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
+                                            <th className="px-6 py-4 w-[15%]">Audit Details</th>
+                                            <th className="px-6 py-4 w-[15%]">Project</th>
+                                            <th className="px-6 py-4 w-[25%]">Test Description</th>
+                                            <th className="px-6 py-4 w-[10%]">Status</th>
+                                            <th className="px-6 py-4 w-[12%]">Values</th>
+                                            <th className="px-6 py-4 w-[15%]">Auditor</th>
+                                            <th className="px-6 py-4 w-[8%] text-right whitespace-nowrap">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
