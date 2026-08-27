@@ -447,26 +447,30 @@ const AllInvoicesPage = () => {
                 />
               </div>
               <div className="flex items-center gap-3">
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setType(e.target.value)}
-                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
-                >
-                  <option value="all">All Invoice</option>
-                  <option value="invoice">Invoice</option>
-                  <option value="labour">Labour</option>
-                  <option value="material">Material</option>
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="partial">Partial</option>
-                </select>
+                {activeTab !== "quotations" && (
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setType(e.target.value)}
+                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
+                  >
+                    <option value="all">All Invoice</option>
+                    <option value="invoice">Invoice</option>
+                    <option value="labour">Labour</option>
+                    <option value="material">Material</option>
+                  </select>
+                )}
+                {activeTab !== "quotations" && (
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                  </select>
+                )}
                 <SortDropdown value={sortOrder} onChange={setSortOrder} />
               </div>
             </div>

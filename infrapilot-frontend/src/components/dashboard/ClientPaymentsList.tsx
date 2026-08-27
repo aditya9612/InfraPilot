@@ -12,6 +12,9 @@ const ClientPaymentsList = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [viewingPayment, setViewingPayment] = useState<ClientPayment | null>(null);
 
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 10;
+
     const fetchPayments = async () => {
         if (!selectedProjectId) return;
         setLoading(true);
@@ -55,6 +58,13 @@ const ClientPaymentsList = () => {
         (p.user_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.payment_no || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
+    const pagedPayments = filteredPayments.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [searchTerm]);
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
@@ -109,7 +119,7 @@ const ClientPaymentsList = () => {
                                 </td>
                             </tr>
                         ) : (
-                            filteredPayments.map((p) => (
+                            pagedPayments.map((p) => (
                                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-slate-600">{(p as any).client_name || p.user_name || "Unknown Client"}</p>
@@ -177,6 +187,33 @@ const ClientPaymentsList = () => {
                     </tbody>
                 </table>
             </div>
+
+            {filteredPayments.length > 0 && (
+                <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                        Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredPayments.length)} of {filteredPayments.length} Payments
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                            disabled={currentPage === 0}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                            {currentPage + 1}
+                        </div>
+                        <button
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                            disabled={currentPage >= totalPages - 1}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <PaymentDetailsModal
                 payment={viewingPayment}

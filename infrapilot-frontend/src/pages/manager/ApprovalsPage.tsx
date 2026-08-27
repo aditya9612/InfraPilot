@@ -1,18 +1,18 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { Check, Download, Eye, Plus, RotateCcw, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { useLocation } from "react-router-dom";
+import Modal from "../../components/common/Modal";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
-import Modal from "../../components/common/Modal";
-import toast from "react-hot-toast";
-import { Eye, Check, X, Search, RotateCcw, Plus, Download } from "lucide-react";
-import { approvalService } from "../../services/approvalService";
-import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
+import type { ApprovalItem } from "../../services/approvalService";
+import { approvalService } from "../../services/approvalService";
 import { boqService } from "../../services/boqService";
-import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
+import { drawingService } from "../../services/drawingService";
 import { equipmentService } from "../../services/equipmentService";
 import { userService } from "../../services/userService";
 
@@ -429,7 +429,7 @@ const ApprovalsPage = () => {
                                             disabled={pendingFilteredApprovals.length === 0}
                                         />
                                     </th>
-                                    <th className="px-6 py-4">Entity Type & ID</th>
+                                    <th className="px-6 py-4">Entity Type</th>
                                     <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Summary Detail</th>
                                     <th className="px-6 py-4">Status</th>
@@ -547,8 +547,8 @@ const ApprovalsPage = () => {
                                                 key={i}
                                                 onClick={() => setCurrentPage(i)}
                                                 className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === i
-                                                        ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                        : "text-slate-500 hover:bg-slate-100"
+                                                    ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                    : "text-slate-500 hover:bg-slate-100"
                                                     }`}
                                             >
                                                 {i + 1}
