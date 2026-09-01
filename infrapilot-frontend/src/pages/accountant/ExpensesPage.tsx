@@ -214,33 +214,11 @@ const ExpenseEntrySection = () => {
 const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-<<<<<<< HEAD
   const [projectName, setProjectName] = useState<string>("");
   const [boqItemName, setBoqItemName] = useState<string>("");
 
   useEffect(() => {
     let isMounted = true;
-=======
-  const [projects, setProjects] = useState<any[]>([]);
-  const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const pdata = await projectService.getProjects(100, 0);
-        setProjects(Array.isArray(pdata) ? pdata : (pdata as any).items || []);
-      } catch (err) {}
-    };
-    if (isOpen) fetchProjects();
-  }, [isOpen]);
-
-  const getProjectName = (id: any) => {
-    const p = projects.find(p => String(p.id) === String(id));
-    return p ? (p.project_name || p.name) : (id || '—');
-  };
-
-  useEffect(() => {
->>>>>>> testing
     const load = async () => {
       if (!expense) return;
       try {
@@ -337,11 +315,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
                 </div>
                 <p className="text-white/70 text-xs font-bold mb-2">Expense #{data.id}</p>
                 <div className="flex flex-wrap gap-2">
-<<<<<<< HEAD
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projectName || '—'}</span>
-=======
-                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{getProjectName(data.project_id)}</span>
->>>>>>> testing
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
                 </div>
               </div>
@@ -351,11 +325,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: 'Expense No', value: `EXP-${data.id}` },
-<<<<<<< HEAD
               { label: 'Project', value: projectName || '—' },
-=======
-              { label: 'Project', value: getProjectName(data.project_id) },
->>>>>>> testing
               { label: 'Category', value: data.category || '—' },
               { label: 'Payment Mode', value: data.payment_mode || '—' },
               { label: 'Expense Date', value: data.expense_date || '—' },

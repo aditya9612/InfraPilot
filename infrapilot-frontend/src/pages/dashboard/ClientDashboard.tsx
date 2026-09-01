@@ -37,11 +37,8 @@ const ClientDashboard = () => {
   const { projectId, loading: projectIdLoading } = useClientProjectId();
 
   useEffect(() => {
-    if (!projectId) {
-      // projectId not yet resolved — wait for the next effect run
-      // Don't set loading=false here; useClientProjectId will update projectId
-      // and trigger this effect again once it resolves
-      console.warn('[ClientDashboard] projectId is null — waiting for resolution...');
+    if (projectIdLoading || !projectId) {
+      console.warn('[ClientDashboard] projectId is loading or null — waiting for resolution...');
       return;
     }
     let active = true;
@@ -53,13 +50,23 @@ const ClientDashboard = () => {
         try {
           const activeProject = await projectService.getProjectById(projectId);
           if (active) setProjectData(activeProject);
-        } catch (projErr) {
+        } catch (projErr: any) {
           console.warn("Project details fetch warning:", projErr);
+          if (projErr?.response?.status === 404) {
+            localStorage.removeItem("client_selected_project_id");
+            localStorage.removeItem("infrapilot_selected_project_id");
+            window.dispatchEvent(new Event("project_changed"));
+            return;
+          }
         }
 
-        const statsData = await dashboardService.getClientDashboard(projectId);
-        console.log('[ClientDashboard] statsData set to state:', JSON.stringify(statsData, null, 2));
-        if (active) setDashboardData(statsData);
+        try {
+          const statsData = await dashboardService.getClientDashboard(projectId);
+          console.log('[ClientDashboard] statsData set to state:', JSON.stringify(statsData, null, 2));
+          if (active) setDashboardData(statsData);
+        } catch (dashErr) {
+          console.warn("Dashboard stats fetch error:", dashErr);
+        }
 
         try {
           const expData = await expenseService.getExpensesByProject(Number(projectId));
@@ -73,7 +80,6 @@ const ClientDashboard = () => {
       } catch (error: any) {
         if (!active) return;
         console.error("Dashboard Fetch Error:", error);
-        toast.error(error.message || "Failed to load dashboard data");
       } finally {
         if (active) setLoading(false);
       }
@@ -81,7 +87,7 @@ const ClientDashboard = () => {
 
     fetchDashboardContent();
     return () => { active = false; };
-  }, [projectId]);
+  }, [projectId, projectIdLoading]);
 
   // ── Fields from API only ──
   const projectName = projectData?.project_name || projectData?.name || "";

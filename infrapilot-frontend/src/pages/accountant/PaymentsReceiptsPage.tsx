@@ -7,15 +7,10 @@ import Modal from "../../components/common/Modal";
 import api from "../../services/api";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-<<<<<<< HEAD
 import { PROJECTS } from "../../config/projectSeed";
 
 const PETTY_CASH_CATEGORIES = ["Tea Expenses", "Diesel", "Site Travel", "Local Material Purchase", "Stationery", "Miscellaneous"];
 const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equipment Owner", "Land Owner", "Legal Entity"];
-=======
-import { materialService } from "../../services/materialService";
-import api from "../../services/api";
->>>>>>> testing
 
 // --- DATE HELPERS (Exact API Response String) ---
 const formatDateTimeDMY = (dateStr: any): string => {
@@ -178,17 +173,7 @@ const ProjectNameCell = ({
 
 // --- SECTIONS ---
 
-<<<<<<< HEAD
 
-
-
-const MOCK_PAYMENTS = [
-  { id: "PAY-210", date: "2024-05-16", party: "Ramesh Labor Contractor", type: "Contractor Payment", amount: 220000, mode: "Cheque", status: "Paid" },
-  { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" }
-];
-
-=======
->>>>>>> testing
 // 1. Transactions removed (Moved to Fund Transfer)
 
 
@@ -275,15 +260,10 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-<<<<<<< HEAD
   const filtered = [...receipts].sort((a: any, b: any) => {
     const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
     const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
     return timeB - timeA;
-=======
-  const filtered = [...receipts].sort((a, b) => {
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
->>>>>>> testing
   });
   
   const totalPages = Math.ceil(filtered.length / recordsPerPage);
@@ -340,7 +320,6 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.linked_to || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.invoice_name || r.invoice_id || '-'}</td>
-<<<<<<< HEAD
                     <td className="px-4 py-3 text-slate-700 font-medium">
                       <ProjectNameCell projectId={r.project_id} item={r} projects={projects} />
                     </td>
@@ -349,14 +328,6 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700 text-xs">
                       <div><span className="text-slate-400">Cre:</span> {r.created_at ? formatDateTimeDMY(r.created_at) : '-'}</div>
                       <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? formatDateTimeDMY(r.updated_at) : '-'}</div>
-=======
-                    <td className="px-4 py-3 text-slate-700 font-medium">{projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.project_name || projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.name || r.project_id || '-'}</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">₹ {(r.amount || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.reference || '-'}</td>
-                    <td className="px-4 py-3 text-slate-700 text-xs">
-                      <div><span className="text-slate-400">Cre:</span> {r.created_at || '-'}</div>
-                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at || '-'}</div>
->>>>>>> testing
                     </td>
 
                   </tr>
@@ -894,18 +865,6 @@ const PettyCashSection = () => {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-<<<<<<< HEAD
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs font-bold text-slate-600">PC-1001</td>
-            <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-15")}</td>
-            <td className="px-4 py-3 text-xs font-semibold text-slate-700">Site Travel</td>
-            <td className="px-4 py-3 text-xs text-slate-500">Taxi for site visit</td>
-            <td className="px-4 py-3 text-xs text-slate-600">Amit Singh</td>
-            <td className="px-4 py-3 text-xs text-emerald-600 text-right">—</td>
-            <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,500</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹24,500</td>
-          </tr>
-=======
           {pettyCashData.length > 0 ? pettyCashData.map((item, index) => (
             <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
@@ -920,7 +879,6 @@ const PettyCashSection = () => {
           )) : (
             <tr><td colSpan={8} className="text-center py-8 text-xs text-slate-400">No transactions found</td></tr>
           )}
->>>>>>> testing
         </tbody>
       </table>
     </div>
@@ -1106,7 +1064,6 @@ const BankTransactionsSection = () => {
                     <tr key={t.id || t.reference || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t.type || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">{t.mode || '-'}</td>
-<<<<<<< HEAD
                       <td className="px-4 py-3 text-xs text-slate-700 font-medium">
                         <ProjectNameCell projectId={t.project_id} item={t} projects={projects} />
                       </td>
@@ -1115,14 +1072,6 @@ const BankTransactionsSection = () => {
                       <td className="px-4 py-3 text-xs text-slate-500">
                         <div><span className="text-slate-400">Cre:</span> {t.created_at ? formatDateTimeDMY(t.created_at) : '-'}</div>
                         <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? formatDateTimeDMY(t.updated_at) : '-'}</div>
-=======
-                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">{projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.project_name || projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.name || t.project_id || '-'}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹ {Number(t.amount || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500 font-mono">{t.reference || '-'}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        <div><span className="text-slate-400">Cre:</span> {t.created_at || '-'}</div>
-                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at || '-'}</div>
->>>>>>> testing
                       </td>
                     </tr>
                   ))

@@ -164,83 +164,7 @@ const processPaymentHistory = (historyList: any[]) => {
   };
 };
 
-const generateFallbackAnalytics = () => {
-  return {
-    totalRevenue: 2800000,
-    totalReceived: 2150000,
-    totalPending: 480000,
-    totalOverdue: 170000,
-    monthlyTrend: [
-      { month: "Jan", billed: 320000, received: 300000 },
-      { month: "Feb", billed: 450000, received: 410000 },
-      { month: "Mar", billed: 580000, received: 500000 },
-      { month: "Apr", billed: 420000, received: 380000 },
-      { month: "May", billed: 610000, received: 560000 },
-      { month: "Jun", billed: 420000, received: 320000 }
-    ],
-    statusShares: [
-      { name: "Paid", value: 20, fill: "#10B981" },
-      { name: "Partial", value: 5, fill: "#3B82F6" },
-      { name: "Pending", value: 4, fill: "#F59E0B" },
-      { name: "Overdue", value: 7, fill: "#EF4444" }
-    ]
-  };
-};
 
-const generateMockPayments = (): ClientPayment[] => {
-  const clients = ["Rohit", "Client", "Rahul Sharma", "Priya Patel", "Aman Verma"];
-  const emails = ["rohit@example.com", "client@example.com", "rahul.s@example.com", "priya.p@example.com", "aman.v@example.com"];
-  const projects = [
-    "Initial approval request for base",
-    "Approval requested for drawing: Front",
-    "Approved after site review",
-    "Approval requested for drawing: Layout plan V2",
-    "Initial approval request for cement",
-    "Excavation and foundation work",
-    "Superstructure slab casting",
-    "Interior plastering and finishing",
-    "MEP plumbing and electrical phase 1",
-  ];
-
-  const list: ClientPayment[] = [
-    { paymentId: "PAY-2026-0056", invoiceNo: "INV-2026-0145", clientName: "Rohit", clientEmail: "rohit@example.com", projectName: projects[0], invoiceDate: "12/06/2026", dueDate: "20/06/2026", amount: 125000, paidAmount: 125000, status: "PAID", paymentDate: "13/06/2026" },
-    { paymentId: "PAY-2026-0055", invoiceNo: "INV-2026-0144", clientName: "Client", clientEmail: "client@example.com", projectName: projects[1], invoiceDate: "11/06/2026", dueDate: "18/06/2026", amount: 85000, paidAmount: 25000, status: "PARTIAL", paymentDate: "12/06/2026" },
-    { paymentId: "PAY-2026-0054", invoiceNo: "INV-2026-0143", clientName: "Client", clientEmail: "client@example.com", projectName: projects[2], invoiceDate: "10/06/2026", dueDate: "17/06/2026", amount: 45000, paidAmount: 0, status: "PENDING", paymentDate: "-" },
-    { paymentId: "PAY-2026-0053", invoiceNo: "INV-2026-0142", clientName: "Client", clientEmail: "client@example.com", projectName: projects[3], invoiceDate: "09/06/2026", dueDate: "16/06/2026", amount: 110000, paidAmount: 0, status: "OVERDUE", paymentDate: "-" },
-    { paymentId: "PAY-2026-0052", invoiceNo: "INV-2026-0141", clientName: "Rohit", clientEmail: "rohit@example.com", projectName: projects[4], invoiceDate: "09/06/2026", dueDate: "15/06/2026", amount: 75000, paidAmount: 75000, status: "PAID", paymentDate: "09/06/2026" },
-  ];
-
-  const statusPool: ClientPayment["status"][] = [
-    ...Array(20).fill("PAID"),
-    ...Array(5).fill("PARTIAL"),
-    ...Array(4).fill("PENDING"),
-    ...Array(7).fill("OVERDUE"),
-  ];
-
-  statusPool.forEach((status, idx) => {
-    const ci = idx % clients.length;
-    const pi = idx % projects.length;
-    const day = String((idx % 25) + 1).padStart(2, "0");
-    const month = idx % 2 === 0 ? "04" : "05";
-    const amount = 40000 + idx * 3000;
-    const paidAmount = status === "PAID" ? amount : status === "PARTIAL" ? Math.round((amount * 0.4) / 1000) * 1000 : 0;
-    list.push({
-      paymentId: `PAY-2026-${String(51 - idx).padStart(4, "0")}`,
-      invoiceNo: `INV-2026-${String(140 - idx).padStart(4, "0")}`,
-      clientName: clients[ci],
-      clientEmail: emails[ci],
-      projectName: projects[pi],
-      invoiceDate: `${day}/${month}/2026`,
-      dueDate: `${String(((idx + 7) % 25) + 1).padStart(2, "0")}/${month}/2026`,
-      amount,
-      paidAmount,
-      status,
-      paymentDate: paidAmount > 0 ? `${String(((idx + 2) % 25) + 1).padStart(2, "0")}/${month}/2026` : "-",
-    });
-  });
-
-  return list;
-};
 
 const ClientPaymentPage = () => {
   const { user } = useAuth();
@@ -279,7 +203,7 @@ const ClientPaymentPage = () => {
   const [checkFile, setCheckFile] = useState<File | null>(null);
 
   // ── Payment History redesigned state ──
-  const [clientPayments, setClientPayments] = useState<ClientPayment[]>(() => generateMockPayments());
+  const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentClientFilter, setPaymentClientFilter] = useState("All Clients");
   const [paymentProjectFilter, setPaymentProjectFilter] = useState("All Projects");
@@ -371,27 +295,10 @@ const ClientPaymentPage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Invoice Summary & Pending Invoices (API) ──
-  const generateFallbackAnalytics = () => ({
-    monthlyBilledVsReceived: [
-      { month: "Jan", billed: 5000, received: 4000 },
-      { month: "Feb", billed: 8000, received: 6000 },
-      { month: "Mar", billed: 12000, received: 10000 },
-      { month: "Apr", billed: 15000, received: 12000 },
-      { month: "May", billed: 20000, received: 18000 },
-      { month: "Jun", billed: 25000, received: 22000 },
-    ],
-    statusShares: [
-      { name: "Paid", value: 8, fill: "#10B981" },
-      { name: "Pending", value: 4, fill: "#F59E0B" },
-      { name: "Overdue", value: 1, fill: "#EF4444" },
-    ]
-  });
-
   const [invoiceSummary, setInvoiceSummary] = useState<any>(null);
   const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-  const [paymentAnalytics, setPaymentAnalytics] = useState<any>(generateFallbackAnalytics());
+  const [paymentAnalytics, setPaymentAnalytics] = useState<any>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
@@ -567,12 +474,12 @@ const ClientPaymentPage = () => {
       }
     }
 
-    // 2. If no monthly list from API or all are zero, calculate from invoices/payments
+    // 2. If no monthly list from API, calculate from invoices/payments
     const invoices = Array.isArray(invoiceSummary?.invoices) ? invoiceSummary.invoices : [];
-    const totalBilled = invoiceSummaryMetrics?.totalAmount || 13229.63;
-    const totalReceived = invoiceSummaryMetrics?.paidAmount || 2156.19;
+    const totalBilled = invoiceSummaryMetrics?.totalAmount || 0;
+    const totalReceived = invoiceSummaryMetrics?.paidAmount || 0;
 
-    if (monthlyData.length === 0 || monthlyData.every(m => m.billed === 0 && m.received === 0)) {
+    if (monthlyData.length === 0) {
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const now = new Date();
       const monthsMap = new Map<string, { billed: number; received: number }>();
@@ -626,18 +533,6 @@ const ClientPaymentPage = () => {
         billed: vals.billed,
         received: vals.received,
       }));
-
-      // Fallback to proportional trend if all are 0
-      if (monthlyData.every(m => m.billed === 0 && m.received === 0)) {
-        monthlyData = [
-          { month: "Mar", billed: Math.round(totalBilled * 0.25), received: Math.round(totalReceived * 0.2) },
-          { month: "Apr", billed: Math.round(totalBilled * 0.45), received: Math.round(totalReceived * 0.4) },
-          { month: "May", billed: Math.round(totalBilled * 0.65), received: Math.round(totalReceived * 0.6) },
-          { month: "Jun", billed: Math.round(totalBilled * 0.8), received: Math.round(totalReceived * 0.8) },
-          { month: "Jul", billed: Math.round(totalBilled * 0.9), received: Math.round(totalReceived * 0.9) },
-          { month: "Aug", billed: totalBilled, received: totalReceived },
-        ];
-      }
     }
 
     // 3. Status Breakdown
@@ -656,10 +551,12 @@ const ClientPaymentPage = () => {
           pendingCount++;
         }
       });
-    } else {
-      paidCount = 1;
-      pendingCount = 5;
-      overdueCount = 0;
+    } else if (clientPayments.length > 0) {
+      clientPayments.forEach(p => {
+        if (p.status === "PAID") paidCount++;
+        else if (p.status === "OVERDUE") overdueCount++;
+        else pendingCount++;
+      });
     }
 
     const statusShares = [
@@ -672,7 +569,7 @@ const ClientPaymentPage = () => {
       monthlyBilledVsReceived: monthlyData,
       statusShares,
     };
-  }, [paymentAnalytics, invoiceSummary, invoiceSummaryMetrics]);
+  }, [paymentAnalytics, invoiceSummary, invoiceSummaryMetrics, clientPayments]);
 
   // Close download dropdown when clicked outside
   useEffect(() => {
@@ -858,24 +755,32 @@ const ClientPaymentPage = () => {
     if (activeTab !== "history") return;
     const fetchApiData = async () => {
       setApiLoading(true);
-      const activeProjectId = projectId ? Number(projectId) : 4;
+      const activeProjectId = projectId ? Number(projectId) : undefined;
       try {
         const [summary, pending, historyList, analytics] = await Promise.all([
-          paymentService.getInvoiceSummary(activeProjectId),
-          paymentService.getPendingInvoices(activeProjectId),
-          paymentService.getClientPaymentHistory(activeProjectId),
-          paymentService.getClientPaymentAnalytics({ project_id: activeProjectId }),
+          paymentService.getInvoiceSummary(activeProjectId).catch(() => null),
+          paymentService.getPendingInvoices(activeProjectId).catch(() => []),
+          paymentService.getClientPaymentHistory(activeProjectId).catch(() => []),
+          paymentService.getClientPaymentAnalytics(activeProjectId ? { project_id: activeProjectId } : undefined).catch(() => null),
         ]);
 
         let paidSet = new Set<string>();
-        if (historyList && historyList.length > 0) {
+        if (historyList && Array.isArray(historyList)) {
           const processed = processPaymentHistory(historyList);
           paidSet = processed.paidInvoiceIdentifiers;
           setClientPayments(processed.mappedPayments);
           setPaymentHistory(historyList);
+        } else {
+          setClientPayments([]);
+          setPaymentHistory([]);
         }
 
-        if (summary) setInvoiceSummary(summary);
+        if (summary) {
+          setInvoiceSummary(summary);
+        } else {
+          setInvoiceSummary(null);
+        }
+
         if (pending && Array.isArray(pending)) {
           const cleanPending = pending.filter((inv: any) => {
             const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
@@ -890,18 +795,22 @@ const ClientPaymentPage = () => {
             return !isPaid;
           });
           setPendingInvoices(cleanPending);
-        } else if (pending) {
-          setPendingInvoices(pending);
+        } else {
+          setPendingInvoices([]);
         }
 
         if (analytics) {
           setPaymentAnalytics(analytics);
         } else {
-          setPaymentAnalytics(generateFallbackAnalytics());
+          setPaymentAnalytics(null);
         }
       } catch (err) {
         console.error("Failed to load client payment details from APIs:", err);
-        setPaymentAnalytics(generateFallbackAnalytics());
+        setClientPayments([]);
+        setPaymentHistory([]);
+        setPendingInvoices([]);
+        setInvoiceSummary(null);
+        setPaymentAnalytics(null);
       } finally {
         setApiLoading(false);
       }
@@ -1339,18 +1248,21 @@ const ClientPaymentPage = () => {
       }
 
       // Refresh payment history and invoices from server
-      const activeProjectId = projectId ? Number(projectId) : 4;
+      const activeProjectId = projectId ? Number(projectId) : undefined;
       const [summary, pending, historyList] = await Promise.all([
         paymentService.getInvoiceSummary(activeProjectId).catch(() => null),
         paymentService.getPendingInvoices(activeProjectId).catch(() => []),
         paymentService.getClientPaymentHistory(activeProjectId).catch(() => [])
       ]);
       let paidSet = new Set<string>();
-      if (historyList && historyList.length > 0) {
+      if (historyList && Array.isArray(historyList)) {
         const processed = processPaymentHistory(historyList);
         paidSet = processed.paidInvoiceIdentifiers;
         setClientPayments(processed.mappedPayments);
         setPaymentHistory(historyList);
+      } else {
+        setClientPayments([]);
+        setPaymentHistory([]);
       }
       if (summary) setInvoiceSummary(summary);
       if (pending && Array.isArray(pending)) {
@@ -1367,8 +1279,8 @@ const ClientPaymentPage = () => {
           return !isPaid;
         });
         setPendingInvoices(cleanPending);
-      } else if (pending) {
-        setPendingInvoices(pending);
+      } else {
+        setPendingInvoices([]);
       }
     } catch (err: any) {
       console.error("Create payment error:", err);

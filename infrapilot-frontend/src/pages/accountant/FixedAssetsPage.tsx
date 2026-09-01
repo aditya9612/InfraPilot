@@ -360,11 +360,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
         <div className="flex gap-2 overflow-x-auto">
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
-<<<<<<< HEAD
         {activeSubTab !== "transfer" && (
-=======
-        {activeSubTab !== 'transfer' && (
->>>>>>> testing
           <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
             Add Asset
           </button>
@@ -389,42 +385,14 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           </div>
           <PaginatedTableSection 
             title="Asset List" 
-<<<<<<< HEAD
-            columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]} 
-            data={assets.length > 0 ? assets.map(a => [
-              a.asset_id || `AST-${a.id}`,
-              a.name || a.asset_name || "N/A",
-              a.category || a.asset_type || "Machinery & Equipment",
-              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              a.location || a.site_location || "Head Office / Main Site",
-              a.status || "Active",
-              <button key={a.id} onClick={async () => {
-                try {
-                  toast.loading("Generating QR...", { id: "qr" });
-                  const blob = await accountingService.generateAssetQR(a.id);
-                  const url = URL.createObjectURL(blob);
-                  const aTag = document.createElement("a");
-                  aTag.href = url;
-                  aTag.download = `AST-${a.id}_QR.png`;
-                  document.body.appendChild(aTag);
-                  aTag.click();
-                  document.body.removeChild(aTag);
-                  URL.revokeObjectURL(url);
-                  toast.success("QR Generated!", { id: "qr" });
-                } catch(e) {
-                  toast.error("Failed to generate QR", { id: "qr" });
-                }
-              }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
-=======
             columns={["Asset ID", "Name", "Purchase Value", "Purchase Date", "Depr. Rate (%)", "Current Value", "Project", "Action"]} 
             data={filteredAssets.length > 0 ? filteredAssets.map(a => [
-              `AST-${a.id}`,
+              a.asset_id || `AST-${a.id}`,
               a.name || "N/A",
-              `₹${a.purchase_value || 0}`,
-              a.purchase_date || "N/A",
+              `₹${Number(a.purchase_value || 0).toLocaleString("en-IN")}`,
+              a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
               `${a.depreciation_rate || 0}%`,
-              `₹${a.current_value || 0}`,
+              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`,
               a.project_name || "N/A",
               <div key={a.id} className="flex gap-2">
                 <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
@@ -446,29 +414,11 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
                   }
                 }} className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><QrCode size={14}/></button>
               </div>
->>>>>>> testing
             ]) : [["No assets found.", "", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
-<<<<<<< HEAD
-      {activeSubTab === "details" && (
-        <PaginatedTableSection 
-          title="Asset Details Lookup" 
-          columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} 
-          data={assets.length > 0 ? assets.map(a => [
-            a.asset_id || `AST-${a.id}`, 
-            a.name || a.asset_name || "N/A", 
-            a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A", 
-            resolveUsefulLife(a), 
-            resolveMethod(a), 
-            resolveSalvageValue(a)
-          ]) : [["No assets found.", "", "", "", "", ""]]} 
-        />
-      )}
-=======
-      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${a.purchase_value || 0}`, `${a.depreciation_rate || 0}%`, `₹${a.current_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
->>>>>>> testing
+      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${Number(a.purchase_value || 0).toLocaleString("en-IN")}`, `${a.depreciation_rate || 0}%`, `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`]) : [["No assets found.", "", "", "", "", ""]]} />}
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
