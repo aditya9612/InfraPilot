@@ -739,14 +739,16 @@ const EquipmentRegistryPage = () => {
         try {
             await equipmentService.completeMaintenance(maintenance_id);
             toast.success("Maintenance marked as completed!");
+
+            // Optimistic UI Update
+            setSelectedEquipmentLogs(prev => ({
+                ...prev,
+                maint: prev.maint.map((l: any) => l.id === maintenance_id ? { ...l, status: 'COMPLETED', is_completed: true, completed_at: new Date().toISOString() } : l)
+            }));
+
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: effectiveProjectId || undefined });
                 setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === equipment_id) || selectedEquipment;
-                if (eq) {
-                    const logs = await equipmentService.listMaintenance(eq.id);
-                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
-                }
             }
         } catch (error) {
             toast.error("Failed to complete maintenance");
@@ -1319,15 +1321,17 @@ const EquipmentRegistryPage = () => {
                                             </div>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                {log.status || 'Pending'}
+                                            <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${(log.status === 'COMPLETED' || log.is_completed || !!log.completed_at) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                {(log.status === 'COMPLETED' || log.is_completed || !!log.completed_at) ? 'Completed' : (log.status || 'Pending')}
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-1">
-                                                <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Complete Maintenance">
-                                                    <Check className="w-4 h-4" />
-                                                </button>
+                                                {!(log.status === 'COMPLETED' || log.is_completed || !!log.completed_at) && (
+                                                    <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} className="p-1.5 rounded text-emerald-500 hover:text-white hover:bg-emerald-500" title="Complete Maintenance">
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                                 <button onClick={() => { setSelectedEquipment(equipmentList.find(eq => eq.id === log.equipment_id) || null); setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>

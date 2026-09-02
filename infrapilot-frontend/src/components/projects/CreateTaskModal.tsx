@@ -3,7 +3,8 @@ import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import { boqService } from "../../services/boqService";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
+
+import { masterService } from "../../services/masterService";
 import type { BoqItem } from "../../types/boq";
 import type { TaskStatus, ProjectMember } from "../../types/project";
 import { Mic, Square, Trash, Music, Image as ImageIcon, CheckCircle2 } from "lucide-react";
@@ -61,7 +62,7 @@ const CreateTaskModal = ({
         const [boqRes, milestoneRes, activityRes] = await Promise.all([
           boqService.getBoqs({ project_id: projectId }),
           projectService.getMilestones(projectId),
-          workProgressService.listActivities(projectId)
+          masterService.getEntities("activity-types")
         ]);
         setBoqItems(boqRes.items || []);
         setMilestones(milestoneRes || []);
@@ -504,18 +505,6 @@ const CreateTaskModal = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Activity Type</label>
-                  <select
-                    name="activity_type_id" value={formData.activity_type_id || ""} onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
-                  >
-                    <option value="">None</option>
-                    {activityTypes.map((a: any) => (
-                      <option key={a.id} value={a.id}>{a.activity_name || a.name}</option>
-                    ))}
-                  </select>
-                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

@@ -4,6 +4,7 @@ import Modal from "../common/Modal";
 import type { Invoice, InvoiceType, InvoiceStatus } from "../../types/invoice";
 import type { Project } from "../../types/project";
 import { projectService } from "../../services/projectService";
+import { measurementService } from "../../services/measurementService";
 
 interface CreateInvoiceModalProps {
   isOpen: boolean;
@@ -41,7 +42,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     start_date: "",
     end_date: "",
     reference_id: "",
+    measurement_id: "",
   });
+
+  const [measurements, setMeasurements] = useState<any[]>([]);
 
   const [calculated, setCalculated] = useState({
     base_total: 0,
@@ -59,6 +63,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       if (initialType === "labour") {
         // Labour invoice now only requires project/dates, no owners needed here.
       }
+      if (initialType === "measurement") {
+        // Measurement invoice requires picking a measurement for the selected project
+      }
       // Fetch projects internally if not provided via props
       if (!projects || projects.length === 0) {
         projectService.getProjects(100, 0).then((res: any) => {
@@ -68,6 +75,16 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       }
     }
   }, [isOpen, initialType]);
+
+  useEffect(() => {
+    if (formData.type === "measurement" && formData.project_id) {
+      measurementService.getMeasurementsByProject(Number(formData.project_id))
+        .then(data => setMeasurements(data))
+        .catch(console.error);
+    } else {
+      setMeasurements([]);
+    }
+  }, [formData.project_id, formData.type]);
 
   useEffect(() => {
     if (initialData) {
@@ -90,6 +107,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         start_date: initialData.start_date || "",
         end_date: initialData.end_date || "",
         reference_id: (initialData as any).reference_id || "",
+        measurement_id: "",
       });
     }
   }, [initialData, isOpen]);
@@ -144,6 +162,17 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         type: "material"
       };
       onSubmit(submissionData);
+    } else if (formData.type === "measurement") {
+      if (!formData.measurement_id) {
+        toast.error("Please select a measurement");
+        return;
+      }
+      const submissionData = {
+        project_id: Number(formData.project_id),
+        measurement_id: formData.measurement_id,
+        type: "measurement"
+      };
+      onSubmit(submissionData);
     } else {
       if (!formData.project_id || !formData.invoice_number || !formData.client_name) {
         toast.error("Please fill in required fields (Invoice #, Client, Project)");
@@ -165,7 +194,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     owner: "Create Owner Billing",
     labour: "Create Labour Invoice",
     material: "Create Material Supply",
-    expense: "Create Site Expense"
+    expense: "Create Site Expense",
+    measurement: "Create invoice from measurement"
   };
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -196,10 +226,15 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
+            <h3 className="text-sm font-bold text-slate-800">Basic Information</h3>
+            <span className="text-[10px] text-primary/50 bg-primary/10 px-2 py-1 rounded-full font-mono">
+              [DEBUG: PID={formData.project_id || 'none'} | Type={formData.type} | Meas={measurements.length}]
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-            {!isLabour && formData.type !== "material" && (
+            {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
               <>
                 <div>
                   <label className={labelClasses}>Invoice Number <span className="text-rose-500">*</span></label>
@@ -268,7 +303,35 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               </div>
             )}
 
-            {!isLabour && formData.type !== "material" && (
+            {formData.type === "measurement" && (
+              <div className="md:col-span-2 space-y-4">
+                <div>
+                  <label className={labelClasses}>Select Measurement <span className="text-rose-500">*</span></label>
+                  <select
+                    required
+                    className={inputClasses()}
+                    value={formData.measurement_id}
+                    onChange={e => setFormData({ ...formData, measurement_id: e.target.value })}
+                    disabled={!formData.project_id}
+                  >
+                    <option value="">-- Choose Measurement --</option>
+                    {measurements.map(m => (
+                      <option key={m.id} value={m.id}>Measurement #{m.id} - {m.status}</option>
+                    ))}
+                  </select>
+                  {!formData.project_id && (
+                    <p className="text-[10px] text-amber-500 font-bold mt-1">Please select a project first</p>
+                  )}
+                  {formData.project_id && measurements.length === 0 && (
+                    <p className="text-xs text-rose-500 font-bold mt-2 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                      ⚠️ No measurements found for this project in the database.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
               <>
                 <div>
                   <label className={labelClasses}>Billing Date</label>
@@ -294,7 +357,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         </div>
 
         {/* Work & Billing Details */}
-        {!isLabour && formData.type !== "material" && (
+        {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work & Billing Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -370,7 +433,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         )}
 
         {/* Calculation Summary Card */}
-        {!isLabour && formData.type !== "material" && (
+        {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
           <div className="bg-slate-900 rounded-[28px] p-8 mt-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
             <div className="grid grid-cols-3 gap-8">
