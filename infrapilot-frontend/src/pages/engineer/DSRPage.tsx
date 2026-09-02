@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewDSREntryModal from "../../components/dashboard/NewDSREntryModal";
@@ -23,8 +23,7 @@ import {
     ChevronLeft,
     ChevronRight,
     CheckCircle,
-    Trash2,
-    Upload
+    Trash2
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
@@ -64,10 +63,9 @@ const DSRPage = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [loadingId, setLoadingId] = useState<number | null>(null);
-    const photoUploadRef = useRef<HTMLInputElement>(null);
-    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
     const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
+    const [activeListPhotoPopup, setActiveListPhotoPopup] = useState<{ dsrId: number; photo: { id: number; url: string } } | null>(null);
 
     // Layout State
     const [activeTab, setActiveTab] = useState<"list" | "analytics">("list");
@@ -151,17 +149,24 @@ const DSRPage = () => {
             setTotalItems(apiData.length);
 
             // The list endpoint returns photos: [] — fetch actual photos via the dedicated API
+            // If no extra photos exist, fall back to dsr_image (uploaded at creation time)
             const itemsWithPhotos = await Promise.all(
                 apiData.map(async (item: any) => {
                     try {
                         const photoData = await dsrService.getDsrPhotos(item.id);
-                        const photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
+                        let photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
                             id: p.id,
-                            url: p.url || p.file_url
-                        })) : [];
+                            url: p.url || p.file_url || p.photo_url
+                        })).filter((p: any) => p.url) : [];
+                        // Fallback: if no extra photos, show the dsr_image uploaded at creation
+                        if (photos.length === 0 && item.dsr_image) {
+                            photos = [{ id: 0, url: item.dsr_image }];
+                        }
                         return { ...item, photos };
                     } catch {
-                        return { ...item, photos: [] };
+                        // On error, still try to show dsr_image
+                        const fallback = item.dsr_image ? [{ id: 0, url: item.dsr_image }] : [];
+                        return { ...item, photos: fallback };
                     }
                 })
             );
@@ -210,19 +215,24 @@ const DSRPage = () => {
             const data = await dsrService.getDsrById(id);
             let photos = data.photos?.map((p: any) => ({
                 id: p.id,
-                url: p.url || p.file_url
-            })) || [];
+                url: p.url || p.file_url || p.photo_url
+            })).filter((p: any) => p.url) || [];
 
             try {
                 const extraPhotos = await dsrService.getDsrPhotos(data.id);
                 if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
                     photos = extraPhotos.map((p: any) => ({
                         id: p.id,
-                        url: p.url || p.file_url
-                    }));
+                        url: p.url || p.file_url || p.photo_url
+                    })).filter((p: any) => p.url);
                 }
             } catch (e) {
                 console.warn(`Could not fetch photos for DSR ${data.id}`, e);
+            }
+
+            // Fallback: if no extra photos, show the dsr_image uploaded at creation
+            if (photos.length === 0 && (data as any).dsr_image) {
+                photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 
             setSelectedDsr({ ...data, photos });
@@ -246,19 +256,24 @@ const DSRPage = () => {
             const data = await dsrService.getDsrById(id);
             let photos = data.photos?.map((p: any) => ({
                 id: p.id,
-                url: p.url || p.file_url
-            })) || [];
+                url: p.url || p.file_url || p.photo_url
+            })).filter((p: any) => p.url) || [];
 
             try {
                 const extraPhotos = await dsrService.getDsrPhotos(data.id);
                 if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
                     photos = extraPhotos.map((p: any) => ({
                         id: p.id,
-                        url: p.url || p.file_url
-                    }));
+                        url: p.url || p.file_url || p.photo_url
+                    })).filter((p: any) => p.url);
                 }
             } catch (e) {
                 console.warn(`Could not fetch photos for DSR ${data.id}`, e);
+            }
+
+            // Fallback: if no extra photos, show the dsr_image uploaded at creation
+            if (photos.length === 0 && (data as any).dsr_image) {
+                photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 
             setSelectedDsr({ ...data, photos });
@@ -276,29 +291,6 @@ const DSRPage = () => {
 
 
 
-    const handleUploadPhotoToExisting = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!selectedDsr || !e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
-        setIsUploadingPhoto(true);
-        const tid = toast.loading("Uploading photo...");
-        try {
-            await dsrService.uploadDsrPhoto(selectedDsr.id, file);
-            toast.success("Photo uploaded!", { id: tid });
-            // Refresh photos for this DSR
-            const fresh = await dsrService.getDsrPhotos(selectedDsr.id);
-            const photos = Array.isArray(fresh) ? fresh.map((p: any) => ({ id: p.id, url: p.url || p.file_url })) : [];
-            setSelectedDsr(prev => prev ? { ...prev, photos } : prev);
-            // Also refresh list
-            fetchDsr();
-        } catch (error) {
-            console.error("Upload photo error", error);
-            toast.error("Failed to upload photo", { id: tid });
-        } finally {
-            setIsUploadingPhoto(false);
-            if (photoUploadRef.current) photoUploadRef.current.value = "";
-        }
-    };
-
     const handleDeletePhoto = (photoId: number) => {
         setPhotoToDelete(photoId);
     };
@@ -313,6 +305,7 @@ const DSRPage = () => {
                 const updatedPhotos = selectedDsr.photos.filter((p: any) => p.id !== photoToDelete);
                 setSelectedDsr({ ...selectedDsr, photos: updatedPhotos });
             }
+            setActiveListPhotoPopup(null);
             fetchDsr();
         } catch (error) {
             console.error("Delete photo error", error);
@@ -703,17 +696,84 @@ const DSRPage = () => {
                                                             <div className="flex -space-x-3 hover:space-x-1 transition-all">
                                                                 {dsr.photos && dsr.photos.length > 0 ? (
                                                                     dsr.photos.slice(0, 3).map((photo) => (
-                                                                        <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
-                                                                            <img
-                                                                                src={sitePhotoService.resolveUrl(photo.url) || ""}
-                                                                                alt="Site"
-                                                                                className="w-full h-full object-cover"
-                                                                            />
+                                                                        <div key={photo.id} className="relative">
+                                                                            <button
+                                                                                onClick={() => setActiveListPhotoPopup(
+                                                                                    activeListPhotoPopup?.photo.id === photo.id && activeListPhotoPopup.dsrId === dsr.id
+                                                                                        ? null
+                                                                                        : { dsrId: dsr.id, photo }
+                                                                                )}
+                                                                                className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110 block"
+                                                                            >
+                                                                                <img
+                                                                                    src={sitePhotoService.resolveUrl(photo.url) || ""}
+                                                                                    alt="Site"
+                                                                                    className="w-full h-full object-cover"
+                                                                                />
+                                                                            </button>
+                                                                            {/* Popup card */}
+                                                                            {activeListPhotoPopup?.photo.id === photo.id && activeListPhotoPopup.dsrId === dsr.id && (
+                                                                                <div
+                                                                                    className="absolute z-50 bottom-14 left-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 w-52"
+                                                                                    style={{ minWidth: 200 }}
+                                                                                >
+                                                                                    <img
+                                                                                        src={sitePhotoService.resolveUrl(photo.url) || ""}
+                                                                                        alt="Site"
+                                                                                        className="w-full h-36 object-cover rounded-xl mb-2"
+                                                                                    />
+                                                                                    <div className="flex gap-2">
+                                                                                        <a
+                                                                                            href={sitePhotoService.resolveUrl(photo.url) || ""}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition-colors"
+                                                                                        >
+                                                                                            <Eye className="w-3 h-3" /> View
+                                                                                        </a>
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                setActiveListPhotoPopup(null);
+                                                                                                handleDeletePhoto(photo.id);
+                                                                                            }}
+                                                                                            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-lg hover:bg-rose-100 transition-colors"
+                                                                                        >
+                                                                                            <Trash2 className="w-3 h-3" /> Delete
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     ))
                                                                 ) : dsr.dsr_image ? (
-                                                                    <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm">
-                                                                        <img src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""} alt="Site" className="w-full h-full object-cover" />
+                                                                    <div className="relative">
+                                                                        <button
+                                                                            onClick={() => setActiveListPhotoPopup(
+                                                                                activeListPhotoPopup?.dsrId === dsr.id && activeListPhotoPopup.photo.id === -1
+                                                                                    ? null
+                                                                                    : { dsrId: dsr.id, photo: { id: -1, url: dsr.dsr_image! } }
+                                                                            )}
+                                                                            className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm block"
+                                                                        >
+                                                                            <img src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""} alt="Site" className="w-full h-full object-cover" />
+                                                                        </button>
+                                                                        {activeListPhotoPopup?.dsrId === dsr.id && activeListPhotoPopup.photo.id === -1 && (
+                                                                            <div className="absolute z-50 bottom-14 left-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 w-52">
+                                                                                <img
+                                                                                    src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""}
+                                                                                    alt="Site"
+                                                                                    className="w-full h-36 object-cover rounded-xl mb-2"
+                                                                                />
+                                                                                <a
+                                                                                    href={sitePhotoService.resolveUrl(dsr.dsr_image) || ""}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="flex items-center justify-center gap-1 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition-colors w-full"
+                                                                                >
+                                                                                    <Eye className="w-3 h-3" /> View Full
+                                                                                </a>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 ) : (
                                                                     <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
@@ -921,27 +981,12 @@ const DSRPage = () => {
                             </div>
                         </div>
 
-                        {/* Site Documentation — always show with upload button */}
+                        {/* Site Documentation — read-only, shows photos uploaded at creation */}
                         <div className="mb-8">
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Site Documentation {selectedDsr.photos && selectedDsr.photos.length > 0 ? `(${selectedDsr.photos.length})` : ""}
                                 </p>
-                                <button
-                                    onClick={() => photoUploadRef.current?.click()}
-                                    disabled={isUploadingPhoto}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-60 shadow-sm"
-                                >
-                                    <Upload className="w-3 h-3" />
-                                    {isUploadingPhoto ? "Uploading..." : "Add Photo"}
-                                </button>
-                                <input
-                                    ref={photoUploadRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleUploadPhotoToExisting}
-                                />
                             </div>
 
                             {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
@@ -953,7 +998,7 @@ const DSRPage = () => {
                                                 alt={`Documentation ${idx + 1}`}
                                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
-                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <a
                                                     href={sitePhotoService.resolveUrl(photo.url) || ""}
                                                     target="_blank"
@@ -962,12 +1007,6 @@ const DSRPage = () => {
                                                 >
                                                     <Eye className="w-5 h-5" />
                                                 </a>
-                                                <button
-                                                    onClick={() => handleDeletePhoto(photo.id)}
-                                                    className="w-10 h-10 bg-rose-500/80 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-rose-600 transition-colors shadow-lg"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -978,7 +1017,7 @@ const DSRPage = () => {
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-center h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50">
-                                    <p className="text-xs text-slate-400 font-medium">No photos yet — click <strong>Add Photo</strong> to upload</p>
+                                    <p className="text-xs text-slate-400 font-medium">No site photos attached to this report</p>
                                 </div>
                             )}
                         </div>

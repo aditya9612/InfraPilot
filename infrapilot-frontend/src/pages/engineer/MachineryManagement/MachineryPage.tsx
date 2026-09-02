@@ -17,7 +17,7 @@ import {
     AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw, RotateCcw, QrCode
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
-import { useProject } from "../../../context/ProjectContext";
+
 
 // Types mapping for condition colors
 const conditionColors: Record<string, string> = {
@@ -50,7 +50,7 @@ const Pagination = ({
     onItemsPerPageChange: (items: number) => void;
 }) => {
     if (totalItems === 0) return null;
-    
+
     return (
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
             {/* Left: Items per page */}
@@ -132,9 +132,8 @@ const Pagination = ({
 };
 
 const MachineryPage = () => {
-    // ─── Project Context ──────────────────────────────────────────────
-    const { selectedProjectId: globalProjectId, setSelectedProjectId } = useProject();
-    const selectedProjectId = globalProjectId || 0;
+    // ─── Project State ──────────────────────────────────────────────
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
     // ─── Main States ──────────────────────────────────────────────────
     const [activeTab, setActiveTab] = useState(TABS[0]);
@@ -206,7 +205,7 @@ const MachineryPage = () => {
     const [appliedCostDateTo, setAppliedCostDateTo] = useState("");
     const [appliedUsageDateFrom, setAppliedUsageDateFrom] = useState("");
     const [appliedUsageDateTo, setAppliedUsageDateTo] = useState("");
-    
+
     // Purchase/Availability filters
     const [purchaseType, setPurchaseType] = useState("");
     const [appliedPurchaseType, setAppliedPurchaseType] = useState("");
@@ -250,13 +249,13 @@ const MachineryPage = () => {
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
     const [createPurchaseForm, setCreatePurchaseForm] = useState<any>({});
-    
+
     // View and Delete Purchase Modals
     const [isViewPurchaseModalOpen, setIsViewPurchaseModalOpen] = useState(false);
     const [viewPurchaseData, setViewPurchaseData] = useState<any>(null);
     const [isDeletePurchaseModalOpen, setIsDeletePurchaseModalOpen] = useState(false);
     const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
-    
+
     // View Modals for Usage and Maintenance
     const [viewUsageItem, setViewUsageItem] = useState<any>(null);
     const [isViewUsageModalOpen, setIsViewUsageModalOpen] = useState(false);
@@ -402,7 +401,7 @@ const MachineryPage = () => {
                 const purchParams: any = { ...pIdObj };
                 if (appliedPurchaseListDateFrom) purchParams.purchase_date_from = appliedPurchaseListDateFrom;
                 if (appliedPurchaseListDateTo) purchParams.purchase_date_to = appliedPurchaseListDateTo;
-                
+
                 const [res, eqRes] = await Promise.all([
                     equipmentService.listPurchase(purchParams),
                     equipmentService.listEquipment(eqParams)
@@ -504,19 +503,11 @@ const MachineryPage = () => {
                 toast.success("Equipment updated successfully!");
             } else {
                 const payload = { ...submittedData };
+                // Backend requires project_id — use selectedProjectId or first available project as fallback
                 if (!payload.project_id) {
-                    payload.project_id = null;
+                    payload.project_id = selectedProjectId || projects[0]?.id || 1;
                 }
-                const newEq = await equipmentService.createEquipment(payload);
-
-                // Force deallocate immediately to ensure it starts as Unallocated
-                try {
-                    if (newEq && newEq.id) {
-                        await equipmentService.deallocateEquipment(newEq.id, newEq.project_id || 0);
-                    }
-                } catch (err) {
-                    console.error("Failed to explicitly deallocate new equipment", err);
-                }
+                await equipmentService.createEquipment(payload);
 
                 toast.success("Equipment added successfully!");
             }
@@ -570,7 +561,7 @@ const MachineryPage = () => {
 
     const handleDeallocate = async () => {
         if (!selectedEquipment) return;
-        
+
         const targetProjectId = formData.project_id || selectedEquipment.project_id || selectedProjectId;
         if (!targetProjectId) {
             toast.error("Please select a project to deallocate from");
@@ -593,7 +584,7 @@ const MachineryPage = () => {
         e.preventDefault();
         if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment(formData.equipment_id, formData.project_id);
+            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -812,7 +803,7 @@ const MachineryPage = () => {
             const toastId = toast.loading("Generating QR Code...");
             const res = await equipmentService.generateQR(equipment_id);
             toast.dismiss(toastId);
-            
+
             // Handle if the response is a blob or base64
             let url = "";
             if (typeof res === "string" && res.startsWith("data:image")) {
@@ -908,22 +899,26 @@ const MachineryPage = () => {
                 item.operator_name.toLowerCase().includes(term);
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
 
-            // Strict project filter: if a project is selected, show ONLY that project's equipment
-            // (no unallocated, no other project's equipment)
+            // Allocation filter takes priority over project filter
+            // "All" → apply project filter if a project is selected
+            // "Allocated" → show only items with project_id set (across all projects)
+            // "Unallocated" → show only items with no project_id
+            let matchesAllocation = true;
+            if (allocationFilter === "Allocated") {
+                matchesAllocation = item.project_id != null;
+                return matchesSearch && matchesCondition && matchesAllocation;
+            } else if (allocationFilter === "Unallocated") {
+                matchesAllocation = item.project_id == null;
+                return matchesSearch && matchesCondition && matchesAllocation;
+            }
+
+            // allocationFilter === "All": apply project filter if a project is selected
             let matchesProject = true;
             if (selectedProjectId) {
                 matchesProject = Number(item.project_id) === Number(selectedProjectId);
             }
 
-            // Within already-project-filtered items, apply allocation filter if needed
-            let matchesAllocation = true;
-            if (allocationFilter === "Allocated") {
-                matchesAllocation = item.project_id != null;
-            } else if (allocationFilter === "Unallocated") {
-                matchesAllocation = item.project_id == null;
-            }
-
-            return matchesSearch && matchesCondition && matchesProject && matchesAllocation;
+            return matchesSearch && matchesCondition && matchesProject;
         });
     }, [equipmentList, searchTerm, conditionFilter, allocationFilter, selectedProjectId]);
 
@@ -993,7 +988,7 @@ const MachineryPage = () => {
                             {maintenanceAlerts.length > 0 ? maintenanceAlerts.map((alert, i) => (
                                 <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
                                     <div>
-                                        <p className="font-bold text-sm text-slate-800">{alert.equipment_name || 'Equipment'}</p>
+                                        <p className="font-bold text-sm text-slate-800">{alert.equipment_code || 'Equipment'}</p>
                                         <p className="text-xs text-slate-500">Due in {alert.days_until} days ({alert.maintenance_date})</p>
                                     </div>
                                     <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${alert.status === 'OVERDUE' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
@@ -1056,7 +1051,7 @@ const MachineryPage = () => {
                             <option value="Unallocated">Deallocated</option>
                         </select>
                         <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer transition-colors hover:bg-slate-100" onClick={() => setShowDeleted(!showDeleted)}>
-                            <input type="checkbox" checked={showDeleted} onChange={() => {}} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
+                            <input type="checkbox" checked={showDeleted} onChange={() => { }} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
                             <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
                         </div>
                     </div>
@@ -1103,15 +1098,14 @@ const MachineryPage = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-3">
-                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${
-                                            item.status === 'RENTED' ? 'bg-purple-100 text-purple-700' :
-                                            item.status === 'OWNED' ? 'bg-blue-100 text-blue-700' :
-                                            item.status === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
-                                            item.status === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
-                                            item.status === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
-                                            'bg-slate-100 text-slate-600'
-                                        }`}>
-                                            {item.status || 'N/A'}
+                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${item.condition === 'RENTED' ? 'bg-purple-100 text-purple-700' :
+                                                item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
+                                                    item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
+                                                        item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
+                                                            item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
+                                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {item.condition || 'N/A'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
@@ -1173,7 +1167,7 @@ const MachineryPage = () => {
                     <ExternalLink className="w-4 h-4" /> Create Transfer
                 </button>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
@@ -1186,7 +1180,7 @@ const MachineryPage = () => {
                         </button>
                     ))}
                 </div>
-                
+
                 <div className="lg:col-span-3">
                     {(selectedEquipment ? (selectedEquipmentLogs.transfer?.length || 0) > 0 : transferHistory.length > 0) ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1627,152 +1621,152 @@ const MachineryPage = () => {
         const paginatedUsage = usageReport.slice((usagePage - 1) * usageItemsPerPage, usagePage * usageItemsPerPage);
 
         return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
-                <div className="flex gap-3">
-                    <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch (e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
-                        <FileText className="w-4 h-4 text-rose-500" /> Export PDF
-                    </button>
-                    <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch (e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
-                        <Download className="w-4 h-4 text-emerald-500" /> Export Excel
-                    </button>
-                </div>
-            </div>
-
-            {/* API Data Tables will follow here (they are already added below this block) */}
-
-            {/* API Data Tables */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-slate-800">Utilization Report</h3>
-                </div>
-                <div className="overflow-auto max-h-[300px]">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
-                            <tr>
-                                <th className="p-4">Equipment</th>
-                                <th className="p-4">Total Hrs</th>
-                                <th className="p-4">Utilization Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
-                                <tr key={r.equipment_id} className="hover:bg-slate-50">
-                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
-                                    <td className="p-4">{r.total_hours} hrs</td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-16 bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div></div>
-                                            <span>{r.utilization_rate}%</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No utilization data</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-                <Pagination
-                    totalItems={utilizationReport.length}
-                    itemsPerPage={utilizationItemsPerPage}
-                    currentPage={utilizationPage}
-                    onPageChange={setUtilizationPage}
-                    onItemsPerPageChange={setUtilizationItemsPerPage}
-                />
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
-                    <div className="flex items-center gap-2">
-                        <input type="date" value={costDateFrom} onChange={e => setCostDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
-                        <span className="text-xs text-slate-500">to</span>
-                        <input type="date" value={costDateTo} onChange={e => setCostDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
-                        <button onClick={() => { setAppliedCostDateFrom(costDateFrom); setAppliedCostDateTo(costDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
+                    <div className="flex gap-3">
+                        <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch (e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                            <FileText className="w-4 h-4 text-rose-500" /> Export PDF
+                        </button>
+                        <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch (e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                            <Download className="w-4 h-4 text-emerald-500" /> Export Excel
+                        </button>
                     </div>
                 </div>
-                <div className="overflow-auto max-h-[300px]">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
-                            <tr>
-                                <th className="p-4">Equipment</th>
-                                <th className="p-4">Total Cost</th>
-                                <th className="p-4">Rentals</th>
-                                <th className="p-4">Avg Cost</th>
-                                <th className="p-4">Total Days</th>
-                                <th className="p-4">Rev/Day</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
-                                <tr key={c.equipment_id} className="hover:bg-slate-50">
-                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
-                                    <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
-                                    <td className="p-4">{c.rental_count}</td>
-                                    <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
-                                    <td className="p-4">{c.total_days}</td>
-                                    <td className="p-4">₹{c.revenue_per_day?.toLocaleString()}</td>
-                                </tr>
-                            )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No cost data</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-                <Pagination
-                    totalItems={costReport.length}
-                    itemsPerPage={costItemsPerPage}
-                    currentPage={costPage}
-                    onPageChange={setCostPage}
-                    onItemsPerPageChange={setCostItemsPerPage}
-                />
-            </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
-                    <div className="flex items-center gap-2">
-                        <input type="date" value={usageDateFrom} onChange={e => setUsageDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
-                        <span className="text-xs text-slate-500">to</span>
-                        <input type="date" value={usageDateTo} onChange={e => setUsageDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
-                        <button onClick={() => { setAppliedUsageDateFrom(usageDateFrom); setAppliedUsageDateTo(usageDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                {/* API Data Tables will follow here (they are already added below this block) */}
+
+                {/* API Data Tables */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Utilization Report</h3>
                     </div>
-                </div>
-                <div className="overflow-auto max-h-[300px]">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
-                            <tr>
-                                <th className="p-4">Equipment</th>
-                                <th className="p-4">Total Hrs</th>
-                                <th className="p-4">Total Fuel</th>
-                                <th className="p-4">Avg Hrs</th>
-                                <th className="p-4">Entries</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
-                                <tr key={u.equipment_id} className="hover:bg-slate-50">
-                                    <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
-                                    <td className="p-4">{u.total_hours}</td>
-                                    <td className="p-4">{u.total_fuel}</td>
-                                    <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
-                                    <td className="p-4">{u.usage_count}</td>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Utilization Rate</th>
                                 </tr>
-                            )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No usage data</td></tr>}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
+                                    <tr key={r.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
+                                        <td className="p-4">{r.total_hours} hrs</td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div></div>
+                                                <span>{r.utilization_rate}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No utilization data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={utilizationReport.length}
+                        itemsPerPage={utilizationItemsPerPage}
+                        currentPage={utilizationPage}
+                        onPageChange={setUtilizationPage}
+                        onItemsPerPageChange={setUtilizationItemsPerPage}
+                    />
                 </div>
-                <Pagination
-                    totalItems={usageReport.length}
-                    itemsPerPage={usageItemsPerPage}
-                    currentPage={usagePage}
-                    onPageChange={setUsagePage}
-                    onItemsPerPageChange={setUsageItemsPerPage}
-                />
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={costDateFrom} onChange={e => setCostDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={costDateTo} onChange={e => setCostDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
+                            <button onClick={() => { setAppliedCostDateFrom(costDateFrom); setAppliedCostDateTo(costDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Cost</th>
+                                    <th className="p-4">Rentals</th>
+                                    <th className="p-4">Avg Cost</th>
+                                    <th className="p-4">Total Days</th>
+                                    <th className="p-4">Rev/Day</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
+                                    <tr key={c.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                        <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.rental_count}</td>
+                                        <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.total_days}</td>
+                                        <td className="p-4">₹{c.revenue_per_day?.toLocaleString()}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No cost data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={costReport.length}
+                        itemsPerPage={costItemsPerPage}
+                        currentPage={costPage}
+                        onPageChange={setCostPage}
+                        onItemsPerPageChange={setCostItemsPerPage}
+                    />
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={usageDateFrom} onChange={e => setUsageDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={usageDateTo} onChange={e => setUsageDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary" title="End Date" />
+                            <button onClick={() => { setAppliedUsageDateFrom(usageDateFrom); setAppliedUsageDateTo(usageDateTo); }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Total Fuel</th>
+                                    <th className="p-4">Avg Hrs</th>
+                                    <th className="p-4">Entries</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
+                                    <tr key={u.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                        <td className="p-4">{u.total_hours}</td>
+                                        <td className="p-4">{u.total_fuel}</td>
+                                        <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
+                                        <td className="p-4">{u.usage_count}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No usage data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={usageReport.length}
+                        itemsPerPage={usageItemsPerPage}
+                        currentPage={usagePage}
+                        onPageChange={setUsagePage}
+                        onItemsPerPageChange={setUsageItemsPerPage}
+                    />
+                </div>
+
+
+
             </div>
-            
-
-
-        </div>
-    );
+        );
     };
 
     const renderProjectReport = () => {
@@ -1784,7 +1778,7 @@ const MachineryPage = () => {
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-bold text-slate-800">Project Specific Reports</h2>
                 </div>
-                
+
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
                         <h3 className="font-bold text-sm text-slate-800">Purchase Report</h3>
@@ -1892,151 +1886,151 @@ const MachineryPage = () => {
 
         const paginatedPurchase = filteredPurchase.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
         return (
-        <div className="space-y-4 h-full flex flex-col">
-            <div className="flex justify-between items-center">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Purchase Tracker</h2>
-                <button onClick={() => { setCreatePurchaseForm({}); setIsCreatePurchaseModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
-                    <Plus className="w-4 h-4" /> Create Purchase
-                </button>
-            </div>
-            <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
-                <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-                    <h3 className="font-bold text-sm text-slate-800">Purchase History</h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <select value={purchaseListType} onChange={e => {
-                            setPurchaseListType(e.target.value);
-                            setAppliedPurchaseListType(e.target.value);
-                        }} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary">
-                            <option value="">All Types</option>
-                            <option value="NEW">NEW</option>
-                            <option value="USED">USED</option>
-                        </select>
-                        <input type="date" value={purchaseListDateFrom} onChange={e => setPurchaseListDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="From Date" />
-                        <span className="text-xs text-slate-500">to</span>
-                        <input type="date" value={purchaseListDateTo} onChange={e => setPurchaseListDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="To Date" />
-                        <button onClick={() => {
-                            setAppliedPurchaseListType(purchaseListType);
-                            setAppliedPurchaseListDateFrom(purchaseListDateFrom);
-                            setAppliedPurchaseListDateTo(purchaseListDateTo);
-                            setRefreshTrigger(prev => prev + 1);
-                        }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+            <div className="space-y-4 h-full flex flex-col">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Purchase Tracker</h2>
+                    <button onClick={() => { setCreatePurchaseForm({}); setIsCreatePurchaseModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
+                        <Plus className="w-4 h-4" /> Create Purchase
+                    </button>
+                </div>
+                <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
+                    <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                        <h3 className="font-bold text-sm text-slate-800">Purchase History</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <select value={purchaseListType} onChange={e => {
+                                setPurchaseListType(e.target.value);
+                                setAppliedPurchaseListType(e.target.value);
+                            }} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary">
+                                <option value="">All Types</option>
+                                <option value="NEW">NEW</option>
+                                <option value="USED">USED</option>
+                            </select>
+                            <input type="date" value={purchaseListDateFrom} onChange={e => setPurchaseListDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="From Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={purchaseListDateTo} onChange={e => setPurchaseListDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 outline-none focus:border-primary" title="To Date" />
+                            <button onClick={() => {
+                                setAppliedPurchaseListType(purchaseListType);
+                                setAppliedPurchaseListDateFrom(purchaseListDateFrom);
+                                setAppliedPurchaseListDateTo(purchaseListDateTo);
+                                setRefreshTrigger(prev => prev + 1);
+                            }} className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
                     </div>
-                </div>
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left min-w-[800px]">
-                        <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                            <tr>
-                                <th className="px-6 py-4 border-b border-slate-200">Project</th>
-                                <th className="px-6 py-4 border-b border-slate-200">BOQ Item</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Type</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Asset Name</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Purchase Date</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Vendor</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Invoice Number</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Quantity</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Unit Price</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Total Amount</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Warranty End Date</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Notes</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Created At</th>
-                                <th className="px-6 py-4 border-b border-slate-200 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {paginatedPurchase.map(item => (
-                                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
-                                    <td className="px-6 py-3 text-xs font-bold text-slate-700">{item.purchase_type}</td>
-                                    <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.asset_name}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{item.purchase_date}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.vendor_name}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{String(item.invoice_number)}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.quantity}</td>
-                                    <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.unit_price?.toLocaleString()}</td>
-                                    <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.total_amount?.toLocaleString()}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{item.warranty_end_date}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500 max-w-[150px] truncate" title={item.notes}>{item.notes}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500 whitespace-nowrap">{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</td>
-                                    <td className="px-6 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        const p = await equipmentService.getPurchase(item.id);
-                                                        setViewPurchaseData(p);
-                                                        setIsViewPurchaseModalOpen(true);
-                                                    } catch (e) {
-                                                        toast.error('Failed to load purchase details');
-                                                    }
-                                                }}
-                                                className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="View"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        const p = await equipmentService.getPurchase(item.id);
-                                                        setCreatePurchaseForm(p);
-                                                        setIsCreatePurchaseModalOpen(true);
-                                                    } catch (e) {
-                                                        toast.error('Failed to load purchase details');
-                                                    }
-                                                }}
-                                                className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setPurchaseToDelete(item.id);
-                                                    setIsDeletePurchaseModalOpen(true);
-                                                }}
-                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    const eq = equipmentList.find(e => e.id === item.asset_id);
-                                                    if(eq) setSelectedEquipment(eq);
-                                                    try {
-                                                        const hist = await equipmentService.getEquipmentPurchaseHistory(item.asset_id);
-                                                        setPurchaseHistoryData(hist);
-                                                        setIsPurchaseHistoryModalOpen(true);
-                                                    } catch (e) {
-                                                        toast.error("Failed to load purchase history");
-                                                    }
-                                                }}
-                                                className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                                                title="View History"
-                                            >
-                                                <History className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div className="flex-1 overflow-auto">
+                        <table className="w-full text-left min-w-[800px]">
+                            <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4 border-b border-slate-200">Project</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">BOQ Item</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Type</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Asset Name</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Purchase Date</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Vendor</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Invoice Number</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Quantity</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Unit Price</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Total Amount</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Warranty End Date</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Notes</th>
+                                    <th className="px-6 py-4 border-b border-slate-200">Created At</th>
+                                    <th className="px-6 py-4 border-b border-slate-200 text-right">Action</th>
                                 </tr>
-                            ))}
-                            {filteredPurchase.length === 0 && (
-                                <tr><td colSpan={14} className="px-6 py-20 text-center text-slate-400">No purchases found</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedPurchase.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-3 text-sm text-slate-700">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-700">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
+                                        <td className="px-6 py-3 text-xs font-bold text-slate-700">{item.purchase_type}</td>
+                                        <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.asset_name}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-500">{item.purchase_date}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-700">{item.vendor_name}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-500">{String(item.invoice_number)}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-700">{item.quantity}</td>
+                                        <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.unit_price?.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.total_amount?.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-500">{item.warranty_end_date}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-500 max-w-[150px] truncate" title={item.notes}>{item.notes}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-500 whitespace-nowrap">{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</td>
+                                        <td className="px-6 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const p = await equipmentService.getPurchase(item.id);
+                                                            setViewPurchaseData(p);
+                                                            setIsViewPurchaseModalOpen(true);
+                                                        } catch (e) {
+                                                            toast.error('Failed to load purchase details');
+                                                        }
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="View"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const p = await equipmentService.getPurchase(item.id);
+                                                            setCreatePurchaseForm(p);
+                                                            setIsCreatePurchaseModalOpen(true);
+                                                        } catch (e) {
+                                                            toast.error('Failed to load purchase details');
+                                                        }
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setPurchaseToDelete(item.id);
+                                                        setIsDeletePurchaseModalOpen(true);
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        const eq = equipmentList.find(e => e.id === item.asset_id);
+                                                        if (eq) setSelectedEquipment(eq);
+                                                        try {
+                                                            const hist = await equipmentService.getEquipmentPurchaseHistory(item.asset_id);
+                                                            setPurchaseHistoryData(hist);
+                                                            setIsPurchaseHistoryModalOpen(true);
+                                                        } catch (e) {
+                                                            toast.error("Failed to load purchase history");
+                                                        }
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                    title="View History"
+                                                >
+                                                    <History className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredPurchase.length === 0 && (
+                                    <tr><td colSpan={14} className="px-6 py-20 text-center text-slate-400">No purchases found</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={filteredPurchase.length}
+                        itemsPerPage={purchaseItemsPerPage}
+                        currentPage={purchasePage}
+                        onPageChange={setPurchasePage}
+                        onItemsPerPageChange={setPurchaseItemsPerPage}
+                    />
                 </div>
-                <Pagination
-                    totalItems={filteredPurchase.length}
-                    itemsPerPage={purchaseItemsPerPage}
-                    currentPage={purchasePage}
-                    onPageChange={setPurchasePage}
-                    onItemsPerPageChange={setPurchaseItemsPerPage}
-                />
             </div>
-        </div>
-    );
+        );
     };
 
     return (
@@ -2309,7 +2303,7 @@ const MachineryPage = () => {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {unallocatedEquipmentList.filter(eq => !maintenanceAlerts.some(a => a.equipment_id === eq.id)).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

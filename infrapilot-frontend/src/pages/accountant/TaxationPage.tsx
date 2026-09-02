@@ -159,7 +159,6 @@ const DashboardSection = () => {
 };
 
 // 2. GST Invoices
-// 2. GST Invoices
 const GSTInvoiceModal = ({
   isOpen,
   onClose,
@@ -1021,8 +1020,8 @@ const GSTReturnsWrapperSection = () => {
                       <td className="px-5 py-3.5 text-center">
                         <span
                           className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${ret.status === "Filed"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                              : "bg-amber-50 text-amber-600 border-amber-200"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                            : "bg-amber-50 text-amber-600 border-amber-200"
                             }`}
                         >
                           {ret.status}

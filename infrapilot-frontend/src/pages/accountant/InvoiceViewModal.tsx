@@ -52,7 +52,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
           } else {
             const seed = PROJECTS.find(proj => String(proj.id) === strId);
             if (seed) {
-              setFetchedProjectName(seed.project_name || seed.name);
+              setFetchedProjectName(seed.project_name);
             } else if (KNOWN_PROJECT_MAP[strId]) {
               setFetchedProjectName(KNOWN_PROJECT_MAP[strId]);
             } else {

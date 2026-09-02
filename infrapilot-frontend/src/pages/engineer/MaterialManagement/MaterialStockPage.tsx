@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialReport, type MaterialLog } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
-import { useProject } from "../../../context/ProjectContext";
+
 
 type TabType = "Stock Overview" | "Global Inventory" | "Reports" | "Inventory Adjustment";
 
@@ -20,7 +20,7 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);

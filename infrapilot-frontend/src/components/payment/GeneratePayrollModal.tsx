@@ -8,9 +8,10 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    projectId: number;
 }
 
-export default function GeneratePayrollModal({ isOpen, onClose, onSuccess }: Props) {
+export default function GeneratePayrollModal({ isOpen, onClose, onSuccess, projectId }: Props) {
     const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
     const [year, setYear] = useState<number>(new Date().getFullYear());
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,6 +20,7 @@ export default function GeneratePayrollModal({ isOpen, onClose, onSuccess }: Pro
         setIsSubmitting(true);
         try {
             const payload = {
+                project_id: projectId,
                 month: month,
                 year: year
             };
