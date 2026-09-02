@@ -81,10 +81,6 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.invoice_number || !formData.invoice_number.trim()) {
-            toast.error("Invoice number is required.");
-            return;
-        }
         if (!formData.asset_id || formData.asset_id === 0) {
             toast.error("Please select an asset.");
             return;
@@ -195,14 +191,13 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Vendor Name */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Vendor Name <span className="text-rose-500">*</span>
+                                    Vendor Name
                                 </label>
                                 <input
                                     type="text"
                                     name="vendor_name"
                                     value={formData.vendor_name}
                                     onChange={handleChange}
-                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                     placeholder="Enter vendor name"
                                 />
@@ -211,14 +206,13 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Invoice Number */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Invoice Number <span className="text-rose-500">*</span>
+                                    Invoice Number
                                 </label>
                                 <input
                                     type="text"
                                     name="invoice_number"
                                     value={formData.invoice_number}
                                     onChange={handleChange}
-                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                     placeholder="Enter invoice number"
                                 />
@@ -227,7 +221,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Quantity */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Quantity <span className="text-rose-500">*</span>
+                                    Quantity
                                 </label>
                                 <input
                                     type="number"
@@ -235,7 +229,6 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                     value={formData.quantity}
                                     onChange={handleChange}
                                     min="1"
-                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                 />
                             </div>
@@ -243,7 +236,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Unit Price */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Unit Price <span className="text-rose-500">*</span>
+                                    Unit Price
                                 </label>
                                 <input
                                     type="number"
@@ -252,7 +245,6 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                     onChange={handleChange}
                                     min="0"
                                     step="0.01"
-                                    required
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                 />
                             </div>

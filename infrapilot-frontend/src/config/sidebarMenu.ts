@@ -117,11 +117,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/finance/profit",
           icon: "trending-up",
         },
-        {
-          label: "Client Payments",
-          path: "/admin/client-payments",
-          icon: "credit-card",
-        },
+        // {
+        //   label: "Client Payments",
+        //   path: "/admin/client-payments",
+        //   icon: "credit-card",
+        // },
       ],
     },
     {

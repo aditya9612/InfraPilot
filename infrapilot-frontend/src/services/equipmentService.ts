@@ -303,36 +303,31 @@ export const equipmentService = {
     },
 
     async listMaintenance(equipment_id?: number, params?: { project_id?: number }): Promise<MaintenanceItem[]> {
-        const queryParams: any = { ...params };
+        const queryParams: any = { limit: 500 };
         if (equipment_id) queryParams.equipment_id = equipment_id;
         const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams });
-        return response.data;
+        let data = Array.isArray(response.data) ? response.data : ((response.data as any).items || []);
+        if (params?.project_id) {
+            data = data.filter((d: any) => d.project_id === params.project_id);
+        }
+        return data;
     },
 
     async getAllMaintenance(params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         try {
-            try {
-                const directRes = await api.get<MaintenanceItem[]>('/equipment/maintenance', { params });
-                if (Array.isArray(directRes.data) && directRes.data.length > 0) {
-                    return directRes.data.sort((a, b) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
-                }
-            } catch (e) {
-                // ignore and fallback
+            // First fetch the global list without project_id to avoid 422 errors
+            const res = await api.get<any>('/equipment/maintenance', { params: { limit: 500 } });
+            console.log("[DEBUG] raw api response:", res);
+            console.log("[DEBUG] raw api response.data:", res.data);
+            let allMaint = Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []);
+            console.log("[DEBUG] allMaint extracted:", allMaint);
+
+            // Apply project filtering locally if needed
+            if (params?.project_id) {
+                allMaint = allMaint.filter((m: any) => m.project_id === params.project_id || m.project_id === null || m.project_id === 0);
             }
 
-            const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
-            const data = eqRes.data;
-            const eqList = Array.isArray(data) ? data : (data.items || data.data || []);
-
-            const maintPromises = eqList.map((eq: any) => this.listMaintenance(eq.id));
-            const results = await Promise.allSettled(maintPromises);
-
-            const allMaint = results
-                .filter((r): r is PromiseFulfilledResult<MaintenanceItem[]> => r.status === 'fulfilled')
-                .map(r => r.value)
-                .flat();
-
-            return allMaint.sort((a, b) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
+            return allMaint.sort((a: any, b: any) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
         } catch (error) {
             console.error("Failed to fetch all maintenance:", error);
             return [];
