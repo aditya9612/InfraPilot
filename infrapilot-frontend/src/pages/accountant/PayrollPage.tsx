@@ -9,14 +9,14 @@ import { paymentService } from "../../services/paymentService";
 import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
-import { projectService } from "../../services/projectService";
+
 import { accountingService } from "../../services/accountingService";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
 
-const PayrollKPICards = ({ summary }: { summary?: any }) => {
+const _PayrollKPICards = ({ summary }: { summary?: any }) => {
   const s = summary?.data || summary || {};
 
   const formatCurrency = (val: any) => {
@@ -850,8 +850,8 @@ export const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
-  const [labours, setLabours] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [_labours, _setLabours] = useState<any[]>([]);
+  const [_users, _setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
@@ -902,7 +902,7 @@ const LedgerSection = () => {
 
       const laboursMap: Record<string | number, string> = {};
       if (laboursRes.status === 'fulfilled' && laboursRes.value) {
-        const lList = Array.isArray(laboursRes.value) ? laboursRes.value : (laboursRes.value.items || laboursRes.value.data || []);
+        const lList = Array.isArray(laboursRes.value) ? laboursRes.value : ((laboursRes.value as any).items || (laboursRes.value as any).data || []);
         lList.forEach((l: any) => {
           const lid = l.labour_id || l.id;
           const name = l.labour_name || l.name || l.full_name;
@@ -912,7 +912,7 @@ const LedgerSection = () => {
 
       const contractorsMap: Record<string | number, string> = {};
       if (contractorsRes.status === 'fulfilled' && contractorsRes.value) {
-        const cList = Array.isArray(contractorsRes.value) ? contractorsRes.value : (contractorsRes.value.items || contractorsRes.value.data || []);
+        const cList = Array.isArray(contractorsRes.value) ? contractorsRes.value : ((contractorsRes.value as any).items || (contractorsRes.value as any).data || []);
         cList.forEach((c: any) => {
           const cid = c.id || c.user_id || c.contractor_id;
           const name = c.name || c.full_name || c.company_name;
@@ -1427,7 +1427,7 @@ const PayrollPage = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
-  const [summaryData, setSummaryData] = useState<any>(null);
+  const [_summaryData, setSummaryData] = useState<any>(null);
   const [globalProjectId, setGlobalProjectId] = useState<string>("");
 
   useEffect(() => {
