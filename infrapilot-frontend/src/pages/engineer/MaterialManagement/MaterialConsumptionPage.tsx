@@ -10,21 +10,21 @@ import {
 import { materialService, type InventoryItem, type Transfer, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 import { boqService } from "../../../services/boqService";
-import { useProject } from "../../../context/ProjectContext";
+
 
 type TabType = "Usage" | "Transfers" | "Transactions";
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
 const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
-    const { selectedProjectId: globalProjectId, setSelectedProjectId } = useProject();
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const formatINR = (amount: number | string | undefined | null) => {
         if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Usage");
-    const projectId = Number(globalProjectId) || 0;
+    const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 

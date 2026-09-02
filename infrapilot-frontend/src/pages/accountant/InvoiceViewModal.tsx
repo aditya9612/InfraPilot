@@ -4,7 +4,8 @@ import api from "../../services/api";
 import Modal from "../../components/common/Modal";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
-<<<<<<< HEAD
+import { financeService } from "../../services/financeService";
+import toast from "react-hot-toast";
 import { PROJECTS } from "../../config/projectSeed";
 
 const KNOWN_PROJECT_MAP: Record<string, string> = {
@@ -19,10 +20,6 @@ const KNOWN_PROJECT_MAP: Record<string, string> = {
   "9": "Grand Horizons",
   "10": "Ocean View Residences",
 };
-=======
-import { financeService } from "../../services/financeService";
-import toast from "react-hot-toast";
->>>>>>> testing
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose, onSuccess }: { invoiceId: number | null; projects: any[]; onClose: () => void; onSuccess?: () => void }) {
   const [data, setData] = useState<any>(null);
@@ -55,7 +52,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
           } else {
             const seed = PROJECTS.find(proj => String(proj.id) === strId);
             if (seed) {
-              setFetchedProjectName(seed.project_name || seed.name);
+              setFetchedProjectName(seed.project_name);
             } else if (KNOWN_PROJECT_MAP[strId]) {
               setFetchedProjectName(KNOWN_PROJECT_MAP[strId]);
             } else {

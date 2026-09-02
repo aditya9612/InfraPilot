@@ -93,6 +93,7 @@ export interface PurchasePayload {
   amount_paid: number;
   project_id: number;
   task_id?: number;
+  boq_item_id?: number;
   issue_type: IssueType;
 }
 

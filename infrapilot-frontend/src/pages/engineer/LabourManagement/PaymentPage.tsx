@@ -592,6 +592,7 @@ const PaymentPage: React.FC = () => {
                     isOpen={isGenerateModalOpen}
                     onClose={() => setIsGenerateModalOpen(false)}
                     onSuccess={fetchData}
+                    projectId={projectId}
                 />
             </PageTransition>
         </>

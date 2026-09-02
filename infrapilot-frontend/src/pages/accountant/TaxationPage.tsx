@@ -6,10 +6,8 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-<<<<<<< HEAD
+
 import { PROJECTS } from "../../config/projectSeed";
-=======
->>>>>>> testing
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage, Trash2, AlertTriangle } from "lucide-react";
 export interface GSTReturn {
@@ -162,7 +160,7 @@ const DashboardSection = () => {
 };
 
 // 2. GST Invoices
-<<<<<<< HEAD
+
 // 2. GST Invoices
 const GSTInvoiceModal = ({
   isOpen,
@@ -273,15 +271,7 @@ const GSTInvoiceModal = ({
     toast.success(`${type} Invoice Recorded!`);
     onClose();
   };
-=======
-const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: () => void; type: string }) => {
-  const [projects, setProjects] = useState<any[]>([]);
-  useEffect(() => {
-    if (isOpen) {
-      projectService.getProjects().then(res => setProjects(res.items || res.data || res || [])).catch(() => {});
-    }
-  }, [isOpen]);
->>>>>>> testing
+
 
   return (
     <Modal
@@ -307,7 +297,7 @@ const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: 
         </>
       }
     >
-<<<<<<< HEAD
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
@@ -395,23 +385,7 @@ const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: 
               </div>
             </div>
           </div>
-=======
-      <form onSubmit={(e) => { e.preventDefault(); toast.success(`${type} Invoice Recorded!`); onClose(); }} className="space-y-6">
-    <div className="lg:col-span-2 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Basic Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client / Vendor Name *</label><input type="text" placeholder="Select Party" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN *</label><input type="text" placeholder="27ABCDE1234F1Z5" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number *</label><input type="text" placeholder="INV-001" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="">Select Project</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}</select></div>
-        </div>
-      </div>
->>>>>>> testing
+
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">

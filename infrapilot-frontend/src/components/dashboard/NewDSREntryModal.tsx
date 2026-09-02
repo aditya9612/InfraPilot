@@ -166,22 +166,20 @@ const NewDSREntryModal = ({
       return;
     }
     setIsLoading(true);
-    const tid = toast.loading("Creating DSR...");
+    const tid = toast.loading(photoFile ? "Creating DSR with photo..." : "Creating DSR...");
     try {
-      // Create the DSR entry (JSON body)
-      const newDsr = await dsrService.createDsr(formData);
-
-      // Upload photo if selected
-      if (photoFile) {
-        toast.loading("Uploading photo...", { id: tid });
-        await dsrService.uploadDsrPhoto(newDsr.id, photoFile);
-      }
-
-      toast.success("DSR entry created successfully!", { id: tid });
+      // Send photo together with DSR creation (single POST /dsr request as multipart/form-data)
+      const payload = { ...formData, dsr_image: photoFile ?? null };
+      await dsrService.createDsr(payload);
+      toast.success(
+        photoFile ? "DSR entry created with photo!" : "DSR entry created successfully!",
+        { id: tid }
+      );
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error("DSR creation error:", error);
-      toast.error("Failed to create DSR", { id: tid });
+      const detail = error?.response?.data?.detail || error?.message || "Unknown error";
+      toast.error(`Failed to create DSR: ${detail}`, { id: tid });
     } finally {
       setIsLoading(false);
     }
@@ -360,6 +358,24 @@ const NewDSREntryModal = ({
             )}
           </h3>
           <div className="flex flex-col items-center justify-center">
+            {/* Hidden file input — always in DOM so ref stays valid */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setPhotoFile(file);
+                  const reader = new FileReader();
+                  reader.onloadend = () => setPhotoPreview(reader.result as string);
+                  reader.readAsDataURL(file);
+                }
+                // Reset value so same file can be re-selected
+                e.target.value = "";
+              }}
+            />
             {photoPreview ? (
               <div className="relative w-full md:w-1/2 aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group">
                 <img src={photoPreview} alt="Site" className="w-full h-full object-cover" />
@@ -370,25 +386,14 @@ const NewDSREntryModal = ({
                 </div>
               </div>
             ) : (
-              <div className="w-full flex flex-col items-center gap-6">
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setPhotoFile(file);
-                    const reader = new FileReader();
-                    reader.onloadend = () => setPhotoPreview(reader.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group">
-                  <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all">
-                    <Upload className="w-8 h-8" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-slate-600">Upload Site Progress Photo</p>
-                  </div>
-                </button>
-              </div>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group">
+                <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all">
+                  <Upload className="w-8 h-8" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-slate-600">Upload Site Progress Photo</p>
+                </div>
+              </button>
             )}
           </div>
         </div>
