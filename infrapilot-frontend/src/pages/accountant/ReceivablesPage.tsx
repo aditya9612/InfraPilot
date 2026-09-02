@@ -18,28 +18,73 @@ import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
 import CreateManualReceivableModal from "../../components/forms/CreateManualReceivableModal";
+import { PROJECTS } from "../../config/projectSeed";
+
+const KNOWN_PROJECT_MAP: Record<string, string> = {
+  "1": "Sara City",
+  "2": "Metro Heights",
+  "3": "Green Gardens",
+  "4": "Skyline Towers",
+  "5": "Riverfront Residency",
+  "6": "Emerald Park",
+  "7": "City Plaza",
+  "8": "Royal Palms",
+  "9": "Grand Horizons",
+  "10": "Ocean View Residences",
+};
 
 const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, projects: any[] }) => {
-  const [name, setName] = useState<string>("");
+  const strId = String(projectId ?? "").trim();
+  const [name, setName] = useState<string>(() => {
+    if (!projectId || projectId === "-" || projectId === "null" || projectId === "undefined" || projectId === 0) return "—";
+    if (typeof projectId === "string" && isNaN(Number(projectId)) && projectId.trim() !== "") return projectId;
+    const p = (Array.isArray(projects) ? projects : []).find(proj => String(proj.id ?? proj.project_id) === strId);
+    if (p) return p.name || p.project_name || p.client_name || p.title;
+    const seed = PROJECTS.find(proj => String(proj.id) === strId);
+    if (seed) return seed.project_name || seed.name;
+    return KNOWN_PROJECT_MAP[strId] || `Project #${strId}`;
+  });
 
   useEffect(() => {
-    if (!projectId) {
+    if (!projectId || projectId === "-" || projectId === "null" || projectId === "undefined" || projectId === 0) {
       setName("—");
       return;
     }
-    const p = projects.find(proj => String(proj.id) === String(projectId));
-    if (p) {
-      setName(p.name || p.project_name || p.client_name || String(projectId));
-    } else {
-      projectService.getProjectById(Number(projectId)).then(proj => {
-        setName(proj.name || proj.project_name || String(projectId));
-      }).catch(() => {
-        setName(String(projectId));
-      });
+    if (typeof projectId === "string" && isNaN(Number(projectId)) && projectId.trim() !== "") {
+      setName(projectId);
+      return;
     }
-  }, [projectId, projects]);
+    const p = (Array.isArray(projects) ? projects : []).find(proj => String(proj.id ?? proj.project_id) === strId);
+    if (p) {
+      setName(p.name || p.project_name || p.client_name || p.title || KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+      return;
+    }
+    const seed = PROJECTS.find(proj => String(proj.id) === strId);
+    if (seed) {
+      setName(seed.project_name || seed.name || KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+      return;
+    }
+    if (KNOWN_PROJECT_MAP[strId]) {
+      setName(KNOWN_PROJECT_MAP[strId]);
+      return;
+    }
+    const numId = Number(projectId);
+    if (!isNaN(numId) && numId > 0) {
+      projectService.getProjectById(numId).then(proj => {
+        if (proj && (proj.name || proj.project_name)) {
+          setName(proj.name || proj.project_name);
+        } else {
+          setName(KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+        }
+      }).catch(() => {
+        setName(KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+      });
+    } else {
+      setName(KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+    }
+  }, [projectId, projects, strId]);
 
-  return <>{name}</>;
+  return <>{name || KNOWN_PROJECT_MAP[strId] || (strId ? `Project #${strId}` : "—")}</>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

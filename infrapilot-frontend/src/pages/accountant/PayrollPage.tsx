@@ -1,39 +1,73 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
+<<<<<<< HEAD
+import { paymentService } from "../../services/paymentService";
+import { userService } from "../../services/userService";
+import { labourService } from "../../services/labourService";
+import { contractorService } from "../../services/contractorService";
+import { projectService } from "../../services/projectService";
+=======
 import { accountingService } from "../../services/accountingService";
+>>>>>>> testing
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
 
+<<<<<<< HEAD
+const PayrollKPICards = ({ summary }: { summary?: any }) => {
+  const s = summary?.data || summary || {};
+
+  const formatCurrency = (val: any) => {
+    if (val === undefined || val === null || val === "" || isNaN(Number(val))) return "₹0";
+    const num = Number(val);
+    return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const pending = s.pending_due ?? s.pending_payroll ?? s.total_pending ?? s.pending_amount ?? s.pending_wages ?? s.pending ?? s.unpaid_amount ?? 0;
+  const paid = s.paid_this_month ?? s.paid_payroll ?? s.total_paid ?? s.paid_amount ?? s.paid ?? s.paid_wages ?? s.total_payout ?? 0;
+  const advance = s.advance_given ?? s.advance_logs ?? s.total_advance ?? s.advance_amount ?? s.advance_paid ?? s.advance_adjusted ?? s.advance ?? 0;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(pending)}</p>
+=======
 const PayrollKPICards = ({ summary }: { summary?: any }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+>>>>>>> testing
       </div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.pending_due !== undefined ? `₹${summary.pending_due}` : (summary?.pending_payroll !== undefined ? `₹${summary.pending_payroll}` : '₹0')}</p>
-    </div>
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
-      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(paid)}</p>
       </div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.paid_this_month !== undefined ? `₹${summary.paid_this_month}` : (summary?.paid_payroll !== undefined ? `₹${summary.paid_payroll}` : '₹0')}</p>
-    </div>
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
-      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(advance)}</p>
       </div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.advance_logs !== undefined ? `₹${summary.advance_logs}` : (summary?.advance_given !== undefined ? `₹${summary.advance_given}` : '₹0')}</p>
     </div>
+<<<<<<< HEAD
+  );
+};
+=======
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
@@ -43,6 +77,7 @@ const PayrollKPICards = ({ summary }: { summary?: any }) => (
     </div>
   </div>
 );
+>>>>>>> testing
 
 const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [formData, setFormData] = useState({
@@ -302,7 +337,11 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
+<<<<<<< HEAD
+    period_type: period ? (period.charAt(0).toUpperCase() + period.slice(1).toLowerCase()) : "Daily",
+=======
     period_type: period || "Daily",
+>>>>>>> testing
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
     payment_mode: "Bank Transfer",
@@ -321,6 +360,16 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
     });
   }, []);
 
+  useEffect(() => {
+    if (period) {
+      const formatted = period.charAt(0).toUpperCase() + period.slice(1).toLowerCase();
+      setFormData(prev => ({
+        ...prev,
+        period_type: formatted
+      }));
+    }
+  }, [period, isOpen]);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -338,7 +387,11 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
     }
     setLoading(true);
     try {
-      await payrollService.payLabourWages(formData);
+      await payrollService.payLabourWages({
+        ...formData,
+        period: formData.period_type,
+        period_type: formData.period_type
+      });
       toast.success("Wage Record Saved!");
       onClose();
     } catch (err) {
@@ -348,11 +401,15 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
     }
   };
 
+  const displayPeriod = formData.period_type
+    ? (formData.period_type.charAt(0).toUpperCase() + formData.period_type.slice(1).toLowerCase())
+    : (period || "Daily");
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Record ${period} Labor Wages`}
+      title={`Record ${displayPeriod} Labor Wages`}
       maxWidth="max-w-2xl"
       footer={
         <>
@@ -385,7 +442,11 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Type *</label>
+<<<<<<< HEAD
+              <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
+=======
               <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+>>>>>>> testing
                 <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
                 <option value="Monthly">Monthly</option>
@@ -393,6 +454,18 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
+<<<<<<< HEAD
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cash">Cash</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+=======
+>>>>>>> testing
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
               <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
@@ -402,16 +475,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
               <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cash">Cash</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account ID</label>
               <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
@@ -428,9 +492,14 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState("Daily");
   const [wages, setWages] = useState<any[]>([]);
+<<<<<<< HEAD
+  const [labourMap, setLabourMap] = useState<Record<number, string>>({});
+  const [dateFilter, setDateFilter] = useState({
+=======
 
 
   const [filters, setFilters] = useState({
+>>>>>>> testing
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
     end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0],
     period_type: "",
@@ -469,6 +538,19 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
       toast.error("Failed to load labour wages");
     }
   };
+
+  useEffect(() => {
+    labourService.getLabours(undefined, { limit: 200 }).then((res: any) => {
+      const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      const map: Record<number, string> = {};
+      items.forEach((l: any) => {
+        const id = l.labour_id || l.id;
+        const name = l.labour_name || l.name;
+        if (id && name) map[id] = name;
+      });
+      setLabourMap(map);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeSubTab === "register") {
@@ -556,6 +638,28 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                 <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
+<<<<<<< HEAD
+                {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
+                  const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
+                  const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
+                  const wagePeriod = wage.period || wage.period_type || 'Daily';
+                  const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
+                  const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
+                  const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
+
+                  return (
+                    <tr key={wage.id || idx} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{laborName}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{laborType}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+=======
                 {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3 text-xs font-bold text-slate-800">{wage.labor_name || 'Labor'}</td>
@@ -576,6 +680,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                   </tr>
                 )) : (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+>>>>>>> testing
                 )}
               </tbody>
             </table>
@@ -805,6 +910,94 @@ const LedgerSection = () => {
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
 
+  const [entities, setEntities] = useState<{
+    users: Record<string | number, string>;
+    labours: Record<string | number, string>;
+    contractors: Record<string | number, string>;
+    bills: Record<string | number, string>;
+    billsByNumber: Record<string, string>;
+  }>({
+    users: {},
+    labours: {},
+    contractors: {},
+    bills: {},
+    billsByNumber: {},
+  });
+
+  const loadLookupData = useCallback(async () => {
+    try {
+      const [usersRes, laboursRes, contractorsRes, billsRes, staffRegRes] = await Promise.allSettled([
+        userService.getAllUsers(200).catch(() => ({ items: [] })),
+        labourService.getLabours(undefined, { limit: 500 }).catch(() => ({ items: [] })),
+        contractorService.getContractors().catch(() => []),
+        payrollService.getContractorBills().catch(() => []),
+        payrollService.getStaffRegister().catch(() => []),
+      ]);
+
+      const usersMap: Record<string | number, string> = {};
+      if (usersRes.status === 'fulfilled' && usersRes.value) {
+        const uList = Array.isArray(usersRes.value) ? usersRes.value : (usersRes.value.items || usersRes.value.data || []);
+        uList.forEach((u: any) => {
+          const uid = u.user_id || u.id;
+          const name = u.full_name || u.name || u.email;
+          if (uid && name) usersMap[uid] = name;
+        });
+      }
+
+      const staffMap: Record<string | number, string> = {};
+      if (staffRegRes.status === 'fulfilled' && staffRegRes.value) {
+        const sList = Array.isArray(staffRegRes.value) ? staffRegRes.value : (staffRegRes.value.data || staffRegRes.value.items || []);
+        sList.forEach((s: any) => {
+          const sid = s.user_id || s.id || s.emp_id;
+          const name = s.name || s.full_name;
+          if (sid && name) staffMap[sid] = name;
+        });
+      }
+
+      const laboursMap: Record<string | number, string> = {};
+      if (laboursRes.status === 'fulfilled' && laboursRes.value) {
+        const lList = Array.isArray(laboursRes.value) ? laboursRes.value : (laboursRes.value.items || laboursRes.value.data || []);
+        lList.forEach((l: any) => {
+          const lid = l.labour_id || l.id;
+          const name = l.labour_name || l.name || l.full_name;
+          if (lid && name) laboursMap[lid] = name;
+        });
+      }
+
+      const contractorsMap: Record<string | number, string> = {};
+      if (contractorsRes.status === 'fulfilled' && contractorsRes.value) {
+        const cList = Array.isArray(contractorsRes.value) ? contractorsRes.value : (contractorsRes.value.items || contractorsRes.value.data || []);
+        cList.forEach((c: any) => {
+          const cid = c.id || c.user_id || c.contractor_id;
+          const name = c.name || c.full_name || c.company_name;
+          if (cid && name) contractorsMap[cid] = name;
+        });
+      }
+
+      const billsMap: Record<string | number, string> = {};
+      const billsByNumber: Record<string, string> = {};
+      if (billsRes.status === 'fulfilled' && billsRes.value) {
+        const bList = Array.isArray(billsRes.value) ? billsRes.value : (billsRes.value.data || billsRes.value.items || []);
+        bList.forEach((b: any) => {
+          const bid = b.id;
+          const cName = b.quotation?.company_name || b.client?.full_name || b.contractor?.name || b.contractor_name || b.vendor_name || 'Contractor';
+          if (bid && cName) billsMap[bid] = cName;
+          if (b.bill_number && cName) billsByNumber[b.bill_number] = cName;
+        });
+      }
+
+      setEntities({
+        users: { ...staffMap, ...usersMap },
+        labours: laboursMap,
+        contractors: contractorsMap,
+        bills: billsMap,
+        billsByNumber: billsByNumber,
+      });
+    } catch (err) {
+      console.warn("Failed to load entity lookup data:", err);
+    }
+  }, []);
+
   const fetchRegister = async () => {
     setLoading(true);
     try {
@@ -824,6 +1017,119 @@ const LedgerSection = () => {
 
   useEffect(() => {
     fetchRegister();
+<<<<<<< HEAD
+    loadLookupData();
+  }, [loadLookupData]);
+
+  // On-demand fetch for any missing IDs in registerData
+  useEffect(() => {
+    if (!registerData.length) return;
+
+    registerData.forEach((item: any) => {
+      const linkedTo = item.linked_to || '';
+      if (!linkedTo) return;
+
+      const parts = linkedTo.split(':');
+      const category = parts[0]?.toUpperCase();
+      const id = Number(parts[1]);
+      if (!id || isNaN(id)) return;
+
+      if ((category === 'STAFF-SALARY' || category === 'STAFF' || category === 'SALARY') && !entities.users[id]) {
+        userService.getUserById(id).then((u: any) => {
+          if (u) {
+            const name = u.full_name || u.name || u.email;
+            if (name) {
+              setEntities(prev => ({
+                ...prev,
+                users: { ...prev.users, [id]: name }
+              }));
+            }
+          }
+        }).catch(() => {});
+      }
+
+      if ((category === 'LABOUR-WAGE' || category === 'LABOUR' || category === 'WAGE') && !entities.labours[id]) {
+        labourService.getLabourById(id).then((l: any) => {
+          if (l) {
+            const name = l.labour_name || l.name || l.full_name;
+            if (name) {
+              setEntities(prev => ({
+                ...prev,
+                labours: { ...prev.labours, [id]: name }
+              }));
+            }
+          }
+        }).catch(() => {});
+      }
+    });
+  }, [registerData, entities.users, entities.labours]);
+
+  // Resolve display name for Employee / Contractor / Labour
+  const getPartyDisplayName = (item: any): string => {
+    // 1. Direct explicit name fields if provided on transaction
+    if (item.employee_name) return item.employee_name;
+    if (item.staff_name) return item.staff_name;
+    if (item.user_name) return item.user_name;
+    if (item.user?.full_name || item.user?.name) return item.user.full_name || item.user.name;
+    if (item.labour_name) return item.labour_name;
+    if (item.labour?.labour_name || item.labour?.name) return item.labour.labour_name || item.labour.name;
+    if (item.contractor_name) return item.contractor_name;
+    if (item.contractor?.name) return item.contractor.name;
+
+    // 2. If party_name is present and is NOT a placeholder like "Staff Salary #1", "Labour Wage #15", etc.
+    if (
+      item.party_name &&
+      !item.party_name.startsWith('Staff Salary #') &&
+      !item.party_name.startsWith('Labour Wage #') &&
+      !item.party_name.startsWith('Contractor Pay #')
+    ) {
+      return item.party_name;
+    }
+
+    // 3. Parse linked_to
+    const linkedTo = item.linked_to || '';
+    if (linkedTo) {
+      const parts = linkedTo.split(':');
+      const category = parts[0]?.toUpperCase();
+      const id = parts[1];
+
+      if (category === 'STAFF-SALARY' || category === 'STAFF' || category === 'SALARY') {
+        if (id && entities.users[id]) {
+          return entities.users[id];
+        }
+        return item.party_name || (id ? `Staff #${id}` : 'Staff');
+      }
+
+      if (category === 'LABOUR-WAGE' || category === 'LABOUR' || category === 'WAGE') {
+        if (id && entities.labours[id]) {
+          return entities.labours[id];
+        }
+        return item.party_name || (id ? `Labour #${id}` : 'Labour');
+      }
+
+      if (category === 'CONTRACTOR-PAY' || category === 'CONTRACTOR' || category === 'RABILL') {
+        // Check by bill ID
+        if (id && entities.bills[id]) {
+          return entities.bills[id];
+        }
+        // Check by contractor ID
+        if (id && entities.contractors[id]) {
+          return entities.contractors[id];
+        }
+        // Check if reference contains a bill number, e.g. "rabill:BILL-QT/2026/0001"
+        if (item.reference) {
+          const refBillNo = item.reference.replace(/^rabill:/i, '').trim();
+          if (refBillNo && entities.billsByNumber[refBillNo]) {
+            return entities.billsByNumber[refBillNo];
+          }
+        }
+        return item.party_name || (id ? `Contractor #${id}` : 'Contractor');
+      }
+    }
+
+    // 4. Fallback to reference or item.party_name or '—'
+    return item.party_name || item.reference || '—';
+=======
     import('../../services/labourService').then(({ labourService }) => {
       labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(Array.isArray(res) ? res : res.items || res.data || []));
     });
@@ -848,6 +1154,7 @@ const LedgerSection = () => {
       return user ? (user.full_name || user.name) : `Staff Salary #${id}`;
     }
     return linked_to;
+>>>>>>> testing
   };
 
   const paged = registerData.slice((ledgerPage - 1) * ledgerRpp, ledgerPage * ledgerRpp);
@@ -857,7 +1164,7 @@ const LedgerSection = () => {
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 className="font-bold text-slate-800 flex items-center gap-3">
           Payroll Ledger
-          <button onClick={fetchRegister} disabled={loading} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
+          <button onClick={() => { fetchRegister(); loadLookupData(); }} disabled={loading} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50" title="Refresh">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
           </button>
         </h3>
@@ -884,7 +1191,7 @@ const LedgerSection = () => {
                 const debit = isPayment ? item.amount : null;
                 const credit = isReceipt ? item.amount : null;
                 const dateStr = item.created_at ? item.created_at.split('T')[0] : '—';
-                const party = item.party_name || parseLinkedTo(item.linked_to, item.reference);
+                const party = getPartyDisplayName(item);
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-50/50">
@@ -894,7 +1201,7 @@ const LedgerSection = () => {
                     {/* EMPLOYEE/CONTRACTOR */}
                     <td className="px-4 py-3">
                       <p className="text-xs font-bold text-slate-800">{party}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]">{item.reference}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]">{item.reference || item.linked_to || '—'}</p>
                     </td>
 
                     {/* TYPE */}
@@ -1207,11 +1514,55 @@ const PayrollPage = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       try {
+<<<<<<< HEAD
+        let combinedData: any = {};
+
+        // 1. Fetch from accountant payroll summary (no hardcoded project_id)
+        try {
+          const res = await payrollService.getSummary();
+          const d = res?.data || res || {};
+          combinedData = { ...combinedData, ...d };
+        } catch (e) {
+          console.warn("payrollService.getSummary failed, trying fallback endpoints", e);
+        }
+
+        // 2. Fetch from paymentService payroll stats (labour/payroll/stats)
+        try {
+          const statsRes = await paymentService.getPayrollStats();
+          const statsData = statsRes?.data || statsRes || {};
+          combinedData = {
+            ...statsData,
+            ...combinedData,
+            paid_this_month: combinedData.paid_this_month ?? combinedData.paid_payroll ?? statsData.paid_this_month ?? statsData.total_paid,
+            pending_due: combinedData.pending_due ?? combinedData.pending_payroll ?? statsData.pending_due ?? statsData.total_pending,
+            advance_logs: combinedData.advance_logs ?? combinedData.advance_given ?? statsData.advance_logs ?? statsData.total_advance,
+          };
+        } catch (e) {
+          console.warn("paymentService.getPayrollStats failed", e);
+        }
+
+        // 3. Fetch from paymentService fiscal summary (labour/payroll/fiscal-summary)
+        try {
+          const fiscalRes = await paymentService.getFiscalSummary();
+          const fiscalData = fiscalRes?.data || fiscalRes || {};
+          combinedData = {
+            ...fiscalData,
+            ...combinedData,
+            paid_payroll: combinedData.paid_payroll ?? combinedData.paid_this_month ?? fiscalData.total_payout,
+            advance_given: combinedData.advance_given ?? combinedData.advance_logs ?? fiscalData.advance_adjusted,
+          };
+        } catch (e) {
+          console.warn("paymentService.getFiscalSummary failed", e);
+        }
+
+        setSummaryData(combinedData);
+=======
         const params: any = {};
         if (globalProjectId) params.project_id = Number(globalProjectId);
         
         const data = await payrollService.getLabourWageStats(params);
         setSummaryData(data?.data || data || {});
+>>>>>>> testing
       } catch (err) {
         console.error('Failed to fetch payroll summary', err);
       }
@@ -1319,9 +1670,12 @@ const PayrollPage = () => {
           ))}
         </div>
 
+<<<<<<< HEAD
+=======
         {/* ── KPI Stat Cards ─────────────────────────────── */}
         {activeTab === "wages" && <PayrollKPICards summary={summaryData} />}
 
+>>>>>>> testing
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}
         {activeTab === "ledger" && <LedgerSection />}

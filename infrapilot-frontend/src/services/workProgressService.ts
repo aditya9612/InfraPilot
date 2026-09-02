@@ -317,12 +317,10 @@ export const workProgressService = {
   },
 
 
-  async getActivityHistory(activityId?: number, projectId?: number): Promise<any> {
+  async getActivityHistory(id: number, project_id?: number): Promise<any> {
     try {
-      const params: Record<string, any> = {};
-      if (activityId !== undefined) params.activity_id = activityId;
-      if (projectId !== undefined) params.project_id = projectId;
-
+      const params: Record<string, any> = { activity_id: id };
+      if (project_id) params.project_id = project_id;
       const response = await api.get(`/work-progress/progress-history`, { params });
       return response.data;
     } catch (error: any) {

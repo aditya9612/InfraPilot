@@ -39,8 +39,13 @@ import PurchaseOrderTable from "../../components/admin/inventory/PurchaseOrderTa
 import TransferTable from "../../components/admin/inventory/TransferTable";
 import ViewTransferModal from "../../components/admin/inventory/ViewTransferModal";
 import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
+import TransactionTable from "../../components/admin/inventory/TransactionTable";
 import EditPOModal from "../../components/admin/inventory/EditPOModal";
 import CreatePOModal from "../../components/admin/inventory/CreatePOModal";
+import ViewPOModal from "../../components/admin/inventory/ViewPOModal";
+import ViewMaterialModal from "../../components/admin/inventory/ViewMaterialModal";
+import MaterialTransactionsModal from "../../components/admin/inventory/MaterialTransactionsModal";
+import PriceHistoryModal from "../../components/admin/inventory/PriceHistoryModal";
 
 interface Project {
   id: number;
@@ -59,12 +64,13 @@ const InventoryPage = () => {
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs"
+    "overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs" | "transactions"
   >(isMaster ? "suppliers" : "overview");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -73,6 +79,7 @@ const InventoryPage = () => {
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
   const [supplierPage, setSupplierPage] = useState(0);
   const [logsPage, setLogsPage] = useState(0);
+  const [transactionsPage, setTransactionsPage] = useState(0);
   const [materialPage, setMaterialPage] = useState(0);
   const [poPage, setPoPage] = useState(0);
   const [transferPage, setTransferPage] = useState(0);
@@ -83,6 +90,9 @@ const InventoryPage = () => {
   const [materialApiErrors, setMaterialApiErrors] = useState<Record<string, string>>({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false);
+  const [isViewMaterialModalOpen, setIsViewMaterialModalOpen] = useState(false);
+  const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
+  const [isPriceHistoryModalOpen, setIsPriceHistoryModalOpen] = useState(false);
 
   const [purchaseActionConfig, setPurchaseActionConfig] = useState<{
     isOpen: boolean;
@@ -98,6 +108,7 @@ const InventoryPage = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isEditPOModalOpen, setIsEditPOModalOpen] = useState(false);
+  const [isViewPOModalOpen, setIsViewPOModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectList, setProjectList] = useState<Project[]>([]);
   const [projectMap, setProjectMap] = useState<Record<number, string>>({});
@@ -206,19 +217,35 @@ const InventoryPage = () => {
   }, [filteredSuppliers, sortOrder]);
 
   const sortedPOs = useMemo(() => {
-    const filtered = pos.filter((p) =>
-      p.material_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = pos.filter((p) => {
+      const matchesSearch = p.material_name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesProject = inventoryProjectId === "all" || p.project_id === inventoryProjectId;
+      return matchesSearch && matchesProject;
+    });
     return [...filtered].sort((a, b) => {
       return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
     });
-  }, [pos, searchTerm, sortOrder]);
+  }, [pos, searchTerm, inventoryProjectId, sortOrder]);
 
   const sortedTransfers = useMemo(() => {
-    return [...transfers].sort((a, b) => {
+    const filtered = transfers.filter(t => {
+      // Filter by search term
+      const matchesSearch =
+        t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.from_project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.to_project?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Filter by selected project (strictly match 'To Site')
+      const matchesProject = inventoryProjectId === "all" ||
+        t.to_project?.id === inventoryProjectId;
+
+      return matchesSearch && matchesProject;
+    });
+
+    return [...filtered].sort((a, b) => {
       return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
     });
-  }, [transfers, sortOrder]);
+  }, [transfers, searchTerm, inventoryProjectId, sortOrder]);
 
   const sortedLogs = useMemo(() => {
     return [...logs].sort((a, b) => {
@@ -251,6 +278,27 @@ const InventoryPage = () => {
       refreshLogs();
     }
   }, [logProjectId, logType, activeTab]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (activeTab === "transactions") {
+      if (inventoryProjectId !== "all") {
+        materialService.getProjectTransactions(inventoryProjectId as number)
+          .then(res => { if (isMounted) setTransactions(Array.isArray(res) ? res : []) })
+          .catch(() => { if (isMounted) setTransactions([]) });
+      } else {
+        Promise.all(projectList.map(p => materialService.getProjectTransactions(p.id).catch(() => [])))
+          .then(results => {
+            if (!isMounted) return;
+            const allTxns = results.flat().filter(t => t);
+            allTxns.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            setTransactions(allTxns);
+          })
+          .catch(() => { if (isMounted) setTransactions([]) });
+      }
+    }
+    return () => { isMounted = false; };
+  }, [activeTab, inventoryProjectId, projectList]);
 
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
@@ -572,6 +620,7 @@ const InventoryPage = () => {
                 { id: "suppliers", label: "Suppliers", icon: Truck },
                 { id: "pos", label: "Purchase Orders", icon: ShoppingCart },
                 { id: "transfers", label: "Transfers", icon: Truck },
+                { id: "transactions", label: "Transactions", icon: FileText },
                 { id: "logs", label: "Logs", icon: History },
               ]
                 .filter(
@@ -588,6 +637,7 @@ const InventoryPage = () => {
                       setMaterialPage(0);
                       setPoPage(0);
                       setTransferPage(0);
+                      setTransactionsPage(0);
                     }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab.id
                       ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -636,6 +686,16 @@ const InventoryPage = () => {
               >
                 <PlusCircle className="w-4 h-4" />
                 Create PO
+              </button>
+            )}
+
+            {activeTab === "transfers" && (
+              <button
+                onClick={() => setTransferModalOpen(true)}
+                className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Create Transfer
               </button>
             )}
 
@@ -753,12 +813,13 @@ const InventoryPage = () => {
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
 
-              {(activeTab === "inventory" || activeTab === "overview") && (
+              {(activeTab === "inventory" || activeTab === "overview" || activeTab === "transactions" || activeTab === "transfers" || activeTab === "pos") && (
                 <select
                   value={inventoryProjectId}
                   onChange={(e) => {
                     setInventoryProjectId(e.target.value === "all" ? "all" : Number(e.target.value));
                     setMaterialPage(0);
+                    setTransactionsPage(0);
                   }}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
                 >
@@ -818,6 +879,18 @@ const InventoryPage = () => {
                       <InventoryTable
                         materials={paged}
                         projects={projectMap}
+                        onView={(m) => {
+                          setSelectedMaterial(m);
+                          setIsViewMaterialModalOpen(true);
+                        }}
+                        onTransactions={(m) => {
+                          setSelectedMaterial(m);
+                          setIsTransactionsModalOpen(true);
+                        }}
+                        onPriceHistory={(m) => {
+                          setSelectedMaterial(m);
+                          setIsPriceHistoryModalOpen(true);
+                        }}
                         onEdit={(m) => {
                           setSelectedMaterial(m);
                           setMaterialFormOpen(true);
@@ -913,6 +986,11 @@ const InventoryPage = () => {
                     <>
                       <PurchaseOrderTable
                         pos={paged}
+                        projectMap={projectMap}
+                        onView={(po) => {
+                          setSelectedPO(po);
+                          setIsViewPOModalOpen(true);
+                        }}
                         onEdit={(po) => {
                           setSelectedPO(po);
                           setIsEditPOModalOpen(true);
@@ -985,6 +1063,42 @@ const InventoryPage = () => {
                             <button
                               onClick={() => setTransferPage((p) => Math.min(totalPages - 1, p + 1))}
                               disabled={transferPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                {activeTab === "transactions" && (() => {
+                  const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+                  const paged = transactions.slice(transactionsPage * PAGE_SIZE, (transactionsPage + 1) * PAGE_SIZE);
+                  return (
+                    <>
+                      <TransactionTable transactions={paged} projectMap={projectMap} />
+
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {transactionsPage * PAGE_SIZE + 1}–{Math.min((transactionsPage + 1) * PAGE_SIZE, transactions.length)} of {transactions.length} Transactions
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTransactionsPage((p) => Math.max(0, p - 1))}
+                              disabled={transactionsPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {transactionsPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setTransactionsPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={transactionsPage >= totalPages - 1}
                               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
@@ -1097,6 +1211,23 @@ const InventoryPage = () => {
         suppliers={suppliers}
         allMaterials={masterMaterials}
       />
+      <ViewMaterialModal
+        isOpen={isViewMaterialModalOpen}
+        onClose={() => setIsViewMaterialModalOpen(false)}
+        material={selectedMaterial}
+        projectsList={projectList}
+      />
+      <MaterialTransactionsModal
+        isOpen={isTransactionsModalOpen}
+        onClose={() => setIsTransactionsModalOpen(false)}
+        material={selectedMaterial}
+        projectsList={projectList}
+      />
+      <PriceHistoryModal
+        isOpen={isPriceHistoryModalOpen}
+        onClose={() => setIsPriceHistoryModalOpen(false)}
+        material={selectedMaterial}
+      />
       {/* Passing inventory strictly styled as what TransferMaterial expects or reformatted locally */}
       <TransferMaterialModal
         isOpen={isTransferModalOpen}
@@ -1126,13 +1257,23 @@ const InventoryPage = () => {
         }}
       />
 
+      <ViewPOModal
+        isOpen={isViewPOModalOpen}
+        po={selectedPO}
+        projectMap={projectMap}
+        onClose={() => {
+          setIsViewPOModalOpen(false);
+          setSelectedPO(null);
+        }}
+      />
+
       <CreatePOModal
         isOpen={isCreatePOModalOpen}
         onClose={() => setIsCreatePOModalOpen(false)}
         onSubmit={handleCreatePOSubmit}
         suppliers={suppliers}
         projects={projectList}
-        inventory={masterMaterials}
+        inventory={inventory}
       />
 
       <ConfirmModal

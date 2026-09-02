@@ -248,7 +248,7 @@ const AdminClientPaymentPage = () => {
   const [searchParams] = useSearchParams();
   const { selectedProjectId: projectId } = useProject();
   const [projectName, setProjectName] = useState("Loading...");
-  const activeTab = tab || "quotation";
+  const activeTab = tab || "history";
   const targetPaymentParam = paymentId || searchParams.get("id") || searchParams.get("payment_id");
 
   useEffect(() => {

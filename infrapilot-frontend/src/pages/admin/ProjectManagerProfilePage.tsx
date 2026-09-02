@@ -143,11 +143,12 @@ const ProjectManagerProfilePage: React.FC = () => {
                 let allPhotos: any[] = [];
                 let allIssueAnalytics = { total_reports: 0, reports_with_issues: 0 };
                 let allMaterialLogs: any[] = [];
+                let allSummaries: any[] = [];
                 let allMembers: any[] = [];
 
                 // Fetch data for all required projects in parallel
                 await Promise.all(projectsToFetch.map(async (pid) => {
-                    const [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos, mlRes, analytics, membersRes] = await Promise.all([
+                    const [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos, mlRes, analytics, membersRes, summaryRes] = await Promise.all([
                         workProgressService.listActivities(pid).catch(() => []),
                         labourService.getAttendanceList(pid, today, today).catch(() => ({ items: [] })),
                         issueService.listIssues({ project_id: pid, limit: 1000 }).catch(() => ({ items: [] })),
@@ -156,7 +157,8 @@ const ProjectManagerProfilePage: React.FC = () => {
                         sitePhotoService.getPhotos({ project_id: pid, limit: 20 }).catch(() => ({ items: [] as any[] })),
                         materialService.getLogs({ project_id: pid, limit: 100 }).catch(() => []),
                         dsrService.getIssueAnalytics(pid).catch(() => ({ total_reports: 0, reports_with_issues: 0 })),
-                        projectService.getProjectMembers(pid).catch(() => [])
+                        projectService.getProjectMembers(pid).catch(() => []),
+                        workProgressService.getProjectSummary(pid).catch(() => ({ total_activities: 0, completed_activities: 0, completion_percentage: 0 }))
                     ]);
 
                     const mappedActivities = Array.isArray(activities) ? activities : ((activities as any)?.items || []);
@@ -170,6 +172,7 @@ const ProjectManagerProfilePage: React.FC = () => {
                     allIssueAnalytics.total_reports += (analytics?.total_reports || 0);
                     allIssueAnalytics.reports_with_issues += (analytics?.reports_with_issues || 0);
                     allMembers = allMembers.concat(Array.isArray(membersRes) ? membersRes : ((membersRes as any)?.items || []));
+                    allSummaries.push(summaryRes);
                 }));
 
                 const uniqueMembers = Array.from(new Map(allMembers.map(m => [(m.user?.id || m.user_id), m])).values());
@@ -199,7 +202,35 @@ const ProjectManagerProfilePage: React.FC = () => {
                 const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
                 const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
                 const currentActivities = allActivities.filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
-                const progress = allActivities.length > 0 ? Math.round(allActivities.reduce((sum, a) => sum + (Number(a.completion_percentage) || 0), 0) / allActivities.length) : 0;
+
+                // Calculate robust progress
+                let progress = 0;
+                if (allSummaries.length > 0) {
+                    let totalProg = 0;
+                    let validCount = 0;
+                    allSummaries.forEach(s => {
+                        const compPct = s ? Number(s.completion_percentage) : NaN;
+                        if (!isNaN(compPct) && compPct >= 0) {
+                            totalProg += compPct;
+                            validCount++;
+                        } else if (s && Number(s.total_activities) > 0) {
+                            totalProg += Math.round(((Number(s.completed_activities) || 0) / Number(s.total_activities)) * 100);
+                            validCount++;
+                        } else {
+                            // Empty project or one with no explicit progress counts as 0% towards the portfolio average
+                            totalProg += 0;
+                            validCount++;
+                        }
+                    });
+                    if (validCount > 0) {
+                        progress = Math.round(totalProg / validCount);
+                    }
+                }
+
+                // Fallback to manual activity averaging if summaries fail completely
+                if (progress === 0 && allActivities.length > 0 && allSummaries.every(s => !s || Number(s.completion_percentage || 0) === 0)) {
+                    progress = Math.round(allActivities.reduce((sum, a) => sum + (Number(a.completion_percentage) || 0), 0) / allActivities.length);
+                }
 
                 const parseAmount = (val: any) => parseFloat((val?.toString() || "0").replace(/[^0-9.]/g, '')) || 0;
                 const totalExpenses = allExpenses.reduce((sum, e) => sum + parseAmount(e.amount || e.total_amount), 0);

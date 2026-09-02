@@ -152,7 +152,7 @@ export const equipmentService = {
     // ==========================================
     // 1. CRUD Equipment
     // ==========================================
-    async listEquipment(params?: { limit?: number; project_id?: number, is_deleted?: boolean }): Promise<EquipmentResponse> {
+    async listEquipment(params?: { limit?: number; offset?: number; project_id?: number, is_deleted?: boolean }): Promise<EquipmentResponse> {
         const response = await api.get<any>('/equipment', { params });
         const data = response.data;
         const items = Array.isArray(data) ? data : (data.items || data.data || []);

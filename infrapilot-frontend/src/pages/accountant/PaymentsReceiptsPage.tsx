@@ -4,10 +4,169 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
+import api from "../../services/api";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
+import { PROJECTS } from "../../config/projectSeed";
 import { materialService } from "../../services/materialService";
-import api from "../../services/api";
+
+// --- DATE HELPERS (Exact API Response String) ---
+const formatDateTimeDMY = (dateStr: any): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null" || dateStr === "undefined") return "-";
+  return String(dateStr);
+};
+
+const formatDateOnlyDMY = (dateStr: any): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null" || dateStr === "undefined") return "-";
+  return String(dateStr);
+};
+
+// --- PROJECT NAME RESOLUTION COMPONENT ---
+const KNOWN_PROJECT_MAP: Record<string, string> = {
+  "1": "Sara City",
+  "2": "Metro Heights",
+  "3": "Green Gardens",
+  "4": "Skyline Towers",
+  "5": "Riverfront Residency",
+  "6": "Emerald Park",
+  "7": "City Plaza",
+  "8": "Royal Palms",
+  "9": "Grand Horizons",
+  "10": "Ocean View Residences",
+};
+
+const resolveProjectName = (
+  projectId: number | string | null | undefined,
+  item?: any,
+  projects?: any[]
+): string => {
+  // 1. Direct project name on item
+  const directName =
+    item?.project_name ||
+    item?.project?.name ||
+    item?.project?.project_name ||
+    item?.projectName;
+  if (directName && typeof directName === "string" && isNaN(Number(directName))) {
+    return directName;
+  }
+
+  // 2. If projectId is already a text name (e.g. "Sara City")
+  if (
+    typeof projectId === "string" &&
+    isNaN(Number(projectId)) &&
+    projectId.trim() !== "" &&
+    projectId !== "null" &&
+    projectId !== "undefined" &&
+    projectId !== "-"
+  ) {
+    return projectId;
+  }
+
+  if (
+    projectId === null ||
+    projectId === undefined ||
+    projectId === "" ||
+    projectId === "-" ||
+    projectId === "null" ||
+    projectId === "undefined" ||
+    projectId === 0
+  ) {
+    return "—";
+  }
+
+  const strId = String(projectId).trim();
+
+  // 3. Search in projects array passed from API
+  if (Array.isArray(projects) && projects.length > 0) {
+    const p = projects.find(
+      (proj) => String(proj.id ?? proj.project_id) === strId
+    );
+    if (p && (p.name || p.project_name || p.title)) {
+      return p.name || p.project_name || p.title;
+    }
+  }
+
+  // 4. Search in seed PROJECTS
+  const seedProj: any = PROJECTS.find((p) => String(p.id) === strId);
+  if (seedProj && (seedProj.project_name || seedProj.name)) {
+    return seedProj.project_name || seedProj.name;
+  }
+
+  // 5. Check static known project map
+  if (KNOWN_PROJECT_MAP[strId]) {
+    return KNOWN_PROJECT_MAP[strId];
+  }
+
+  return `Project #${strId}`;
+};
+
+const ProjectNameCell = ({
+  projectId,
+  item,
+  projects,
+}: {
+  projectId: number | string | null | undefined;
+  item?: any;
+  projects?: any[];
+}) => {
+  const [name, setName] = useState<string>(() =>
+    resolveProjectName(projectId, item, projects)
+  );
+
+  useEffect(() => {
+    const resolved = resolveProjectName(projectId, item, projects);
+    if (resolved && !resolved.startsWith("Project #")) {
+      setName(resolved);
+      return;
+    }
+
+    // Try fetching from API asynchronously
+    const numId = Number(projectId);
+
+    // Check linked invoice
+    const refStr = String(item?.reference || "");
+    const invId =
+      item?.invoice_id ||
+      item?.invoice_name ||
+      (refStr.toLowerCase().startsWith("inv:")
+        ? refStr.replace(/^inv:/i, "").trim()
+        : null);
+
+    if (invId && !isNaN(Number(invId))) {
+      api
+        .get(`/invoices/${invId}`)
+        .then((res) => {
+          const inv = res.data;
+          const invPName =
+            inv?.project_name ||
+            inv?.project?.name ||
+            inv?.project?.project_name ||
+            inv?.client_name;
+          if (invPName) setName(invPName);
+        })
+        .catch(() => { });
+    }
+
+    if (!isNaN(numId) && numId > 0) {
+      projectService
+        .getProjectById(numId)
+        .then((proj) => {
+          if (proj && (proj.name || proj.project_name)) {
+            setName(proj.name || proj.project_name);
+          } else {
+            setName(resolveProjectName(projectId, item, projects));
+          }
+        })
+        .catch(() => {
+          setName(resolveProjectName(projectId, item, projects));
+        });
+    } else {
+      setName(resolved || "—");
+    }
+  }, [projectId, item, projects]);
+
+  return <>{name || resolveProjectName(projectId, item, projects)}</>;
+};
 
 // --- SECTIONS ---
 
@@ -20,7 +179,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     (initialSubTab as any) === "approval" ? "approval" : "list"
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  
+
   const [receipts, setReceipts] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
 
@@ -35,14 +194,23 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   }, [initialSubTab]);
 
   useEffect(() => {
-    projectService.getProjects().then(res => setProjects(res.items || []));
+    projectService.getProjects(200).then(res => {
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setProjects(list);
+    }).catch(() => { });
   }, []);
 
   const fetchReceipts = async () => {
     try {
       const data = await accountingService.getReceipts();
-      setReceipts(Array.isArray(data) ? data : data?.data || []);
-      
+      const raw = Array.isArray(data) ? data : data?.data || [];
+      const sorted = [...raw].sort((a: any, b: any) => {
+        const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
+        const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
+        return timeB - timeA;
+      });
+      setReceipts(sorted);
+
       const sumData = await accountingService.getReceiptsSummary();
       setSummary(sumData);
     } catch (err) {
@@ -88,10 +256,12 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-  const filtered = [...receipts].sort((a, b) => {
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  const filtered = [...receipts].sort((a: any, b: any) => {
+    const timeA = new Date(a.created_at || a.date || a.updated_at || 0).getTime() || (Number(a.id) || 0);
+    const timeB = new Date(b.created_at || b.date || b.updated_at || 0).getTime() || (Number(b.id) || 0);
+    return timeB - timeA;
   });
-  
+
   const totalPages = Math.ceil(filtered.length / recordsPerPage);
   const paginatedItems = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
@@ -146,12 +316,14 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.linked_to || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{r.invoice_name || r.invoice_id || '-'}</td>
-                    <td className="px-4 py-3 text-slate-700 font-medium">{projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.project_name || projects.find(p => String(p.id) === String(r.project_id) || String(p.project_id) === String(r.project_id))?.name || r.project_id || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      <ProjectNameCell projectId={r.project_id} item={r} projects={projects} />
+                    </td>
                     <td className="px-4 py-3 font-bold text-emerald-600">₹ {(r.amount || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.reference || '-'}</td>
                     <td className="px-4 py-3 text-slate-700 text-xs">
-                      <div><span className="text-slate-400">Cre:</span> {r.created_at || '-'}</div>
-                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at || '-'}</div>
+                      <div><span className="text-slate-400">Cre:</span> {r.created_at ? formatDateTimeDMY(r.created_at) : '-'}</div>
+                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? formatDateTimeDMY(r.updated_at) : '-'}</div>
                     </td>
 
                   </tr>
@@ -164,13 +336,13 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           <div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -181,7 +353,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all"
@@ -191,7 +363,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 transition-all"
@@ -211,7 +383,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <select name="project_id" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
                 <option value="">Select Project</option>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name || `Project #${p.id || p.project_id}`}</option>
                 ))}
               </select>
             </div>
@@ -234,7 +406,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <input type="text" name="reference" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all" />
             </div>
           </div>
-          
+
           <div className="flex justify-end pt-4 border-t border-slate-100">
             <button type="button" onClick={() => setIsCreateModalOpen(false)} className="mr-3 px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
             <button disabled={isLoading} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-emerald-500/20 active:scale-95 disabled:opacity-50">
@@ -255,7 +427,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div key={r.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{r.party} — {r.id}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{r.mode} · Date: {r.date}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{r.mode} · Date: {formatDateOnlyDMY(r.date || r.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-emerald-600">₹{r.amount?.toLocaleString("en-IN")}</span>
@@ -271,12 +443,11 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 3. Payments Section (Make Payment)
-// 3. Payments Section (Make Payment)
 const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
     (initialSubTab as any) || "create"
   );
-  
+
   const [payments, setPayments] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [vendorBills, setVendorBills] = useState<any[]>([]);
@@ -286,10 +457,10 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [editingPayment, setEditingPayment] = useState<any>(null);
 
   useEffect(() => {
-    materialService.getSuppliers().then(res => setSuppliers(res || [])).catch(()=>null);
-    api.get("/vendor-bills").then(res => setVendorBills(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(()=>null);
-    api.get("/contractors", { params: { limit: 200 } }).then(res => setContractors(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(()=>null);
-    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+    materialService.getSuppliers().then((res: any) => setSuppliers(res || [])).catch(() => null);
+    api.get("/vendor-bills").then(res => setVendorBills(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(() => null);
+    api.get("/contractors", { params: { limit: 200 } }).then(res => setContractors(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(() => null);
+    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
   }, []);
 
   const fetchPayments = async () => {
@@ -334,7 +505,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     let dateStr = formData.get("payment_date") as string;
     const payload = {
       payment_date: dateStr ? new Date(dateStr).toISOString() : new Date().toISOString(),
@@ -364,7 +535,11 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-  const filtered = payments;
+  const filtered = [...payments].sort((a: any, b: any) => {
+    const timeA = new Date(a.date || a.created_at || 0).getTime() || (Number(String(a.id).replace(/\D/g, '')) || 0);
+    const timeB = new Date(b.date || b.created_at || 0).getTime() || (Number(String(b.id).replace(/\D/g, '')) || 0);
+    return timeB - timeA;
+  });
 
   const subTabs = [
     { key: "create", label: "Make Payment" },
@@ -440,7 +615,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date *</label><input type="datetime-local" name="payment_date" defaultValue={editingPayment?.payment_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required /></div>
-                
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party Type *</label>
                   <select name="party_type" defaultValue={editingPayment?.party_type || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
@@ -489,15 +664,15 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Amount *</label><input type="number" name="base_amount" defaultValue={editingPayment?.base_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                
+
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingPayment?.gst_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                
+
                 <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Amount</label><input type="number" name="gross_amount" defaultValue={editingPayment?.gross_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold" /></div>
-                
+
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingPayment?.tds_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" /></div>
-                
+
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retention Amount</label><input type="number" name="retention_amount" defaultValue={editingPayment?.retention_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" /></div>
-                
+
                 <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable Amount *</label><input type="number" name="net_payable_amount" defaultValue={editingPayment?.net_payable_amount || 0} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" /></div>
               </div>
             </div>
@@ -517,7 +692,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     <option value="UPI">UPI</option>
                   </select>
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
                   <select name="bank_account_id" defaultValue={editingPayment?.bank_account_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
@@ -527,7 +702,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference No</label>
                   <input type="text" name="reference_no" defaultValue={editingPayment?.reference_no || ""} placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
@@ -572,7 +747,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div key={p.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{p.party} — {p.id}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{p.type} · Date: {p.date}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{p.type} · Date: {formatDateOnlyDMY(p.date || p.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-rose-600">₹{p.amount?.toLocaleString("en-IN")}</span>
@@ -592,7 +767,7 @@ const PettyCashSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [pettyCashData, setPettyCashData] = useState<any[]>([]);
+  const [, setPettyCashData] = useState<any[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<any[]>([]);
 
   const fetchPettyCash = async () => {
@@ -605,12 +780,12 @@ const PettyCashSection = () => {
   };
 
   useEffect(() => {
-    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
     accountingService.getAccounts({ limit: 100 }).then(res => {
       const accounts = Array.isArray(res) ? res : res?.items || res?.data || [];
       // Removing the strict filter temporarily to ensure the list populates
       setExpenseAccounts(accounts);
-    }).catch(() => {});
+    }).catch(() => { });
     fetchPettyCash();
   }, []);
 
@@ -680,14 +855,14 @@ const PettyCashSection = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record New Transaction" maxWidth="max-w-2xl">
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" value={formData.transaction_date} onChange={(e) => setFormData({...formData, transaction_date: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select value={formData.category_id || 0} onChange={(e) => setFormData({...formData, category_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>None</option>{expenseAccounts.map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Account *</label><select value={formData.source_account_id} onChange={(e) => setFormData({...formData, source_account_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹) *</label><input type="number" value={formData.amount || ""} onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})} placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" value={formData.paid_to_received_from} onChange={(e) => setFormData({...formData, paid_to_received_from: e.target.value})} placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><select value={formData.approved_by} onChange={(e) => setFormData({...formData, approved_by: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Approver...</option><option value={1}>Admin</option><option value={2}>Manager</option></select></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" value={formData.transaction_date} onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select value={formData.category_id || 0} onChange={(e) => setFormData({ ...formData, category_id: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>None</option>{expenseAccounts.map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Account *</label><select value={formData.source_account_id} onChange={(e) => setFormData({ ...formData, source_account_id: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹) *</label><input type="number" value={formData.amount || ""} onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })} placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" value={formData.paid_to_received_from} onChange={(e) => setFormData({ ...formData, paid_to_received_from: e.target.value })} placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><select value={formData.approved_by} onChange={(e) => setFormData({ ...formData, approved_by: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Approver...</option><option value={1}>Admin</option><option value={2}>Manager</option></select></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           </div>
           <div className="flex justify-end pt-4 border-t border-slate-100 gap-3">
             <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
@@ -697,40 +872,36 @@ const PettyCashSection = () => {
           </div>
         </div>
       </Modal>
-    <div className="p-5 border-b border-slate-100">
-      <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl inline-block min-w-[200px]">
-        <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Current Balance</p>
-        <p className="text-2xl font-black text-indigo-600">₹24,500</p>
+      <div className="p-5 border-b border-slate-100">
+        <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl inline-block min-w-[200px]">
+          <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Current Balance</p>
+          <p className="text-2xl font-black text-indigo-600">₹24,500</p>
+        </div>
+      </div>
+      <div className="overflow-x-auto p-0">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/60 border-b border-slate-100">
+            <tr>
+              {["Voucher No", "Date", "Category", "Remarks", "Paid To", "Cash In", "Cash Out", "Balance"].map(h => (
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-slate-600">PC-1001</td>
+              <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-15")}</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Site Travel</td>
+              <td className="px-4 py-3 text-xs text-slate-500">Taxi for site visit</td>
+              <td className="px-4 py-3 text-xs text-slate-600">Amit Singh</td>
+              <td className="px-4 py-3 text-xs text-emerald-600 text-right">—</td>
+              <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,500</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹24,500</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <div className="overflow-x-auto p-0">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/60 border-b border-slate-100">
-          <tr>
-            {["Voucher No", "Date", "Category", "Remarks", "Paid To", "Cash In", "Cash Out", "Balance"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {pettyCashData.length > 0 ? pettyCashData.map((item, index) => (
-            <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
-              <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{item.date ? item.date.split('T')[0] : (item.transaction_date ? item.transaction_date.split('T')[0] : '-')}</td>
-              <td className="px-4 py-3 text-xs font-semibold text-slate-700">{item.category?.name || item.category || expenseAccounts.find(c => c.id === item.category_id)?.account_name || item.category_id || '-'}</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{item.remarks || item.description || '-'}</td>
-              <td className="px-4 py-3 text-xs text-slate-600">{item.paid_to || item.paid_to_received_from || '-'}</td>
-              <td className="px-4 py-3 text-xs text-emerald-600 text-right">{parseFloat(item.cash_in) > 0 ? `₹${item.cash_in}` : (item.type === 'CASH_IN' ? `₹${item.amount}` : '—')}</td>
-              <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">{parseFloat(item.cash_out) > 0 ? `₹${item.cash_out}` : (item.type === 'CASH_OUT' ? `₹${item.amount}` : '—')}</td>
-              <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{item.balance || '0'}</td>
-            </tr>
-          )) : (
-            <tr><td colSpan={8} className="text-center py-8 text-xs text-slate-400">No transactions found</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
   );
 };
 
@@ -750,7 +921,7 @@ const CreateFundTransferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
 
   useEffect(() => {
     if (isOpen) {
-      accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+      accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
     }
   }, [isOpen]);
 
@@ -824,12 +995,23 @@ const BankTransactionsSection = () => {
   const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    projectService.getProjects().then(res => setProjects(res.items || [])).catch(() => {});
+    projectService.getProjects(200).then(res => {
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      setProjects(list);
+    }).catch(() => { });
   }, []);
 
   const fetchTransfers = () => {
     setIsLoading(true);
-    accountingService.getFundTransfers().then(res => setTransfers(Array.isArray(res) ? res : res?.data || [])).finally(() => setIsLoading(false));
+    accountingService.getFundTransfers().then(res => {
+      const raw = Array.isArray(res) ? res : res?.data || [];
+      const sorted = [...raw].sort((a: any, b: any) => {
+        const timeA = new Date(a.transfer_date || a.created_at || 0).getTime() || (Number(a.id) || 0);
+        const timeB = new Date(b.transfer_date || b.created_at || 0).getTime() || (Number(b.id) || 0);
+        return timeB - timeA;
+      });
+      setTransfers(sorted);
+    }).finally(() => setIsLoading(false));
   };
 
   const subTabs = [
@@ -843,7 +1025,13 @@ const BankTransactionsSection = () => {
     if (activeSubTab === "history") {
       setIsLoading(true);
       accountingService.getTransactions().then(res => {
-        setTransactions(Array.isArray(res) ? res : res?.data || []);
+        const raw = Array.isArray(res) ? res : res?.data || [];
+        const sorted = [...raw].sort((a: any, b: any) => {
+          const timeA = new Date(a.created_at || a.date || a.transaction_date || 0).getTime() || (Number(a.id) || 0);
+          const timeB = new Date(b.created_at || b.date || b.transaction_date || 0).getTime() || (Number(b.id) || 0);
+          return timeB - timeA;
+        });
+        setTransactions(sorted);
       }).catch(() => {
         toast.error("Failed to fetch transactions");
       }).finally(() => {
@@ -895,20 +1083,22 @@ const BankTransactionsSection = () => {
                     <tr key={t.id || t.reference || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t.type || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">{t.mode || '-'}</td>
-                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">{projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.project_name || projects.find(p => String(p.id) === String(t.project_id) || String(p.project_id) === String(t.project_id))?.name || t.project_id || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">
+                        <ProjectNameCell projectId={t.project_id} item={t} projects={projects} />
+                      </td>
                       <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹ {Number(t.amount || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-xs text-slate-500 font-mono">{t.reference || '-'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500">
-                        <div><span className="text-slate-400">Cre:</span> {t.created_at || '-'}</div>
-                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at || '-'}</div>
+                        <div><span className="text-slate-400">Cre:</span> {t.created_at ? formatDateTimeDMY(t.created_at) : '-'}</div>
+                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? formatDateTimeDMY(t.updated_at) : '-'}</div>
                       </td>
                     </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </tbody >
+            </table >
+          </div >
+        </div >
       ) : activeSubTab === "transfers" ? (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center">
@@ -935,7 +1125,7 @@ const BankTransactionsSection = () => {
                 ) : (
                   transfers.map(tr => (
                     <tr key={tr.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-3 text-xs text-slate-500">{tr.transfer_date}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY(tr.transfer_date || tr.created_at)}</td>
                       <td className="px-4 py-3 text-xs font-bold text-indigo-600">{tr.reference_number}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.from_account_id}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.to_account_id}</td>
@@ -966,7 +1156,7 @@ const BankTransactionsSection = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-18")}</td>
                   <td className="px-4 py-3 text-xs font-bold text-indigo-600">TRX-001</td>
                   <td className="px-4 py-3 text-xs font-semibold text-slate-700">Sample {subTabs.find(t => t.key === activeSubTab)?.label}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,50,000</td>
@@ -977,7 +1167,7 @@ const BankTransactionsSection = () => {
           </div>
         </div>
       )}
-    </div>
+    </div >
   );
 };
 
@@ -1043,19 +1233,18 @@ const PaymentsReceiptsPage = () => {
         <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
-              }`}>
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
+                }`}>
               {tab.label}
             </button>
           ))}
         </div>
 
         {/* Content Rendering */}
-        {activeTab === "receipts"          && <ReceiptsSection initialSubTab={subTab} key={subTab || "receive"} />}
-        {activeTab === "payments"          && <PaymentsSection initialSubTab={subTab} key={subTab || "vendor"} />}
-        {activeTab === "fund-transfer"     && <BankTransactionsSection />}
-        {activeTab === "petty-cash"        && <PettyCashSection />}
+        {activeTab === "receipts" && <ReceiptsSection initialSubTab={subTab} key={subTab || "receive"} />}
+        {activeTab === "payments" && <PaymentsSection initialSubTab={subTab} key={subTab || "vendor"} />}
+        {activeTab === "fund-transfer" && <BankTransactionsSection />}
+        {activeTab === "petty-cash" && <PettyCashSection />}
       </PageTransition>
     </>
   );

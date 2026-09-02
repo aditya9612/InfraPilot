@@ -214,23 +214,8 @@ const LabourRegistryPage = () => {
             const existingIds = new Set(items.map((l: any) => l.id));
             let merged = [...items];
             localItems.forEach((l: any) => { if (!existingIds.has(l.id)) merged.unshift(l); });
-            
-            // Strict filtering: ensure we only show labours assigned to this project if a specific project is selected
-            if (projectId && String(projectId) !== "undefined") {
-                merged = merged.filter((l: any) => {
-                    const pidMatch = l.project_id && Number(l.project_id) === Number(projectId);
-                    const arrayMatch = l.projects && Array.isArray(l.projects) && l.projects.some((p: any) => Number(p.id || p.project_id) === Number(projectId));
-                    // If the item explicitly has a project_id or projects array, filter strictly
-                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
-                        return pidMatch || arrayMatch;
-                    }
-                    // If the item explicitly has a project_id or projects array, filter strictly
-                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
-                        return pidMatch || arrayMatch;
-                    }
-                    return true;
-                });
-            }
+
+
 
             setLaborers(merged.filter((l: any) => !deletedIds.has(l.id)));
         } catch { toast.error("Failed to sync registry"); }
@@ -243,7 +228,10 @@ const LabourRegistryPage = () => {
         setIsLoading(true);
         try {
             const data = await projectService.getProjectMembers(Number(projectId));
-            setSiteEngineers(Array.isArray(data) ? data : (data.items || []));
+            let members = Array.isArray(data) ? data : (data.items || []);
+            // Strictly filter to only include Site Engineers to prevent admins/clients/labourers from showing up in the Engineer tab
+            members = members.filter((m: any) => m.role && String(m.role).toLowerCase().includes('engineer'));
+            setSiteEngineers(members);
         } catch (error) {
             console.error("Error fetching site engineers:", error);
             toast.error("Failed to fetch Site Engineers");
@@ -288,12 +276,12 @@ const LabourRegistryPage = () => {
                 const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
                 allLabourers = allLabourers.filter((l: any) => !deletedIds.has(l.id));
             } catch { }
-            
+
             setDashboardStats(prev => ({
                 ...prev,
                 total_labour: prev.total_labour || allLabourers.length
             }));
-            
+
             const data = await labourService.getAttendanceList(projectId, fromDate, toDate);
             const attendances = data.items || [];
             const enriched = allLabourers.map((lab: any) => {
@@ -466,21 +454,21 @@ const LabourRegistryPage = () => {
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
             } else {
-                const payload = { 
-                    project_id: null, 
-                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, 
-                    labour_name: formData.labour_name, 
-                    mobile_number: formData.mobile_number, 
-                    email: formData.email || null, 
-                    pan_number: formData.pan_number || null, 
-                    address: formData.address || null, 
-                    labour_type_id: Number(formData.labour_type_id), 
-                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null, 
-                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null, 
-                    contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null, 
-                    status: formData.status || "Active", 
-                    notes: formData.notes || null, 
-                    profile_image: formData.profile_image || null 
+                const payload = {
+                    project_id: null,
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
+                    labour_name: formData.labour_name,
+                    mobile_number: formData.mobile_number,
+                    email: formData.email || null,
+                    pan_number: formData.pan_number || null,
+                    address: formData.address || null,
+                    labour_type_id: Number(formData.labour_type_id),
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null,
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null,
+                    contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
+                    status: formData.status || "Active",
+                    notes: formData.notes || null,
+                    profile_image: formData.profile_image || null
                 };
                 await labourService.createLabour(payload);
                 toast.success("Personnel registered successfully! You can now assign them to a project.");
@@ -559,7 +547,7 @@ const LabourRegistryPage = () => {
                 {isLoading ? <tr><td colSpan={8} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
                     : pagedData.length > 0 ? pagedData.map((labor: any) => {
                         const att = attendanceRecords.find((a: any) => Number(a.labour_id) === Number(labor.id) || Number(a.id) === Number(labor.id));
-                        const taskName = labor.assigned_task || labor.task_name || labor.task_description || labor.task || att?.task_description || att?.task_name || "—";
+                        const taskName = labor.assigned_task || labor.task_name || labor.task_description || labor.task || att?.task_description || att?.task_name || "Pending Assignment";
                         let engName = labor.assigned_engineer || labor.site_engineer_name || labor.engineer_name || labor.site_engineer || labor.assigned_engineer_name || att?.assigned_engineer || att?.site_engineer_name || att?.engineer_name;
                         if (!engName && (labor.assigned_engineer_id || labor.site_engineer_id || labor.engineer_id || att?.assigned_engineer_id || att?.site_engineer_id || att?.engineer_id)) {
                             const engId = labor.assigned_engineer_id || labor.site_engineer_id || labor.engineer_id || att?.assigned_engineer_id || att?.site_engineer_id || att?.engineer_id;
@@ -567,29 +555,30 @@ const LabourRegistryPage = () => {
                             if (foundEng) engName = foundEng.name || foundEng.full_name || `Engineer #${engId}`;
                         }
                         if (!engName && siteEngineers.length > 0 && (labor.project_id || projectId)) {
-                            engName = siteEngineers.map((e: any) => e.name || e.full_name).filter(Boolean).join(", ") || "—";
+                            // Safely fallback to the primary/first site engineer rather than dumping everyone
+                            engName = siteEngineers[0].name || siteEngineers[0].full_name || "Unassigned";
                         }
                         return (
-                        <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
-                                    <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.skill_category || labor.labour_type_name || labor.skill_type || "—"}</td>
-                            <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
-                            <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
-                            <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
-                            <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
-                            <td className="px-6 py-4 text-right">
-                                <div className="flex justify-end gap-2">
-                                    <button onClick={() => handleViewLabour(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                                    <button onClick={() => handleEditClick(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                    <button onClick={() => handleDeleteClick(labor.id)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                </div>
-                            </td>
-                        </tr>
+                            <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
+                                        <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.skill_category || labor.labour_type_name || labor.skill_type || "—"}</td>
+                                <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
+                                <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
+                                <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
+                                <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => handleViewLabour(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                                        <button onClick={() => handleEditClick(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDeleteClick(labor.id)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </td>
+                            </tr>
                         );
                     }) : <tr><td colSpan={8} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>}
             </tbody>
@@ -1069,9 +1058,9 @@ const LabourRegistryPage = () => {
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Labour" message="This will permanently remove the labour record." confirmText="Delete" type="danger" isLoading={isDeleting} />
 
             {/* Delete Site Engineer Confirm */}
-            <ConfirmModal 
-                isOpen={isDeleteEngineerModalOpen} 
-                onClose={() => { setIsDeleteEngineerModalOpen(false); setEngineerToDelete(null); }} 
+            <ConfirmModal
+                isOpen={isDeleteEngineerModalOpen}
+                onClose={() => { setIsDeleteEngineerModalOpen(false); setEngineerToDelete(null); }}
                 onConfirm={async () => {
                     if (!engineerToDelete || !projectId) return;
                     setIsDeletingEngineer(true);
@@ -1086,12 +1075,12 @@ const LabourRegistryPage = () => {
                     } finally {
                         setIsDeletingEngineer(false);
                     }
-                }} 
-                title="Remove Site Engineer" 
-                message="Are you sure you want to remove this site engineer from the project?" 
-                confirmText="Remove" 
-                type="danger" 
-                isLoading={isDeletingEngineer} 
+                }}
+                title="Remove Site Engineer"
+                message="Are you sure you want to remove this site engineer from the project?"
+                confirmText="Remove"
+                type="danger"
+                isLoading={isDeletingEngineer}
             />
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}

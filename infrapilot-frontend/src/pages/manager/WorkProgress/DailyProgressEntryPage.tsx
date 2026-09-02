@@ -245,7 +245,7 @@ const DailyProgressEntryPage = () => {
       let historyArr: any[] = [];
       if (selectedActivityId === "all") {
         // Fetch history for all activities in parallel
-        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id).catch(() => null));
+        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id, projectId).catch(() => null));
         const results = await Promise.all(promises);
         results.forEach(r => {
           if (!r) return;
@@ -262,7 +262,7 @@ const DailyProgressEntryPage = () => {
           historyArr = historyArr.concat(hist);
         });
       } else {
-        const r = await workProgressService.getActivityHistory(Number(selectedActivityId));
+        const r = await workProgressService.getActivityHistory(Number(selectedActivityId), projectId);
         let hist: any[] = [];
         if (Array.isArray(r)) hist = r;
         else if (r && Array.isArray((r as any).history)) hist = (r as any).history;
@@ -1141,23 +1141,23 @@ const DailyProgressEntryPage = () => {
                                 {e.activity_name || currentActivity?.activity_name || "-"}
                               </td>
                               <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
-                                  {e.new_value?.status || "DELAY"}
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.status || e.new_value?.status || currentActivity?.status || ""] || "bg-emerald-50 text-emerald-600"} font-inter`}>
+                                  {e.status || e.new_value?.status || currentActivity?.status || "ON_TRACK"}
                                 </span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
                                   <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
                                   <span className="text-sm font-bold text-primary font-inter">
-                                    {e.new_value?.today_progress || 0} {currentActivity?.unit || ""}
+                                    {e.today_progress || e.new_value?.today_progress || 0} {currentActivity?.unit || ""}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
-                                {e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
+                                {e.running_total || e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
-                                {e.action || "DAILY_PROGRESS_UPDATE"}
+                                {e.action || "DAILY_PROGRESS"}
                               </td>
                             </tr>
                           );
