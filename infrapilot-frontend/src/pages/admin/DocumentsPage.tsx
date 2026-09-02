@@ -135,11 +135,31 @@ const DocumentsPage = () => {
           ...(selectedProjectId ? { project_id: selectedProjectId } : {})
         }),
         documentService.getStats(selectedProjectId ? { project_id: selectedProjectId } : undefined).catch(() => null),
-        // At root level on Drawings tab, also fetch specialized drawings
+        // At root level on Drawings tab, fetch specialized drawings
         (folderId === null && mainTab === "Drawings")
-          ? (selectedProjectId
-            ? drawingService.getVersions(selectedProjectId).catch(() => [])
-            : drawingService.getList({ latest_only: true }).catch(() => []))
+          ? (async () => {
+            const projectIdsToFetch = selectedProjectId ? [selectedProjectId] : projects.map(p => p.id);
+            if (projectIdsToFetch.length === 0) return [];
+
+            const rawAcc: any[] = [];
+            const batchPromises = projectIdsToFetch.map(async (pid) => {
+              const listParams = { project_id: pid, limit: 100, offset: 0, latest_only: true };
+              await Promise.allSettled([
+                drawingService.getList(listParams).then(res => rawAcc.push(...(Array.isArray(res) ? res : []))).catch(() => []),
+                drawingService.getLatest(pid).then(res => rawAcc.push(...(Array.isArray(res) ? res : []))).catch(() => []),
+                drawingService.getVersions(pid, { skip: 0, limit: 100 }).then(res => rawAcc.push(...(Array.isArray(res) ? res : []))).catch(() => [])
+              ]);
+            });
+
+            await Promise.allSettled(batchPromises);
+
+            const seen = new Set();
+            return rawAcc.filter(d => {
+              if (seen.has(d.id)) return false;
+              seen.add(d.id);
+              return true;
+            });
+          })()
           : Promise.resolve([])
       ]);
 
@@ -457,6 +477,23 @@ const DocumentsPage = () => {
     return Array.from(new Set(types)).sort();
   }, [documents]);
 
+  const derivedPendingCount = useMemo(() => {
+    return documents.filter(d => {
+      const isDrawing = (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing";
+      const isPending = d.status === "PENDING" || d.status === "UNDER_REVIEW";
+      if (mainTab === "Drawings") return isDrawing && isPending && !d.is_folder;
+      return !isDrawing && isPending && !d.is_folder;
+    }).length;
+  }, [documents, mainTab]);
+
+  const derivedTotalCount = useMemo(() => {
+    return documents.filter(d => {
+      const isDrawing = (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing";
+      if (mainTab === "Drawings") return isDrawing && !d.is_folder;
+      return !isDrawing && !d.is_folder;
+    }).length;
+  }, [documents, mainTab]);
+
   const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / PAGE_SIZE));
   const pagedDocuments = filteredDocuments.slice(
     currentPage * PAGE_SIZE,
@@ -537,14 +574,14 @@ const DocumentsPage = () => {
           <StatCard
             title="Pending Approval"
             icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
-            value={stats ? stats.pending_approvals.toString() : "..."}
+            value={derivedPendingCount.toString()}
             sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
             accent="text-amber-500"
           />
           <StatCard
             title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
             icon={<FileText className="w-5 h-5 text-emerald-500" />}
-            value={stats ? stats.total_documents.toString() : "..."}
+            value={derivedTotalCount.toString()}
             sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
             accent="text-emerald-500"
           />

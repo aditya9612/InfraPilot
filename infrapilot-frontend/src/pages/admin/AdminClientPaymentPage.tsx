@@ -1068,7 +1068,14 @@ const AdminClientPaymentPage = () => {
         if (paymentEndDate && invoiceISO > paymentEndDate) matchesDate = false;
       }
     }
-    return matchesSearch && matchesTab && matchesDate;
+    let matchesStatus = true;
+    if (paymentStatusFilter && paymentStatusFilter !== "All Status") {
+      const ps = paymentStatusFilter.toUpperCase();
+      if (ps === "SUCCESS") matchesStatus = p.status === "PAID";
+      else if (ps === "REJECTED" || ps === "FAILED") matchesStatus = p.status === "REJECTED";
+      else if (ps === "PENDING" || ps === "VERIFICATION_PENDING") matchesStatus = p.status === "PENDING";
+    }
+    return matchesSearch && matchesTab && matchesDate && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredClientPayments.length / itemsPerPage);
@@ -1609,6 +1616,18 @@ const AdminClientPaymentPage = () => {
                   </button>
                 )}
               </div>
+              <select
+                value={paymentStatusFilter}
+                onChange={e => { setPaymentStatusFilter(e.target.value); setCurrentPage(1); }}
+                className="bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-600 outline-none cursor-pointer min-w-[140px]"
+              >
+                <option value="All Status">Status: All</option>
+                <option value="VERIFICATION_PENDING">VERIFICATION PENDING</option>
+                <option value="PENDING">PENDING</option>
+                <option value="SUCCESS">SUCCESS</option>
+                <option value="REJECTED">REJECTED</option>
+                <option value="FAILED">FAILED</option>
+              </select>
             </div>
           </div>
 

@@ -971,6 +971,7 @@ const ProjectDetailsPage = () => {
                 isLoading={isLoadingTaskRequests}
                 onEdit={handleEditTaskRequest}
                 onDelete={handleDeleteTaskRequest}
+                members={members}
               />
             </div>
           )}
@@ -1372,7 +1373,6 @@ const ProjectDetailsPage = () => {
             setSelectedTask(null);
           }}
           onUpdateProgress={(percentage, remarks) => handleTaskProgressUpdate(selectedTask.id, percentage, remarks)}
-          onAddComment={() => fetchProjectData()}
         />
       )}
       {isPassTaskModalOpen && selectedTask && (

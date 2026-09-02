@@ -227,7 +227,6 @@ export default function OwnerLedger() {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-md z-10">
                     <th className="p-4 pl-6">Description</th>
-                    <th className="p-4">Reference</th>
                     <th className="p-4">Project Site</th>
                     <th className="p-4">Type</th>
                     <th className="p-4 pr-6 text-right">Amount (₹)</th>
@@ -236,7 +235,7 @@ export default function OwnerLedger() {
                 <tbody className="divide-y divide-slate-100/50">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="p-16 text-center">
+                      <td colSpan={4} className="p-16 text-center">
                         <div className="flex flex-col items-center justify-center gap-4">
                           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                           <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Loading Records...</p>
@@ -245,7 +244,7 @@ export default function OwnerLedger() {
                     </tr>
                   ) : filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-16 text-center text-slate-400 italic text-sm font-medium">
+                      <td colSpan={4} className="p-16 text-center text-slate-400 italic text-sm font-medium">
                         Zero transactions found for the specified account and/or project.
                       </td>
                     </tr>
@@ -254,11 +253,6 @@ export default function OwnerLedger() {
                       <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
                         <td className="p-4 pl-6 text-sm font-bold text-slate-700">
                           {txn.description}
-                        </td>
-                        <td className="p-4 text-sm">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                            {txn.reference_type}: {txn.reference_id}
-                          </p>
                         </td>
                         <td className="p-4 min-w-[120px]">
                           <p className="text-[11px] font-bold text-slate-600 uppercase tracking-tighter truncate">

@@ -6,7 +6,6 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-
 import { PROJECTS } from "../../config/projectSeed";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage, Trash2, AlertTriangle } from "lucide-react";
@@ -160,8 +159,6 @@ const DashboardSection = () => {
 };
 
 // 2. GST Invoices
-
-// 2. GST Invoices
 const GSTInvoiceModal = ({
   isOpen,
   onClose,
@@ -272,7 +269,6 @@ const GSTInvoiceModal = ({
     onClose();
   };
 
-
   return (
     <Modal
       isOpen={isOpen}
@@ -297,7 +293,6 @@ const GSTInvoiceModal = ({
         </>
       }
     >
-
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
@@ -385,7 +380,6 @@ const GSTInvoiceModal = ({
               </div>
             </div>
           </div>
-
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
@@ -692,10 +686,10 @@ const GSTInvoicesWrapperSection = () => {
         )}
       </div>
 
-      <GSTInvoiceModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        type={modalType} 
+      <GSTInvoiceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        type={modalType}
         onSuccess={(newInv) => setInvoices(prev => [newInv, ...prev])}
       />
     </div>
@@ -793,11 +787,11 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">filing_period *</label>
-            <input type="month" required value={formData.filing_period} onChange={(e) => setFormData({...formData, filing_period: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input type="month" required value={formData.filing_period} onChange={(e) => setFormData({ ...formData, filing_period: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">return_type</label>
-            <select value={formData.return_type} onChange={(e) => setFormData({...formData, return_type: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none">
+            <select value={formData.return_type} onChange={(e) => setFormData({ ...formData, return_type: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none">
               <option value="">Select Return Type...</option>
               <option value="GSTR-1">GSTR-1</option>
               <option value="GSTR-3B">GSTR-3B</option>
@@ -807,15 +801,15 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">taxable_value *</label>
-            <input type="number" required value={formData.taxable_value || ""} onChange={(e) => setFormData({...formData, taxable_value: Number(e.target.value) || 0})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input type="number" required value={formData.taxable_value || ""} onChange={(e) => setFormData({ ...formData, taxable_value: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">gst_liability *</label>
-            <input type="number" required value={formData.gst_liability || ""} onChange={(e) => setFormData({...formData, gst_liability: Number(e.target.value) || 0})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input type="number" required value={formData.gst_liability || ""} onChange={(e) => setFormData({ ...formData, gst_liability: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">itc_available *</label>
-            <input type="number" required value={formData.itc_available || ""} onChange={(e) => setFormData({...formData, itc_available: Number(e.target.value) || 0})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input type="number" required value={formData.itc_available || ""} onChange={(e) => setFormData({ ...formData, itc_available: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">net_gst_payable</label>
@@ -823,7 +817,7 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status *</label>
-            <select required value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none font-bold text-amber-600">
+            <select required value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none font-bold text-amber-600">
               <option value="Draft">Draft</option>
               <option value="Pending">Pending</option>
               <option value="Filed">Filed</option>
@@ -833,7 +827,7 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">filing_date *</label>
-            <input type="date" required value={formData.filing_date} onChange={(e) => setFormData({...formData, filing_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input type="date" required value={formData.filing_date} onChange={(e) => setFormData({ ...formData, filing_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
         </div>
       </form>
@@ -948,17 +942,17 @@ const GSTReturnsWrapperSection = () => {
         </button>
       </div>
 
-      <CreateGstReturnModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={handleSuccess} 
-        initialReturnType="" 
+      <CreateGstReturnModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleSuccess}
+        initialReturnType=""
         initialData={editData}
       />
 
-      <GstReturnViewModal 
-        returnId={viewReturnId} 
-        onClose={() => setViewReturnId(null)} 
+      <GstReturnViewModal
+        returnId={viewReturnId}
+        onClose={() => setViewReturnId(null)}
       />
 
       <Modal isOpen={!!deleteModalId} onClose={() => setDeleteModalId(null)} title="Delete GST Return" maxWidth="max-w-md" footer={
@@ -1025,11 +1019,10 @@ const GSTReturnsWrapperSection = () => {
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         <span
-                          className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${
-                            ret.status === "Filed"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                              : "bg-amber-50 text-amber-600 border-amber-200"
-                          }`}
+                          className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${ret.status === "Filed"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                            : "bg-amber-50 text-amber-600 border-amber-200"
+                            }`}
                         >
                           {ret.status}
                         </span>
@@ -1130,53 +1123,53 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
     }>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">party_name *</label><input type="text" required value={formData.party_name} onChange={(e) => setFormData({...formData, party_name: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pan_number *</label><input type="text" required value={formData.pan_number} onChange={(e) => setFormData({...formData, pan_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">party_name *</label><input type="text" required value={formData.party_name} onChange={(e) => setFormData({ ...formData, party_name: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pan_number *</label><input type="text" required value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label>
-            <select value={formData.invoice_number || ""} onChange={(e) => setFormData({...formData, invoice_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+            <select value={formData.invoice_number || ""} onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select Invoice</option>
               <option value="INV-2026-001">INV-2026-001</option>
               <option value="INV-2026-002">INV-2026-002</option>
               <option value="INV-2026-003">INV-2026-003</option>
               <option value="INV-2026-004">INV-2026-004</option>
-              {initialData?.invoice_number && !["INV-2026-001","INV-2026-002","INV-2026-003","INV-2026-004"].includes(initialData.invoice_number) && <option value={initialData.invoice_number}>{initialData.invoice_number}</option>}
+              {initialData?.invoice_number && !["INV-2026-001", "INV-2026-002", "INV-2026-003", "INV-2026-004"].includes(initialData.invoice_number) && <option value={initialData.invoice_number}>{initialData.invoice_number}</option>}
             </select>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">payment_amount</label><input type="number" required value={formData.payment_amount || ""} onChange={(e) => setFormData({...formData, payment_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">payment_amount</label><input type="number" required value={formData.payment_amount || ""} onChange={(e) => setFormData({ ...formData, payment_amount: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
           <div className="col-span-2 space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_section *</label>
-            <select required value={formData.tds_section} onChange={(e) => setFormData({...formData, tds_section: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+            <select required value={formData.tds_section} onChange={(e) => setFormData({ ...formData, tds_section: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select Section</option>
               <option value="194C">194C - Contractor Payments</option>
               <option value="194J">194J - Professional Fees</option>
               <option value="194I">194I - Equipment Rental</option>
             </select>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_rate (%)</label><input type="number" required value={formData.tds_rate || ""} onChange={(e) => setFormData({...formData, tds_rate: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_amount</label><input type="number" required value={formData.tds_amount || ""} onChange={(e) => setFormData({...formData, tds_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date || ""} onChange={(e) => setFormData({...formData, deposit_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="Pending">Pending</option><option value="Deposited">Deposited</option></select></div>
-          
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_rate (%)</label><input type="number" required value={formData.tds_rate || ""} onChange={(e) => setFormData({ ...formData, tds_rate: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_amount</label><input type="number" required value={formData.tds_amount || ""} onChange={(e) => setFormData({ ...formData, tds_amount: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date || ""} onChange={(e) => setFormData({ ...formData, deposit_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="Pending">Pending</option><option value="Deposited">Deposited</option></select></div>
+
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor bill</label>
-            <select value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+            <select value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({ ...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select Vendor Bill</option>
               <option value="1">ABC Corp</option>
               <option value="2">XYZ Steel</option>
               <option value="3">L&T</option>
               <option value="4">GHI Tech</option>
-              {initialData?.vendor_bill_id && !["1","2","3","4"].includes(String(initialData.vendor_bill_id)) && <option value={initialData.vendor_bill_id}>Vendor Bill {initialData.vendor_bill_id}</option>}
+              {initialData?.vendor_bill_id && !["1", "2", "3", "4"].includes(String(initialData.vendor_bill_id)) && <option value={initialData.vendor_bill_id}>Vendor Bill {initialData.vendor_bill_id}</option>}
             </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra bill</label>
-            <select value={formData.ra_bill_id || ""} onChange={(e) => setFormData({...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+            <select value={formData.ra_bill_id || ""} onChange={(e) => setFormData({ ...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select RA Bill</option>
               <option value="1">Excavation</option>
               <option value="2">Concreting</option>
               <option value="9">Finishing</option>
-              {initialData?.ra_bill_id && !["1","2","9"].includes(String(initialData.ra_bill_id)) && <option value={initialData.ra_bill_id}>RA Bill {initialData.ra_bill_id}</option>}
+              {initialData?.ra_bill_id && !["1", "2", "9"].includes(String(initialData.ra_bill_id)) && <option value={initialData.ra_bill_id}>RA Bill {initialData.ra_bill_id}</option>}
             </select>
           </div>
         </div>
@@ -1242,7 +1235,7 @@ const TDSManagementSection = () => {
   const [editData, setEditData] = useState<any>(null);
   const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
 
@@ -1298,7 +1291,7 @@ const TDSManagementSection = () => {
           + Create TDS Deduction
         </button>
       </div>
-      
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Recent TDS Deductions</h3></div>
         <div className="overflow-x-auto">
@@ -1357,15 +1350,15 @@ const TDSManagementSection = () => {
         )}
       </div>
 
-      <TdsDeductionModal 
-        isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setEditData(null); }} 
+      <TdsDeductionModal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setEditData(null); }}
         onSuccess={fetchTdsList}
         initialData={editData}
       />
-      <TdsViewModal 
-        tdsId={viewTdsId} 
-        onClose={() => setViewTdsId(null)} 
+      <TdsViewModal
+        tdsId={viewTdsId}
+        onClose={() => setViewTdsId(null)}
       />
 
       <Modal isOpen={!!deleteModalId} onClose={() => setDeleteModalId(null)} title="Delete TDS Deduction" maxWidth="max-w-md" footer={
@@ -1424,49 +1417,49 @@ const TaxReconciliationSection = () => {
         </div>
       </div>
       <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-white border-b border-slate-100">
-          <tr>
-            {["Invoice No", "Vendor", "GST (ERP)", "GST (Portal)", "Difference", "Status", "Actions"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50 bg-white">
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs font-bold text-primary">INV-UTC-991</td>
-            <td className="px-4 py-3 text-xs text-slate-700">UltraTech Cement</td>
-            <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
-            <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
-            <td className="px-4 py-3 text-xs text-right font-mono text-emerald-500">₹0</td>
-            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Matched</span></td>
-            <td className="px-4 py-3 text-xs">
-              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary">
-                <option>Select Action</option>
-                <option>Match</option>
-                <option>Mismatch</option>
-                <option>Reconcile</option>
-                <option>Download Report</option>
-              </select>
-            </td>
-          </tr>
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs font-bold text-primary">INV-STEEL-44</td>
-            <td className="px-4 py-3 text-xs text-slate-700">Jindal Steel</td>
-            <td className="px-4 py-3 text-xs text-right font-mono">₹85,000</td>
-            <td className="px-4 py-3 text-xs text-right font-mono">₹80,000</td>
-            <td className="px-4 py-3 text-xs text-right font-mono text-rose-500 font-bold">-₹5,000</td>
-            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Mismatch</span></td>
-            <td className="px-4 py-3 text-xs">
-              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary" defaultValue="Reconcile">
-                <option>Select Action</option>
-                <option>Match</option>
-                <option>Mismatch</option>
-                <option>Reconcile</option>
-                <option>Download Report</option>
-              </select>
-            </td>
-          </tr>
+        <table className="w-full text-left">
+          <thead className="bg-white border-b border-slate-100">
+            <tr>
+              {["Invoice No", "Vendor", "GST (ERP)", "GST (Portal)", "Difference", "Status", "Actions"].map(h => (
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50 bg-white">
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">INV-UTC-991</td>
+              <td className="px-4 py-3 text-xs text-slate-700">UltraTech Cement</td>
+              <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
+              <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
+              <td className="px-4 py-3 text-xs text-right font-mono text-emerald-500">₹0</td>
+              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Matched</span></td>
+              <td className="px-4 py-3 text-xs">
+                <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary">
+                  <option>Select Action</option>
+                  <option>Match</option>
+                  <option>Mismatch</option>
+                  <option>Reconcile</option>
+                  <option>Download Report</option>
+                </select>
+              </td>
+            </tr>
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">INV-STEEL-44</td>
+              <td className="px-4 py-3 text-xs text-slate-700">Jindal Steel</td>
+              <td className="px-4 py-3 text-xs text-right font-mono">₹85,000</td>
+              <td className="px-4 py-3 text-xs text-right font-mono">₹80,000</td>
+              <td className="px-4 py-3 text-xs text-right font-mono text-rose-500 font-bold">-₹5,000</td>
+              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Mismatch</span></td>
+              <td className="px-4 py-3 text-xs">
+                <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary" defaultValue="Reconcile">
+                  <option>Select Action</option>
+                  <option>Match</option>
+                  <option>Mismatch</option>
+                  <option>Reconcile</option>
+                  <option>Download Report</option>
+                </select>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1480,10 +1473,10 @@ const TaxReconciliationSection = () => {
 type TabKey = "dashboard" | "gst" | "tds" | "returns" | "reconciliation";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "dashboard",      label: "Dashboard" },
-  { key: "gst",            label: "GST" },
-  { key: "tds",            label: "TDS" },
-  { key: "returns",        label: "Returns" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "gst", label: "GST" },
+  { key: "tds", label: "TDS" },
+  { key: "returns", label: "Returns" },
   { key: "reconciliation", label: "Reconciliation" },
 ];
 
@@ -1537,9 +1530,8 @@ const TaxationPage = () => {
         <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
-              }`}>
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
+                }`}>
               {tab.label}
             </button>
           ))}
@@ -1553,10 +1545,10 @@ const TaxationPage = () => {
         </div>
 
         {/* Content Rendering */}
-        {activeTab === "dashboard"      && <DashboardSection />}
-        {activeTab === "gst"            && <GSTInvoicesWrapperSection />}
-        {activeTab === "tds"            && <TDSManagementSection />}
-        {activeTab === "returns"        && <GSTReturnsWrapperSection key={subTab || "gstr1"} />}
+        {activeTab === "dashboard" && <DashboardSection />}
+        {activeTab === "gst" && <GSTInvoicesWrapperSection />}
+        {activeTab === "tds" && <TDSManagementSection />}
+        {activeTab === "returns" && <GSTReturnsWrapperSection key={subTab || "gstr1"} />}
         {activeTab === "reconciliation" && <TaxReconciliationSection />}
       </PageTransition>
     </>

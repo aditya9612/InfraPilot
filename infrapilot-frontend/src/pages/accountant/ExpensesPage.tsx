@@ -211,22 +211,11 @@ const ExpenseEntrySection = () => {
   );
 };
 
-const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
+const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
   const [projectName, setProjectName] = useState<string>("");
   const [boqItemName, setBoqItemName] = useState<string>("");
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const pdata = await projectService.getProjects(100, 0);
-        setProjects(Array.isArray(pdata) ? pdata : (pdata as any).items || []);
-      } catch (err) { }
-    };
-    if (isOpen) fetchProjects();
-  }, [isOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -234,18 +223,17 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
       if (!expense) return;
       try {
         setLoading(true);
-        const res = await expenseService.getExpenseById(expense.id);
-        const resData: any = res;
+        const res: any = await expenseService.getExpenseById(expense.id);
         if (!isMounted) return;
-        setData(resData);
+        setData(res);
 
         // Resolve Project Name from API response body project_id
-        const projId = resData?.project_id ?? expense?.project_id;
+        const projId = res?.project_id ?? expense?.project_id;
         if (projId !== undefined && projId !== null && String(projId) !== "") {
-          if (resData?.project_name) {
-            setProjectName(resData.project_name);
-          } else if (resData?.project?.project_name || resData?.project?.name) {
-            setProjectName(resData.project?.project_name || resData.project?.name);
+          if (res?.project_name) {
+            setProjectName(res.project_name);
+          } else if (res?.project?.project_name || res?.project?.name) {
+            setProjectName(res.project?.project_name || res.project?.name);
           } else {
             const matchedProj = projects?.find(
               (p: any) => String(p.id) === String(projId) || String(p.project_id) === String(projId)
@@ -268,10 +256,10 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
         }
 
         // Resolve BOQ Item Name from boq_item_id
-        const boqId = resData?.boq_item_id ?? expense?.boq_item_id;
+        const boqId = res?.boq_item_id ?? expense?.boq_item_id;
         if (boqId !== undefined && boqId !== null && String(boqId) !== "") {
-          if (resData?.boq_item_name || resData?.boq_name || resData?.boq_item?.item_name) {
-            setBoqItemName(resData.boq_item_name || resData.boq_name || resData.boq_item?.item_name);
+          if (res?.boq_item_name || res?.boq_name || res?.boq_item?.item_name) {
+            setBoqItemName(res.boq_item_name || res.boq_name || res.boq_item?.item_name);
           } else {
             try {
               const boqData = await boqService.getBoqById(Number(boqId));
@@ -329,34 +317,34 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
                 <div className="flex flex-wrap gap-2">
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projectName || '—'}</span>
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
-                </div >
-              </div >
-            </div >
-          </div >
+                </div>
+              </div>
+            </div>
+          </div>
 
-  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-    {[
-      { label: 'Expense No', value: `EXP-${data.id}` },
-      { label: 'Project', value: projectName || '—' },
-      { label: 'Category', value: data.category || '—' },
-      { label: 'Payment Mode', value: data.payment_mode || '—' },
-      { label: 'Expense Date', value: data.expense_date || '—' },
-      { label: 'Amount (₹)', value: `₹${Number(data.amount).toLocaleString("en-IN")}`, highlight: true },
-      { label: 'BOQ Item', value: boqItemName || '—' },
-    ].map(({ label, value, highlight }: any) => (
-      <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className={`text-sm font-bold truncate ${highlight ? 'text-rose-500' : 'text-slate-800'}`}>{String(value)}</p>
-      </div>
-    ))}
-    <div className="col-span-full bg-slate-50 rounded-xl p-3 border border-slate-100">
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
-      <p className="text-sm font-bold text-slate-800">{data.description || '—'}</p>
-    </div>
-  </div>
-        </div >
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+            {[
+              { label: 'Expense No', value: `EXP-${data.id}` },
+              { label: 'Project', value: projectName || '—' },
+              { label: 'Category', value: data.category || '—' },
+              { label: 'Payment Mode', value: data.payment_mode || '—' },
+              { label: 'Expense Date', value: data.expense_date || '—' },
+              { label: 'Amount (₹)', value: `₹${Number(data.amount).toLocaleString("en-IN")}`, highlight: true },
+              { label: 'BOQ Item', value: boqItemName || '—' },
+            ].map(({ label, value, highlight }: any) => (
+              <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <p className={`text-sm font-bold truncate ${highlight ? 'text-rose-500' : 'text-slate-800'}`}>{String(value)}</p>
+              </div>
+            ))}
+            <div className="col-span-full bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+              <p className="text-sm font-bold text-slate-800">{data.description || '—'}</p>
+            </div>
+          </div>
+        </div>
       ) : null}
-    </Modal >
+    </Modal>
   );
 };
 
@@ -789,11 +777,11 @@ const ExpenseListSection = () => {
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
               <option value="auto">Auto Payment</option>
-            </select >
+            </select>
             <input type="date" value={startDate} onChange={e => handleDateChange('start', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />
             <input type="date" value={endDate} onChange={e => handleDateChange('end', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />
-          </div >
-        </div >
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50/60 border-b border-slate-100">
@@ -880,7 +868,7 @@ const ExpenseListSection = () => {
             </button>
           </div>
         </div>
-      </div >
+      </div>
 
       <EditExpenseModal isOpen={!!editingExpense} onClose={() => setEditingExpense(null)} expense={editingExpense} onSubmit={handleEditSubmit} projects={projects} />
       <ViewExpenseModal isOpen={!!viewingExpense} onClose={() => setViewingExpense(null)} expense={viewingExpense} projects={projects} />

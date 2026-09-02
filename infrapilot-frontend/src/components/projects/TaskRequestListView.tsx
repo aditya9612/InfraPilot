@@ -6,9 +6,10 @@ interface TaskRequestListViewProps {
     isLoading: boolean;
     onEdit: (request: any) => void;
     onDelete: (requestId: number) => void;
+    members?: any[];
 }
 
-const TaskRequestListView = ({ taskRequests, isLoading, onEdit, onDelete }: TaskRequestListViewProps) => {
+const TaskRequestListView = ({ taskRequests, isLoading, onEdit, onDelete, members = [] }: TaskRequestListViewProps) => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
@@ -76,6 +77,12 @@ const TaskRequestListView = ({ taskRequests, isLoading, onEdit, onDelete }: Task
                                         <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
                                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
                                             {new Date(request.due_date).toLocaleDateString()}
+                                        </span>
+                                    )}
+                                    {request.assigned_to && (
+                                        <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                            <span className="font-bold text-slate-400">Assignee:</span>
+                                            {members.find((m: any) => m.user_id === request.assigned_to)?.full_name || `User #${request.assigned_to}`}
                                         </span>
                                     )}
                                 </div>

@@ -411,7 +411,6 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           ]) : [["No assets found.", "", "", "", "", ""]]}
         />
       )}
-
     </div>
   );
 };

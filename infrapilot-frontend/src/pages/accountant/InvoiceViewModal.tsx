@@ -4,8 +4,6 @@ import api from "../../services/api";
 import Modal from "../../components/common/Modal";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
-import { financeService } from "../../services/financeService";
-import toast from "react-hot-toast";
 import { PROJECTS } from "../../config/projectSeed";
 
 const KNOWN_PROJECT_MAP: Record<string, string> = {
@@ -20,6 +18,8 @@ const KNOWN_PROJECT_MAP: Record<string, string> = {
   "9": "Grand Horizons",
   "10": "Ocean View Residences",
 };
+import { financeService } from "../../services/financeService";
+import toast from "react-hot-toast";
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose, onSuccess }: { invoiceId: number | null; projects: any[]; onClose: () => void; onSuccess?: () => void }) {
   const [data, setData] = useState<any>(null);
@@ -41,7 +41,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
         ]);
         setData(res.data);
         setTransactions(txRes || []);
-        
+
         if (res.data?.project_name) {
           setFetchedProjectName(res.data.project_name);
         } else if (res.data?.project_id) {
@@ -105,7 +105,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
       toast.success("Payment recorded successfully!");
       setShowPaymentForm(false);
       setPaymentData({ amount: "", mode: "Bank Transfer", reference: "" });
-      
+
       // Refresh data
       const [res, txRes] = await Promise.all([
         api.get(`/invoices/${invoiceId}`),
@@ -113,7 +113,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
       ]);
       setData(res.data);
       setTransactions(txRes || []);
-      
+
       if (onSuccess) {
         onSuccess();
       }
@@ -226,17 +226,17 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
                 </button>
               )}
             </div>
-            
+
             {showPaymentForm && (
               <form onSubmit={handlePaymentSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Amount</label>
-                    <input type="number" step="any" required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Enter amount" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: e.target.value})} />
+                    <input type="number" step="any" required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Enter amount" value={paymentData.amount} onChange={e => setPaymentData({ ...paymentData, amount: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Payment Mode</label>
-                    <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" value={paymentData.mode} onChange={e => setPaymentData({...paymentData, mode: e.target.value})}>
+                    <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" value={paymentData.mode} onChange={e => setPaymentData({ ...paymentData, mode: e.target.value })}>
                       <option>Bank Transfer</option>
                       <option>Cash</option>
                       <option>Cheque</option>
@@ -245,7 +245,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose, onSucce
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Reference No.</label>
-                    <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. UTR/Cheque No." value={paymentData.reference} onChange={e => setPaymentData({...paymentData, reference: e.target.value})} />
+                    <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. UTR/Cheque No." value={paymentData.reference} onChange={e => setPaymentData({ ...paymentData, reference: e.target.value })} />
                   </div>
                 </div>
                 <div className="flex justify-end">
