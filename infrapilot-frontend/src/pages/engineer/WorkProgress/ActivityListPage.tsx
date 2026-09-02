@@ -92,11 +92,12 @@ const ActivityListPage = () => {
     }
   };
 
+  // Using global context for project filter
   const { selectedProjectId, setSelectedProjectId } = useProject();
   const projectId = selectedProjectId || 0;
 
   const handleProjectChange = (id: number) => {
-    setSelectedProjectId(id);
+    setSelectedProjectId(id || null);
   };
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
@@ -162,14 +163,10 @@ const ActivityListPage = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadActivities = useCallback(async () => {
-    if (!projectId) {
-      setActivities([]);
-      return;
-    }
     try {
       setLoading(true);
-      // Pass project_id from Context — backend returns only that project's activities
-      const data = await workProgressService.listActivities(projectId, undefined, 100, 0);
+      // Fetch activities, passing projectId (defaults to 0 if 'All Projects')
+      const data = await workProgressService.listActivities(projectId || 0, undefined, 100, 0);
 
       const normalizedData = data.map((a: any) => ({
         ...a,
