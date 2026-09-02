@@ -5,21 +5,17 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
-<<<<<<< HEAD
 import { paymentService } from "../../services/paymentService";
 import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
 import { projectService } from "../../services/projectService";
-=======
 import { accountingService } from "../../services/accountingService";
->>>>>>> testing
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
 
-<<<<<<< HEAD
 const PayrollKPICards = ({ summary }: { summary?: any }) => {
   const s = summary?.data || summary || {};
 
@@ -41,43 +37,24 @@ const PayrollKPICards = ({ summary }: { summary?: any }) => {
         </div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
         <p className="text-xl font-bold text-slate-800">{formatCurrency(pending)}</p>
-=======
-const PayrollKPICards = ({ summary }: { summary?: any }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
-      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
->>>>>>> testing
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        </div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
-        <p className="text-xl font-bold text-slate-800">{formatCurrency(paid)}</p>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-        </div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
-        <p className="text-xl font-bold text-slate-800">{formatCurrency(advance)}</p>
-      </div>
-    </div>
-<<<<<<< HEAD
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
+              <p className="text-xl font-bold text-slate-800">{formatCurrency(paid)}</p>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
+              <p className="text-xl font-bold text-slate-800">{formatCurrency(advance)}</p>
+            </div>
+          </div>
   );
 };
-=======
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group active:scale-[0.98]">
-      <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-      </div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0'}</p>
-    </div>
-  </div>
-);
->>>>>>> testing
 
 const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [formData, setFormData] = useState({
@@ -337,11 +314,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
-<<<<<<< HEAD
     period_type: period ? (period.charAt(0).toUpperCase() + period.slice(1).toLowerCase()) : "Daily",
-=======
-    period_type: period || "Daily",
->>>>>>> testing
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
     payment_mode: "Bank Transfer",
@@ -442,11 +415,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Type *</label>
-<<<<<<< HEAD
               <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
-=======
-              <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
->>>>>>> testing
                 <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
                 <option value="Monthly">Monthly</option>
@@ -454,7 +423,6 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-<<<<<<< HEAD
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
               <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
                 <option value="Bank Transfer">Bank Transfer</option>
@@ -464,8 +432,6 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-=======
->>>>>>> testing
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
               <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
@@ -492,14 +458,8 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState("Daily");
   const [wages, setWages] = useState<any[]>([]);
-<<<<<<< HEAD
   const [labourMap, setLabourMap] = useState<Record<number, string>>({});
-  const [dateFilter, setDateFilter] = useState({
-=======
-
-
   const [filters, setFilters] = useState({
->>>>>>> testing
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
     end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0],
     period_type: "",
@@ -549,7 +509,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
         if (id && name) map[id] = name;
       });
       setLabourMap(map);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -598,111 +558,97 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
       {activeSubTab === "register" && (
         <div className="space-y-6">
 
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-              <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
-              <div className="flex items-center flex-wrap gap-3">
-                <select value={filters.period_type} onChange={e => setFilters(prev => ({ ...prev, period_type: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
-                  <option value="">All Periods</option>
-                  <option value="Daily">Daily</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="Monthly">Monthly</option>
-                </select>
-                <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
-                  <option value="">All Statuses</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Overdue">Overdue</option>
-                </select>
-                <select value={filters.project_id} onChange={e => setFilters(prev => ({ ...prev, project_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
-                  <option value="">All Projects</option>
-                  {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
-                </select>
-                <select value={filters.labour_id} onChange={e => setFilters(prev => ({ ...prev, labour_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
-                  <option value="">All Labours</option>
-                  {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name || "Unknown"}</option>)}
-                </select>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2">
-                  <input type="date" value={filters.start_date} onChange={e => setFilters(prev => ({ ...prev, start_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
-                  <span className="text-slate-400 text-xs font-bold tracking-widest">TO</span>
-                  <input type="date" value={filters.end_date} onChange={e => setFilters(prev => ({ ...prev, end_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+            <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
+              <div className="flex justify-between items-center flex-wrap gap-4">
+                <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
+                <div className="flex items-center flex-wrap gap-3">
+                  <select value={filters.period_type} onChange={e => setFilters(prev => ({ ...prev, period_type: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                    <option value="">All Periods</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                  </select>
+                  <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                    <option value="">All Statuses</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Overdue">Overdue</option>
+                  </select>
+                  <select value={filters.project_id} onChange={e => setFilters(prev => ({ ...prev, project_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                    <option value="">All Projects</option>
+                    {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
+                  </select>
+                  <select value={filters.labour_id} onChange={e => setFilters(prev => ({ ...prev, labour_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                    <option value="">All Labours</option>
+                    {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name || "Unknown"}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2">
+                    <input type="date" value={filters.start_date} onChange={e => setFilters(prev => ({ ...prev, start_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                    <span className="text-slate-400 text-xs font-bold tracking-widest">TO</span>
+                    <input type="date" value={filters.end_date} onChange={e => setFilters(prev => ({ ...prev, end_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-<<<<<<< HEAD
-                {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
-                  const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
-                  const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
-                  const wagePeriod = wage.period || wage.period_type || 'Daily';
-                  const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
-                  const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
-                  const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
+                    const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
+                    const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
+                    const wagePeriod = wage.period || wage.period_type || 'Daily';
+                    const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
+                    const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
+                    const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
 
-                  return (
-                    <tr key={wage.id || idx} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{laborName}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{laborType}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
-                    </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
-=======
-                {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{wage.labor_name || 'Labor'}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{wage.type || 'Skilled'}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{wage.period || 'Weekly'}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">₹{wage.gross_wage || 0}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{wage.net_wage || 0}</td>
-                    <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wage.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wage.status || 'Paid'}</span></td>
-                    <td className="px-4 py-3 text-xs">
-                      {wage.status === 'Pending' ? (
-                        <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
-                          PAY NOW
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-bold">-</span>
-                      )}
-                    </td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
->>>>>>> testing
-                )}
-              </tbody>
-            </table>
-          </div>
-          {wages.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-                <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
-                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, wages.length)} of {wages.length} records</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setWagePage(p => Math.max(1, p - 1))} disabled={wagePage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
-                <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length / wageRpp), p + 1))} disabled={wagePage === Math.ceil(wages.length / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-              </div>
+                    return (
+                      <tr key={wage.id || idx} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{laborName}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{laborType}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
+                        <td className="px-4 py-3 text-xs">
+                          {wageStatus === 'Pending' ? (
+                            <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
+                              PAY NOW
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-bold">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+            {wages.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                  <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, wages.length)} of {wages.length} records</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setWagePage(p => Math.max(1, p - 1))} disabled={wagePage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                  <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
+                  <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length / wageRpp), p + 1))} disabled={wagePage === Math.ceil(wages.length / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
@@ -1017,7 +963,6 @@ const LedgerSection = () => {
 
   useEffect(() => {
     fetchRegister();
-<<<<<<< HEAD
     loadLookupData();
   }, [loadLookupData]);
 
@@ -1045,7 +990,7 @@ const LedgerSection = () => {
               }));
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       if ((category === 'LABOUR-WAGE' || category === 'LABOUR' || category === 'WAGE') && !entities.labours[id]) {
@@ -1059,7 +1004,7 @@ const LedgerSection = () => {
               }));
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, [registerData, entities.users, entities.labours]);
@@ -1129,32 +1074,6 @@ const LedgerSection = () => {
 
     // 4. Fallback to reference or item.party_name or '—'
     return item.party_name || item.reference || '—';
-=======
-    import('../../services/labourService').then(({ labourService }) => {
-      labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(Array.isArray(res) ? res : res.items || res.data || []));
-    });
-    import('../../services/userService').then(({ userService }) => {
-      userService.getAllUsers(1000).then((res: any) => setUsers(Array.isArray(res) ? res : res.items || res.data || []));
-    });
-  }, []);
-
-  // Parse linked_to: "LABOUR-WAGE:5:2026-08-05" → "Labour Wage #5"
-  const parseLinkedTo = (linked_to: string | null, reference: string) => {
-    if (!linked_to) return reference || '—';
-    const parts = linked_to.split(':');
-    const category = parts[0]; // e.g. LABOUR-WAGE, CONTRACTOR-PAY, STAFF-SALARY
-    const id = parts[1] || '';
-    if (category === 'LABOUR-WAGE') {
-      const labour = labours.find(l => String(l.id) === String(id) || String(l.labour_id) === String(id));
-      return labour ? (labour.labour_name || labour.name) : `Labour Wage #${id}`;
-    }
-    if (category === 'CONTRACTOR-PAY') return `Contractor Pay #${id}`;
-    if (category === 'STAFF-SALARY') {
-      const user = users.find(u => String(u.id) === String(id) || String(u.user_id) === String(id));
-      return user ? (user.full_name || user.name) : `Staff Salary #${id}`;
-    }
-    return linked_to;
->>>>>>> testing
   };
 
   const paged = registerData.slice((ledgerPage - 1) * ledgerRpp, ledgerPage * ledgerRpp);
@@ -1420,14 +1339,14 @@ const OfferLettersWrapper = () => {
     <div className="space-y-6">
       <div className="bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-slate-100 max-w-4xl mx-auto mt-8">
         <h2 className="text-xl font-bold text-slate-800 mb-12 text-center">Offer Letter Generation Flow</h2>
-        
+
         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 relative">
           <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-1.5 bg-slate-100 -z-10 -translate-y-1/2 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: offerStatus === 'generated' ? '100%' : offerStatus === 'created' ? '50%' : '0%' }}></div>
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={() => setIsModalOpen(true)}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'pending' ? 'bg-blue-600 text-white hover:scale-105' : 'bg-emerald-500 text-white'}`}
             >
@@ -1437,7 +1356,7 @@ const OfferLettersWrapper = () => {
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={handleGenerate}
               disabled={offerStatus === 'pending'}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'created' ? 'bg-blue-600 text-white hover:scale-105' : offerStatus === 'generated' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
@@ -1448,7 +1367,7 @@ const OfferLettersWrapper = () => {
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={handleDownload}
               disabled={offerStatus !== 'generated'}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'generated' ? 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
@@ -1458,7 +1377,7 @@ const OfferLettersWrapper = () => {
             <span className={`font-bold text-sm ${offerStatus === 'generated' ? 'text-blue-600' : 'text-slate-400'}`}>Download PDF</span>
           </div>
         </div>
-        
+
         {currentOfferId && (
           <div className="mt-16 text-center p-5 bg-slate-50 rounded-xl border border-slate-100 max-w-sm mx-auto shadow-sm">
             <p className="text-sm text-slate-600">Current Offer ID: <span className="font-bold text-slate-800">OFF-{currentOfferId}</span></p>
@@ -1468,10 +1387,10 @@ const OfferLettersWrapper = () => {
         )}
       </div>
 
-      <CreateOfferModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={handleCreateSuccess} 
+      <CreateOfferModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleCreateSuccess}
       />
     </div>
   );
@@ -1514,7 +1433,6 @@ const PayrollPage = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-<<<<<<< HEAD
         let combinedData: any = {};
 
         // 1. Fetch from accountant payroll summary (no hardcoded project_id)
@@ -1556,13 +1474,6 @@ const PayrollPage = () => {
         }
 
         setSummaryData(combinedData);
-=======
-        const params: any = {};
-        if (globalProjectId) params.project_id = Number(globalProjectId);
-        
-        const data = await payrollService.getLabourWageStats(params);
-        setSummaryData(data?.data || data || {});
->>>>>>> testing
       } catch (err) {
         console.error('Failed to fetch payroll summary', err);
       }
@@ -1661,8 +1572,8 @@ const PayrollPage = () => {
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
-                  : "text-slate-500 hover:text-slate-700"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                : "text-slate-500 hover:text-slate-700"
                 }`}
             >
               {tab.label}
@@ -1670,17 +1581,11 @@ const PayrollPage = () => {
           ))}
         </div>
 
-<<<<<<< HEAD
-=======
-        {/* ── KPI Stat Cards ─────────────────────────────── */}
-        {activeTab === "wages" && <PayrollKPICards summary={summaryData} />}
-
->>>>>>> testing
-        {/* ── Content Rendering ──────────────────────────── */}
-        {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}
-        {activeTab === "ledger" && <LedgerSection />}
-        {activeTab === "offers" && <OfferLettersWrapper />}
-      </PageTransition>
+  {/* ── Content Rendering ──────────────────────────── */ }
+  { activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} /> }
+  { activeTab === "ledger" && <LedgerSection /> }
+  { activeTab === "offers" && <OfferLettersWrapper /> }
+      </PageTransition >
     </>
   );
 };
