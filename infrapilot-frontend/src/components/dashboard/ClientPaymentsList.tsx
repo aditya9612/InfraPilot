@@ -10,6 +10,8 @@ const ClientPaymentsList = () => {
     const [payments, setPayments] = useState<ClientPayment[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All Status");
+    const [methodFilter, setMethodFilter] = useState("All Methods");
     const [viewingPayment, setViewingPayment] = useState<ClientPayment | null>(null);
 
     const [currentPage, setCurrentPage] = useState(0);
@@ -54,21 +56,40 @@ const ClientPaymentsList = () => {
         }
     };
 
-    const filteredPayments = payments.filter((p) =>
-        (p.user_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.payment_no || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPayments = payments.filter((p) => {
+        const matchesSearch = (p.user_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.payment_no || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+        let matchesStatus = true;
+        if (statusFilter !== "All Status") {
+            const ps = statusFilter.toUpperCase();
+            const pStatus = String((p as any).status || p.payment_status || 'Pending').toUpperCase();
+            if (ps === "SUCCESS") matchesStatus = pStatus.includes("COMPLETED") || pStatus.includes("VERIFIED") || pStatus.includes("SUCCESS");
+            else if (ps === "REJECTED" || ps === "FAILED") matchesStatus = pStatus.includes("FAILED") || pStatus.includes("REJECTED");
+            else if (ps === "PENDING" || ps === "VERIFICATION_PENDING") matchesStatus = pStatus.includes("PENDING");
+            else matchesStatus = false;
+        }
+
+        let matchesMethod = true;
+        if (methodFilter !== "All Methods") {
+            const targetMethod = methodFilter.toUpperCase();
+            const pMethod = String((p as any).method || p.payment_method || '').toUpperCase();
+            matchesMethod = pMethod.includes(targetMethod);
+        }
+
+        return matchesSearch && matchesStatus && matchesMethod;
+    });
 
     const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
     const pagedPayments = filteredPayments.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     useEffect(() => {
         setCurrentPage(0);
-    }, [searchTerm]);
+    }, [searchTerm, statusFilter, methodFilter]);
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
-            <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
                 <div className="relative flex-1 max-w-md w-full">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                         <Search className="w-4 h-4" />
@@ -81,13 +102,40 @@ const ClientPaymentsList = () => {
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                 </div>
-                <button
-                    onClick={fetchPayments}
-                    className="p-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50 transition-all"
-                    title="Refresh Payments"
-                >
-                    <RefreshCcw className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={methodFilter}
+                        onChange={e => setMethodFilter(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                    >
+                        <option value="All Methods">Payment Method: All</option>
+                        <option value="CASH">CASH</option>
+                        <option value="CHEQUE">CHEQUE</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="RTGS">RTGS</option>
+                        <option value="UPI">UPI</option>
+                        <option value="ONLINE">ONLINE</option>
+                    </select>
+                    <select
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                    >
+                        <option value="All Status">Payment Status: All</option>
+                        <option value="VERIFICATION_PENDING">VERIFICATION PENDING</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                        <option value="REJECTED">REJECTED</option>
+                        <option value="FAILED">FAILED</option>
+                    </select>
+                    <button
+                        onClick={fetchPayments}
+                        className="p-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50 transition-all"
+                        title="Refresh Payments"
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             <div className="overflow-x-auto">

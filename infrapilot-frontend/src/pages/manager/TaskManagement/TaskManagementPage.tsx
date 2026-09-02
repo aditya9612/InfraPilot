@@ -18,6 +18,8 @@ import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
 import { workProgressService } from '../../../services/workProgressService';
+import { masterService } from '../../../services/masterService';
+import { userService } from '../../../services/userService';
 import type { Task, ProjectMember } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
@@ -87,12 +89,134 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
         </button>
     );
 };
+const ProjectTaskRequestsList = ({ requests, isLoading, onEdit, onDelete, usersMap = {} }: any) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
+
+    const sortedRequests = [...requests].sort((a, b) => {
+        return (b.id || 0) - (a.id || 0);
+    });
+
+    const paginatedRequests = sortedRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(requests.length / itemsPerPage));
+
+    return (
+        <div className="border-t border-slate-200 p-6">
+            <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-amber-600" />
+                    </div>
+                    Task Requests ({requests.length})
+                </div>
+                {requests.length > itemsPerPage && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded-lg border text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-[10px] font-bold text-slate-500">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded-lg border text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+            </h4>
+
+            {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+            ) : paginatedRequests.length > 0 ? (
+                <div className="space-y-3">
+                    {paginatedRequests.map((request: any) => (
+                        <div
+                            key={request.id}
+                            className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
+                        >
+                            <div className="flex-1">
+                                <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
+                                <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
+                                        request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                            'bg-emerald-100 text-emerald-700'
+                                        }`}>
+                                        {request.priority || 'MEDIUM'}
+                                    </span>
+                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                        request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                            'bg-rose-100 text-rose-700'
+                                        }`}>
+                                        {request.status || 'PENDING'}
+                                    </span>
+                                    {request.due_date && (
+                                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />
+                                            {new Date(request.due_date).toLocaleDateString()}
+                                        </span>
+                                    )}
+                                    {request.assigned_to && (
+                                        <span className="text-xs text-slate-500 flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                            <span className="font-bold text-slate-400">Assignee:</span>
+                                            {usersMap[request.assigned_to] || `User #${request.assigned_to}`}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                                <button
+                                    onClick={() => onEdit(request)}
+                                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                    title="Edit"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => onDelete(request.id)}
+                                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
+                                    title="Delete"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-8 text-slate-500">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-bold">No task requests yet</p>
+                    <p className="text-xs mt-1">Create your first task request to get started</p>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const TaskManagementPage = () => {
     const { } = useProject();
     const [projectId, setProjectId] = useState<number | 'all' | null>('all');
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const handleAudioPlay = useCallback((e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+        const currentAudio = e.currentTarget;
+        document.querySelectorAll("audio").forEach((audio) => {
+            if (audio !== currentAudio) {
+                audio.pause();
+            }
+        });
+    }, []);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -124,6 +248,17 @@ const TaskManagementPage = () => {
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const [usersMap, setUsersMap] = useState<Record<number, string>>({});
+
+    useEffect(() => {
+        userService.getAllUsers(1000).then((res: any) => {
+            const users = Array.isArray(res) ? res : (res.items || res.data || []);
+            const map: Record<number, string> = {};
+            users.forEach((u: any) => { map[u.id || u.user_id] = u.full_name || u.name || u.username });
+            setUsersMap(map);
+        }).catch(() => { });
+    }, []);
 
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
@@ -153,7 +288,7 @@ const TaskManagementPage = () => {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
-    const [editModalActivities, setEditModalActivities] = useState<any[]>([]);
+    const [editModalActivities, setEditModalActivities] = useState<any[]>([]); // Activity Types
 
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
@@ -199,6 +334,17 @@ const TaskManagementPage = () => {
     const [selectedTaskRequest, setSelectedTaskRequest] = useState<any | null>(null);
     const [isLoadingTaskRequests, setIsLoadingTaskRequests] = useState(false);
 
+    // Delete Task Request Modal State
+    const [isDeleteRequestModalOpen, setIsDeleteRequestModalOpen] = useState(false);
+    const [taskRequestToDelete, setTaskRequestToDelete] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (modalTab === "Comments") {
+            setTimeout(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+        }
+    }, [taskComments, modalTab]);
     useEffect(() => {
         if (projectId && projectId !== ('all' as any)) {
             projectService.getProjectMembers(projectId as any).then(res => {
@@ -410,7 +556,8 @@ const TaskManagementPage = () => {
                     assignedNames
                 };
             });
-            setTasks(mappedTasks);
+            const sortedMappedTasks = mappedTasks.sort((a, b) => (b.id || 0) - (a.id || 0));
+            setTasks(sortedMappedTasks);
         } catch (error) {
             console.error("Failed to fetch task data:", error);
             toast.error("Failed to load tasks");
@@ -542,15 +689,33 @@ const TaskManagementPage = () => {
         setIsEditModalOpen(true);
 
         const targetProjId = task.project_id || (projectId === ('all' as any) ? null : projectId);
-        if (targetProjId) {
+
+        if (targetProjId && (projectId === ('all' as any) || targetProjId !== projectId)) {
             try {
-                const activities = await workProgressService.listActivities(targetProjId);
-                setEditModalActivities(Array.isArray(activities) ? activities : activities.items || activities.data || []);
-            } catch (err) {
-                console.error(err);
-                setEditModalActivities([]);
+                const [resM, resMilestone, resBoq] = await Promise.all([
+                    projectService.getProjectMembers(targetProjId as number).catch(() => []),
+                    projectService.getMilestones(targetProjId as number).catch(() => []),
+                    boqService.getBoqItems(targetProjId as number).catch(() => [])
+                ]);
+                const m = Array.isArray(resM) ? resM : (resM.items || resM.data || []);
+                if (m.length > 0) setProjectMembers(m);
+
+                const ms = Array.isArray(resMilestone) ? resMilestone : (resMilestone.items || resMilestone.data || []);
+                if (ms.length > 0) setProjectMilestones(ms);
+
+                const bs = Array.isArray(resBoq) ? resBoq : (resBoq.items || resBoq.data || []);
+                if (bs.length > 0) setProjectBoqs(bs);
+            } catch (e) {
+                console.error("Failed to load project details for edit modal", e);
             }
-        } else {
+        }
+
+        // Fetch global activity types
+        try {
+            const types = await masterService.getEntities("activity-types");
+            setEditModalActivities(Array.isArray(types) ? types : types.items || types.data || []);
+        } catch (err) {
+            console.error(err);
             setEditModalActivities([]);
         }
     };
@@ -723,7 +888,8 @@ const TaskManagementPage = () => {
                 } as FrontendTask;
             });
 
-            setProjectTasksMap(prev => ({ ...prev, [projId]: mapped }));
+            const sortedMapped = mapped.sort((a, b) => (b.id || 0) - (a.id || 0));
+            setProjectTasksMap(prev => ({ ...prev, [projId]: sortedMapped }));
         } catch (error) {
             console.error('Error fetching project tasks for', projId, error);
             setProjectTasksMap(prev => ({ ...prev, [projId]: [] }));
@@ -851,18 +1017,25 @@ const TaskManagementPage = () => {
         }
     };
 
-    const handleDeleteTaskRequest = async (requestId: number) => {
+    const handleDeleteTaskRequest = (requestId: number) => {
+        setTaskRequestToDelete(requestId);
+        setIsDeleteRequestModalOpen(true);
+    };
+
+    const confirmDeleteTaskRequest = async () => {
+        if (!taskRequestToDelete) return;
         if (!projectId && projectId !== ('all' as any)) return;
 
-        if (confirm("Are you sure you want to delete this task request?")) {
-            try {
-                await projectService.deleteTaskRequest(projectId as any, requestId);
-                toast.success("Task request deleted successfully!");
-                fetchTaskRequests();
-            } catch (error) {
-                toast.error("Failed to delete task request.");
-                console.error("Error:", error);
-            }
+        try {
+            await projectService.deleteTaskRequest(projectId as any, taskRequestToDelete);
+            toast.success("Task request deleted successfully!");
+            fetchTaskRequests();
+        } catch (error) {
+            toast.error("Failed to delete task request.");
+            console.error("Error:", error);
+        } finally {
+            setIsDeleteRequestModalOpen(false);
+            setTaskRequestToDelete(null);
         }
     };
 
@@ -1415,7 +1588,7 @@ const TaskManagementPage = () => {
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).planned_cost || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {task.audio_data || (task as any).audio_instruction_url ? (
-                                                                <audio controls src={task.audio_data ? getFullUrl(task.audio_data) || '' : getFullUrl(String((task as any).audio_instruction_url)) || ''} className="h-8 w-32" />
+                                                                <audio controls src={task.audio_data ? getFullUrl(task.audio_data) || '' : getFullUrl(String((task as any).audio_instruction_url)) || ''} className="h-8 w-32" onPlay={handleAudioPlay} />
                                                             ) : 'null'}
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
@@ -1835,78 +2008,16 @@ const TaskManagementPage = () => {
                                                         {(() => {
                                                             const projectTaskRequests = taskRequests.filter(req => req.project_id === project.id || String(req.project_id) === String(project.id));
                                                             return (
-                                                                <div className="border-t border-slate-200 p-6">
-                                                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                                                        <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                            <FileText className="w-4 h-4 text-amber-600" />
-                                                                        </div>
-                                                                        Task Requests ({projectTaskRequests.length})
-                                                                    </h4>
-
-                                                                    {isLoadingTaskRequests ? (
-                                                                        <div className="flex items-center justify-center py-8">
-                                                                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                                                                        </div>
-                                                                    ) : projectTaskRequests.length > 0 ? (
-                                                                        <div className="space-y-3">
-                                                                            {projectTaskRequests.map((request) => (
-                                                                                <div
-                                                                                    key={request.id}
-                                                                                    className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
-                                                                                >
-                                                                                    <div className="flex-1">
-                                                                                        <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
-                                                                                        <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
-                                                                                        <div className="flex items-center gap-3 flex-wrap">
-                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
-                                                                                                request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                                                                                                    'bg-emerald-100 text-emerald-700'
-                                                                                                }`}>
-                                                                                                {request.priority || 'MEDIUM'}
-                                                                                            </span>
-                                                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                                                                request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                                    'bg-rose-100 text-rose-700'
-                                                                                                }`}>
-                                                                                                {request.status || 'PENDING'}
-                                                                                            </span>
-                                                                                            {request.due_date && (
-                                                                                                <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                                                                    <Calendar className="w-3 h-3" />
-                                                                                                    {new Date(request.due_date).toLocaleDateString()}
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-2 ml-4">
-                                                                                        <button
-                                                                                            onClick={() => handleEditTaskRequest(request)}
-                                                                                            className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                                                                                            title="Edit"
-                                                                                        >
-                                                                                            <Edit2 className="w-4 h-4" />
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={() => handleDeleteTaskRequest(request.id)}
-                                                                                            className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
-                                                                                            title="Delete"
-                                                                                        >
-                                                                                            <Trash2 className="w-4 h-4" />
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="text-center py-8 text-slate-500">
-                                                                            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                                                            <p className="text-sm font-bold">No task requests yet</p>
-                                                                            <p className="text-xs mt-1">Create your first task request to get started</p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                <ProjectTaskRequestsList
+                                                                    requests={projectTaskRequests}
+                                                                    isLoading={isLoadingTaskRequests}
+                                                                    onEdit={handleEditTaskRequest}
+                                                                    onDelete={handleDeleteTaskRequest}
+                                                                    usersMap={usersMap}
+                                                                />
                                                             );
                                                         })()}
+
                                                     </div>
                                                 )}
                                             </div>
@@ -2171,7 +2282,7 @@ const TaskManagementPage = () => {
                                                 {(selectedTask.audio_data || (selectedTask as any).audio_instruction_url) && (
                                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                                         <p className="text-xs font-bold text-slate-400 mb-3">Audio Instruction</p>
-                                                        <audio controls src={selectedTask.audio_data ? (getFullUrl(selectedTask.audio_data) || '') : (getFullUrl(String((selectedTask as any).audio_instruction_url)) || '')} className="w-full max-w-sm" />
+                                                        <audio controls src={selectedTask.audio_data ? (getFullUrl(selectedTask.audio_data) || '') : (getFullUrl(String((selectedTask as any).audio_instruction_url)) || '')} className="w-full max-w-sm" onPlay={handleAudioPlay} />
                                                     </div>
                                                 )}
                                             </div>
@@ -2207,15 +2318,16 @@ const TaskManagementPage = () => {
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
-                                                {taskComments.map((c: any, i) => (
+                                                {[...taskComments].reverse().map((c: any, i) => (
                                                     <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
                                                         <span className="text-xs font-bold text-slate-800 mb-1">
-                                                            {c.author_user_id === 1 ? 'Clients' : (c.author_name || c.user_name || c.full_name || c.author_full_name || projectMembers.find(m => m.user_id === c.author_user_id)?.full_name || `User ${c.author_user_id}`)}
+                                                            {c.author_user_id === 1 ? 'Clients' : (c.author_name || c.user_name || c.full_name || c.author_full_name || projectMembers?.find(m => m.user_id === c.author_user_id)?.full_name || `User ${c.author_user_id}`)}
                                                         </span>
                                                         <p className="text-sm text-slate-700 mb-2">{c.content || c.comment || c.text || ""}</p>
                                                         <span className="text-[10px] text-slate-400">Just now</span>
                                                     </div>
                                                 ))}
+                                                <div ref={chatEndRef} />
                                             </div>
                                         )}
                                     </div>
@@ -2353,18 +2465,8 @@ const TaskManagementPage = () => {
                                 <select
                                     name="project_id"
                                     defaultValue={selectedEditTask?.project_id || projectId || 1}
-                                    onChange={async (e) => {
-                                        const projId = Number(e.target.value);
-                                        if (projId && !isNaN(projId)) {
-                                            try {
-                                                const activities = await workProgressService.listActivities(projId);
-                                                setEditModalActivities(Array.isArray(activities) ? activities : (activities as any).items || (activities as any).data || []);
-                                            } catch (err) {
-                                                setEditModalActivities([]);
-                                            }
-                                        } else {
-                                            setEditModalActivities([]);
-                                        }
+                                    onChange={(e) => {
+                                        // Do nothing for activities since they are global, but keep the standard onchange logic if we add project-specific things later
                                     }}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     required
@@ -2594,7 +2696,7 @@ const TaskManagementPage = () => {
                                     >
                                         <option value="">None</option>
                                         {editModalActivities.map((a: any) => (
-                                            <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                            <option key={a.id} value={a.id}>{a.name || a.activity_name || a.title}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -2690,6 +2792,16 @@ const TaskManagementPage = () => {
                 onConfirm={executeDeleteTask}
                 title="Delete Task"
                 message="Are you sure you want to delete this task? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteRequestModalOpen}
+                onClose={() => { setIsDeleteRequestModalOpen(false); setTaskRequestToDelete(null); }}
+                onConfirm={confirmDeleteTaskRequest}
+                title="Delete Task Request"
+                message="Are you sure you want to delete this task request? This action cannot be undone."
                 confirmText="Delete"
                 type="danger"
             />

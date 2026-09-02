@@ -594,7 +594,7 @@ const DailyProgressEntryPage = () => {
 
     if (cards.length === 0) return null;
 
-    const gridCols = cards.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
+    const gridCols = cards.length === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
 
     return (
       <div className={`grid grid-cols-1 ${gridCols} gap-6 mb-8 font-inter`}>

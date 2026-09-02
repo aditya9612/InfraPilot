@@ -25,6 +25,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
 
   // Resolved name state
@@ -168,6 +169,15 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
       fetchComments();
     }
   }, [modalTab, fetchComments]);
+
+  // Scroll to bottom when comments change
+  useEffect(() => {
+    if (modalTab === "Comments") {
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [comments, modalTab]);
 
   // Dynamically resolve missing user names from comments
   useEffect(() => {
@@ -499,7 +509,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {comments.map((c: any, i) => (
+                    {[...comments].reverse().map((c: any, i) => (
                       <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
                         <span className="text-xs font-bold text-slate-800 mb-1">
                           {c.author_name || userMap[String(c.author_user_id)] || (c.author_user_id === 1 ? 'Clients' : `User ${c.author_user_id}`)}
@@ -510,6 +520,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                         </span>
                       </div>
                     ))}
+                    <div ref={chatEndRef} />
                   </div>
                 )}
               </div>

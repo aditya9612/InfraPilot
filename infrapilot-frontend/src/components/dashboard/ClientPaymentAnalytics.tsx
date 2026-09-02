@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { clientPaymentService, type ClientPaymentAnalytics, type InvoiceSummary } from "../../services/clientPaymentService";
-import { IndianRupee, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { IndianRupee, TrendingUp, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 import StatCard from "../common/StatCard";
 import { useProject } from "../../context/ProjectContext";
@@ -20,6 +20,7 @@ const ClientPaymentAnalyticsUI = () => {
                 let totalCollection = 0;
                 let pendingCount = 0;
                 let successCount = 0;
+                let rejectedCount = 0;
 
                 payments.forEach((p: any) => {
                     const status = (p.status || p.payment_status || '').toLowerCase();
@@ -30,6 +31,8 @@ const ClientPaymentAnalyticsUI = () => {
                         totalCollection += amount;
                     } else if (status.includes('pending')) {
                         pendingCount++;
+                    } else if (status.includes('fail') || status.includes('reject')) {
+                        rejectedCount++;
                     }
                 });
 
@@ -40,7 +43,7 @@ const ClientPaymentAnalyticsUI = () => {
                     pending_verification: pendingCount,
                     successful_payments: successCount,
                     average_payment: average.toString(),
-                    rejected_payments: 0,
+                    rejected_payments: rejectedCount,
                     total_invoices: 0,
                     overdue_invoices: 0,
                     highest_payment: "0",
@@ -56,8 +59,8 @@ const ClientPaymentAnalyticsUI = () => {
 
     if (loading) {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 animate-pulse">
-                {[1, 2, 3, 4].map(i => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8 animate-pulse">
+                {[1, 2, 3, 4, 5].map(i => (
                     <div key={i} className="h-32 bg-slate-200 rounded-2xl w-full"></div>
                 ))}
             </div>
@@ -68,11 +71,12 @@ const ClientPaymentAnalyticsUI = () => {
         total_collection: analytics?.total_collection || "0.00",
         pending_verification: analytics?.pending_verification || 0,
         successful_payments: analytics?.successful_payments || 0,
-        average_payment: analytics?.average_payment || "0.00"
+        average_payment: analytics?.average_payment || "0.00",
+        rejected_payments: analytics?.rejected_payments || 0
     };
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
             <StatCard
                 title="Total Collection"
                 value={`₹${parseFloat(safeAnalytics.total_collection).toLocaleString()}`}
@@ -103,6 +107,14 @@ const ClientPaymentAnalyticsUI = () => {
                 sub="Mean payment size"
                 accent="text-violet-500"
                 icon={<TrendingUp className="w-5 h-5 text-violet-500" />}
+            />
+
+            <StatCard
+                title="Rejected Payments"
+                value={safeAnalytics.rejected_payments.toString()}
+                sub="Failed/Rejected transactions"
+                accent="text-rose-500"
+                icon={<XCircle className="w-5 h-5 text-rose-500" />}
             />
         </div>
     );
