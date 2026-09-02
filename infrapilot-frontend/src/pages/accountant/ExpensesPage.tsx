@@ -70,8 +70,8 @@ const ExpenseEntrySection = () => {
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
   }));
 
-  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex] 
-    ? pieData[hoveredPieIndex] 
+  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex]
+    ? pieData[hoveredPieIndex]
     : (pieData.length > 0 ? [...pieData].sort((a, b) => b.amount - a.amount)[0] : null);
 
   // Trend: use API data if available, else empty
@@ -214,44 +214,22 @@ const ExpenseEntrySection = () => {
 const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-<<<<<<< HEAD
   const [projectName, setProjectName] = useState<string>("");
   const [boqItemName, setBoqItemName] = useState<string>("");
 
   useEffect(() => {
     let isMounted = true;
-=======
-  const [projects, setProjects] = useState<any[]>([]);
-  const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const pdata = await projectService.getProjects(100, 0);
-        setProjects(Array.isArray(pdata) ? pdata : (pdata as any).items || []);
-      } catch (err) {}
-    };
-    if (isOpen) fetchProjects();
-  }, [isOpen]);
-
-  const getProjectName = (id: any) => {
-    const p = projects.find(p => String(p.id) === String(id));
-    return p ? (p.project_name || p.name) : (id || '—');
-  };
-
-  useEffect(() => {
->>>>>>> testing
     const load = async () => {
       if (!expense) return;
       try {
         setLoading(true);
-        const res = await expenseService.getExpenseById(expense.id);
+        const res: any = await expenseService.getExpenseById(expense.id);
         if (!isMounted) return;
         setData(res);
 
         // Resolve Project Name from API response body project_id
         const projId = res?.project_id ?? expense?.project_id;
-        if (projId !== undefined && projId !== null && projId !== "") {
+        if (projId !== undefined && projId !== null && String(projId) !== "") {
           if (res?.project_name) {
             setProjectName(res.project_name);
           } else if (res?.project?.project_name || res?.project?.name) {
@@ -279,7 +257,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
 
         // Resolve BOQ Item Name from boq_item_id
         const boqId = res?.boq_item_id ?? expense?.boq_item_id;
-        if (boqId !== undefined && boqId !== null && boqId !== "") {
+        if (boqId !== undefined && boqId !== null && String(boqId) !== "") {
           if (res?.boq_item_name || res?.boq_name || res?.boq_item?.item_name) {
             setBoqItemName(res.boq_item_name || res.boq_name || res.boq_item?.item_name);
           } else {
@@ -337,11 +315,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
                 </div>
                 <p className="text-white/70 text-xs font-bold mb-2">Expense #{data.id}</p>
                 <div className="flex flex-wrap gap-2">
-<<<<<<< HEAD
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projectName || '—'}</span>
-=======
-                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{getProjectName(data.project_id)}</span>
->>>>>>> testing
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
                 </div>
               </div>
@@ -351,11 +325,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: 'Expense No', value: `EXP-${data.id}` },
-<<<<<<< HEAD
               { label: 'Project', value: projectName || '—' },
-=======
-              { label: 'Project', value: getProjectName(data.project_id) },
->>>>>>> testing
               { label: 'Category', value: data.category || '—' },
               { label: 'Payment Mode', value: data.payment_mode || '—' },
               { label: 'Expense Date', value: data.expense_date || '—' },
@@ -396,7 +366,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
         }
         const boqRes = await boqService.getBoqs({ limit: 100 });
         setBoqItems(boqRes?.items || []);
-      } catch (err) {}
+      } catch (err) { }
     };
     if (isOpen) fetchData();
   }, [isOpen, propProjects]);
@@ -494,7 +464,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
         }
         const boqRes = await boqService.getBoqs({ limit: 100 });
         setBoqItems(boqRes?.items || []);
-      } catch (err) {}
+      } catch (err) { }
     };
     if (isOpen) fetchData();
   }, [isOpen]);
@@ -1242,7 +1212,7 @@ const BOQComparisonSection = () => {
         setLoadingBoq(true);
         setBoqData(null);
         setExpenseSummary(null);
-        
+
         // Fetch BOQ Comparison
         const resBoq = await expenseService.getBoqComparison(selectedProjectId);
         setBoqData(resBoq);
