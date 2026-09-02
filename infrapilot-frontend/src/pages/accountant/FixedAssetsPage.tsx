@@ -9,25 +9,7 @@ import { projectService } from "../../services/projectService";
 import { ChevronLeft, ChevronRight, Eye, QrCode } from "lucide-react";
 
 // --- GENERIC COMPONENTS ---
-const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">{title}</h3></div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {data.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50">
-              {row.map((cell, j) => <td key={j} className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+
 
 const PaginatedTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -253,7 +235,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   const [filterPurchaseDate, setFilterPurchaseDate] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({ project: "", purchaseDate: "" });
 
-  const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
+  const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }];
 
   const fetchAssets = async () => {
     try {
@@ -345,7 +327,6 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
         </div>
       )}
       {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${a.purchase_value || 0}`, `${a.depreciation_rate || 0}%`, `₹${a.current_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
-      {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
 };
@@ -462,77 +443,16 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
   );
 };
 
-const AssetTransferForm = () => (
-  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-    <div className="xl:col-span-2 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Transfer Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>CAT 320 Excavator (AST-2024-001)</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transfer Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">From</label><input type="text" readOnly value="Current Location" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">To Destination *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Select Destination</option></select></div>
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Reason for transfer" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
-    </div>
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5">Process Transfer</h3>
-        <button onClick={() => toast.success("Asset Transferred!")} className="w-full bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md">
-          Execute Transfer
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
-const AssetTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "site");
-  const tabs = [
-    { key: "site", label: "Site Transfer", icon: "🏗️" },
-    { key: "department", label: "Department Transfer", icon: "🏢" },
-    { key: "history", label: "Asset Movement History", icon: "⏳" }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-
-      {activeSubTab === "site" && (
-        <div className="space-y-6">
-          <h2 className="font-bold text-slate-800 px-1">Inter-Site Asset Transfer</h2>
-          <AssetTransferForm />
-        </div>
-      )}
-
-      {activeSubTab === "department" && (
-        <div className="space-y-6">
-          <h2 className="font-bold text-slate-800 px-1">Inter-Department Asset Transfer</h2>
-          <AssetTransferForm />
-        </div>
-      )}
-
-      {activeSubTab === "history" && <GenericTableSection title="Asset Movement History" columns={["Date", "Asset", "From", "To", "Type", "Approved By"]} data={[["2024-09-01", "CAT 320 Excavator", "Project A", "Metro Line 3", "Site Transfer", "Rahul Verma"]]} />}
-    </div>
-  );
-};
 
 
 // --- MAIN PAGE ---
-type TabKey = "assets" | "depreciation" | "maintenance" | "transfers";
+type TabKey = "assets" | "depreciation" | "maintenance";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "assets", label: "Assets" },
   { key: "depreciation", label: "Depreciation" },
   { key: "maintenance", label: "Maintenance" },
-  { key: "transfers", label: "Transfer" },
 ];
 
 const FixedAssetsPage = () => {
@@ -549,7 +469,6 @@ const FixedAssetsPage = () => {
       "assets": "assets",
       "depreciation": "depreciation",
       "maintenance": "maintenance",
-      "transfers": "transfers",
     };
     return map[currentSub || ""] || "assets";
   };
@@ -579,11 +498,6 @@ const FixedAssetsPage = () => {
     maintenance: {
       title: "Maintenance",
       subtitle: "Log and track asset maintenance activities.",
-      actions: null,
-    },
-    transfers: {
-      title: "Transfers",
-      subtitle: "Manage transfer of assets across branches or projects.",
       actions: null,
     },
   };
@@ -625,7 +539,6 @@ const FixedAssetsPage = () => {
         {activeTab === "assets" && <AssetRegisterWrapper />}
         {activeTab === "depreciation" && <DepreciationWrapper />}
         {activeTab === "maintenance" && <AssetMaintenanceWrapper />}
-        {activeTab === "transfers" && <AssetTransfersWrapper />}
       </PageTransition>
     </>
   );

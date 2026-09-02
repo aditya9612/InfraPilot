@@ -270,7 +270,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
                 </div>
                 <p className="text-white/70 text-xs font-bold mb-2">Expense #{data.id}</p>
                 <div className="flex flex-wrap gap-2">
-                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{getProjectName(data.project_id)}</span>
+                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{data.project_name || getProjectName(data.project_id)}</span>
                   <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Amount: ₹{Number(data.amount).toLocaleString("en-IN")}</span>
                 </div>
               </div>
@@ -280,7 +280,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: 'Expense No', value: `EXP-${data.id}` },
-              { label: 'Project', value: getProjectName(data.project_id) },
+              { label: 'Project', value: data.project_name || getProjectName(data.project_id) },
               { label: 'Category', value: data.category || '—' },
               { label: 'Payment Mode', value: data.payment_mode || '—' },
               { label: 'Expense Date', value: data.expense_date || '—' },
@@ -667,6 +667,7 @@ const ExpenseListSection = () => {
               <option value="Cash">Cash</option>
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
+              <option value="auto">auto</option>
             </select>
             <input type="date" value={startDate} onChange={e => handleDateChange('start', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />
             <input type="date" value={endDate} onChange={e => handleDateChange('end', e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-slate-600" />

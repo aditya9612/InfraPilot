@@ -11,8 +11,9 @@ import { accountingService } from "../../services/accountingService";
 // --- UTILS ---
 const fmt = (num: number) => `₹${(Number(num) || 0).toLocaleString("en-IN")}`;
 const statusBadge = (s: string) => {
-  if (s === "Paid" || s === "Approved") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
-  if (s === "Partial" || s === "Pending") return "bg-amber-100 text-amber-700 border border-amber-200";
+  const status = (s || "").toLowerCase();
+  if (status === "paid" || status === "approved") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+  if (status === "partial" || status === "pending") return "bg-amber-100 text-amber-700 border border-amber-200";
   return "bg-rose-100 text-rose-700 border border-rose-200";
 };
 
@@ -384,6 +385,8 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [viewingBillId, setViewingBillId] = useState<number | null>(null);
   const [viewingBillDetails, setViewingBillDetails] = useState<any>(null);
   const [isViewingLoading, setIsViewingLoading] = useState(false);
+  const [approvingBillId, setApprovingBillId] = useState<number | null>(null);
+  const [payingVendorBill, setPayingVendorBill] = useState<any>(null);
   const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
   const [billItems, setBillItems] = useState<any[]>([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
 
@@ -449,7 +452,8 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   const fetchPayables = async () => {
     try {
-      const data = await accountingService.getPayables();
+      const res = await api.get('/vendor-bills');
+      const data = res.data;
       const items = data?.items || data?.data || data || [];
       setVendorBills(Array.isArray(items) ? items : []);
     } catch (err) {
@@ -486,23 +490,59 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
-  const handleApprove = async (id: number) => {
+  const handleApproveSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!approvingBillId) return;
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      status: formData.get("status") as string,
+      notes: formData.get("notes") as string,
+    };
     try {
-      await api.post(`/vendor-bills/${id}/approve`);
-      toast.success("Vendor bill approved!");
+      await api.post(`/vendor-bills/${approvingBillId}/approve`, payload);
+      toast.success("Vendor bill approval status updated!");
+      setApprovingBillId(null);
       fetchPayables();
     } catch (err) {
-      toast.error("Failed to approve bill");
+      toast.error("Failed to update approval status");
     }
   };
 
-  const handlePay = async (id: number) => {
+  const handlePaySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!payingVendorBill) return;
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      amount: Number(formData.get("amount")),
+      mode: formData.get("mode") as string,
+      reference: formData.get("reference") as string,
+      payment_date: formData.get("payment_date") as string,
+    };
     try {
-      await api.post(`/vendor-bills/${id}/pay`);
+      await api.post(`/vendor-bills/${payingVendorBill.id}/pay`, payload);
       toast.success("Payment recorded!");
+      setPayingVendorBill(null);
       fetchPayables();
     } catch (err) {
       toast.error("Failed to record payment");
+    }
+  };
+
+  const handleReversePayment = async (billId: number, transactionId: string | number) => {
+    if (!transactionId || transactionId === "N/A") {
+      toast.error("Invalid transaction ID");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to reverse this payment?")) return;
+    try {
+      await api.post(`/vendor-bills/${billId}/reverse-payment/${transactionId}`);
+      toast.success("Payment reversed successfully!");
+      fetchPayables();
+      if (viewingBillDetails && viewingBillDetails.id === billId) {
+        handleViewBill(billId); // refresh details
+      }
+    } catch (err) {
+      toast.error("Failed to reverse payment");
     }
   };
 
@@ -560,8 +600,11 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
            projName.toLowerCase().includes((search || "").toLowerCase());
   });
 
-  const filteredApproval = vendorBills.filter(b => b.status === "Pending");
-  const filteredPayments = vendorBills.filter(b => b.status === "Approved" || b.status === "Partial");
+  const filteredApproval = vendorBills.filter(b => (b.status || "").toLowerCase() === "pending");
+  const filteredPayments = vendorBills.filter(b => {
+    const s = (b.status || "").toLowerCase();
+    return s === "approved" || s === "partial";
+  });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -826,20 +869,26 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <p className="text-xs text-slate-400 mt-0.5">Bills pending manager or finance approval</p>
             </div>
           </div>
-          <div className="divide-y divide-slate-50">
-            {filteredApproval.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
-              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">PO: {b.po} · Date: {b.date}</p>
+          {filteredApproval.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-slate-400 text-sm">No bills pending approval.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {filteredApproval.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
+                <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{b.supplier_name || b.vendor || "Unknown Supplier"} — {b.bill_number || b.bill_no}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">PO: {assignedPOs.find(p => p.id === b.purchase_order_id)?.name || b.purchase_order_id || b.po || '-'} · Date: {b.bill_date || b.date || '-'}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-bold text-slate-800">{fmt(b.total_amount || b.payable || 0)}</span>
+                    <button onClick={() => setApprovingBillId(b.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all">Approve</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable)}</span>
-                  <button onClick={() => handleApprove(b.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all">Approve</button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           {filteredApproval.length > 0 && (
             <PaginationControls 
               currentPage={currentPage} setCurrentPage={setCurrentPage} 
@@ -858,20 +907,26 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <p className="text-xs text-slate-400 mt-0.5">Approved bills pending payment</p>
             </div>
           </div>
-          <div className="divide-y divide-slate-50">
-            {filteredPayments.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
-              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Due: {b.due}</p>
+          {filteredPayments.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-slate-400 text-sm">No bills pending payment.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {filteredPayments.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(b => (
+                <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{b.supplier_name || b.vendor || "Unknown Supplier"} — {b.bill_number || b.bill_no}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Due: {b.due_date || b.due || '-'}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-bold text-slate-800">{fmt((b.total_amount || b.payable || 0) - (b.amount_paid || b.paid || 0))} Due</span>
+                    <button onClick={() => setPayingVendorBill(b)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Pay Vendor Bill</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable - b.paid)} Due</span>
-                  <button onClick={() => handlePay(b.id)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Record Payment</button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           {filteredPayments.length > 0 && (
             <PaginationControls 
               currentPage={currentPage} setCurrentPage={setCurrentPage} 
@@ -976,11 +1031,119 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                         </div>
                       </div>
                     )}
+
+                    {/* Payment Transactions Table */}
+                    {(Array.isArray(b.transactions) || Array.isArray(b.payments)) && (b.transactions || b.payments).length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">Payment Transactions</h4>
+                        <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                          <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Transaction ID</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Date</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Mode</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-right">Amount</th>
+                                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {(b.transactions || b.payments).map((txn: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-xs font-bold text-slate-700">{txn.id || txn.transaction_id || "N/A"}</td>
+                                  <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{txn.date || txn.payment_date || "—"}</td>
+                                  <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{txn.mode || txn.payment_mode || "—"}</td>
+                                  <td className="px-4 py-3 text-xs font-black text-emerald-600 text-right">{fmt(txn.amount || txn.paid_amount || 0)}</td>
+                                  <td className="px-4 py-3 text-right">
+                                    <button onClick={() => handleReversePayment(b.id, txn.id || txn.transaction_id)} className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold transition-all">Reverse</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Approve Bill Modal */}
+      {approvingBillId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <form onSubmit={handleApproveSubmit} className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Approve Vendor Bill</h3>
+                <p className="text-xs text-slate-500 font-medium">Update the approval status</p>
+              </div>
+              <button type="button" onClick={() => setApprovingBillId(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors">✕</button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Status</label>
+                <select name="status" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                  <option value="Approved">Approve</option>
+                  <option value="Rejected">Reject</option>
+                  <option value="Hold">Hold</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Notes / Remarks</label>
+                <textarea name="notes" rows={3} placeholder="Add any approval notes here..." className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all resize-none"></textarea>
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <button type="button" onClick={() => setApprovingBillId(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl shadow-sm transition-all">Confirm</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Pay Vendor Bill Modal */}
+      {payingVendorBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <form onSubmit={handlePaySubmit} className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Pay Vendor Bill</h3>
+                <p className="text-xs text-slate-500 font-medium">Record a new payment transaction</p>
+              </div>
+              <button type="button" onClick={() => setPayingVendorBill(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors">✕</button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Amount</label>
+                <input type="number" name="amount" defaultValue={((payingVendorBill.total_amount || payingVendorBill.payable || 0) - (payingVendorBill.amount_paid || payingVendorBill.paid || 0)) || 0} required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Mode</label>
+                <select name="mode" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference (Optional)</label>
+                <input type="text" name="reference" placeholder="e.g. UTR / Cheque No" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Date</label>
+                <input type="date" name="payment_date" defaultValue={new Date().toISOString().split('T')[0]} required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <button type="button" onClick={() => setPayingVendorBill(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all">Submit Payment</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

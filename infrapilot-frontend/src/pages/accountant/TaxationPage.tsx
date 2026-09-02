@@ -849,7 +849,17 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">party_name *</label><input type="text" required value={formData.party_name} onChange={(e) => setFormData({...formData, party_name: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pan_number *</label><input type="text" required value={formData.pan_number} onChange={(e) => setFormData({...formData, pan_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label><input type="text" value={formData.invoice_number || ""} onChange={(e) => setFormData({...formData, invoice_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label>
+            <select value={formData.invoice_number || ""} onChange={(e) => setFormData({...formData, invoice_number: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option value="">Select Invoice</option>
+              <option value="INV-2026-001">INV-2026-001</option>
+              <option value="INV-2026-002">INV-2026-002</option>
+              <option value="INV-2026-003">INV-2026-003</option>
+              <option value="INV-2026-004">INV-2026-004</option>
+              {initialData?.invoice_number && !["INV-2026-001","INV-2026-002","INV-2026-003","INV-2026-004"].includes(initialData.invoice_number) && <option value={initialData.invoice_number}>{initialData.invoice_number}</option>}
+            </select>
+          </div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">payment_amount</label><input type="number" required value={formData.payment_amount || ""} onChange={(e) => setFormData({...formData, payment_amount: Number(e.target.value) || 0})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
           <div className="col-span-2 space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_section *</label>

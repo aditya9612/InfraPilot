@@ -36,7 +36,7 @@ const ViewAccountModal: React.FC<ViewAccountModalProps> = ({ isOpen, onClose, ac
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Account Type</p>
-              <p className="text-sm font-semibold text-slate-800">{accountData.type || accountData.account_type || "-"}</p>
+              <p className="text-sm font-semibold text-slate-800 capitalize">{accountData.type || accountData.account_type || "-"}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>

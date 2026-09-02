@@ -293,11 +293,12 @@ const InvoicesSection = ({
   const winRate = allQuotations.length > 0 ? Math.round((approvedQuotationsCount / allQuotations.length) * 100) : 0;
 
   const pendingDraftsCount = allQuotations.filter(inv => !inv.status || inv.status?.toLowerCase() === "draft").length;
+  const sentQuotationsCount = allQuotations.filter(inv => inv.status?.toLowerCase() === "sent").length;
 
   return (
     <div className="space-y-5">
       {activeSubTab === "quotation_list" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pipeline Value</p>
             <p className="text-2xl font-bold text-blue-600">{fmt(totalPipelineValue)}</p>
@@ -312,6 +313,11 @@ const InvoicesSection = ({
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Drafts</p>
             <p className="text-2xl font-bold text-orange-500">{pendingDraftsCount}</p>
             <p className="text-xs text-slate-400 mt-2">Requires admin review</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sent Quotations</p>
+            <p className="text-2xl font-bold text-indigo-500">{sentQuotationsCount}</p>
+            <p className="text-xs text-slate-400 mt-2">Awaiting client response</p>
           </div>
         </div>
       )}
@@ -818,7 +824,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                       <td className="px-4 py-3 text-xs text-slate-600">{inv.pending_amount}</td>
                       <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status)}`}>{inv.status || "PENDING"}</span></td>
                       <td className="px-4 py-3 text-xs text-slate-600">{inv.description}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{inv.created_at ? new Date(inv.created_at).toLocaleString() : ''}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{inv.created_at || ''}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-row gap-3 items-center justify-start">
                           <button onClick={() => setViewInvoiceId(inv.id)} title="View" className="text-slate-400 hover:text-primary transition-colors"><Eye className="w-4 h-4" /></button>
@@ -967,7 +973,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
       )}
 
       {viewInvoiceId && (
-        <InvoiceViewModal invoiceId={viewInvoiceId} projects={projects} onClose={() => setViewInvoiceId(null)} />
+        <InvoiceViewModal invoiceId={viewInvoiceId} projects={projects} onClose={() => setViewInvoiceId(null)} onSuccess={() => { setViewInvoiceId(null); refreshInvoices(); }} />
       )}
 
       {editInvoiceId && (
@@ -2416,8 +2422,8 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
   const tds = bill.tds_amount || 0;
   const retention = bill.retention_amount || 0;
   const sec = bill.security_deposit_recovery || 0;
-  const totalDeductions = tds + retention + sec;
-  const netPayable = totalAmount - totalDeductions;
+  const totalDeductions = tds + retention + sec || bill.deductions || 0;
+  const netPayable = bill.net_amount ?? (totalAmount - totalDeductions);
 
   return (
     <Modal isOpen={!!bill} onClose={onClose} title="RA Bill Profile" maxWidth="max-w-4xl">
@@ -2489,6 +2495,14 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><FileText size={14} /> Work Order</p>
               <p className="text-sm font-bold text-slate-800">{woName}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantity</p>
+              <p className="text-sm font-semibold text-slate-700">{bill.quantity || "—"}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rate</p>
+              <p className="text-sm font-semibold text-slate-700">{bill.rate != null ? fmt(bill.rate) : "—"}</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>

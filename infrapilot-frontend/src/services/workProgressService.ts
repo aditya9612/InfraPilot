@@ -42,7 +42,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number, limit?: number, offset?: number): Promise<ActivityItem[]> {
     const params: Record<string, any> = {};
-    if (project_id) params.project_id = project_id;
+    if (project_id !== undefined && project_id !== null) params.project_id = project_id;
     if (engineer_id) params.engineer_id = engineer_id;
     if (limit !== undefined) params.limit = limit;
     if (offset !== undefined) params.offset = offset;

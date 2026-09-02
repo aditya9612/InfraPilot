@@ -280,12 +280,16 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [payments, setPayments] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [vendorBills, setVendorBills] = useState<any[]>([]);
+  const [contractors, setContractors] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
 
   const [editingPayment, setEditingPayment] = useState<any>(null);
 
   useEffect(() => {
     materialService.getSuppliers().then(res => setSuppliers(res || [])).catch(()=>null);
     api.get("/vendor-bills").then(res => setVendorBills(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(()=>null);
+    api.get("/contractors", { params: { limit: 200 } }).then(res => setContractors(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(()=>null);
+    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
   }, []);
 
   const fetchPayments = async () => {
@@ -330,12 +334,27 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newPay: any = {};
-    formData.forEach((value, key) => { newPay[key] = value; });
-    newPay.amount = Number(newPay.amount || 0);
+    
+    let dateStr = formData.get("payment_date") as string;
+    const payload = {
+      payment_date: dateStr ? new Date(dateStr).toISOString() : new Date().toISOString(),
+      party_type: formData.get("party_type") as string || "",
+      supplier_id: Number(formData.get("supplier_id")) || 0,
+      contractor_id: Number(formData.get("contractor_id")) || 0,
+      vendor_bill_id: Number(formData.get("vendor_bill_id")) || 0,
+      base_amount: Number(formData.get("base_amount")) || 0,
+      gst_amount: Number(formData.get("gst_amount")) || 0,
+      gross_amount: Number(formData.get("gross_amount")) || 0,
+      tds_amount: Number(formData.get("tds_amount")) || 0,
+      retention_amount: Number(formData.get("retention_amount")) || 0,
+      net_payable_amount: Number(formData.get("net_payable_amount")) || 0,
+      payment_method: formData.get("payment_method") as string || "",
+      bank_account_id: Number(formData.get("bank_account_id")) || 0,
+      reference_no: formData.get("reference_no") as string || ""
+    };
 
     try {
-      await accountingService.createPaymentVoucher(newPay);
+      await accountingService.createPaymentVoucher(payload);
       toast.success("Payment voucher submitted!");
       fetchPayments();
       setActiveSubTab("list");
@@ -384,18 +403,23 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               <tbody className="divide-y divide-slate-50">
                 {filtered.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs text-slate-500">{p.date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{p.date || p.payment_date?.split('T')[0] || '-'}</td>
                     <td className="px-4 py-3 text-xs font-bold text-rose-600">{p.id}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{p.party}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{p.type}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{p.amount?.toLocaleString("en-IN")}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{p.mode}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600`}>{p.status}</span></td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{p.party || p.supplier?.name || p.supplier?.supplier_name || p.contractor?.name || p.contractor?.contractor_name || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{p.type || p.party_type || '-'}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{Number(p.amount ?? p.net_payable_amount ?? p.base_amount ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{p.mode || p.payment_method || '-'}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600`}>{p.status || 'PENDING'}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="View">👁</button>
+                        {p.status !== "Paid" && p.status !== "Cancelled" && (
+                          <button onClick={() => handleApprove(p.id)} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 transition-all" title="Mark Paid">✓</button>
+                        )}
                         <button onClick={() => { setEditingPayment(p); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
+                        {p.status !== "Cancelled" && (
+                          <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Cancel">🚫</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -438,10 +462,11 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor *</label>
-                  <select name="contractor_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                  <select name="contractor_id" defaultValue={editingPayment?.contractor_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
                     <option value="0">None</option>
-                    <option value="1">Contractor X</option>
-                    <option value="2">Contractor Y</option>
+                    {contractors.map(c => (
+                      <option key={c.id} value={c.id}>{c.name || c.contractor_name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -495,10 +520,11 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
-                  <select name="bank_account_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                  <select name="bank_account_id" defaultValue={editingPayment?.bank_account_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
                     <option value="0">Select Bank Account...</option>
-                    <option value="1">HDFC Bank - Current A/c - 1234</option>
-                    <option value="2">SBI Bank - Escrow A/c - 5678</option>
+                    {bankAccounts.map(b => (
+                      <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -582,7 +608,8 @@ const PettyCashSection = () => {
     accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
     accountingService.getAccounts({ limit: 100 }).then(res => {
       const accounts = Array.isArray(res) ? res : res?.items || res?.data || [];
-      setExpenseAccounts(accounts.filter((a: any) => a.type === 'Expense' || a.account_type === 'Expense'));
+      // Removing the strict filter temporarily to ensure the list populates
+      setExpenseAccounts(accounts);
     }).catch(() => {});
     fetchPettyCash();
   }, []);
@@ -599,8 +626,8 @@ const PettyCashSection = () => {
   });
 
   const handleSaveTransaction = async () => {
-    if (!formData.amount || !formData.category_id || !formData.source_account_id) {
-      toast.error("Please fill required fields (Category, Source Account, Amount)");
+    if (!formData.amount || !formData.source_account_id) {
+      toast.error("Please fill required fields (Source Account, Amount)");
       return;
     }
     setIsSubmitting(true);
@@ -608,11 +635,11 @@ const PettyCashSection = () => {
       await accountingService.createPettyCashTransaction({
         type: formData.type,
         transaction_date: formData.transaction_date,
-        category_id: Number(formData.category_id),
+        category_id: Number(formData.category_id) || null,
         source_account_id: Number(formData.source_account_id),
         amount: Number(formData.amount),
         paid_to_received_from: formData.paid_to_received_from,
-        approved_by: Number(formData.approved_by),
+        approved_by: Number(formData.approved_by) || null,
         remarks: formData.remarks
       });
       toast.success("Petty Cash transaction added successfully!");
@@ -655,7 +682,7 @@ const PettyCashSection = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label><select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label><input type="date" value={formData.transaction_date} onChange={(e) => setFormData({...formData, transaction_date: e.target.value})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category *</label><select value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select...</option>{expenseAccounts.map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select value={formData.category_id || 0} onChange={(e) => setFormData({...formData, category_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>None</option>{expenseAccounts.map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Account *</label><select value={formData.source_account_id} onChange={(e) => setFormData({...formData, source_account_id: Number(e.target.value)})} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (₹) *</label><input type="number" value={formData.amount || ""} onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})} placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid To / Received From</label><input type="text" value={formData.paid_to_received_from} onChange={(e) => setFormData({...formData, paid_to_received_from: e.target.value})} placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>

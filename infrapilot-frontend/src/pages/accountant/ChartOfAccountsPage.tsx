@@ -173,7 +173,6 @@ const ChartOfAccountsPage = () => {
 
   const handleCreateAccount = () => {
     fetchAccounts();
-    toast.success(editingAccount ? "Account updated successfully!" : "Account created successfully!");
     setIsModalOpen(false);
     setEditingAccount(null);
   };
@@ -431,7 +430,7 @@ const ChartOfAccountsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 text-sm font-bold text-slate-700">{acc.account_name}</td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${accountTypeStyle[acc.account_type] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                          <span className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full capitalize tracking-wider border ${accountTypeStyle[acc.account_type] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
                             {acc.account_type}
                           </span>
                         </td>

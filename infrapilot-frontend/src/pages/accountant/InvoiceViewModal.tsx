@@ -7,7 +7,7 @@ import { projectService } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
 import toast from "react-hot-toast";
 
-export default function InvoiceViewModal({ invoiceId, projects, onClose }: { invoiceId: number | null; projects: any[]; onClose: () => void }) {
+export default function InvoiceViewModal({ invoiceId, projects, onClose, onSuccess }: { invoiceId: number | null; projects: any[]; onClose: () => void; onSuccess?: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetchedOwnerName, setFetchedOwnerName] = useState<string>("");
@@ -73,10 +73,10 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
     if (!invoiceId) return;
     setIsPaying(true);
     try {
-      await financeService.payInvoice(invoiceId, {
+      await financeService.payInvoice(invoiceId as number, {
         amount: Number(paymentData.amount),
-        mode: paymentData.mode,
-        reference: paymentData.reference
+        payment_mode: paymentData.mode,
+        reference_no: paymentData.reference
       });
       toast.success("Payment recorded successfully!");
       setShowPaymentForm(false);
@@ -89,6 +89,10 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
       ]);
       setData(res.data);
       setTransactions(txRes || []);
+      
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Failed to record payment");
     } finally {
