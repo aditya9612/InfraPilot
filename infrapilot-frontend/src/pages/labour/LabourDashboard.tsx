@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
 import { attendanceService } from '../../services/attendanceService';
 import { projectService } from '../../services/projectService';
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import type { Task } from '../../types/task';
 import {
     Clipboard,
@@ -92,6 +93,7 @@ const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
     const { speak } = useTextToAudio();
     const navigate = useNavigate();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
 
     // ── state ──
     const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -113,7 +115,7 @@ const LabourDashboard: React.FC = () => {
     const [monthEarnings, setMonthEarnings] = useState(0);
 
     // Project & labour info
-    const [projectName, setProjectName] = useState('');
+    const [projectName, setProjectName] = useState(activeProjectName || '');
     const [contractorName, setContractorName] = useState('');
     const [siteName, setSiteName] = useState('');
     const [siteAddress, setSiteAddress] = useState('');
@@ -138,18 +140,20 @@ const LabourDashboard: React.FC = () => {
     const [nextPaymentDate, setNextPaymentDate] = useState('');
 
     useEffect(() => {
-        const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
-        const selectedPid = savedIdStr ? Number(savedIdStr) : 4;
+        if (!activeProjectId && isProjectLoading) return;
+        const selectedPid = activeProjectId || undefined;
+
+        let resolvedProjectName = activeProjectName || '';
 
         const fetchAll = async () => {
             setIsLoading(true);
             try {
                 const [dashData, tasksResponse, todayStatus, attendanceList, paymentData] = await Promise.all([
                     dashboardService.getLabourDashboard(selectedPid).catch(() => null),
-                    projectService.getTasks(selectedPid).catch(() => null),
+                    selectedPid ? projectService.getTasks(selectedPid).catch(() => null) : null,
                     attendanceService.getTodayStatus().catch(() => null),
-                    attendanceService.getListAttendance({ project_id: selectedPid, page: 1, page_size: 100 }).catch(() => null),
-                    dashboardService.getLabourPayments().catch(() => null),
+                    attendanceService.getListAttendance(selectedPid ? { project_id: selectedPid, page: 1, page_size: 100 } : { page: 1, page_size: 100 }).catch(() => null),
+                    dashboardService.getLabourPayments(selectedPid ? { project_id: selectedPid } : undefined).catch(() => null),
                 ]);
 
                 // ── Today status ──
@@ -171,7 +175,14 @@ const LabourDashboard: React.FC = () => {
                     const lbr = d.labour || d.labour_details || d.profile || {};
 
                     const projName = d.project_name || prof.project_name || lbr.project_name;
-                    if (projName) setProjectName(projName);
+                    if (projName) {
+                        resolvedProjectName = projName;
+                        setProjectName(projName);
+                        localStorage.setItem("client_selected_project_name", projName);
+                        localStorage.setItem("infrapilot_selected_project_name", projName);
+                    } else if (activeProjectName) {
+                        setProjectName(activeProjectName);
+                    }
 
                     const contName = d.contractor_name || prof.contractor_name || lbr.contractor_name || user?.contractor_name || (user as any)?.contractor;
                     if (contName) setContractorName(contName);
@@ -315,6 +326,8 @@ const LabourDashboard: React.FC = () => {
                         : (dashData?.pending ?? 0));
                 }
 
+                const displayProjectName = resolvedProjectName || activeProjectName || user?.project_name || '-';
+
                 const mappedTasks: Task[] = rawTasks.map((t: any) => {
                     const rawStatus = t.status || 'Pending';
                     let formattedStatus = 'Pending';
@@ -332,8 +345,8 @@ const LabourDashboard: React.FC = () => {
                     return {
                         id: String(t.task_id || t.id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`),
                         name: t.title || t.name || t.task_name || 'Unnamed Task',
-                        project: t.project_name || t.project || projectName || 'Sara City',
-                        project_id: t.project_id || selectedPid || 4,
+                        project: t.project_name || t.project || displayProjectName,
+                        project_id: t.project_id || selectedPid || 0,
                         assignedTo: t.assigned_to_name || t.assignedTo || user?.name || 'Self',
                         assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
                         description: t.description || 'No description provided.',
@@ -346,20 +359,21 @@ const LabourDashboard: React.FC = () => {
                 });
                 setTasks(mappedTasks);
 
-                // ── Project name fallback ──
-                if (!projectName) {
-                    const savedName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name");
-                    if (savedName) setProjectName(savedName);
-                    else {
-                        try {
-                            const proj = await projectService.getProjectById(selectedPid);
-                            if (proj) {
-                                setProjectName((proj as any).project_name || (proj as any).name || '');
-                                setSiteName(prev => prev || (proj as any).site_name || (proj as any).project_name || '');
-                                setSiteAddress(prev => prev || (proj as any).site_address || (proj as any).address || '');
+                // ── Project fallback if needed ──
+                if (!resolvedProjectName && selectedPid) {
+                    try {
+                        const proj = await projectService.getProjectById(selectedPid);
+                        if (proj) {
+                            const pName = (proj as any).project_name || (proj as any).name || '';
+                            if (pName) {
+                                setProjectName(pName);
+                                localStorage.setItem("client_selected_project_name", pName);
+                                localStorage.setItem("infrapilot_selected_project_name", pName);
                             }
-                        } catch { /* ignore */ }
-                    }
+                            setSiteName(prev => prev || (proj as any).site_name || pName || '');
+                            setSiteAddress(prev => prev || (proj as any).site_address || (proj as any).address || '');
+                        }
+                    } catch { /* ignore */ }
                 }
 
             } catch (err) {
@@ -371,19 +385,7 @@ const LabourDashboard: React.FC = () => {
         };
 
         fetchAll();
-
-        const handleProjectChange = () => {
-            const updatedName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name");
-            if (updatedName) setProjectName(updatedName);
-            fetchAll();
-        };
-        window.addEventListener('storage', handleProjectChange);
-        window.addEventListener('project_changed', handleProjectChange);
-        return () => {
-            window.removeEventListener('storage', handleProjectChange);
-            window.removeEventListener('project_changed', handleProjectChange);
-        };
-    }, [user?.name]);
+    }, [user?.name, activeProjectId, activeProjectName, isProjectLoading]);
 
     /* ── handlers ── */
     const handleUpdateTask = (id: string, status: string) => {
@@ -395,7 +397,7 @@ const LabourDashboard: React.FC = () => {
 
     const handleTaskClick = (task: Task) => {
         if (task.status === 'Completed') return;
-        navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+        navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || activeProjectId || ''}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
     };
 
     /* ── stats row config ── */
@@ -450,7 +452,7 @@ const LabourDashboard: React.FC = () => {
                                     <Briefcase className="w-4 h-4 text-slate-400" />
                                     <span className="font-medium">Project</span>
                                     <span className="text-slate-300 mx-1">|</span>
-                                    <span className="font-bold text-slate-800">{projectName || user?.project_name || '-'}</span>
+                                    <span className="font-bold text-slate-800">{projectName || activeProjectName || user?.project_name || '-'}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-sm text-slate-600">
                                     <User className="w-4 h-4 text-slate-400" />

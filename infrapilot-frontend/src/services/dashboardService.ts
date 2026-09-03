@@ -198,248 +198,288 @@ export const dashboardService = {
    * This method normalises it to the flat ClientDashboardData shape the UI expects.
    */
   async getClientDashboard(projectId: number): Promise<ClientDashboardData> {
-    const response = await api.get<any>('/dashboard/client', {
-      params: { project_id: projectId },
-    });
-    const raw = response.data;
-    console.log('GET /api/v1/dashboard/client RAW Response:', JSON.stringify(raw, null, 2));
+    try {
+      const response = await api.get<any>('/dashboard/client', {
+        params: { project_id: projectId },
+      });
+      const raw = response.data;
+      console.log('GET /api/v1/dashboard/client RAW Response:', JSON.stringify(raw, null, 2));
 
-    if (!raw || typeof raw !== 'object') return raw as ClientDashboardData;
+      if (!raw || typeof raw !== 'object') return raw as ClientDashboardData;
 
-    // ── Nested section aliases ──────────────────────────────────────────
-    const project       = raw.project        ?? {};
-    const overview      = raw.overview       ?? {};
-    const budget        = raw.budget_analysis ?? raw.budget ?? raw.financials ?? {};
-    const progress      = raw.progress       ?? raw.work_progress ?? {};
-    const tasks         = raw.tasks          ?? raw.task_summary ?? {};
-    const milestones    = raw.milestones     ?? raw.milestone_summary ?? {};
-    const timeline      = raw.timeline       ?? raw.timeline_overview ?? {};
-    const schedule      = raw.schedule       ?? raw.schedule_overview ?? {};
-    const risk          = raw.risk           ?? raw.risk_analysis ?? {};
-    const kpis          = raw.kpis           ?? raw.key_kpis ?? {};
+      // ── Nested section aliases ──────────────────────────────────────────
+      const project       = raw.project        ?? {};
+      const overview      = raw.overview       ?? {};
+      const budget        = raw.budget_analysis ?? raw.budget ?? raw.financials ?? {};
+      const progress      = raw.progress       ?? raw.work_progress ?? {};
+      const tasks         = raw.tasks          ?? raw.task_summary ?? {};
+      const milestones    = raw.milestones     ?? raw.milestone_summary ?? {};
+      const timeline      = raw.timeline       ?? raw.timeline_overview ?? {};
+      const schedule      = raw.schedule       ?? raw.schedule_overview ?? {};
+      const risk          = raw.risk           ?? raw.risk_analysis ?? {};
+      const kpis          = raw.kpis           ?? raw.key_kpis ?? {};
 
-    // ── Normalised flat object ─────────────────────────────────────────
-    const normalized: ClientDashboardData = {
-      // ── Spread everything from all nested sections first (catch-all) ──
-      ...project,
-      ...overview,
-      ...budget,
-      ...progress,
-      ...tasks,
-      ...milestones,
-      ...timeline,
-      ...schedule,
-      ...risk,
-      ...kpis,
-      // Also spread any flat top-level fields (backward-compat)
-      ...raw,
+      // ── Normalised flat object ─────────────────────────────────────────
+      const normalized: ClientDashboardData = {
+        // Spread nested sections first
+        ...project,
+        ...overview,
+        ...budget,
+        ...progress,
+        ...tasks,
+        ...milestones,
+        ...timeline,
+        ...schedule,
+        ...risk,
+        ...kpis,
+        ...raw,
 
-      // ── Project identity ──────────────────────────────────────────────
-      project_id:   Number(raw.project_id   ?? project.project_id   ?? projectId),
-      project_name:          raw.project_name ?? project.project_name ?? "",
-      status:                raw.status       ?? project.status       ?? "",
-      start_date:            raw.start_date   ?? project.start_date   ?? "",
-      end_date:              raw.end_date     ?? project.end_date     ?? "",
-      expense_trend:         Array.isArray(raw.expense_trend) ? raw.expense_trend : (Array.isArray(budget.expense_trend) ? budget.expense_trend : []),
+        // Project identity
+        project_id:   Number(raw.project_id   ?? project.project_id   ?? projectId),
+        project_name:          raw.project_name ?? project.project_name ?? "",
+        status:                raw.status       ?? project.status       ?? "",
+        start_date:            raw.start_date   ?? project.start_date   ?? "",
+        end_date:              raw.end_date     ?? project.end_date     ?? "",
+        expense_trend:         Array.isArray(raw.expense_trend) ? raw.expense_trend : (Array.isArray(budget.expense_trend) ? budget.expense_trend : []),
 
-      // ── Progress ──────────────────────────────────────────────────────
-      actual_progress: Number(
-        raw.actual_progress           ??
-        schedule.actual_progress      ??
-        progress.actual_progress      ??
-        raw.progress_percent          ??
-        progress.progress_percent     ??
-        0
-      ),
-      progress_percent: Number(
-        raw.actual_progress           ??
-        schedule.actual_progress      ??
-        raw.progress_percent          ??
-        raw.progress                  ??
-        raw.overall_progress          ??
-        raw.completion_percent        ??
-        progress.progress_percent     ??
-        progress.progress             ??
-        progress.completion_percent   ??
-        progress.actual_progress      ??
-        progress.overall_progress     ??
-        schedule.progress             ??
-        schedule.progress_percent     ??
-        schedule.actual_percent       ??
-        overview.progress             ??
-        overview.progress_percent     ??
-        overview.overall_progress     ??
-        project.progress              ??
-        project.progress_percent      ??
-        project.overall_progress      ??
-        kpis.progress                 ??
-        kpis.progress_percent         ??
-        0
-      ),
+        // Progress
+        actual_progress: Number(
+          raw.actual_progress           ??
+          schedule.actual_progress      ??
+          progress.actual_progress      ??
+          raw.progress_percent          ??
+          progress.progress_percent     ??
+          0
+        ),
+        progress_percent: Number(
+          raw.actual_progress           ??
+          schedule.actual_progress      ??
+          raw.progress_percent          ??
+          raw.progress                  ??
+          raw.overall_progress          ??
+          raw.completion_percent        ??
+          progress.progress_percent     ??
+          progress.progress             ??
+          progress.completion_percent   ??
+          progress.actual_progress      ??
+          progress.overall_progress     ??
+          0
+        ),
 
-      // ── Budget ────────────────────────────────────────────────────────
-      budget_total: Number(
-        raw.budget_total              ??
-        raw.budget                    ??
-        budget.budget                 ??
-        budget.total_budget           ??
-        budget.budget_total           ??
-        budget.contract_value         ??
-        0
-      ),
-      total_expense: Number(
-        raw.total_expense             ??
-        raw.spent                     ??
-        budget.spent                  ??
-        budget.total_expense          ??
-        budget.amount_spent           ??
-        0
-      ),
-      remaining_budget: Number(
-        raw.remaining_budget          ??
-        raw.remaining                 ??
-        budget.remaining              ??
-        budget.remaining_budget       ??
-        budget.balance                ??
-        0
-      ),
-      spent_percent: Number(
-        raw.spent_percent             ??
-        budget.spent_percent          ??
-        0
-      ),
-      remaining_percent: Number(
-        raw.remaining_percent         ??
-        budget.remaining_percent      ??
-        0
-      ),
-      budget_used_percent: Number(
-        raw.budget_used_percent       ??
-        budget.spent_percent          ??
-        budget.budget_used_percent    ??
-        budget.utilization_percent    ??
-        overview.budget_utilized      ??
-        0
-      ),
+        // Budget
+        budget_total: Number(
+          raw.budget_total              ??
+          raw.total_budget              ??
+          raw.budget                    ??
+          budget.budget_total           ??
+          budget.total_budget           ??
+          budget.total_cost             ??
+          budget.budget                 ??
+          budget.contract_value         ??
+          0
+        ),
+        total_expense: Number(
+          raw.total_expense             ??
+          raw.total_spent               ??
+          raw.spent                     ??
+          raw.expenses                  ??
+          budget.total_expense          ??
+          budget.total_spent            ??
+          budget.spent                  ??
+          budget.actual_cost            ??
+          budget.expenses               ??
+          0
+        ),
+        remaining_budget: Number(
+          raw.remaining_budget          ??
+          raw.remaining                 ??
+          raw.balance                   ??
+          budget.remaining_budget       ??
+          budget.remaining              ??
+          budget.balance                ??
+          0
+        ),
+        spent_percent: Number(
+          raw.spent_percent             ??
+          budget.spent_percent          ??
+          0
+        ),
+        remaining_percent: Number(
+          raw.remaining_percent         ??
+          budget.remaining_percent      ??
+          0
+        ),
+        budget_used_percent: Number(
+          raw.budget_used_percent       ??
+          raw.spent_percent             ??
+          raw.used_percent              ??
+          budget.budget_used_percent    ??
+          budget.spent_percent          ??
+          budget.used_percent           ??
+          overview.budget_utilized      ??
+          0
+        ),
+        budget_status: (
+          raw.budget_status             ??
+          budget.budget_status          ??
+          ""
+        ).toString(),
 
-      // ── Tasks ─────────────────────────────────────────────────────────
-      tasks_total: Number(
-        raw.tasks_total               ??
-        tasks.total                   ??
-        tasks.tasks_total             ??
-        tasks.total_tasks             ??
-        0
-      ),
-      tasks_completed: Number(
-        raw.tasks_completed           ??
-        tasks.completed               ??
-        tasks.tasks_completed         ??
-        tasks.completed_tasks         ??
-        0
-      ),
+        // Tasks
+        tasks_total: Number(
+          raw.tasks_total               ??
+          tasks.total                   ??
+          tasks.tasks_total             ??
+          tasks.total_tasks             ??
+          0
+        ),
+        tasks_completed: Number(
+          raw.tasks_completed           ??
+          tasks.completed               ??
+          tasks.tasks_completed         ??
+          tasks.completed_tasks         ??
+          0
+        ),
+        overdue_tasks: Number(
+          raw.overdue_tasks             ??
+          tasks.overdue_tasks           ??
+          tasks.overdue                 ??
+          0
+        ),
 
-      // ── Milestones ────────────────────────────────────────────────────
-      milestones_total: Number(
-        raw.milestones_total          ??
-        milestones.total              ??
-        milestones.milestones_total   ??
-        milestones.total_milestones   ??
-        0
-      ),
-      milestones_completed: Number(
-        raw.milestones_completed      ??
-        milestones.completed          ??
-        milestones.milestones_completed ??
-        milestones.completed_milestones ??
-        0
-      ),
+        // Milestones
+        milestones_total: Number(
+          raw.milestones_total          ??
+          milestones.total              ??
+          milestones.milestones_total   ??
+          milestones.total_milestones   ??
+          0
+        ),
+        milestones_completed: Number(
+          raw.milestones_completed       ??
+          milestones.completed          ??
+          milestones.milestones_completed ??
+          milestones.completed_milestones ??
+          0
+        ),
+        overdue_milestones: Number(
+          raw.overdue_milestones        ??
+          milestones.overdue_milestones ??
+          milestones.overdue            ??
+          0
+        ),
 
-      // ── Timeline ──────────────────────────────────────────────────────
-      days_remaining: Number(
-        raw.days_remaining            ??
-        timeline.remaining_days       ??
-        timeline.days_remaining       ??
-        0
-      ),
-      project_duration: Number(
-        raw.project_duration          ??
-        timeline.project_duration     ??
-        timeline.total_days           ??
-        timeline.duration_days        ??
-        0
-      ),
-      elapsed_days: Number(
-        raw.elapsed_days              ??
-        timeline.elapsed_days         ??
-        timeline.days_elapsed         ??
-        0
-      ),
-      timeline_progress: Number(
-        raw.timeline_progress         ??
-        timeline.timeline_progress    ??
-        timeline.time_elapsed_percent ??
-        timeline.progress_percent     ??
-        schedule.expected_progress    ??
-        0
-      ),
+        // Timeline
+        days_remaining: Number(
+          raw.days_remaining            ??
+          raw.remaining_days            ??
+          schedule.days_remaining       ??
+          schedule.remaining_days       ??
+          timeline.days_remaining       ??
+          0
+        ),
+        remaining_days: Number(
+          raw.days_remaining            ??
+          raw.remaining_days            ??
+          schedule.days_remaining       ??
+          schedule.remaining_days       ??
+          0
+        ),
+        project_duration: Number(
+          raw.project_duration          ??
+          timeline.project_duration     ??
+          timeline.total_days           ??
+          timeline.duration_days        ??
+          0
+        ),
+        elapsed_days: Number(
+          raw.elapsed_days              ??
+          timeline.elapsed_days         ??
+          timeline.days_elapsed         ??
+          0
+        ),
+        timeline_progress: Number(
+          raw.timeline_progress         ??
+          timeline.timeline_progress    ??
+          timeline.time_elapsed_percent ??
+          timeline.progress_percent     ??
+          schedule.expected_progress    ??
+          0
+        ),
 
-      // ── Schedule ──────────────────────────────────────────────────────
-      schedule_status:
-        raw.schedule_status           ??
-        schedule.schedule_status      ??
-        schedule.status               ??
-        overview.schedule_status      ??
-        "",
-      variance_percent: Number(
-        raw.variance_percent          ??
-        schedule.variance_percent     ??
-        schedule.schedule_variance    ??
-        schedule.variance             ??
-        0
-      ),
+        // Schedule
+        schedule_status: (
+          raw.schedule_status           ??
+          schedule.schedule_status      ??
+          schedule.status               ??
+          overview.schedule_status      ??
+          ""
+        ).toString(),
+        variance_percent: Number(
+          raw.variance_percent          ??
+          schedule.variance_percent     ??
+          schedule.schedule_variance    ??
+          schedule.variance             ??
+          0
+        ),
 
-      // ── Health / Risk ─────────────────────────────────────────────────
-      project_health:
-        raw.project_health            ??
-        overview.project_health       ??
-        overview.health               ??
-        risk.project_health           ??
-        "",
-      health:
-        raw.health                    ??
-        overview.health               ??
-        overview.project_health       ??
-        "",
-      risk_level:
-        raw.risk_level                ??
-        risk.risk_level               ??
-        risk.level                    ??
-        overview.risk_level           ??
-        "",
+        // Health / Risk
+        project_health: (
+          raw.project_health            ??
+          overview.project_health       ??
+          overview.health               ??
+          risk.project_health           ??
+          raw.health                    ??
+          ""
+        ).toString(),
+        health: (
+          raw.project_health            ??
+          overview.project_health       ??
+          overview.health               ??
+          raw.health                    ??
+          ""
+        ).toString(),
+        risk_level: (
+          raw.risk_level                ??
+          risk.risk_level               ??
+          risk.level                    ??
+          risk.overall_risk             ??
+          overview.risk_level           ??
+          ""
+        ).toString(),
 
-      // ── KPIs ──────────────────────────────────────────────────────────
-      overdue_tasks: Number(
-        raw.overdue_tasks             ??
-        kpis.overdue_tasks            ??
-        tasks.overdue                 ??
-        0
-      ),
-      overdue_milestones: Number(
-        raw.overdue_milestones        ??
-        kpis.overdue_milestones       ??
-        milestones.overdue            ??
-        0
-      ),
-      high_priority_overdue: Number(
-        raw.high_priority_overdue     ??
-        kpis.high_priority_overdue    ??
-        kpis.high_priority_tasks      ??
-        0
-      ),
-    };
+        // KPIs
+        high_priority_overdue: Number(
+          raw.high_priority_overdue     ??
+          kpis.high_priority_overdue    ??
+          kpis.high_priority_tasks      ??
+          0
+        ),
+      };
 
-    console.log('GET /api/v1/dashboard/client NORMALIZED:', JSON.stringify(normalized, null, 2));
-    return normalized;
+      console.log('GET /api/v1/dashboard/client NORMALIZED:', JSON.stringify(normalized, null, 2));
+      return normalized;
+    } catch (err) {
+      console.warn('GET /api/v1/dashboard/client error:', err);
+      return {
+        project_id: projectId,
+        project_name: "",
+        status: "",
+        start_date: "",
+        end_date: "",
+        actual_progress: 0,
+        progress_percent: 0,
+        budget_total: 0,
+        total_expense: 0,
+        remaining_budget: 0,
+        budget_used_percent: 0,
+        tasks_completed: 0,
+        tasks_total: 0,
+        milestones_completed: 0,
+        milestones_total: 0,
+        expense_trend: [],
+      } as any;
+    }
   },
 
 
@@ -529,11 +569,13 @@ export const dashboardService = {
   async getLabourPayments(params?: {
     page?: number;
     page_size?: number;
+    project_id?: number | string;
     [key: string]: any;
   }): Promise<any> {
     const cleanParams: any = {};
     if (params?.page) cleanParams.page = params.page;
     if (params?.page_size) cleanParams.page_size = params.page_size;
+    if (params?.project_id) cleanParams.project_id = params.project_id;
 
     const response = await api.get<any>('dashboard/labour/payments', {
       params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,

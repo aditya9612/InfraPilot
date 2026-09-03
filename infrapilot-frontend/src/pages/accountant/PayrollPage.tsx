@@ -9,13 +9,59 @@ import { paymentService } from "../../services/paymentService";
 import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
+import { projectService } from "../../services/projectService";
 import { accountingService } from "../../services/accountingService";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
 
+const PayrollKPICards = ({ summary }: { summary?: any }) => {
+  const s = summary?.data || summary || {};
 
+  const formatCurrency = (val: any) => {
+    if (val === undefined || val === null || val === "" || isNaN(Number(val))) return "₹0";
+    const num = Number(val);
+    return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const pending = s.pending_due ?? s.pending_payroll ?? s.total_pending ?? s.pending_amount ?? s.pending_wages ?? s.pending ?? s.unpaid_amount ?? 0;
+  const paid = s.paid_this_month ?? s.paid_payroll ?? s.total_paid ?? s.paid_amount ?? s.paid ?? s.paid_wages ?? s.total_payout ?? 0;
+  const advance = s.advance_given ?? s.advance_logs ?? s.total_advance ?? s.advance_amount ?? s.advance_paid ?? s.advance_adjusted ?? s.advance ?? 0;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(pending)}</p>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(paid)}</p>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
+        <p className="text-xl font-bold text-slate-800">{formatCurrency(advance)}</p>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group active:scale-[0.98]">
+        <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
+        <p className="text-xl font-bold text-slate-800">{summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0'}</p>
+      </div>
+    </div>
+  );
+};
 
 const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [formData, setFormData] = useState({
@@ -1540,6 +1586,8 @@ const PayrollPage = () => {
           ))}
         </div>
 
+        {/* ── KPI Stat Cards ─────────────────────────────── */}
+        {activeTab === "wages" && <PayrollKPICards summary={summaryData} />}
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}
         {activeTab === "ledger" && <LedgerSection />}

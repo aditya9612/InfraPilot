@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 
 import { projectService } from '../../services/projectService';
 import { masterService, type MasterEntity } from '../../services/masterService';
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import type { 
     CreateWorkUpdatePayload, 
     SubmitWorkUpdatePayload 
@@ -38,12 +39,10 @@ const ACTIVITY_TYPE_MAP: Record<string, number> = {
     "excavation": 4,
     "plastering": 5,
     "painting": 6,
-    "electrical": 7,
-    "plumbing": 8,
-    "carpentry": 9,
-    "flooring": 10,
-    "waterproofing": 11,
-    "general": 1,
+    "flooring": 7,
+    "electrical": 8,
+    "plumbing": 9,
+    "carpentry": 10
 };
 
 const ACTIVITY_TYPE_NAMES: Record<number, string> = {
@@ -53,10 +52,10 @@ const ACTIVITY_TYPE_NAMES: Record<number, string> = {
     4: "Excavation",
     5: "Plastering",
     6: "Painting",
-    7: "Electrical",
-    8: "Plumbing",
-    9: "Carpentry",
-    10: "Flooring",
+    7: "Flooring",
+    8: "Electrical",
+    9: "Plumbing",
+    10: "Carpentry",
     11: "Waterproofing",
 };
 
@@ -194,10 +193,12 @@ const base64ToFile = (base64String: string, filename: string): File => {
 
 const WorkUpdatesPage: React.FC = () => {
     const { user } = useAuth();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
 
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
-    const projectId = query.get('projectId') || '4';
+    const queryProjectId = query.get('projectId');
+    const projectId = queryProjectId || (activeProjectId ? String(activeProjectId) : '');
     const taskName = query.get('taskName');
     const taskCategory = query.get('taskCategory');
 
@@ -287,9 +288,11 @@ const WorkUpdatesPage: React.FC = () => {
 
     // Fetch tasks, activity types, my work updates, and project timeline
     useEffect(() => {
+        if (!projectId && isProjectLoading) return;
         const fetchInitialData = async () => {
+            const numericPid = Number(projectId || activeProjectId || 0);
             try {
-                const response = await projectService.getTasks(Number(projectId));
+                const response = numericPid ? await projectService.getTasks(numericPid) : [];
                 const items = Array.isArray(response) ? response : (response.items || []);
                 const mappedItems = items.map((t: any) => {
                     const localStatus = localStorage.getItem(`task_status_${t.id}`);
@@ -323,22 +326,24 @@ const WorkUpdatesPage: React.FC = () => {
 
             // Fetch My Work Updates (GET /api/v1/work-updates/my)
             try {
-                const updates = await workUpdateService.getMyWorkUpdates({ project_id: Number(projectId) });
+                const updates = await workUpdateService.getMyWorkUpdates(numericPid ? { project_id: numericPid } : {});
                 setMyUpdates(updates);
             } catch (err) {
                 console.warn("Failed to fetch my work updates:", err);
             }
 
             // Fetch Project Work-Update Timeline (GET /api/v1/work-updates/project/{project_id}/timeline)
-            try {
-                const timelineData = await workUpdateService.getProjectTimeline(Number(projectId));
-                setTimeline(timelineData);
-            } catch (err) {
-                console.warn("Failed to fetch project timeline:", err);
+            if (numericPid) {
+                try {
+                    const timelineData = await workUpdateService.getProjectTimeline(numericPid);
+                    setTimeline(timelineData);
+                } catch (err) {
+                    console.warn("Failed to fetch project timeline:", err);
+                }
             }
         };
         fetchInitialData();
-    }, [projectId, taskId]);
+    }, [projectId, taskId, activeProjectId, isProjectLoading]);
 
     // GET /api/v1/work-updates/{work_update_id}
     const handleLoadWorkUpdate = async (id: number) => {
@@ -416,7 +421,7 @@ const WorkUpdatesPage: React.FC = () => {
         const activityTypeId = resolveActivityTypeId(category, currentTask, activityTypes);
 
         const payload: CreateWorkUpdatePayload = {
-            project_id: Number(projectId || 4),
+            project_id: Number(projectId || activeProjectId || 0),
             task_id: Number(targetTaskId || 1),
             activity_type_id: activityTypeId,
             work_description: description.trim() || (taskName ? `Working on: ${taskName}` : `Work update for ${category || 'site'}`),

@@ -18,6 +18,8 @@ import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
 
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
+
 import type { Task } from '../../types/task';
 
 const getFullUrl = (path: string | null | undefined): string | undefined => {
@@ -32,6 +34,7 @@ const getFullUrl = (path: string | null | undefined): string | undefined => {
 const MyTasksPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
@@ -129,9 +132,8 @@ const MyTasksPage: React.FC = () => {
         };
     }, []);
 
-
-
     const fetchTasks = async () => {
+        if (!activeProjectId && isProjectLoading) return;
         setIsLoading(true);
         try {
             const params: any = {
@@ -146,24 +148,8 @@ const MyTasksPage: React.FC = () => {
                 }
             }
 
-            // Resolve active project from localStorage (set by LabourSettingsPage)
-            const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
-            let projectId = savedIdStr ? Number(savedIdStr) : 4;
-            let currentProjectName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name") || 'Project';
-            
-            try {
-                const projectsData = await projectService.getProjects(100, 0);
-                const projectItems = Array.isArray(projectsData) ? projectsData : (projectsData?.items || projectsData?.data || []);
-                if (projectItems.length > 0) {
-                    const foundProj = projectItems.find((p: any) => Number(p.id || p.project_id) === projectId) || projectItems[0];
-                    if (foundProj) {
-                        projectId = Number(foundProj.id || foundProj.project_id) || projectId;
-                        currentProjectName = foundProj.name || foundProj.project_name || currentProjectName;
-                    }
-                }
-            } catch (err) {
-                console.warn('Could not fetch project details, using saved project ID:', projectId);
-            }
+            const projectId = activeProjectId || 0;
+            const currentProjectName = activeProjectName || 'Project';
 
             const response = await projectService.getTasks(projectId, params);
 
@@ -215,18 +201,7 @@ const MyTasksPage: React.FC = () => {
 
     useEffect(() => {
         fetchTasks();
-
-        // Re-fetch tasks when the active project changes (via Settings or another tab)
-        const handleProjectChange = () => {
-            fetchTasks();
-        };
-        window.addEventListener('storage', handleProjectChange);
-        window.addEventListener('project_changed', handleProjectChange);
-        return () => {
-            window.removeEventListener('storage', handleProjectChange);
-            window.removeEventListener('project_changed', handleProjectChange);
-        };
-    }, [activeTab, filterType, currentPage]);
+    }, [activeTab, filterType, currentPage, activeProjectId, activeProjectName, isProjectLoading]);
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
@@ -254,7 +229,7 @@ const MyTasksPage: React.FC = () => {
 
 const handleTaskClick = (task: Task) => {
     if (task.status === 'Completed') return;
-    navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+    navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || activeProjectId || ''}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
 const handleUpdateStatus = async (taskId: string, newStatus: string, taskProjectId?: number) => {
@@ -270,7 +245,7 @@ const handleUpdateStatus = async (taskId: string, newStatus: string, taskProject
         const apiStatus = apiStatusMap[newStatus] || newStatus;
 
         // Resolve project ID for the API call
-        const pId = taskProjectId || Number(localStorage.getItem('client_selected_project_id') || localStorage.getItem('infrapilot_selected_project_id') || '4');
+        const pId = taskProjectId || activeProjectId || 0;
 
         await projectService.updateTaskStatus(pId, Number(taskId), apiStatus);
         localStorage.setItem(`task_status_${taskId}`, newStatus);

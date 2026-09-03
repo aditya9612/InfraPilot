@@ -10,6 +10,9 @@ import { projectService } from "../../services/projectService";
 import { PROJECTS } from "../../config/projectSeed";
 import { materialService } from "../../services/materialService";
 
+const PETTY_CASH_CATEGORIES = ["Tea Expenses", "Diesel", "Site Travel", "Local Material Purchase", "Stationery", "Miscellaneous"];
+const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equipment Owner", "Land Owner", "Legal Entity"];
+
 // --- DATE HELPERS (Exact API Response String) ---
 const formatDateTimeDMY = (dateStr: any): string => {
   if (!dateStr || dateStr === "-" || dateStr === "null" || dateStr === "undefined") return "-";
@@ -169,11 +172,6 @@ const ProjectNameCell = ({
 };
 
 // --- SECTIONS ---
-
-
-
-
-
 // 1. Transactions removed (Moved to Fund Transfer)
 
 
@@ -865,16 +863,22 @@ const PettyCashSection = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            <tr className="hover:bg-slate-50/50 transition-colors">
-              <td className="px-4 py-3 text-xs font-bold text-slate-600">PC-1001</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY("2024-05-15")}</td>
-              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Site Travel</td>
-              <td className="px-4 py-3 text-xs text-slate-500">Taxi for site visit</td>
-              <td className="px-4 py-3 text-xs text-slate-600">Amit Singh</td>
-              <td className="px-4 py-3 text-xs text-emerald-600 text-right">—</td>
-              <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,500</td>
-              <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹24,500</td>
-            </tr>
+            {pettyCashData.length > 0 ? (
+              pettyCashData.map((item, index) => (
+                <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{item.date ? item.date.split('T')[0] : (item.transaction_date ? item.transaction_date.split('T')[0] : '-')}</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">{item.category?.name || item.category || expenseAccounts.find(c => c.id === item.category_id)?.account_name || item.category_id || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{item.remarks || item.description || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{item.paid_to || item.paid_to_received_from || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-emerald-600 text-right">{parseFloat(item.cash_in) > 0 ? `₹${item.cash_in}` : (item.type === 'CASH_IN' ? `₹${item.amount}` : '—')}</td>
+                  <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">{parseFloat(item.cash_out) > 0 ? `₹${item.cash_out}` : (item.type === 'CASH_OUT' ? `₹${item.amount}` : '—')}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{item.balance || '0'}</td>
+                </tr>
+              ))
+            ) : (
+              <tr><td colSpan={8} className="text-center py-8 text-xs text-slate-400">No transactions found</td></tr>
+            )}
           </tbody>
         </table>
       </div>

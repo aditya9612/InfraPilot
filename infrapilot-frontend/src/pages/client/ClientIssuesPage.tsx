@@ -45,7 +45,7 @@ const ClientIssuesPage = () => {
     if (!projectId) return;
     try {
       const data = await projectService.getProjectById(projectId);
-      setProjectName(data.project_name || "New sara city");
+      setProjectName(data.project_name || data.name || (projectId ? `Project ${projectId}` : "Project"));
     } catch (error) {
       console.error("Failed to fetch project details:", error);
     }

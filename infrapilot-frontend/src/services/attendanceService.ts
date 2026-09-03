@@ -196,12 +196,57 @@ export const attendanceService = {
      */
     async checkOut(id: number, data: any) {
         try {
-            const isFormData = data instanceof FormData;
-            const response = await api.put(`attendance/check-out/${id}`, data, {
-                headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+            let sanitizedFd: FormData;
+            if (data instanceof FormData) {
+                sanitizedFd = new FormData();
+                const validNumericKeys = ['check_out_latitude', 'check_out_longitude', 'overtime_hours', 'overtime_rate', 'latitude', 'longitude'];
+                const validStringKeys = ['check_out_address', 'work_summary', 'remarks', 'task_deadline_reason', 'location_address'];
+
+                for (const [key, value] of (data as any).entries()) {
+                    if (validNumericKeys.includes(key)) {
+                        const num = Number(value);
+                        if (!isNaN(num) && value !== '' && value !== null && value !== undefined) {
+                            sanitizedFd.append(key === 'latitude' ? 'check_out_latitude' : (key === 'longitude' ? 'check_out_longitude' : key), num.toString());
+                        }
+                    } else if (validStringKeys.includes(key)) {
+                        if (typeof value === 'string' && value.trim() !== '' && !["Fetching location...", "Locating...", "Location not available"].includes(value.trim())) {
+                            sanitizedFd.append(key === 'location_address' ? 'check_out_address' : key, value.trim());
+                        }
+                    } else if (key === 'check_out_image' && value instanceof Blob) {
+                        sanitizedFd.append(key, value, 'checkout.jpg');
+                    } else if (key === 'work_report_pdf' && value instanceof Blob) {
+                        sanitizedFd.append(key, value, 'report.pdf');
+                    } else if (value !== '' && value !== null && value !== undefined && typeof value !== 'object') {
+                        sanitizedFd.append(key, String(value));
+                    }
+                }
+            } else {
+                sanitizedFd = data;
+            }
+
+            const response = await api.put(`attendance/check-out/${id}`, sanitizedFd, {
+                headers: (sanitizedFd instanceof FormData) ? { "Content-Type": "multipart/form-data" } : {},
             });
             return response.data;
         } catch (error: any) {
+            const detailMsg = error.response?.data?.detail;
+            if (typeof detailMsg === 'string' && (detailMsg.toLowerCase().includes('labour_expense') || detailMsg.toLowerCase().includes('account is not configured'))) {
+                try {
+                    await api.post("/accountant/accounts", {
+                        name: "Labour Expense",
+                        code: "LABOUR_EXPENSE",
+                        type: "Expense",
+                        parent_id: null
+                    });
+                    const retryRes = await api.put(`attendance/check-out/${id}`, sanitizedFd, {
+                        headers: (sanitizedFd instanceof FormData) ? { "Content-Type": "multipart/form-data" } : {},
+                    });
+                    return retryRes.data;
+                } catch (provisionErr) {
+                    console.warn("Auto-provisioning LABOUR_EXPENSE account failed:", provisionErr);
+                }
+            }
+
             console.warn("checkOut API error, updating mock storage:", error.response?.data || error.message);
 
             // Helper to convert File to Base64 for mock persistence

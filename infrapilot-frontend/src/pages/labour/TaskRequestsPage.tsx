@@ -3,6 +3,7 @@ import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import { projectService } from '../../services/projectService';
 import { taskRequestService } from '../../services/taskRequestService';
 import type { TaskRequest } from '../../services/taskRequestService';
@@ -34,6 +35,7 @@ interface Project {
 
 const TaskRequestsPage: React.FC = () => {
     const { user } = useAuth();
+    const { projectId: activeProjectId } = useLabourProjectId();
 
     const formatDate = (dateStr?: string) => {
         const date = dateStr ? new Date(dateStr) : new Date();
@@ -111,22 +113,32 @@ const TaskRequestsPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
+    const currentPid = activeProjectId || (project ? Number(project) : null);
+
+    const filteredRequests = useMemo(() => {
+        if (!currentPid) return requests;
+        return requests.filter(r => {
+            if (r.project_id == null) return false;
+            return Number(r.project_id) === Number(currentPid);
+        });
+    }, [requests, currentPid]);
+
     const paginatedRequests = useMemo(() => {
         const start = currentPage * pageSize;
-        return requests.slice(start, start + pageSize);
-    }, [requests, currentPage, pageSize]);
+        return filteredRequests.slice(start, start + pageSize);
+    }, [filteredRequests, currentPage, pageSize]);
 
     useEffect(() => {
-        const maxPage = Math.max(0, Math.ceil(requests.length / pageSize) - 1);
+        const maxPage = Math.max(0, Math.ceil(filteredRequests.length / pageSize) - 1);
         if (currentPage > maxPage) {
             setCurrentPage(maxPage);
         }
-    }, [requests.length, pageSize, currentPage]);
+    }, [filteredRequests.length, pageSize, currentPage]);
 
     const fetchRequests = React.useCallback(async () => {
         setIsLoadingRequests(true);
         try {
-            const data = await taskRequestService.getRequests();
+            const data = await taskRequestService.getRequests(activeProjectId || undefined);
             setRequests(data);
         } catch (err) {
             console.error('Failed to fetch requests:', err);
@@ -134,7 +146,7 @@ const TaskRequestsPage: React.FC = () => {
         } finally {
             setIsLoadingRequests(false);
         }
-    }, []);
+    }, [activeProjectId]);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -154,7 +166,8 @@ const TaskRequestsPage: React.FC = () => {
                 }
 
                 setProjects(mapped);
-                if (mapped.length > 0) setProject(String(mapped[0].id));
+                const targetPid = activeProjectId ? String(activeProjectId) : (mapped.length > 0 ? String(mapped[0].id) : '');
+                if (targetPid) setProject(targetPid);
             } catch (err) {
                 console.error('Failed to load projects from API:', err);
                 if (user.project_id && user.project_name) {
@@ -168,7 +181,13 @@ const TaskRequestsPage: React.FC = () => {
 
         fetchProjects();
         fetchRequests();
-    }, [user, fetchRequests]);
+    }, [user, fetchRequests, activeProjectId]);
+
+    useEffect(() => {
+        if (activeProjectId) {
+            setProject(String(activeProjectId));
+        }
+    }, [activeProjectId]);
 
     const formatApiError = (err: any, fallback: string): string => {
         if (!err) return fallback;
@@ -557,11 +576,11 @@ const TaskRequestsPage: React.FC = () => {
                                     <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">Synchronizing Data...</p>
                                 </div>
-                            ) : requests.length === 0 ? (
+                            ) : filteredRequests.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-32 opacity-30">
                                     <ClipboardList className="w-16 h-16 text-slate-300 mb-4" />
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">No requests found</p>
-                                    <p className="text-[11px] font-medium text-slate-300 mt-2">Submit your first task request using the form above</p>
+                                    <p className="text-[11px] font-medium text-slate-300 mt-2">Submit your first task request for this project using the form above</p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
@@ -693,10 +712,10 @@ const TaskRequestsPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {!isLoadingRequests && requests.length > 0 && (
+                            {!isLoadingRequests && filteredRequests.length > 0 && (
                                 <Pagination
                                     currentPage={currentPage}
-                                    totalItems={requests.length}
+                                    totalItems={filteredRequests.length}
                                     pageSize={pageSize}
                                     onPageChange={setCurrentPage}
                                     onPageSizeChange={setPageSize}

@@ -148,7 +148,7 @@ const ClientOverviewPage = () => {
                   <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">🏢</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">{(projectData?.project_name || "NEW SARA CITY").toUpperCase()}</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">{(projectData?.project_name || projectData?.name || "PROJECT").toUpperCase()}</p>
 
                   </div>
                 </div>
@@ -196,7 +196,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Site Address</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">
-                      {projectData?.site_address || "Pune Station"}
+                      {projectData?.site_address || "—"}
                     </p>
                   </div>
                 </div>
@@ -207,7 +207,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Details</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">
-                      {[projectData?.city, projectData?.state, projectData?.country, projectData?.pincode].filter(Boolean).join(", ") || "Pune, Maharashtra, India, 444236"}
+                      {[projectData?.city, projectData?.state, projectData?.country, projectData?.pincode].filter(Boolean).join(", ") || "—"}
 
                     </p>
                   </div>
@@ -219,7 +219,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Description</p>
                     <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-md">
-                      {(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}
+                      {projectData?.description || "—"}
                     </p>
                   </div>
                 </div>

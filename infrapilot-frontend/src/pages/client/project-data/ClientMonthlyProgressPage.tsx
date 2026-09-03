@@ -81,8 +81,15 @@ const ClientMonthlyProgressPage = () => {
         setLabourData(labourRes.value);
       }
 
-      if (dailyRes.status === 'fulfilled' && dailyRes.value?.dsr) {
-        setDsr(dailyRes.value.dsr);
+      if (dailyRes.status === 'fulfilled' && dailyRes.value) {
+        const dVal = dailyRes.value.dsr || dailyRes.value.data?.dsr || dailyRes.value.data || dailyRes.value;
+        if (dVal && (dVal.total_labour !== undefined || dVal.work_done || dVal.weather || dVal.id)) {
+          setDsr(dVal);
+        } else if (dailyRes.value?.dsr) {
+          setDsr(dailyRes.value.dsr);
+        } else {
+          setDsr(null);
+        }
       } else {
         setDsr(null);
         if (reportType === "Daily") {

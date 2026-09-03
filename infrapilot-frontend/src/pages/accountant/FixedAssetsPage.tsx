@@ -6,7 +6,7 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, QrCode } from "lucide-react";
 
 // --- GENERIC COMPONENTS ---
 
@@ -365,49 +365,53 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" value={filterPurchaseDate} onChange={(e) => setFilterPurchaseDate(e.target.value)} className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
             <button onClick={() => setAppliedFilters({ project: filterProject, purchaseDate: filterPurchaseDate })} className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5 hover:bg-slate-700 transition-colors">Apply</button>
           </div>
-          <PaginatedTableSection
-            title="Asset List"
-            columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]}
+          <PaginatedTableSection 
+            title="Asset List" 
+            columns={["Asset ID", "Name", "Category", "Purchase Value", "Purchase Date", "Current Value", "Project / Location", "Status", "Action"]} 
             data={filteredAssets.length > 0 ? filteredAssets.map(a => [
               a.asset_id || `AST-${a.id}`,
               a.name || a.asset_name || "N/A",
-              a.category || a.asset_type || "Machinery & Equipment",
+              a.category || a.asset_type || "General",
               `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+              a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
               `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              a.location || a.site_location || "Head Office / Main Site",
+              a.project_name || a.location || a.site_location || "Head Office",
               a.status || "Active",
-              <button key={a.id} onClick={async () => {
-                try {
-                  toast.loading("Generating QR...", { id: "qr" });
-                  const blob = await accountingService.generateAssetQR(a.id);
-                  const url = URL.createObjectURL(blob);
-                  const aTag = document.createElement("a");
-                  aTag.href = url;
-                  aTag.download = `AST-${a.id}_QR.png`;
-                  document.body.appendChild(aTag);
-                  aTag.click();
-                  document.body.removeChild(aTag);
-                  URL.revokeObjectURL(url);
-                  toast.success("QR Generated!", { id: "qr" });
-                } catch (e) {
-                  toast.error("Failed to generate QR", { id: "qr" });
-                }
-              }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
-            ]) : [["No assets found.", "", "", "", "", "", "", ""]]}
+              <div key={a.id} className="flex gap-2">
+                <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
+                <button title="QR Code" onClick={async () => {
+                  try {
+                    toast.loading("Generating QR...", { id: "qr" });
+                    const blob = await accountingService.generateAssetQR(a.id);
+                    const url = URL.createObjectURL(blob);
+                    const aTag = document.createElement("a");
+                    aTag.href = url;
+                    aTag.download = `AST-${a.id}_QR.png`;
+                    document.body.appendChild(aTag);
+                    aTag.click();
+                    document.body.removeChild(aTag);
+                    URL.revokeObjectURL(url);
+                    toast.success("QR Generated!", { id: "qr" });
+                  } catch(e) {
+                    toast.error("Failed to generate QR", { id: "qr" });
+                  }
+                }} className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><QrCode size={14}/></button>
+              </div>
+            ]) : [["No assets found.", "", "", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
       {activeSubTab === "details" && (
         <PaginatedTableSection
           title="Asset Details Lookup"
-          columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]}
+          columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]}
           data={filteredAssets.length > 0 ? filteredAssets.map(a => [
             a.asset_id || `AST-${a.id}`,
             a.name || a.asset_name || "N/A",
-            a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
-            resolveUsefulLife(a),
-            resolveMethod(a),
-            resolveSalvageValue(a)
+            a.project_name || "-",
+            `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+            `${a.depreciation_rate || 0}%`,
+            `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`
           ]) : [["No assets found.", "", "", "", "", ""]]}
         />
       )}

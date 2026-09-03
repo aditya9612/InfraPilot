@@ -15,6 +15,7 @@ import {
     Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import toast from 'react-hot-toast';
@@ -42,6 +43,7 @@ const parseHours = (val: any): number => {
 
 const PaymentsPage: React.FC = () => {
     const { user } = useAuth();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
     const [filterPeriod, setFilterPeriod] = useState("Daily Analysis");
     const [searchTerm, setSearchTerm] = useState("");
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -81,47 +83,43 @@ const PaymentsPage: React.FC = () => {
                 page: currentPage,
                 page_size: recordsPerPage
             };
+            if (activeProjectId) {
+                params.project_id = activeProjectId;
+            }
 
             const data = await dashboardService.getLabourPayments(params);
             const records = Array.isArray(data)
                 ? data
                 : (data?.records || data?.items || data?.data || data?.payments || []);
 
-            const defaultMockPayments = [
-                { id: 1, date: '2026-08-05', skill_type: 'Skilled', daily_wage: 800, ot_hours: 1, total_wage_earned: 2899, status: 'PARTIAL', remarks: 'Site work' },
-                { id: 2, date: '2026-07-28', skill_type: 'Skilled', daily_wage: 800, ot_hours: 0, total_wage_earned: 0, status: 'PAID', remarks: 'General shift' }
-            ];
+            const projectScopedRecords = activeProjectId
+                ? records.filter((r: any) => !r.project_id || Number(r.project_id) === Number(activeProjectId))
+                : records;
 
-            const finalRecords = records && records.length > 0 ? records : defaultMockPayments;
-
-            setPayments(finalRecords);
-            setTotalRecords(data?.total_records || data?.meta?.total || data?.total || data?.total_count || finalRecords.length);
+            setPayments(projectScopedRecords);
+            setTotalRecords(data?.total_records || data?.meta?.total || data?.total || data?.total_count || projectScopedRecords.length);
             
             const sum = data?.summary || {};
             setSummaryStats({
-                total_payout: sum.total_payout !== undefined ? parseCurrency(sum.total_payout) : (finalRecords.reduce((acc: number, curr: any) => acc + parseCurrency(curr.total_wage_earned || curr.total_earned || curr.amount || curr.daily_wage || 0), 0) || 2898.75),
-                high_payouts: sum.high_payouts !== undefined ? Number(sum.high_payouts) : finalRecords.filter((i: any) => parseCurrency(i.total_wage_earned || i.total_earned || i.amount || i.daily_wage || 0) > 5000).length,
-                ot_intensive: sum.ot_intensive !== undefined ? Number(sum.ot_intensive) : (finalRecords.filter((i: any) => parseHours(i.ot_hours || i.overtime_hours || 0) > 0).length || 1),
+                total_payout: sum.total_payout !== undefined ? parseCurrency(sum.total_payout) : projectScopedRecords.reduce((acc: number, curr: any) => acc + parseCurrency(curr.total_wage_earned || curr.total_earned || curr.amount || curr.daily_wage || 0), 0),
+                high_payouts: sum.high_payouts !== undefined ? Number(sum.high_payouts) : projectScopedRecords.filter((i: any) => parseCurrency(i.total_wage_earned || i.total_earned || i.amount || i.daily_wage || 0) > 5000).length,
+                ot_intensive: sum.ot_intensive !== undefined ? Number(sum.ot_intensive) : projectScopedRecords.filter((i: any) => parseHours(i.ot_hours || i.overtime_hours || 0) > 0).length,
                 advance_adjusted: sum.advance_adjusted !== undefined ? parseCurrency(sum.advance_adjusted) : 0
             });
         } catch (error) {
             console.error('Error fetching payments:', error);
-            const fallbackPayments = [
-                { id: 1, date: '2026-08-05', skill_type: 'Skilled', daily_wage: 800, ot_hours: 1, total_wage_earned: 2899, status: 'PARTIAL', remarks: 'Site work' },
-                { id: 2, date: '2026-07-28', skill_type: 'Skilled', daily_wage: 800, ot_hours: 0, total_wage_earned: 0, status: 'PAID', remarks: 'General shift' }
-            ];
-            setPayments(fallbackPayments);
-            setTotalRecords(fallbackPayments.length);
+            setPayments([]);
+            setTotalRecords(0);
             setSummaryStats({
-                total_payout: 2898.75,
+                total_payout: 0,
                 high_payouts: 0,
-                ot_intensive: 1,
+                ot_intensive: 0,
                 advance_adjusted: 0
             });
         } finally {
             setIsLoading(false);
         }
-    }, [currentPage, recordsPerPage]);
+    }, [currentPage, recordsPerPage, activeProjectId]);
 
     useEffect(() => {
         fetchPayments();

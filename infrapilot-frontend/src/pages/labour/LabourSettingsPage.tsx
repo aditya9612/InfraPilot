@@ -101,12 +101,22 @@ const LabourSettingsPage: React.FC = () => {
             if (settingsData?.default_project_id) {
                 const activeProj = itemList.find((p: any) => p.id === settingsData.default_project_id);
                 if (activeProj) {
-                    setSelectedProjectName(activeProj.name || activeProj.project_name);
+                    const pName = activeProj.name || activeProj.project_name;
+                    setSelectedProjectName(pName);
+                    localStorage.setItem("client_selected_project_id", String(settingsData.default_project_id));
+                    localStorage.setItem("client_selected_project_name", pName);
+                    localStorage.setItem("infrapilot_selected_project_id", String(settingsData.default_project_id));
+                    localStorage.setItem("infrapilot_selected_project_name", pName);
                 } else {
                     try {
                         const projDetail = await projectService.getProjectById(settingsData.default_project_id);
                         if (projDetail) {
-                            setSelectedProjectName(projDetail.name || projDetail.project_name || `Project ${settingsData.default_project_id}`);
+                            const pName = projDetail.name || projDetail.project_name || `Project ${settingsData.default_project_id}`;
+                            setSelectedProjectName(pName);
+                            localStorage.setItem("client_selected_project_id", String(settingsData.default_project_id));
+                            localStorage.setItem("client_selected_project_name", pName);
+                            localStorage.setItem("infrapilot_selected_project_id", String(settingsData.default_project_id));
+                            localStorage.setItem("infrapilot_selected_project_name", pName);
                         }
                     } catch (e) {
                         setSelectedProjectName(`Project ${settingsData.default_project_id}`);

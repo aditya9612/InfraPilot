@@ -5,6 +5,8 @@ import Modal from "../../components/common/Modal";
 import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
 import { PROJECTS } from "../../config/projectSeed";
+import { financeService } from "../../services/financeService";
+import toast from "react-hot-toast";
 
 const KNOWN_PROJECT_MAP: Record<string, string> = {
   "1": "Sara City",
@@ -18,8 +20,6 @@ const KNOWN_PROJECT_MAP: Record<string, string> = {
   "9": "Grand Horizons",
   "10": "Ocean View Residences",
 };
-import { financeService } from "../../services/financeService";
-import toast from "react-hot-toast";
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose, onSuccess }: { invoiceId: number | null; projects: any[]; onClose: () => void; onSuccess?: () => void }) {
   const [data, setData] = useState<any>(null);
