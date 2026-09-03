@@ -1,5 +1,7 @@
 import api from "./api";
 import type { Quotation, QuotationCreateData } from "../types/quotation";
+import { generateQuotationPDFBlob } from "../utils/quotationPDFGenerator";
+import { settingsService } from "./settingsService";
 
 export const quotationService = {
     /**
@@ -443,7 +445,7 @@ export const quotationService = {
     },
 
     /**
-     * Download Quotation PDF from backend
+     * Download Quotation PDF from backend or fallback to client-side generator
      * GET /api/v1/quotations/{id}/pdf
      */
     async downloadQuotationPDF(id: number): Promise<Blob> {
@@ -451,10 +453,40 @@ export const quotationService = {
             const response = await api.get(`/quotations/${id}/pdf`, {
                 responseType: 'blob'
             });
+            if (response.data && response.data instanceof Blob) {
+                // If the server responded with an error JSON or HTML encoded inside a blob
+                if (response.data.type === "application/json" || response.data.type === "text/html" || response.data.type === "text/plain") {
+                    throw new Error("Server returned non-PDF response");
+                }
+                return response.data;
+            }
             return response.data;
         } catch (error: any) {
-            console.error(`Download Quotation PDF ${id} Error:`, error.response?.data || error.message);
-            throw error;
+            console.warn(`Backend PDF endpoint failed for quotation ${id}, falling back to client-side PDF generation:`, error?.message || error);
+            try {
+                let quotationData: any = null;
+                try {
+                    quotationData = await quotationService.getQuotationPreview(id);
+                } catch {
+                    quotationData = await quotationService.getQuotationById(id).catch(() => null);
+                }
+
+                if (!quotationData) {
+                    quotationData = { id };
+                }
+
+                let companySettings: any = null;
+                try {
+                    companySettings = await settingsService.getCompanySettings();
+                } catch {
+                    // ignore settings error
+                }
+
+                return generateQuotationPDFBlob(quotationData, companySettings);
+            } catch (fallbackError) {
+                console.error(`Client-side PDF generation failed for quotation ${id}:`, fallbackError);
+                throw fallbackError;
+            }
         }
     }
 };

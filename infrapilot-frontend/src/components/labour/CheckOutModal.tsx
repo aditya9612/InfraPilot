@@ -1,19 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import { Camera, MapPin, RefreshCcw, Loader2, Upload, X } from "lucide-react";
+import { Camera, MapPin, RefreshCcw, Loader2, Upload, X, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CheckOutRequest } from "../../types/labour";
 import { getLocalDateTimeString } from "../../utils/dateUtils";
+import { reverseGeocode } from "../../utils/locationUtils";
+import { projectService } from "../../services/projectService";
 
 interface CheckOutModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (data: CheckOutRequest) => Promise<void>;
     attendanceId: number;
+    projectId?: number;
+    checkInAddress?: string;
 }
 
-const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
+const CheckOutModal = ({ isOpen, onClose, onSubmit, projectId = 0, checkInAddress = "" }: CheckOutModalProps) => {
     const [outTime, setOutTime] = useState(getLocalDateTimeString());
     const [resolvedAddress, setResolvedAddress] = useState("");
+    const [siteAddress, setSiteAddress] = useState("");
     const [latitude, setLatitude] = useState(0);
     const [longitude, setLongitude] = useState(0);
     const [gpsStatus, setGpsStatus] = useState<"idle" | "capturing" | "captured" | "error">("idle");
@@ -42,13 +47,26 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
             setIsPhotoCaptured(false);
             setCapturedImage(null);
             setErrors({});
+
+            // Load site address if available
+            if (projectId > 0) {
+                projectService.getProjectById(projectId).then((p: any) => {
+                    const addr = [p?.site_address, p?.city, p?.state, p?.pincode].filter(Boolean).join(", ");
+                    if (addr) setSiteAddress(addr);
+                }).catch(() => {});
+            }
+
+            if (checkInAddress && checkInAddress !== "Locating...") {
+                setResolvedAddress(checkInAddress);
+            }
+
             captureGPS();
             startCamera();
         } else {
             stopCamera();
         }
         return () => stopCamera();
-    }, [isOpen]);
+    }, [isOpen, projectId, checkInAddress]);
 
     const startCamera = async () => {
         try {
@@ -99,11 +117,8 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
                     setLatitude(lat);
                     setLongitude(lng);
                     try {
-                        const res = await fetch(
-                            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
-                        );
-                        const data = await res.json();
-                        setResolvedAddress(data.display_name || "");
+                        const formattedAddress = await reverseGeocode(lat, lng);
+                        setResolvedAddress(formattedAddress);
                         setGpsStatus("captured");
                     } catch {
                         setGpsStatus("captured");
@@ -113,7 +128,7 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
                     setGpsStatus("error");
                     toast.error("GPS access denied or unavailable.");
                 },
-                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
             );
         } else {
             setGpsStatus("error");
@@ -210,29 +225,50 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
 
                         {/* Check Out Address - Full Width */}
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                                CHECK OUT ADDRESS
-                            </label>
-                            <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg bg-slate-50">
-                                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                                <span className="flex-1 text-sm text-slate-600 truncate">
-                                    {gpsStatus === "capturing"
-                                        ? "Fetching location..."
-                                        : gpsStatus === "error"
-                                            ? "Location unavailable"
-                                            : resolvedAddress || "Waiting for GPS..."}
-                                </span>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    CHECK OUT ADDRESS
+                                </label>
+                                {(checkInAddress || siteAddress) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const addr = checkInAddress || siteAddress;
+                                            setResolvedAddress(addr);
+                                            setGpsStatus("captured");
+                                            toast.success("Using site/check-in address");
+                                        }}
+                                        className="text-[10px] font-bold text-rose-600 hover:text-rose-800 transition-colors flex items-center gap-1"
+                                    >
+                                        <Building2 className="w-3 h-3" />
+                                        Use {checkInAddress ? "Check-In" : "Site"} Address
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-rose-100 focus-within:border-rose-400 transition-all">
+                                <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+                                <input
+                                    type="text"
+                                    value={resolvedAddress}
+                                    onChange={e => setResolvedAddress(e.target.value)}
+                                    placeholder={gpsStatus === "capturing" ? "Fetching GPS location..." : "Enter or auto-detect site address..."}
+                                    className="flex-1 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-400"
+                                />
                                 <button
                                     type="button"
                                     onClick={captureGPS}
-                                    className="text-rose-600 text-xs font-bold hover:text-rose-800 transition-colors flex items-center gap-1 shrink-0"
+                                    title="Auto-detect via GPS"
+                                    className="text-rose-600 text-xs font-bold hover:text-rose-800 transition-colors flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-rose-50 hover:bg-rose-100"
                                 >
                                     {gpsStatus === "capturing"
                                         ? <Loader2 className="w-3 h-3 animate-spin" />
                                         : <RefreshCcw className="w-3 h-3" />}
-                                    Refresh
+                                    GPS
                                 </button>
                             </div>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                                Auto-detected from device GPS / Wi-Fi. You can edit this address or click "Use {checkInAddress ? "Check-In" : "Site"} Address".
+                            </p>
                         </div>
 
                         {/* Work Summary - Full Width */}

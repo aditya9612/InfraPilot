@@ -37,10 +37,7 @@ const ClientApprovedItemsPage = () => {
         setApprovedItems(filtered);
       } catch (err) {
         console.error("Failed to fetch approved items:", err);
-        // Fallback to static data if API fails or for demo
-        setApprovedItems([
-          { id: "APR-017", requestType: "Design", description: "Design Change — Staircase Width Increase from 1.2m to 1.5m.", amountQuantity: "₹3,50,000", requestedBy: "Lead Architect", approvedOn: "15 Feb 2026", remarks: "Requested for better fire safety compliance and aesthetic flow." },
-        ]);
+        setApprovedItems([]);
       } finally {
         setLoading(false);
       }

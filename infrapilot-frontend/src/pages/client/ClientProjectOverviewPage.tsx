@@ -167,13 +167,13 @@ const ClientProjectOverviewPage = () => {
                 <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
                   {[
-                    { label: "Project Name", value: (projectData?.project_name || "NEW SARA CITY").toUpperCase(), icon: "🏢" },
-                    { label: "Location", value: "Sector 45, Pune, MH", icon: "📍" },
-                    { label: "Project Type", value: "High-Rise Residential", icon: "🏗️" },
+                    { label: "Project Name", value: (projectData?.project_name || projectData?.name || "PROJECT").toUpperCase(), icon: "🏢" },
+                    { label: "Location", value: [projectData?.site_address, projectData?.city, projectData?.state].filter(Boolean).join(", ") || projectData?.location || "—", icon: "📍" },
+                    { label: "Project Type", value: projectData?.type || projectData?.project_type || "—", icon: "🏗️" },
                     { label: "Start Date", value: formatDate(projectData?.start_date), icon: "📅" },
                     { label: "End Date (EST)", value: formatDate(projectData?.end_date), icon: "🏁" },
                     { label: "Project Status", value: projectData?.status || "—", icon: "🟢", status: projectData?.status },
-                    { label: "Description", value: (projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY", icon: "📝" },
+                    { label: "Description", value: projectData?.description || "—", icon: "📝" },
                     { label: "Owner Name", value: ownerName || (projectData?.owner_id ? `Owner #${projectData.owner_id}` : "—"), icon: "👤" },
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-4">

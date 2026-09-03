@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import type { CheckInRequest, LabourItem } from "../../types/labour";
 import { projectService } from "../../services/projectService";
 import { getISTDateString, getLocalDateTimeString } from "../../utils/dateUtils";
+import { reverseGeocode } from "../../utils/locationUtils";
 
 interface Project {
     id: number;
@@ -48,10 +49,16 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
     // Fetch projects
     useEffect(() => {
         if (isOpen) {
+            const savedPid = projectId || Number(localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id") || 0);
+            setSelectedProjectId(savedPid);
+
             setLoadingProjects(true);
             projectService.getProjects(100, 0).then((res: any) => {
                 const list: Project[] = Array.isArray(res) ? res : (res.items || res.data || []);
                 setProjects(list);
+                if (list.length > 0 && !savedPid) {
+                    setSelectedProjectId(list[0].id);
+                }
             }).catch(() => {}).finally(() => setLoadingProjects(false));
 
             // Reset state
@@ -64,7 +71,6 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
             setTaskDescription("");
             setWorkLocationType("");
             setStatus("Present");
-            setSelectedProjectId(projectId || 0);
             captureGPS();
             startCamera();
         } else {
@@ -122,9 +128,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                     setLatitude(lat);
                     setLongitude(lng);
                     try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
-                        const data = await res.json();
-                        setResolvedAddress(data.display_name || "");
+                        const formattedAddress = await reverseGeocode(lat, lng);
+                        setResolvedAddress(formattedAddress);
                         setGpsStatus("captured");
                     } catch {
                         setGpsStatus("captured");
@@ -134,7 +139,7 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                     setGpsStatus("error");
                     toast.error("GPS access denied or unavailable.");
                 },
-                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
             );
         } else {
             setGpsStatus("error");
@@ -289,30 +294,57 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
 
                         {/* Check In Address - Full Width */}
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                                CHECK IN ADDRESS
-                            </label>
-                            <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg bg-slate-50">
-                                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                                <span className="flex-1 text-sm text-slate-600 truncate">
-                                    {gpsStatus === "capturing"
-                                        ? "Fetching location..."
-                                        : gpsStatus === "error"
-                                            ? "Location unavailable"
-                                            : resolvedAddress || "Waiting for GPS..."}
-                                </span>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    CHECK IN ADDRESS
+                                </label>
+                                {(() => {
+                                    const activeProj = (projects as any[]).find(p => p.id === Number(selectedProjectId));
+                                    const siteAddrStr = [activeProj?.site_address, activeProj?.city, activeProj?.state, activeProj?.pincode].filter(Boolean).join(", ");
+                                    if (!siteAddrStr) return null;
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setResolvedAddress(siteAddrStr);
+                                                if (activeProj?.latitude) setLatitude(activeProj.latitude);
+                                                if (activeProj?.longitude) setLongitude(activeProj.longitude);
+                                                setGpsStatus("captured");
+                                                toast.success("Using project site address");
+                                            }}
+                                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+                                        >
+                                            <Building2 className="w-3 h-3" />
+                                            Use Project Site Address
+                                        </button>
+                                    );
+                                })()}
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all">
+                                <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                                <input
+                                    type="text"
+                                    value={resolvedAddress}
+                                    onChange={e => setResolvedAddress(e.target.value)}
+                                    placeholder={gpsStatus === "capturing" ? "Fetching GPS location..." : "Enter or auto-detect site address..."}
+                                    className="flex-1 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-400"
+                                />
                                 <button
                                     type="button"
                                     onClick={captureGPS}
-                                    className="text-blue-600 text-xs font-bold hover:text-blue-800 transition-colors flex items-center gap-1 shrink-0"
+                                    title="Auto-detect via GPS"
+                                    className="text-blue-600 text-xs font-bold hover:text-blue-800 transition-colors flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-blue-50 hover:bg-blue-100"
                                 >
                                     {gpsStatus === "capturing"
                                         ? <Loader2 className="w-3 h-3 animate-spin" />
                                         : <RefreshCcw className="w-3 h-3" />
                                     }
-                                    Refresh
+                                    GPS
                                 </button>
                             </div>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                                Auto-detected from device GPS / Wi-Fi. You can edit this address or click "Use Project Site Address".
+                            </p>
                         </div>
 
                         {/* Row 3: Task ID & Task Description */}

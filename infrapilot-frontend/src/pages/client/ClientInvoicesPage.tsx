@@ -170,19 +170,25 @@ const ClientInvoicesPage = () => {
   // ── Statistics calculation ──
   const stats = useMemo(() => {
     const totalCount = selectedProjectInvoices.length;
-    const totalBilled = selectedProjectInvoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
+    const activeInvoices = selectedProjectInvoices.filter(
+      (inv) => (inv.status || "").toLowerCase() !== "cancelled"
+    );
+    const totalBilled = activeInvoices.reduce(
+      (acc, inv) => acc + (Number(inv.total_amount) || 0),
+      0
+    );
     const totalPaid = selectedProjectInvoices
-      .filter((inv) => inv.status?.toLowerCase() === "paid")
+      .filter((inv) => (inv.status || "").toLowerCase() === "paid")
       .reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
-    const totalPending = selectedProjectInvoices
-      .filter((inv) => inv.status?.toLowerCase() === "pending" || inv.status?.toLowerCase() === "partial")
+    const totalPending = activeInvoices
+      .filter((inv) => (inv.status || "").toLowerCase() !== "paid")
       .reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
 
     return {
-      totalCount: summaryData?.total_invoices ?? totalCount,
-      totalBilled: summaryData?.total_billed ?? totalBilled,
-      totalPaid: summaryData?.paid_amount ?? totalPaid,
-      totalPending: summaryData?.pending_amount ?? totalPending,
+      totalCount: totalCount > 0 ? totalCount : (Number(summaryData?.total_invoices || summaryData?.totalInvoices) || 0),
+      totalBilled: totalBilled > 0 ? totalBilled : (Number(summaryData?.total_billed || summaryData?.total_amount || summaryData?.totalAmount) || 0),
+      totalPaid: totalPaid > 0 ? totalPaid : (Number(summaryData?.paid_amount || summaryData?.amount_paid || summaryData?.paidAmount) || 0),
+      totalPending: totalPending > 0 ? totalPending : (Number(summaryData?.pending_amount || summaryData?.amount_pending || summaryData?.pendingAmount) || 0),
     };
   }, [selectedProjectInvoices, summaryData]);
 

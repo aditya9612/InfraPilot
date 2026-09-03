@@ -545,11 +545,13 @@ export const dashboardService = {
   async getLabourPayments(params?: {
     page?: number;
     page_size?: number;
+    project_id?: number | string;
     [key: string]: any;
   }): Promise<any> {
     const cleanParams: any = {};
     if (params?.page) cleanParams.page = params.page;
     if (params?.page_size) cleanParams.page_size = params.page_size;
+    if (params?.project_id) cleanParams.project_id = params.project_id;
 
     const response = await api.get<any>('dashboard/labour/payments', {
       params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,

@@ -6,9 +6,9 @@ import logo from "../assets/logo.png";
 import { settingsService } from "../services/settingsService";
 
 /**
- * Generates and downloads a professional Quotation/Invoice PDF on the client side.
+ * Builds a jsPDF document for a Quotation / Estimate.
  */
-export const generateQuotationPDF = (quotation: Quotation, companySettings?: CompanySettings | null) => {
+export const buildQuotationPDFDoc = (quotation: Quotation | any, companySettings?: CompanySettings | null): jsPDF => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
@@ -17,8 +17,8 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
     const secondaryColor: [number, number, number] = [71, 85, 105]; // #475569
 
     // --- Header Section ---
-    const currentLogo = companySettings?.company_logo ? settingsService.resolveUrl(companySettings.company_logo) : logo;
     try {
+        const currentLogo = companySettings?.company_logo ? settingsService.resolveUrl(companySettings.company_logo) : logo;
         if (currentLogo) {
             doc.addImage(currentLogo, 'PNG', 15, 12, 18, 18);
         }
@@ -46,11 +46,12 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(20, 30, 45); // Dark text
-    const isInvoice = quotation.status === 'approved' || quotation.status === 'converted';
-    doc.text(isInvoice ? "INVOICE" : "ESTIMATE", pageWidth - 15, 25, { align: "right" });
+    const statusLower = String(quotation?.status || "").toLowerCase();
+    const isInvoice = statusLower === 'approved' || statusLower === 'converted';
+    doc.text(isInvoice ? "INVOICE / QUOTATION" : "ESTIMATE / QUOTATION", pageWidth - 15, 25, { align: "right" });
 
     doc.setFontSize(12);
-    const docNo = quotation.quotation_no || `QTN-${String(quotation.id).padStart(3, '0')}`;
+    const docNo = quotation?.quotation_no || quotation?.quotation_number || quotation?.entity_id_display || (quotation?.id ? `QT/2026/${String(quotation.id).padStart(4, '0')}` : 'QTN-001');
     doc.text(docNo, pageWidth - 15, 32, { align: "right" });
 
     // Divider
@@ -66,54 +67,76 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
 
     doc.setFontSize(12);
     doc.setTextColor(20, 30, 45);
-    doc.text(quotation.client_name || "Unknown", 15, 62);
+    const clientName = quotation?.client_name || quotation?.client?.name || quotation?.requested_by_name || "Valued Client";
+    doc.text(clientName, 15, 62);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    if (quotation.company_name) doc.text(quotation.company_name, 15, 68);
-    if (quotation.project_name) doc.text(`Project: ${quotation.project_name}`, 15, quotation.company_name ? 74 : 68);
+    const compName = quotation?.company_name || quotation?.company || "";
+    const projName = quotation?.project_name || quotation?.project?.name || quotation?.remarks_details || "";
+    if (compName) doc.text(compName, 15, 68);
+    if (projName) doc.text(`Project: ${projName}`, 15, compName ? 74 : 68);
 
     // Right: Info
     const rightX = pageWidth - 70;
     doc.setFont("helvetica", "bold");
     doc.text("DATE:", rightX, 55);
     doc.setFont("helvetica", "normal");
-    doc.text(quotation.created_at ? new Date(quotation.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'), rightX + 25, 55);
+    const dateVal = quotation?.created_at || quotation?.date || quotation?.quotation_date;
+    doc.text(dateVal ? new Date(dateVal).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'), rightX + 25, 55);
 
     doc.setFont("helvetica", "bold");
     doc.text("STATUS:", rightX, 62);
     doc.setFont("helvetica", "normal");
-    doc.text((quotation.status || "Draft").toUpperCase(), rightX + 25, 62);
+    doc.text((quotation?.status || "Draft").toUpperCase(), rightX + 25, 62);
 
     // --- Items Table ---
     const tableData: any[] = [];
 
     // Combine all items
     const processItems = (items: any[], type: string, amountKey: string, rateKey = 'rate', qtyKey = 'quantity') => {
-        if (!items || items.length === 0) return;
+        if (!items || !Array.isArray(items) || items.length === 0) return;
         tableData.push([{ content: type.toUpperCase(), colSpan: 5, styles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: 'bold' } }]);
         items.forEach(item => {
             let qty = item[qtyKey] || 1;
             if (type === 'Labour Forces') qty = (item.labour_count || 1) * (item.labour_days || 1);
 
+            const amt = Number(item[amountKey] != null ? item[amountKey] : (Number(item[rateKey] || 0) * Number(qty || 1))) || 0;
+
             tableData.push([
-                item.description || item.title || item.material_name || item.skill_type || item.expense_type,
+                item.description || item.title || item.material_name || item.skill_type || item.expense_type || 'Item',
                 qty,
                 item.unit || '-',
                 `INR ${Number(item[rateKey] || 0).toLocaleString('en-IN')}`,
-                `INR ${Number(item[amountKey] || 0).toLocaleString('en-IN')}`
+                `INR ${amt.toLocaleString('en-IN')}`
             ]);
         });
     };
 
-    processItems(quotation.items, 'Construction Work', 'amount');
-    processItems(quotation.material_items, 'Material Supply', 'estimated_amount', 'estimated_rate', 'estimated_quantity');
-    processItems(quotation.labour_items, 'Labour Forces', 'amount', 'daily_wage', 'labour_count');
-    processItems(quotation.extra_charge_items, 'Extra Charges', 'amount');
+    const workItems = quotation?.items || quotation?.work_items || quotation?.quotation_items || [];
+    const matItems = quotation?.material_items || quotation?.materials || [];
+    const labItems = quotation?.labour_items || quotation?.labour || [];
+    const extraItems = quotation?.extra_charge_items || quotation?.extra_charges || [];
+
+    processItems(workItems, 'Construction Work', 'amount');
+    processItems(matItems, 'Material Supply', 'estimated_amount', 'estimated_rate', 'estimated_quantity');
+    processItems(labItems, 'Labour Forces', 'amount', 'daily_wage', 'labour_count');
+    processItems(extraItems, 'Extra Charges', 'amount');
 
     if (tableData.length === 0) {
-        tableData.push(['No items added', '-', '-', '-', '-']);
+        const totalFallback = Number(quotation?.grand_total || quotation?.total_amount || quotation?.amount || 0);
+        if (totalFallback > 0) {
+            tableData.push([
+                quotation?.remarks_details || quotation?.description || 'Quoted Scope of Work & Services',
+                '1',
+                'LS',
+                `INR ${totalFallback.toLocaleString('en-IN')}`,
+                `INR ${totalFallback.toLocaleString('en-IN')}`
+            ]);
+        } else {
+            tableData.push(['Scope details as agreed', '1', 'LS', '—', '—']);
+        }
     }
 
     autoTable(doc, {
@@ -140,7 +163,7 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
     });
 
     // --- Summary Section ---
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    const finalY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : 160;
     const summaryX = pageWidth - 80;
 
     doc.setFontSize(10);
@@ -158,15 +181,23 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
         currentY += 7;
     };
 
-    addTotalLine("Subtotal:", quotation.subtotal || 0);
-    if (quotation.discount_amount && quotation.discount_amount > 0) {
+    const subtotal = Number(quotation?.subtotal || 0);
+    const grandTotal = Number(quotation?.grand_total || quotation?.total_amount || quotation?.amount || subtotal || 0);
+
+    if (subtotal > 0 && subtotal !== grandTotal) {
+        addTotalLine("Subtotal:", subtotal);
+    }
+    if (quotation?.discount_amount && quotation.discount_amount > 0) {
         addTotalLine("Discount:", -quotation.discount_amount);
     }
-    if (quotation.cgst_amount && quotation.cgst_amount > 0) {
-        addTotalLine(`CGST (${quotation.cgst_percent}%):`, quotation.cgst_amount);
+    if (quotation?.cgst_amount && quotation.cgst_amount > 0) {
+        addTotalLine(`CGST (${quotation.cgst_percent || 9}%):`, quotation.cgst_amount);
     }
-    if (quotation.sgst_amount && quotation.sgst_amount > 0) {
-        addTotalLine(`SGST (${quotation.sgst_percent}%):`, quotation.sgst_amount);
+    if (quotation?.sgst_amount && quotation.sgst_amount > 0) {
+        addTotalLine(`SGST (${quotation.sgst_percent || 9}%):`, quotation.sgst_amount);
+    }
+    if (quotation?.gst_amount && quotation.gst_amount > 0 && !quotation.cgst_amount) {
+        addTotalLine(`GST (${quotation.gst_percent || 18}%):`, quotation.gst_amount);
     }
 
     // Total Box
@@ -178,7 +209,7 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
     doc.text("TOTAL :", summaryX, currentY);
-    doc.text(`INR ${(quotation.grand_total || 0).toLocaleString('en-IN')}`, pageWidth - 15, currentY, { align: "right" });
+    doc.text(`INR ${grandTotal.toLocaleString('en-IN')}`, pageWidth - 15, currentY, { align: "right" });
 
     // --- Footer ---
     const bottomY = doc.internal.pageSize.height - 30;
@@ -203,6 +234,22 @@ export const generateQuotationPDF = (quotation: Quotation, companySettings?: Com
     doc.setTextColor(150, 150, 150);
     doc.text(`This is a system-generated document from ${companySettings?.company_name || "InfraPilot Construction Management Suite"}.`, pageWidth / 2, bottomY + 10, { align: "center" });
 
-    // Download
-    doc.save(`${docNo.replace(/\s+/g, '_')}.pdf`);
+    return doc;
+};
+
+/**
+ * Returns a Blob of the generated PDF.
+ */
+export const generateQuotationPDFBlob = (quotation: Quotation | any, companySettings?: CompanySettings | null): Blob => {
+    const doc = buildQuotationPDFDoc(quotation, companySettings);
+    return doc.output('blob');
+};
+
+/**
+ * Generates and triggers download of a Quotation PDF on the client side.
+ */
+export const generateQuotationPDF = (quotation: Quotation | any, companySettings?: CompanySettings | null) => {
+    const doc = buildQuotationPDFDoc(quotation, companySettings);
+    const docNo = quotation?.quotation_no || quotation?.quotation_number || quotation?.entity_id_display || (quotation?.id ? `QT/2026/${String(quotation.id).padStart(4, '0')}` : 'QTN-001');
+    doc.save(`${String(docNo).replace(/[\/\s\\]+/g, '_')}.pdf`);
 };

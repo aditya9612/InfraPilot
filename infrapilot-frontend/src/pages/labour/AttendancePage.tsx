@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import CheckInModal from '../../components/labour/CheckInModal';
 import CheckOutModal from '../../components/labour/CheckOutModal';
 import { useAuth } from '../../context/AuthContext';
+import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import { 
     getLocalDateString, 
     getISTDateString,
@@ -32,10 +33,12 @@ import {
     formatDateBySettings,
     formatDateToIST
 } from '../../utils/dateUtils';
+import { getLivePosition, formatDisplayAddress } from '../../utils/locationUtils';
 
 
 const AttendancePage: React.FC = () => {
     const { user } = useAuth();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
     const [currentTime, setCurrentTime] = useState(new Date());
     const currentDateRef = React.useRef(getISTDateString());
 
@@ -68,22 +71,16 @@ const AttendancePage: React.FC = () => {
             }
         }, 1000);
 
-        // Fetch live location
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                        const data = await res.json();
-                        setLiveLocation(data.display_name || "Location detected");
-                    } catch (e) {
-                        setLiveLocation("Could not resolve address");
-                    }
-                },
-                () => setLiveLocation("Location access denied"),
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
+        // Fetch stable and clean live location
+        getLivePosition({
+            onAddressResolved: (addr) => {
+                if (addr && addr !== "Locating...") {
+                    setLiveLocation(addr);
+                }
+            }
+        }).then(pos => {
+            if (pos.address) setLiveLocation(pos.address);
+        });
 
         return () => clearInterval(timer);
     }, []);
@@ -137,7 +134,7 @@ const AttendancePage: React.FC = () => {
         try {
             const [status, list] = await Promise.all([
                 attendanceService.getTodayStatus(),
-                attendanceService.getListAttendance({ page_size: 100 })
+                attendanceService.getListAttendance(activeProjectId ? { project_id: activeProjectId, page_size: 100 } : { page_size: 100 })
             ]);
             const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 
@@ -199,7 +196,7 @@ const AttendancePage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [activeProjectId]);
 
     const handleCheckIn = async (data: any) => {
         setIsActionLoading(true);
@@ -213,8 +210,9 @@ const AttendancePage: React.FC = () => {
                 : nowIso;
 
             const formData = new FormData();
-            if (data.project_id && Number(data.project_id) > 0) {
-                formData.append('project_id', Number(data.project_id).toString());
+            const effectivePid = (data.project_id && Number(data.project_id) > 0) ? Number(data.project_id) : (activeProjectId || 0);
+            if (effectivePid > 0) {
+                formData.append('project_id', effectivePid.toString());
             }
             if (data.latitude !== undefined && data.latitude !== null && !isNaN(Number(data.latitude))) {
                 formData.append('check_in_latitude', Number(data.latitude).toString());
@@ -300,7 +298,7 @@ const AttendancePage: React.FC = () => {
 
 
     const handleCheckOut = async (data: any) => {
-        const checkoutId = statusData?.attendance?.id || 1;
+        const checkoutId = statusData?.attendance?.id || (attendanceList.length > 0 ? attendanceList[0].id : 1);
         setIsActionLoading(true);
         try {
             const nowIso = new Date().toISOString();
@@ -312,15 +310,31 @@ const AttendancePage: React.FC = () => {
 
             const formData = new FormData();
 
-            formData.append('out_time', outTimeIso);
-            formData.append('check_out_latitude', data.latitude?.toString() || '');
-            formData.append('check_out_longitude', data.longitude?.toString() || '');
-            formData.append('check_out_address', data.resolved_address || data.location_address || '');
-            formData.append('remarks', data.work_summary || data.remarks || '');
-            formData.append('work_summary', data.work_summary || '');
-            formData.append('task_deadline_reason', data.task_deadline_reason || '');
-            formData.append('overtime_hours', (data.overtime_hours || 0).toString());
-            formData.append('overtime_rate', (data.overtime_rate || 0).toString());
+            if (data.latitude !== undefined && data.latitude !== null && data.latitude !== '' && !isNaN(Number(data.latitude))) {
+                formData.append('check_out_latitude', Number(data.latitude).toString());
+            }
+            if (data.longitude !== undefined && data.longitude !== null && data.longitude !== '' && !isNaN(Number(data.longitude))) {
+                formData.append('check_out_longitude', Number(data.longitude).toString());
+            }
+            const resolvedAddr = data.resolved_address || data.location_address;
+            if (resolvedAddr && typeof resolvedAddr === 'string' && resolvedAddr.trim() !== '' && !["Fetching location...", "Locating...", "Location not available"].includes(resolvedAddr.trim())) {
+                formData.append('check_out_address', resolvedAddr.trim());
+            }
+            if (data.work_summary && typeof data.work_summary === 'string' && data.work_summary.trim()) {
+                formData.append('work_summary', data.work_summary.trim());
+            }
+            if (data.remarks && typeof data.remarks === 'string' && data.remarks.trim()) {
+                formData.append('remarks', data.remarks.trim());
+            }
+            if (data.task_deadline_reason && typeof data.task_deadline_reason === 'string' && data.task_deadline_reason.trim()) {
+                formData.append('task_deadline_reason', data.task_deadline_reason.trim());
+            }
+            if (data.overtime_hours && !isNaN(Number(data.overtime_hours)) && Number(data.overtime_hours) > 0) {
+                formData.append('overtime_hours', Number(data.overtime_hours).toString());
+            }
+            if (data.overtime_rate && !isNaN(Number(data.overtime_rate)) && Number(data.overtime_rate) > 0) {
+                formData.append('overtime_rate', Number(data.overtime_rate).toString());
+            }
 
             if (data.check_out_image) {
                 try {
@@ -517,9 +531,9 @@ const AttendancePage: React.FC = () => {
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-8">Your attendance status for today</p>
 
                                 <div className="flex items-center gap-2 text-slate-400 mb-12">
-                                    <MapPin className="w-4 h-4" />
-                                    <span className="text-xs font-bold">
-                                        {statusData?.attendance?.check_in_address || liveLocation || "Locating..."}
+                                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                                    <span className="text-xs font-bold text-slate-600">
+                                        {formatDisplayAddress(statusData?.attendance?.check_in_address) || liveLocation || "Locating..."}
                                     </span>
                                 </div>
 
@@ -907,7 +921,7 @@ const AttendancePage: React.FC = () => {
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
                 onSubmit={handleCheckIn}
-                projectId={0}
+                projectId={activeProjectId || 0}
             />
 
             <CheckOutModal
@@ -915,6 +929,8 @@ const AttendancePage: React.FC = () => {
                 onClose={() => setIsCheckOutModalOpen(false)}
                 onSubmit={handleCheckOut}
                 attendanceId={statusData?.attendance?.id || 0}
+                projectId={activeProjectId || 0}
+                checkInAddress={statusData?.attendance?.check_in_address || ''}
             />
 
             {/* Location Details Modal */}

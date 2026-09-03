@@ -38,17 +38,25 @@ export interface CreateTaskRequestData {
  */
 export const taskRequestService = {
     /**
-     * Fetch all task requests
+     * Fetch all task requests (optionally filtered by project_id)
      * GET /api/v1/projects/task-requests
      */
-    async getRequests(): Promise<TaskRequest[]> {
+    async getRequests(projectId?: number | string): Promise<TaskRequest[]> {
         try {
-            const response = await api.get("projects/task-requests");
+            const params: any = {};
+            if (projectId && Number(projectId) > 0) {
+                params.project_id = Number(projectId);
+            }
+            const response = await api.get("projects/task-requests", { params });
             const data = response.data;
             if (!data) return [];
-            const items = Array.isArray(data)
+            const items: TaskRequest[] = Array.isArray(data)
                 ? data
                 : (data?.items || data?.data || []);
+
+            if (projectId && Number(projectId) > 0) {
+                return items.filter((item: TaskRequest) => Number(item.project_id) === Number(projectId));
+            }
             return items;
         } catch (error) {
             console.error("Failed to fetch task requests:", error);

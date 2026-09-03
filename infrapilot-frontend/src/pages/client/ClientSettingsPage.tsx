@@ -216,7 +216,7 @@ const ClientSettingsPage = () => {
 
     const getActiveProjectName = () => {
         const p = projects.find(proj => (proj.id || proj.project_id) === activeProjectId);
-        return p?.name || p?.project_name || "Sara City";
+        return p?.name || p?.project_name || (projects.length > 0 ? (projects[0].name || projects[0].project_name) : "Project");
     };
 
     const formatDisplayDate = (dateStr: any) => {
