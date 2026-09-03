@@ -3,7 +3,8 @@ import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import { boqService } from "../../services/boqService";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
+
+import { masterService } from "../../services/masterService";
 import type { BoqItem } from "../../types/boq";
 import type { Task, TaskStatus, ProjectMember } from "../../types/project";
 import { Mic, Square, Trash } from "lucide-react";
@@ -117,7 +118,7 @@ const EditTaskModal = ({
         const [boqRes, milestoneRes, activityRes] = await Promise.all([
           boqService.getBoqs({ project_id: task.project_id }),
           projectService.getMilestones(task.project_id),
-          workProgressService.listActivities(task.project_id)
+          masterService.getEntities("activity-types")
         ]);
         setBoqItems(boqRes.items || []);
         setMilestones(milestoneRes || []);

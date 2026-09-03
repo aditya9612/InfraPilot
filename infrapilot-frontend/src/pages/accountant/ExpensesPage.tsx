@@ -70,8 +70,8 @@ const ExpenseEntrySection = () => {
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
   }));
 
-  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex] 
-    ? pieData[hoveredPieIndex] 
+  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex]
+    ? pieData[hoveredPieIndex]
     : (pieData.length > 0 ? [...pieData].sort((a, b) => b.amount - a.amount)[0] : null);
 
   // Trend: use API data if available, else empty
@@ -223,13 +223,13 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
       if (!expense) return;
       try {
         setLoading(true);
-        const res = await expenseService.getExpenseById(expense.id);
+        const res: any = await expenseService.getExpenseById(expense.id);
         if (!isMounted) return;
         setData(res);
 
         // Resolve Project Name from API response body project_id
         const projId = res?.project_id ?? expense?.project_id;
-        if (projId !== undefined && projId !== null && projId !== "") {
+        if (projId !== undefined && projId !== null && String(projId) !== "") {
           if (res?.project_name) {
             setProjectName(res.project_name);
           } else if (res?.project?.project_name || res?.project?.name) {
@@ -257,7 +257,7 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
 
         // Resolve BOQ Item Name from boq_item_id
         const boqId = res?.boq_item_id ?? expense?.boq_item_id;
-        if (boqId !== undefined && boqId !== null && boqId !== "") {
+        if (boqId !== undefined && boqId !== null && String(boqId) !== "") {
           if (res?.boq_item_name || res?.boq_name || res?.boq_item?.item_name) {
             setBoqItemName(res.boq_item_name || res.boq_name || res.boq_item?.item_name);
           } else {
@@ -366,7 +366,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
         }
         const boqRes = await boqService.getBoqs({ limit: 100 });
         setBoqItems(boqRes?.items || []);
-      } catch (err) {}
+      } catch (err) { }
     };
     if (isOpen) fetchData();
   }, [isOpen, propProjects]);
@@ -464,7 +464,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
         }
         const boqRes = await boqService.getBoqs({ limit: 100 });
         setBoqItems(boqRes?.items || []);
-      } catch (err) {}
+      } catch (err) { }
     };
     if (isOpen) fetchData();
   }, [isOpen]);
@@ -1212,7 +1212,7 @@ const BOQComparisonSection = () => {
         setLoadingBoq(true);
         setBoqData(null);
         setExpenseSummary(null);
-        
+
         // Fetch BOQ Comparison
         const resBoq = await expenseService.getBoqComparison(selectedProjectId);
         setBoqData(resBoq);

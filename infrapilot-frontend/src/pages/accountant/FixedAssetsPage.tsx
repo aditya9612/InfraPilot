@@ -9,25 +9,7 @@ import { projectService } from "../../services/projectService";
 import { ChevronLeft, ChevronRight, Eye, QrCode } from "lucide-react";
 
 // --- GENERIC COMPONENTS ---
-const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">{title}</h3></div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {data.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50">
-              {row.map((cell, j) => <td key={j} className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+
 
 const PaginatedTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -62,11 +44,11 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
               {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
-          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage-1)*recordsPerPage+1} – {Math.min(currentPage*recordsPerPage, data.length)} of {data.length} records</span>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, data.length)} of {data.length} records</span>
           <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1,p-1))} disabled={currentPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages,p+1))} disabled={currentPage===totalPages||totalPages===0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
           </div>
         </div>
       )}
@@ -135,9 +117,9 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
         const items = Array.isArray(res) ? res : res.items || res.data || [];
         setProjects(items);
         if (items.length > 0 && formData.project_id === 0) {
-           setFormData(prev => ({ ...prev, project_id: items[0].id }));
+          setFormData(prev => ({ ...prev, project_id: items[0].id }));
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [isOpen]);
 
@@ -180,69 +162,69 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
   };
 
   return (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Add New Asset"
-    maxWidth="max-w-4xl"
-    footer={
-      <>
-        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Create Asset"}</button>
-      </>
-    }
-  >
-    <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Asset Details
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5 md:col-span-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name *</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Asset name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value *</label>
-            <input type="number" name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label>
-            <input type="date" name="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label>
-            <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years)</label>
-            <input type="number" name="useful_life" value={formData.useful_life || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Method</label>
-            <select name="depreciation_method" value={formData.depreciation_method} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-              <option value="SLM">Straight Line Method (SLM)</option>
-              <option value="WDV">Written Down Value (WDV)</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹)</label>
-            <input type="number" name="salvage_value" value={formData.salvage_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project ID *</label>
-            <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-              <option value="" disabled>Select Project</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
-              ))}
-            </select>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add New Asset"
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Create Asset"}</button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Asset Details
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name *</label>
+              <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Asset name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value *</label>
+              <input type="number" name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label>
+              <input type="date" name="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label>
+              <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years)</label>
+              <input type="number" name="useful_life" value={formData.useful_life || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Method</label>
+              <select name="depreciation_method" value={formData.depreciation_method} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                <option value="SLM">Straight Line Method (SLM)</option>
+                <option value="WDV">Written Down Value (WDV)</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹)</label>
+              <input type="number" name="salvage_value" value={formData.salvage_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project ID *</label>
+              <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                <option value="" disabled>Select Project</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
-    </form>
-  </Modal>
+      </form>
+    </Modal>
   );
 };
 
@@ -327,7 +309,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   const [filterPurchaseDate, setFilterPurchaseDate] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({ project: "", purchaseDate: "" });
 
-  const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
+  const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }];
 
   const fetchAssets = async () => {
     try {
@@ -339,7 +321,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   };
 
   useEffect(() => {
-    projectService.getProjects().then(res => setProjects(res.items || res.data || [])).catch(() => {});
+    projectService.getProjects().then(res => setProjects(res.items || res.data || [])).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -385,15 +367,16 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           </div>
           <PaginatedTableSection 
             title="Asset List" 
-            columns={["Asset ID", "Name", "Purchase Value", "Purchase Date", "Depr. Rate (%)", "Current Value", "Project", "Action"]} 
+            columns={["Asset ID", "Name", "Category", "Purchase Value", "Purchase Date", "Current Value", "Project / Location", "Status", "Action"]} 
             data={filteredAssets.length > 0 ? filteredAssets.map(a => [
               a.asset_id || `AST-${a.id}`,
-              a.name || "N/A",
-              `₹${Number(a.purchase_value || 0).toLocaleString("en-IN")}`,
+              a.name || a.asset_name || "N/A",
+              a.category || a.asset_type || "General",
+              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
               a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
-              `${a.depreciation_rate || 0}%`,
-              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`,
-              a.project_name || "N/A",
+              `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+              a.project_name || a.location || a.site_location || "Head Office",
+              a.status || "Active",
               <div key={a.id} className="flex gap-2">
                 <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
                 <button title="QR Code" onClick={async () => {
@@ -414,12 +397,24 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
                   }
                 }} className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><QrCode size={14}/></button>
               </div>
-            ]) : [["No assets found.", "", "", "", "", "", "", ""]]} 
+            ]) : [["No assets found.", "", "", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
-      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.project_name || "-", `₹${Number(a.purchase_value || 0).toLocaleString("en-IN")}`, `${a.depreciation_rate || 0}%`, `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`]) : [["No assets found.", "", "", "", "", ""]]} />}
-      {activeSubTab === "transfer" && <AssetTransferForm />}
+      {activeSubTab === "details" && (
+        <PaginatedTableSection
+          title="Asset Details Lookup"
+          columns={["Asset ID", "Name", "Project Name", "Purchase Value", "Depr. Rate", "Current Value"]}
+          data={filteredAssets.length > 0 ? filteredAssets.map(a => [
+            a.asset_id || `AST-${a.id}`,
+            a.name || a.asset_name || "N/A",
+            a.project_name || "-",
+            `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+            `${a.depreciation_rate || 0}%`,
+            `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`
+          ]) : [["No assets found.", "", "", "", "", ""]]}
+        />
+      )}
     </div>
   );
 };
@@ -475,12 +470,12 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
             title="Monthly Depreciation Schedule"
             columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
             data={assets.length > 0 ? assets.map(a => [
-              a.name || a.asset_name || "N/A", 
-              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`, 
-              `${a.depreciation_rate || 10}% (${resolveMethod(a)})`, 
-              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`, 
-              `₹${Math.round(((Number(a.current_value || a.purchase_value || 0)) * (Number(a.depreciation_rate || 10))) / 100 / 12).toLocaleString("en-IN")}`, 
-              <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
+              a.name || a.asset_name || "N/A",
+              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+              `${a.depreciation_rate || 10}% (${resolveMethod(a)})`,
+              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`,
+              `₹${Math.round(((Number(a.current_value || a.purchase_value || 0)) * (Number(a.depreciation_rate || 10))) / 100 / 12).toLocaleString("en-IN")}`,
+              <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); } catch (e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
             ]) : [["No assets found.", "", "", "", "", ""]]}
           />
         </div>
@@ -524,7 +519,7 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
             </div>
           </div>
           <div className="xl:col-span-2">
-              <PaginatedTableSection title="Upcoming Maintenance" columns={["Asset", "Due Date", "Service Type", "Status"]} data={[["Concrete Mixer 2", "2024-12-02", "Oil change", "Pending"]]} />
+            <PaginatedTableSection title="Upcoming Maintenance" columns={["Asset", "Due Date", "Service Type", "Status"]} data={[["Concrete Mixer 2", "2024-12-02", "Oil change", "Pending"]]} />
           </div>
         </div>
       )}
@@ -536,77 +531,16 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
   );
 };
 
-const AssetTransferForm = () => (
-  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-    <div className="xl:col-span-2 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Transfer Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>CAT 320 Excavator (AST-2024-001)</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transfer Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">From</label><input type="text" readOnly value="Current Location" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">To Destination *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Select Destination</option></select></div>
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Reason for transfer" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
-    </div>
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5">Process Transfer</h3>
-        <button onClick={() => toast.success("Asset Transferred!")} className="w-full bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md">
-          Execute Transfer
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
-const AssetTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "site");
-  const tabs = [
-    { key: "site", label: "Site Transfer", icon: "🏗️" },
-    { key: "department", label: "Department Transfer", icon: "🏢" },
-    { key: "history", label: "Asset Movement History", icon: "⏳" }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-
-      {activeSubTab === "site" && (
-        <div className="space-y-6">
-          <h2 className="font-bold text-slate-800 px-1">Inter-Site Asset Transfer</h2>
-          <AssetTransferForm />
-        </div>
-      )}
-
-      {activeSubTab === "department" && (
-        <div className="space-y-6">
-          <h2 className="font-bold text-slate-800 px-1">Inter-Department Asset Transfer</h2>
-          <AssetTransferForm />
-        </div>
-      )}
-
-      {activeSubTab === "history" && <GenericTableSection title="Asset Movement History" columns={["Date", "Asset", "From", "To", "Type", "Approved By"]} data={[["2024-09-01", "CAT 320 Excavator", "Project A", "Metro Line 3", "Site Transfer", "Rahul Verma"]]} />}
-    </div>
-  );
-};
 
 
 // --- MAIN PAGE ---
-type TabKey = "assets" | "depreciation" | "maintenance" | "transfers";
+type TabKey = "assets" | "depreciation" | "maintenance";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "assets", label: "Assets" },
   { key: "depreciation", label: "Depreciation" },
   { key: "maintenance", label: "Maintenance" },
-  { key: "transfers", label: "Transfer" },
 ];
 
 const FixedAssetsPage = () => {
@@ -623,7 +557,6 @@ const FixedAssetsPage = () => {
       "assets": "assets",
       "depreciation": "depreciation",
       "maintenance": "maintenance",
-      "transfers": "transfers",
     };
     return map[currentSub || ""] || "assets";
   };
@@ -655,11 +588,6 @@ const FixedAssetsPage = () => {
       subtitle: "Log and track asset maintenance activities.",
       actions: null,
     },
-    transfers: {
-      title: "Transfers",
-      subtitle: "Manage transfer of assets across branches or projects.",
-      actions: null,
-    },
   };
 
   const currentConfig = TAB_CONFIG[activeTab];
@@ -686,8 +614,8 @@ const FixedAssetsPage = () => {
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
-                  : "text-slate-500 hover:text-slate-700"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                : "text-slate-500 hover:text-slate-700"
                 }`}
             >
               {tab.label}
@@ -699,7 +627,6 @@ const FixedAssetsPage = () => {
         {activeTab === "assets" && <AssetRegisterWrapper />}
         {activeTab === "depreciation" && <DepreciationWrapper />}
         {activeTab === "maintenance" && <AssetMaintenanceWrapper />}
-        {activeTab === "transfers" && <AssetTransfersWrapper />}
       </PageTransition>
     </>
   );

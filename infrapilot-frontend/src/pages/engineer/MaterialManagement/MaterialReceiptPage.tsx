@@ -13,7 +13,7 @@ import { materialService, type MaterialItem, type Supplier, type PurchaseOrder, 
 import { projectService } from "../../../services/projectService";
 import { masterService } from "../../../services/masterService";
 import { boqService } from "../../../services/boqService";
-import { useProject } from "../../../context/ProjectContext";
+
 
 
 const RATE_TYPES = ["FIXED", "PER_UNIT", "PER_KG", "PER_TON", "PER_BAG"];
@@ -29,7 +29,7 @@ const MaterialReceiptPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Dashboard");
-    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);

@@ -54,6 +54,7 @@ const AllInvoicesPage = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState(searchParams.get("type") || "all");
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
@@ -127,6 +128,8 @@ const AllInvoicesPage = () => {
         await financeService.createLabourInvoice({ project_id, start_date, end_date });
       } else if (data.type === "material") {
         await financeService.createMaterialInvoice(data.project_id);
+      } else if (data.type === "measurement") {
+        await financeService.createInvoiceFromMeasurement(data.measurement_id);
       } else {
         await financeService.createInvoice(data);
       }
@@ -212,9 +215,10 @@ const AllInvoicesPage = () => {
       const matchStatus =
         statusFilter === "all" ||
         q.status?.toLowerCase() === statusFilter.toLowerCase();
-      return matchSearch && matchStatus;
+      const matchProject = projectFilter === "all" || String(q.project_id) === projectFilter;
+      return matchSearch && matchStatus && matchProject;
     });
-  }, [quotations, searchTerm, statusFilter]);
+  }, [quotations, searchTerm, statusFilter, projectFilter]);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
@@ -226,9 +230,10 @@ const AllInvoicesPage = () => {
       const matchStatus =
         statusFilter === "all" ||
         inv.status?.toLowerCase() === statusFilter.toLowerCase();
-      return matchSearch && matchStatus;
+      const matchProject = projectFilter === "all" || String(inv.project_id) === projectFilter;
+      return matchSearch && matchStatus && matchProject;
     });
-  }, [invoices, projects, searchTerm, statusFilter]);
+  }, [invoices, projects, searchTerm, statusFilter, projectFilter]);
 
   const unifiedAllData = useMemo(() => {
     // Map converted quotations to invoice-like structure
@@ -298,7 +303,7 @@ const AllInvoicesPage = () => {
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, statusFilter, typeFilter, activeTab]);
+  }, [searchTerm, statusFilter, typeFilter, activeTab, projectFilter]);
 
   // Stats
   const stats = useMemo(() => {
@@ -385,7 +390,7 @@ const AllInvoicesPage = () => {
                         <Package className="w-4 h-4 text-purple-500" /> Material Invoice
                       </button>
                       <button
-                        onClick={() => { navigate("/admin/measurements"); setIsAddDropdownOpen(false); }}
+                        onClick={() => { openCreateModal("measurement" as any); setIsAddDropdownOpen(false); }}
                         className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
                         <Layers className="w-4 h-4 text-orange-500" /> Final Measurement
                       </button>
@@ -447,25 +452,41 @@ const AllInvoicesPage = () => {
                 />
               </div>
               <div className="flex items-center gap-3">
+                {activeTab !== "quotations" && (
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setType(e.target.value)}
+                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
+                  >
+                    <option value="all">All Invoice</option>
+                    <option value="invoice">Invoice</option>
+                    <option value="labour">Labour</option>
+                    <option value="material">Material</option>
+                  </select>
+                )}
+                {activeTab !== "quotations" && (
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                  </select>
+                )}
                 <select
-                  value={typeFilter}
-                  onChange={(e) => setType(e.target.value)}
-                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none shadow-sm md:max-w-[160px] truncate"
                 >
-                  <option value="all">All Invoice</option>
-                  <option value="invoice">Invoice</option>
-                  <option value="labour">Labour</option>
-                  <option value="material">Material</option>
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="partial">Partial</option>
+                  <option value="all">All Projects</option>
+                  {projects.map((proj) => (
+                    <option key={proj.id} value={String(proj.id)}>
+                      {proj.project_name}
+                    </option>
+                  ))}
                 </select>
                 <SortDropdown value={sortOrder} onChange={setSortOrder} />
               </div>

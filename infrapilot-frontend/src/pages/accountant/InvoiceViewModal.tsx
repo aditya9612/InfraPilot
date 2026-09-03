@@ -21,7 +21,7 @@ const KNOWN_PROJECT_MAP: Record<string, string> = {
   "10": "Ocean View Residences",
 };
 
-export default function InvoiceViewModal({ invoiceId, projects, onClose }: { invoiceId: number | null; projects: any[]; onClose: () => void }) {
+export default function InvoiceViewModal({ invoiceId, projects, onClose, onSuccess }: { invoiceId: number | null; projects: any[]; onClose: () => void; onSuccess?: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetchedOwnerName, setFetchedOwnerName] = useState<string>("");
@@ -41,7 +41,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
         ]);
         setData(res.data);
         setTransactions(txRes || []);
-        
+
         if (res.data?.project_name) {
           setFetchedProjectName(res.data.project_name);
         } else if (res.data?.project_id) {
@@ -52,7 +52,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
           } else {
             const seed = PROJECTS.find(proj => String(proj.id) === strId);
             if (seed) {
-              setFetchedProjectName(seed.project_name || seed.name);
+              setFetchedProjectName(seed.project_name);
             } else if (KNOWN_PROJECT_MAP[strId]) {
               setFetchedProjectName(KNOWN_PROJECT_MAP[strId]);
             } else {
@@ -97,15 +97,15 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
     if (!invoiceId) return;
     setIsPaying(true);
     try {
-      await financeService.payInvoice(invoiceId, {
+      await financeService.payInvoice(invoiceId as number, {
         amount: Number(paymentData.amount),
-        mode: paymentData.mode,
-        reference: paymentData.reference
+        payment_mode: paymentData.mode,
+        reference_no: paymentData.reference
       });
       toast.success("Payment recorded successfully!");
       setShowPaymentForm(false);
       setPaymentData({ amount: "", mode: "Bank Transfer", reference: "" });
-      
+
       // Refresh data
       const [res, txRes] = await Promise.all([
         api.get(`/invoices/${invoiceId}`),
@@ -113,6 +113,10 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
       ]);
       setData(res.data);
       setTransactions(txRes || []);
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Failed to record payment");
     } finally {
@@ -222,17 +226,17 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
                 </button>
               )}
             </div>
-            
+
             {showPaymentForm && (
               <form onSubmit={handlePaymentSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Amount</label>
-                    <input type="number" step="any" required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Enter amount" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: e.target.value})} />
+                    <input type="number" step="any" required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Enter amount" value={paymentData.amount} onChange={e => setPaymentData({ ...paymentData, amount: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Payment Mode</label>
-                    <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" value={paymentData.mode} onChange={e => setPaymentData({...paymentData, mode: e.target.value})}>
+                    <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" value={paymentData.mode} onChange={e => setPaymentData({ ...paymentData, mode: e.target.value })}>
                       <option>Bank Transfer</option>
                       <option>Cash</option>
                       <option>Cheque</option>
@@ -241,7 +245,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Reference No.</label>
-                    <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. UTR/Cheque No." value={paymentData.reference} onChange={e => setPaymentData({...paymentData, reference: e.target.value})} />
+                    <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. UTR/Cheque No." value={paymentData.reference} onChange={e => setPaymentData({ ...paymentData, reference: e.target.value })} />
                   </div>
                 </div>
                 <div className="flex justify-end">

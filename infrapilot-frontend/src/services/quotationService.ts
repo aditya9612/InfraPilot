@@ -17,7 +17,7 @@ export const quotationService = {
                     ...(project_id != null ? { project_id } : {})
                 }
             });
-            return Array.isArray(response.data) ? response.data : (response.data.items || []);
+            return Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || []);
         } catch (error: any) {
             console.error("Get Quotations Error:", error.response?.data || error.message);
             throw error;

@@ -436,16 +436,16 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr>
-              {["Account Name", "Bank Name", "Account No", "IFSC", "Balance", "Actions"].map(h => (
+              {["Account Name", "Bank Name", "Account No", "IFSC", "Balance", "Status", "Actions"].map(h => (
                 <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-6 text-sm text-slate-400">Loading accounts...</td></tr>
+              <tr><td colSpan={7} className="text-center py-6 text-sm text-slate-400">Loading accounts...</td></tr>
             ) : accounts.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-6 text-sm text-slate-400">No bank accounts found. Click "Add Account" to create one.</td></tr>
+              <tr><td colSpan={7} className="text-center py-6 text-sm text-slate-400">No bank accounts found. Click "Add Account" to create one.</td></tr>
             ) : accounts.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(acc => (
               <tr key={acc.id} className="hover:bg-slate-50/50">
                 <td className="px-4 py-3 text-xs font-bold text-slate-800">{acc.account_name || "Primary Current"}</td>
@@ -453,6 +453,11 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
                 <td className="px-4 py-3 text-xs font-mono text-slate-500">{acc.account_number}</td>
                 <td className="px-4 py-3 text-xs font-mono text-slate-500">{acc.ifsc_code}</td>
                 <td className="px-4 py-3 text-xs font-bold text-emerald-600">₹{Number(acc.balance || 0).toLocaleString("en-IN")}</td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${acc.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {acc.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button onClick={() => handleViewLedger(acc)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">View Ledger</button>
@@ -911,78 +916,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 
 
 
-const PettyCashLedgerTable = () => {
-  const [data, setData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
-  useEffect(() => {
-    setIsLoading(true);
-    accountingService.getPettyCashLedger().then(res => {
-      setData(Array.isArray(res) ? res : res?.data || []);
-    }).catch(() => {
-      toast.error("Failed to fetch petty cash ledger");
-    }).finally(() => {
-      setIsLoading(false);
-    });
-  }, []);
-
-  const totalPages = Math.ceil(data.length / recordsPerPage);
-  const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Petty Cash Register</h3></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>
-              {["Date", "Voucher No", "Expense", "Amount", "Approved By"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {isLoading ? (
-              <tr><td colSpan={5} className="text-center py-5 text-sm text-slate-500">Loading...</td></tr>
-            ) : data.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-5 text-sm text-slate-500">No petty cash entries found.</td></tr>
-            ) : (
-              paginatedData.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 text-xs text-slate-500">{row.date}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.voucher_no || row.id}</td>
-                  <td className="px-4 py-3 text-xs text-slate-700">{row.expense || row.details}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{row.amount || row.debit || row.credit}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{row.approved_by || "-"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      {!isLoading && data.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
-              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
-          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, data.length)} of {data.length} records</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const BankBookLedgerTable = () => {
   const [data, setData] = useState<any[]>([]);
@@ -1023,7 +957,7 @@ const BankBookLedgerTable = () => {
               paginatedData.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3 text-xs text-slate-500">{row.date}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.ref || row.id}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.reference || row.ref || row.id || "—"}</td>
                   <td className="px-4 py-3 text-xs text-slate-700">{row.details || row.description}</td>
                   <td className="px-4 py-3 text-xs font-bold text-rose-600">{row.withdrawal ? `₹${row.withdrawal}` : "—"}</td>
                   <td className="px-4 py-3 text-xs font-bold text-emerald-600">{row.deposit ? `₹${row.deposit}` : "—"}</td>
@@ -1158,14 +1092,13 @@ const CashLedgerTable = () => {
 const CashBookWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "ledger");
 
-  const tabs = [{ key: "ledger", label: "Cash Ledger" }, { key: "petty", label: "Petty Cash" }];
+  const tabs = [{ key: "ledger", label: "Cash Ledger" }];
   return (
     <div className="space-y-6">
       <div className="flex gap-2 overflow-x-auto mb-4">
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
       </div>
 
-      {activeSubTab === "petty" && <PettyCashLedgerTable />}
       {activeSubTab === "ledger" && <CashLedgerTable />}
     </div>
   );

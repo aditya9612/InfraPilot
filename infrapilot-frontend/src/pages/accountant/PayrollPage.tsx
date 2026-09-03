@@ -10,6 +10,7 @@ import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
 import { projectService } from "../../services/projectService";
+import { accountingService } from "../../services/accountingService";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
@@ -515,7 +516,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
         if (id && name) map[id] = name;
       });
       setLabourMap(map);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -564,36 +565,37 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
       {activeSubTab === "register" && (
         <div className="space-y-6">
 
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-              <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
-              <div className="flex items-center flex-wrap gap-3">
-                <select value={filters.period_type} onChange={e => setFilters(prev => ({ ...prev, period_type: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
-                  <option value="">All Periods</option>
-                  <option value="Daily">Daily</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="Monthly">Monthly</option>
-                </select>
-                <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
-                  <option value="">All Statuses</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Overdue">Overdue</option>
-                </select>
-                <select value={filters.project_id} onChange={e => setFilters(prev => ({ ...prev, project_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
-                  <option value="">All Projects</option>
-                  {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
-                </select>
-                <select value={filters.labour_id} onChange={e => setFilters(prev => ({ ...prev, labour_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
-                  <option value="">All Labours</option>
-                  {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name || "Unknown"}</option>)}
-                </select>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2">
-                  <input type="date" value={filters.start_date} onChange={e => setFilters(prev => ({ ...prev, start_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
-                  <span className="text-slate-400 text-xs font-bold tracking-widest">TO</span>
-                  <input type="date" value={filters.end_date} onChange={e => setFilters(prev => ({ ...prev, end_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+            <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
+              <div className="flex justify-between items-center flex-wrap gap-4">
+                <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
+                <div className="flex items-center flex-wrap gap-3">
+                  <select value={filters.period_type} onChange={e => setFilters(prev => ({ ...prev, period_type: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                    <option value="">All Periods</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                  </select>
+                  <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none">
+                    <option value="">All Statuses</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Overdue">Overdue</option>
+                  </select>
+                  <select value={filters.project_id} onChange={e => setFilters(prev => ({ ...prev, project_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                    <option value="">All Projects</option>
+                    {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
+                  </select>
+                  <select value={filters.labour_id} onChange={e => setFilters(prev => ({ ...prev, labour_id: e.target.value }))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none max-w-[150px]">
+                    <option value="">All Labours</option>
+                    {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name || "Unknown"}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2">
+                    <input type="date" value={filters.start_date} onChange={e => setFilters(prev => ({ ...prev, start_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                    <span className="text-slate-400 text-xs font-bold tracking-widest">TO</span>
+                    <input type="date" value={filters.end_date} onChange={e => setFilters(prev => ({ ...prev, end_date: e.target.value }))} className="px-1 py-1.5 text-sm bg-transparent outline-none" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -637,24 +639,25 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
               </tbody>
             </table>
           </div>
-          {wages.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-                <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
-                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, wages.length)} of {wages.length} records</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setWagePage(p => Math.max(1, p - 1))} disabled={wagePage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
-                <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length / wageRpp), p + 1))} disabled={wagePage === Math.ceil(wages.length / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-              </div>
             </div>
-          )}
+            {wages.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                  <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, wages.length)} of {wages.length} records</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setWagePage(p => Math.max(1, p - 1))} disabled={wagePage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                  <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
+                  <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length / wageRpp), p + 1))} disabled={wagePage === Math.ceil(wages.length / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
@@ -856,8 +859,6 @@ export const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
-  const [labours, setLabours] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
@@ -908,7 +909,7 @@ const LedgerSection = () => {
 
       const laboursMap: Record<string | number, string> = {};
       if (laboursRes.status === 'fulfilled' && laboursRes.value) {
-        const lList = Array.isArray(laboursRes.value) ? laboursRes.value : (laboursRes.value.items || laboursRes.value.data || []);
+        const lList = Array.isArray(laboursRes.value) ? laboursRes.value : ((laboursRes.value as any).items || (laboursRes.value as any).data || []);
         lList.forEach((l: any) => {
           const lid = l.labour_id || l.id;
           const name = l.labour_name || l.name || l.full_name;
@@ -918,7 +919,7 @@ const LedgerSection = () => {
 
       const contractorsMap: Record<string | number, string> = {};
       if (contractorsRes.status === 'fulfilled' && contractorsRes.value) {
-        const cList = Array.isArray(contractorsRes.value) ? contractorsRes.value : (contractorsRes.value.items || contractorsRes.value.data || []);
+        const cList = Array.isArray(contractorsRes.value) ? contractorsRes.value : ((contractorsRes.value as any).items || (contractorsRes.value as any).data || []);
         cList.forEach((c: any) => {
           const cid = c.id || c.user_id || c.contractor_id;
           const name = c.name || c.full_name || c.company_name;
@@ -996,7 +997,7 @@ const LedgerSection = () => {
               }));
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       if ((category === 'LABOUR-WAGE' || category === 'LABOUR' || category === 'WAGE') && !entities.labours[id]) {
@@ -1010,7 +1011,7 @@ const LedgerSection = () => {
               }));
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, [registerData, entities.users, entities.labours]);
@@ -1345,14 +1346,14 @@ const OfferLettersWrapper = () => {
     <div className="space-y-6">
       <div className="bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-slate-100 max-w-4xl mx-auto mt-8">
         <h2 className="text-xl font-bold text-slate-800 mb-12 text-center">Offer Letter Generation Flow</h2>
-        
+
         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 relative">
           <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-1.5 bg-slate-100 -z-10 -translate-y-1/2 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: offerStatus === 'generated' ? '100%' : offerStatus === 'created' ? '50%' : '0%' }}></div>
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={() => setIsModalOpen(true)}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'pending' ? 'bg-blue-600 text-white hover:scale-105' : 'bg-emerald-500 text-white'}`}
             >
@@ -1362,7 +1363,7 @@ const OfferLettersWrapper = () => {
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={handleGenerate}
               disabled={offerStatus === 'pending'}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'created' ? 'bg-blue-600 text-white hover:scale-105' : offerStatus === 'generated' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
@@ -1373,7 +1374,7 @@ const OfferLettersWrapper = () => {
           </div>
 
           <div className="flex flex-col items-center gap-3 bg-white z-10 p-2">
-            <button 
+            <button
               onClick={handleDownload}
               disabled={offerStatus !== 'generated'}
               className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg transition-all ${offerStatus === 'generated' ? 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
@@ -1383,7 +1384,7 @@ const OfferLettersWrapper = () => {
             <span className={`font-bold text-sm ${offerStatus === 'generated' ? 'text-blue-600' : 'text-slate-400'}`}>Download PDF</span>
           </div>
         </div>
-        
+
         {currentOfferId && (
           <div className="mt-16 text-center p-5 bg-slate-50 rounded-xl border border-slate-100 max-w-sm mx-auto shadow-sm">
             <p className="text-sm text-slate-600">Current Offer ID: <span className="font-bold text-slate-800">OFF-{currentOfferId}</span></p>
@@ -1393,10 +1394,10 @@ const OfferLettersWrapper = () => {
         )}
       </div>
 
-      <CreateOfferModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={handleCreateSuccess} 
+      <CreateOfferModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleCreateSuccess}
       />
     </div>
   );
@@ -1433,7 +1434,7 @@ const PayrollPage = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
-  const [summaryData, setSummaryData] = useState<any>(null);
+  const [_summaryData, setSummaryData] = useState<any>(null);
   const [globalProjectId, setGlobalProjectId] = useState<string>("");
 
   useEffect(() => {
@@ -1578,8 +1579,8 @@ const PayrollPage = () => {
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
-                  : "text-slate-500 hover:text-slate-700"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                : "text-slate-500 hover:text-slate-700"
                 }`}
             >
               {tab.label}
@@ -1593,7 +1594,7 @@ const PayrollPage = () => {
         {activeTab === "wages" && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} onProjectChange={setGlobalProjectId} />}
         {activeTab === "ledger" && <LedgerSection />}
         {activeTab === "offers" && <OfferLettersWrapper />}
-      </PageTransition>
+      </PageTransition >
     </>
   );
 };

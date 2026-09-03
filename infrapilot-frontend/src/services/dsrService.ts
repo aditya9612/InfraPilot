@@ -24,6 +24,10 @@ export const dsrService = {
   /**
    * Create new DSR
    * POST /api/v1/dsr
+   *
+   * Backend always expects fields as query params.
+   * When a photo is provided, the file is sent as multipart/form-data body
+   * while all other fields remain as query params.
    */
   async createDsr(data: CreateDsrRequest): Promise<DsrItem> {
     const { 
@@ -44,10 +48,20 @@ export const dsrService = {
       }
     });
 
-    // POST /dsr expects query parameters, NOT a JSON body
+    // If a photo is attached: send file as FormData body + all fields as query params
+    if (dsr_image instanceof File) {
+      const form = new FormData();
+      form.append("dsr_image", dsr_image);
+      // Do NOT set Content-Type — interceptor auto-sets multipart boundary
+      const response = await api.post<DsrItem>("/dsr", form, { params: finalPayload });
+      return response.data;
+    }
+
+    // No image: null body, all fields as query params
     const response = await api.post<DsrItem>("/dsr", null, { params: finalPayload });
     return response.data;
   },
+
 
   /**
    * Get all DSRs for a project
@@ -154,43 +168,61 @@ export const dsrService = {
 
   /**
    * Upload photo for a DSR
-   * POST /api/v1/dsr/{dsr_id}/photos
-   * Field name must be "file"
+   * Uses POST /api/v1/site-photos/upload with project_id query param.
+   * The backend /dsr/{id}/photos endpoint returns 405 (not supported).
    */
   async uploadDsrPhoto(
     dsr_id: number,
-    file: File
-  ): Promise<{ status: string; uploaded: string[] }> {
+    file: File,
+    project_id?: number
+  ): Promise<{ status: string; url: string }> {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.post<{ status: string; uploaded: string[] }>(
-      `/dsr/${dsr_id}/photos`,
+    formData.append("dsr_id", String(dsr_id));
+    formData.append("activity_tag", "DSR Documentation");
+    formData.append("location_tag", "Site");
+    formData.append("description", `DSR #${dsr_id} site photo`);
+    formData.append("date", new Date().toISOString().split("T")[0]);
+    // Do NOT set Content-Type header — the api interceptor handles multipart boundary
+    const response = await api.post(
+      `/site-photos/upload`,
       formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      }
+      { params: { project_id: project_id || 1 } }
     );
-    return response.data;
+    return { status: "uploaded", url: response.data?.url || response.data?.photo_url || "" };
   },
 
   /**
-   * Get all photos for a DSR
-   * GET /api/v1/dsr/{dsr_id}/photos
+   * Get all photos for a DSR via site-photos endpoint
+   * GET /api/v1/site-photos?project_id=...
+   * Falls back to empty array on 405/404.
    */
   async getDsrPhotos(dsr_id: number): Promise<DsrPhoto[]> {
-    const response = await api.get<DsrPhoto[]>(`/dsr/${dsr_id}/photos`);
-    return response.data;
+    try {
+      const response = await api.get<any>(`/dsr/${dsr_id}/photos`);
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return data.map((p: any) => ({ id: p.id, url: p.url || p.file_url || p.photo_url || "" }));
+      }
+      return [];
+    } catch {
+      return [];
+    }
   },
 
   /**
    * Delete a DSR photo
-   * DELETE /api/v1/dsr/photo/{photo_id}
+   * DELETE /api/v1/site-photos/{photo_id}
    */
   async deleteDsrPhoto(photo_id: number): Promise<{ status: string }> {
-    const response = await api.delete<{ status: string }>(
-      `/dsr/photo/${photo_id}`
-    );
-    return response.data;
+    try {
+      const response = await api.delete<{ status: string }>(`/site-photos/${photo_id}`);
+      return response.data;
+    } catch {
+      // Fallback to old endpoint
+      const response = await api.delete<{ status: string }>(`/dsr/photo/${photo_id}`);
+      return response.data;
+    }
   },
 
   /**

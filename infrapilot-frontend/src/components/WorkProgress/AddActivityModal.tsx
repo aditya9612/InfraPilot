@@ -50,19 +50,11 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
       const fetchAllData = async () => {
         try {
-          let projectsList: any[] = [];
-          if (user?.role === "ProjectManager") {
-            projectsList = await projectService.getAssignedProjects(Number(user.id));
-            try {
-              const res = await projectService.getProjects(100, 0);
-              projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-            } catch (err) {
-              console.error("Failed to fetch projects", err);
-            }
-          }
-          setProjects(projectsList);
+          // Fetch assigned projects for the current user (e.g. Site Engineer)
+          const res: any = await projectService.getAssignedProjects(Number(user?.id));
+          setProjects(Array.isArray(res) ? res : (res.items || res.data || []));
         } catch (error) {
-          console.error("Failed to fetch initial data", error);
+          console.error("Failed to fetch assigned projects", error);
         }
       };
 
