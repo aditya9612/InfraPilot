@@ -599,46 +599,44 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                 </div>
               </div>
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
-                  const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
-                  const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
-                  const wagePeriod = wage.period || wage.period_type || 'Daily';
-                  const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
-                  const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
-                  const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
+                    const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
+                    const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
+                    const wagePeriod = wage.period || wage.period_type || 'Daily';
+                    const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
+                    const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
+                    const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
 
-                  return (
-                    <tr key={wage.id || idx} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{laborName}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{laborType}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
-                      <td className="px-4 py-3 text-xs">
-                        {wageStatus === 'Pending' ? (
-                          <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
-                            PAY NOW
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-bold">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    return (
+                      <tr key={wage.id || idx} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{laborName}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{laborType}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
+                        <td className="px-4 py-3 text-xs">
+                          {wageStatus === 'Pending' ? (
+                            <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
+                              PAY NOW
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-bold">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
             {wages.length > 0 && (
               <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">

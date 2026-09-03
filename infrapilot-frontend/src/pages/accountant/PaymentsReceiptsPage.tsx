@@ -863,19 +863,20 @@ const PettyCashSection = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {pettyCashData.length > 0 ? pettyCashData.map((item, index) => (
-              <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{item.date ? item.date.split('T')[0] : (item.transaction_date ? item.transaction_date.split('T')[0] : '-')}</td>
-                <td className="px-4 py-3 text-xs font-semibold text-slate-700">{item.category?.name || item.category || expenseAccounts.find(c => c.id === item.category_id)?.account_name || item.category_id || '-'}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{item.remarks || item.description || '-'}</td>
-                <td className="px-4 py-3 text-xs text-slate-600">{item.paid_to || item.paid_to_received_from || '-'}</td>
-                <td className="px-4 py-3 text-xs text-emerald-600 text-right">{parseFloat(item.cash_in) > 0 ? `₹${item.cash_in}` : (item.type === 'CASH_IN' ? `₹${item.amount}` : '—')}</td>
-                <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">{parseFloat(item.cash_out) > 0 ? `₹${item.cash_out}` : (item.type === 'CASH_OUT' ? `₹${item.amount}` : '—')}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{item.balance || '0'}</td>
-              </tr>
-            ))}
-            {pettyCashData.length === 0 && (
+            {pettyCashData.length > 0 ? (
+              pettyCashData.map((item, index) => (
+                <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs font-bold text-slate-600">{item.voucher_no || item.id || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{item.date ? item.date.split('T')[0] : (item.transaction_date ? item.transaction_date.split('T')[0] : '-')}</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">{item.category?.name || item.category || expenseAccounts.find(c => c.id === item.category_id)?.account_name || item.category_id || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{item.remarks || item.description || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{item.paid_to || item.paid_to_received_from || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-emerald-600 text-right">{parseFloat(item.cash_in) > 0 ? `₹${item.cash_in}` : (item.type === 'CASH_IN' ? `₹${item.amount}` : '—')}</td>
+                  <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">{parseFloat(item.cash_out) > 0 ? `₹${item.cash_out}` : (item.type === 'CASH_OUT' ? `₹${item.amount}` : '—')}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{item.balance || '0'}</td>
+                </tr>
+              ))
+            ) : (
               <tr><td colSpan={8} className="text-center py-8 text-xs text-slate-400">No transactions found</td></tr>
             )}
           </tbody>
