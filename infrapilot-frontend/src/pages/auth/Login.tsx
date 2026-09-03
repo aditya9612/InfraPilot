@@ -12,6 +12,7 @@ import { Lock, ArrowRight, Target, Box, BarChart2, Shield, ChevronDown } from "l
 type Step = "mobile" | "otp";
 
 const ROLE_PATHS: Record<Role, string> = {
+  SuperAdmin: "/superadmin",
   Admin: "/admin",
   ProjectManager: "/manager",
   SiteEngineer: "/engineer",
@@ -122,11 +123,16 @@ const Login = () => {
 
       const profile = await authService.getMe();
 
-      // Robust role mapping to handle potential case differences from backend/mock
-      const rawRole = profile.role || "Admin";
-      const normalizedRole = (Object.keys(ROLE_PATHS).find(
-        (r) => r.toLowerCase() === rawRole.toLowerCase()
-      ) as Role) || "Admin";
+      let normalizedRole: Role = "Admin";
+      if (profile.is_super_admin === true) {
+        normalizedRole = "SuperAdmin";
+      } else {
+        const rawRole = profile.role || "Admin";
+        const cleanRawRole = rawRole.toLowerCase().replace(/[_ ]/g, "");
+        normalizedRole = (Object.keys(ROLE_PATHS).find(
+          (r) => r.toLowerCase().replace(/[_ ]/g, "") === cleanRawRole
+        ) as Role) || "Admin";
+      }
 
       fullUser = {
         id: String(verifyData.user_id),

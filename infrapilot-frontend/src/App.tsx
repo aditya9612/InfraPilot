@@ -1,4 +1,5 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { ChatProvider } from "./context/ChatContext";
 import AppRoutes from "./routes/AppRoutes";
@@ -138,16 +139,20 @@ class AppErrorBoundary extends React.Component<
   }
 }
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <AppErrorBoundary>
-      <AuthProvider>
-        <ChatProvider>
-          <AppRoutes />
-          <Toaster position="top-right" reverseOrder={false} />
-        </ChatProvider>
-      </AuthProvider>
-    </AppErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <ChatProvider>
+            <AppRoutes />
+            <Toaster position="top-right" reverseOrder={false} />
+          </ChatProvider>
+        </AuthProvider>
+      </AppErrorBoundary>
+    </QueryClientProvider>
   );
 }
 

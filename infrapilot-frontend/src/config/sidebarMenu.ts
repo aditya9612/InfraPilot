@@ -9,6 +9,23 @@ export interface MenuItem {
 }
 
 export const sidebarMenus: Record<Role, MenuItem[]> = {
+  SuperAdmin: [
+    { label: "Dashboard", path: "/superadmin", icon: "grid" },
+    {
+      label: "Companies",
+      path: "/superadmin/companies",
+      icon: "briefcase",
+      subNav: [
+        { label: "All Companies", path: "/superadmin/companies", icon: "briefcase" },
+        { label: "Company Admins", path: "/superadmin/company-admins", icon: "users" },
+      ],
+    },
+    { label: "Plans & Pricing", path: "/superadmin/plans", icon: "tag" },
+    { label: "Subscriptions", path: "/superadmin/subscriptions", icon: "clipboard-list" },
+    { label: "Manual Payments", path: "/superadmin/manual-payments", icon: "file-text" },
+    { label: "Billing & Reconciliation", path: "/superadmin/billing", icon: "dollar-sign" },
+    { label: "Audit Logs", path: "/superadmin/audit-logs", icon: "shield-check" },
+  ],
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },

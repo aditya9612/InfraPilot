@@ -172,6 +172,21 @@ export interface PMSummaryData {
   todays_activities: number;
 }
 
+export interface SuperAdminDashboardData {
+  companies: number;
+  active_companies: number;
+  suspended_companies: number;
+  users: number;
+  active_users: number;
+  projects: number;
+  active_projects: number;
+  plans_count: number;
+  subscriptions_count: number;
+  subscription_distribution: Record<string, number>;
+  expiring_subscriptions: number;
+  recent_activity: any[];
+}
+
 export const dashboardService = {
   /**
    * Get Client Dashboard stats
@@ -434,6 +449,15 @@ export const dashboardService = {
    */
   async getEngineerDashboard(projectId: number): Promise<any> {
     const response = await api.get(`/dashboard/engineer/${projectId}`);
+    return response.data;
+  },
+
+  /**
+   * Get Super Admin Dashboard stats
+   * GET /api/v1/superadmin/dashboard-stats
+   */
+  async getSuperAdminDashboard(): Promise<SuperAdminDashboardData> {
+    const response = await api.get<SuperAdminDashboardData>('/superadmin/dashboard-stats');
     return response.data;
   },
 

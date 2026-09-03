@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { authService } from "../services/authService";
 
 export type Role =
+  | "SuperAdmin"
   | "Admin"
   | "ProjectManager"
   | "SiteEngineer"

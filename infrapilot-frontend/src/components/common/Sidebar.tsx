@@ -9,6 +9,7 @@ import type { JSX } from "react";
 import logo from "../../assets/logo.png";
 import { settingsService } from "../../services/settingsService";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { dashboardService } from "../../services/dashboardService";
 
 // ... (icons remain unchanged)
 
@@ -1057,10 +1058,12 @@ const SidebarItem = ({
   item,
   onClose,
   depth = 0,
+  badgeCount,
 }: {
   item: MenuItem;
   onClose?: () => void;
   depth?: number;
+  badgeCount?: number;
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1177,6 +1180,11 @@ const SidebarItem = ({
                   {unreadTotal > 99 ? "99+" : unreadTotal}
                 </span>
               )}
+              {badgeCount !== undefined && badgeCount > 0 && (
+                <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center px-1 shadow-sm">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
+              )}
             </span>
             {!hasSubNav && depth === 0 && <Chevron />}
           </>
@@ -1190,8 +1198,21 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [manualPaymentsBadge, setManualPaymentsBadge] = useState<number>(0);
 
   useEffect(() => {
+    if (user?.role === "SuperAdmin") {
+      dashboardService.getSuperAdminDashboard().then(() => {
+        // Since the new API response no longer returns pending payments count, default to 0
+        setManualPaymentsBadge(0);
+      }).catch(console.error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // SuperAdmin doesn't have access to /settings/company
+    if (user?.role === "SuperAdmin") return;
+
     const fetchLogo = async () => {
       try {
         const companyData = await settingsService.getCompanySettings();
@@ -1208,12 +1229,13 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     return () => {
       window.removeEventListener("company_logo_updated", fetchLogo);
     };
-  }, []);
+  }, [user]);
 
   if (!user) return null;
   const menu = sidebarMenus[user.role];
 
   const rolePaths: Record<string, string> = {
+    SuperAdmin: "/superadmin",
     Admin: "/admin",
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
@@ -1261,9 +1283,32 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
         {menu.map((item) => (
-          <SidebarItem key={item.path} item={item} onClose={onClose} />
+          <SidebarItem 
+            key={item.path}
+            item={item} 
+            onClose={onClose} 
+            badgeCount={item.label === "Manual Payments" ? manualPaymentsBadge : undefined}
+          />
         ))}
       </nav>
+
+      {/* ACCOUNT section for SuperAdmin */}
+      {user.role === "SuperAdmin" && (
+        <div className="px-3 pb-1 border-t border-slate-100 pt-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 pt-3 pb-1.5">
+            Account
+          </p>
+          <Link
+            to="/superadmin/profile"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all duration-150 group"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            My Profile
+          </Link>
+        </div>
+      )}
 
       <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">

@@ -5,6 +5,19 @@ import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
+import SuperAdminDashboard from "../pages/superadmin/SuperAdminDashboard";
+import CompaniesPage from "../pages/superadmin/CompaniesPage";
+import SubscriptionsPage from "../pages/superadmin/SubscriptionsPage";
+import PlansPage from "../pages/superadmin/PlansPage";
+import TransactionsPage from "../pages/superadmin/TransactionsPage";
+import SuperAdminUsersPage from "../pages/superadmin/UsersPage";
+import AuditLogsPage from "../pages/superadmin/AuditLogsPage";
+import SuperAdminProfilePage from "../pages/superadmin/SuperAdminProfilePage"; // Force TS refresh
+import CompanyDetailsPage from "../pages/superadmin/CompanyDetailsPage";
+import CompanyAdminsPage from "../pages/superadmin/CompanyAdminsPage";
+
+import ManualPaymentsPage from "../pages/superadmin/ManualPaymentsPage";
+import BillingReconciliationPage from "../pages/superadmin/BillingReconciliationPage";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
 import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
@@ -157,6 +170,7 @@ const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
   const paths: Record<string, string> = {
+    SuperAdmin: "/superadmin",
     Admin: "/admin",
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
@@ -180,6 +194,23 @@ function AppRoutes() {
             {" "}
             {/* No role restriction here, inner routes will handle */}
             <Route element={<DashboardLayout />}>
+              {/* Super Admin Specific Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["SuperAdmin"]} />}>
+                <Route path="/superadmin" element={<SuperAdminDashboard />} />
+                <Route path="/superadmin/companies" element={<CompaniesPage />} />
+                <Route path="/superadmin/companies/:id" element={<CompanyDetailsPage />} />
+                <Route path="/superadmin/company-admins" element={<CompanyAdminsPage />} />
+                <Route path="/superadmin/subscriptions" element={<SubscriptionsPage />} />
+                <Route path="/superadmin/plans" element={<PlansPage />} />
+                <Route path="/superadmin/transactions" element={<TransactionsPage />} />
+                <Route path="/superadmin/manual-payments" element={<ManualPaymentsPage />} />
+                <Route path="/superadmin/billing" element={<BillingReconciliationPage />} />
+                <Route path="/superadmin/users" element={<SuperAdminUsersPage />} />
+                <Route path="/superadmin/audit-logs" element={<AuditLogsPage />} />
+                <Route path="/superadmin/profile" element={<SuperAdminProfilePage />} />
+
+              </Route>
+
               {/* Admin Specific Routes */}
               <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
                 <Route path="/admin" element={<AdminDashboard />} />
