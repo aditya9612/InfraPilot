@@ -292,10 +292,10 @@ const TaskManagementPage = () => {
                 labourService.getLabours(projectId, { limit: 100 }).catch(() => [])
             ]);
 
-            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
-            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
-            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
-            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || fetchedMembers.members || []);
+            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || (fetchedMilestones as any).milestones || []);
+            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || (fetchedBoqs as any).boqs || (fetchedBoqs as any).boq_items || []);
+            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || (fetchedActivities as any).activities || []);
             const projectsList = fetchedProjects ? (Array.isArray(fetchedProjects) ? fetchedProjects : (fetchedProjects.items || fetchedProjects.data || [])) : [];
             const laboursList = fetchedLabours ? (Array.isArray(fetchedLabours) ? fetchedLabours : ((fetchedLabours as any).items || (fetchedLabours as any).data || [])) : [];
 
@@ -355,11 +355,11 @@ const TaskManagementPage = () => {
                     }
                 }
 
-                const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
-                const milestoneName = milestone ? milestone.name : "None";
+                const milestone = milestonesList.find((m: any) => String(m.id || m.milestone_id) === String((t as any).milestone_id));
+                const milestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : "None";
 
-                const boq = boqsList.find((b: any) => b.id === (t as any).boq_id);
-                const boqName = boq ? boq.name : "None";
+                const boq = boqsList.find((b: any) => String(b.id || b.boq_id) === String((t as any).boq_id));
+                const boqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : "None";
 
                 return {
                     ...t,
@@ -634,9 +634,43 @@ const TaskManagementPage = () => {
         if (!projectId) return;
         try {
             const fetchedTask = await projectService.getTask(projectId, task.id);
+
+            const mId = fetchedTask.milestone_id || (task as any).milestone_id;
+            const bId = fetchedTask.boq_id || (task as any).boq_id;
+
+            const milestone = mId && projectMilestones ? projectMilestones.find((m: any) => String(m.id || m.milestone_id) === String(mId)) : null;
+            let updatedMilestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : null;
+            if (!updatedMilestoneName) {
+                if (mId) {
+                    try {
+                        const mData = await projectService.getMilestone(projectId, mId);
+                        updatedMilestoneName = mData ? (mData.name || mData.title || mData.milestone_name) : null;
+                    } catch (e) { }
+                }
+                if (!updatedMilestoneName) {
+                    updatedMilestoneName = (task.milestoneName && task.milestoneName !== "None") ? task.milestoneName : (mId ? `Milestone #${mId}` : "None");
+                }
+            }
+
+            const boq = bId && projectBoqs ? projectBoqs.find((b: any) => String(b.id || b.boq_id) === String(bId)) : null;
+            let updatedBoqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : null;
+            if (!updatedBoqName) {
+                if (bId) {
+                    try {
+                        const bData = await boqService.getBoqById(bId);
+                        updatedBoqName = bData ? (bData.item_name || bData.name || bData.item_description) : null;
+                    } catch (e) { }
+                }
+                if (!updatedBoqName) {
+                    updatedBoqName = (task.boqName && task.boqName !== "None") ? task.boqName : (bId ? `BOQ #${bId}` : "None");
+                }
+            }
+
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
+                milestoneName: updatedMilestoneName,
+                boqName: updatedBoqName,
                 priority: task.priority
             });
             setModalTab("Details");
@@ -1244,7 +1278,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Start / End</th>
+
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
@@ -1299,12 +1333,7 @@ const TaskManagementPage = () => {
                                                                 <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'NA'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
-                                                            </div>
-                                                        </td>
+
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'NA'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
@@ -1757,53 +1786,53 @@ const TaskManagementPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="block md:table-row-group">
-                                            {(() => {
-                                                const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
-                                                const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
-                                                const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
-                                                return paginatedRequests.map((req, idx) => {
-                                                    const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
-                                                    const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
+                                                {(() => {
+                                                    const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
+                                                    const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
+                                                    const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
+                                                    return paginatedRequests.map((req, idx) => {
+                                                        const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
+                                                        const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
 
-                                                    return (
-                                                        <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
-                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
-                                                            <td className="p-4 block md:table-cell">
-                                                                <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
-                                                                    {req.priority || 'NORMAL'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
-                                                            <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
-                                                                {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
-                                                                    <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
-                                                                ) : '-'}
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
-                                                            <td className="p-4 block md:table-cell">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                    {req.status || 'PENDING'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
-                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
-                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
-                                                            <td className="p-4 block md:table-cell text-center">
-                                                                <div className="flex items-center justify-center gap-2">
-                                                                    <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
-                                                                        <Edit2 className="w-4 h-4" />
-                                                                    </button>
-                                                                    <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                });
-                                            })()}
+                                                        return (
+                                                            <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
+                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
+                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
+                                                                <td className="p-4 block md:table-cell">
+                                                                    <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
+                                                                        {req.priority || 'NORMAL'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
+                                                                <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
+                                                                    {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
+                                                                        <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
+                                                                    ) : '-'}
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
+                                                                <td className="p-4 block md:table-cell">
+                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                        {req.status || 'PENDING'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
+                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
+                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
+                                                                <td className="p-4 block md:table-cell text-center">
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
+                                                                            <Edit2 className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    });
+                                                })()}
                                             </tbody>
                                         </table>
                                         {taskRequests.length > 0 && (
@@ -2040,14 +2069,7 @@ const TaskManagementPage = () => {
 
                                     <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Execution & Delays</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
+
                                         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                             <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
                                             <p className="text-sm font-bold text-slate-800">{(selectedTask as any).execution_duration || 0} days</p>
