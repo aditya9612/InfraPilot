@@ -22,6 +22,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     onSuccess,
 }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [assets, setAssets] = useState<any[]>([]);
     const [boqItems, setBoqItems] = useState<any[]>([]);
     const [formData, setFormData] = useState({
@@ -41,6 +42,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             setFormData(prev => ({ ...prev, project_id: projectId || 0, boq_item_id: 0 }));
+            setFieldErrors({});
 
             // Load all available equipment recursively to bypass 100 limit
             const fetchAssets = async () => {
@@ -73,6 +75,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        setFieldErrors(prev => ({ ...prev, [name]: "" }));
         setFormData(prev => ({
             ...prev,
             [name]: ["asset_id", "quantity", "unit_price", "boq_item_id", "project_id"].includes(name) ? Number(value) : value
@@ -81,8 +84,24 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const newErrors: Record<string, string> = {};
         if (!formData.asset_id || formData.asset_id === 0) {
+            newErrors.asset_id = "Please select an asset.";
             toast.error("Please select an asset.");
+        }
+        if (!formData.vendor_name || formData.vendor_name.length < 2) {
+            newErrors.vendor_name = "Vendor name must be at least 2 characters.";
+        }
+        if (!formData.invoice_number || formData.invoice_number.length < 2) {
+            newErrors.invoice_number = "Invoice number must be at least 2 characters.";
+        }
+        if (!formData.unit_price || formData.unit_price <= 0) {
+            newErrors.unit_price = "Unit price must be greater than 0.";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setFieldErrors(newErrors);
             return;
         }
 
@@ -99,8 +118,23 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
             toast.success("Purchase created successfully!");
             onSuccess();
             onClose();
-        } catch (error) {
-            toast.error("Failed to create purchase. Please try again.");
+        } catch (error: any) {
+            let errorMessage = "Failed to create purchase. Please try again.";
+            const detail = error.response?.data?.detail;
+            if (typeof detail === 'string') {
+                errorMessage = detail;
+            } else if (Array.isArray(detail)) {
+                errorMessage = "Please fix the errors below.";
+                const backendErrors: Record<string, string> = {};
+                detail.forEach(d => {
+                    const field = d.loc[d.loc.length - 1]; // get 'vendor_name' from loc array
+                    backendErrors[field] = d.msg;
+                });
+                setFieldErrors(backendErrors);
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response?.data?.message;
+            }
+            toast.error(errorMessage);
             console.error(error);
         } finally {
             setIsSubmitting(false);
@@ -133,7 +167,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="p-8">
+                    <form onSubmit={handleSubmit} className="p-8" noValidate>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Purchase Type */}
                             <div className="space-y-2">
@@ -164,13 +198,16 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                     value={formData.asset_id}
                                     onChange={handleChange}
                                     required
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all appearance-none"
+                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all appearance-none ${fieldErrors.asset_id ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
                                 >
                                     <option value={0}>Select Asset...</option>
                                     {assets.map((asset) => (
                                         <option key={asset.id} value={asset.id}>{asset.equipment_name || asset.equipment_code}</option>
                                     ))}
                                 </select>
+                                {fieldErrors.asset_id && (
+                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.asset_id}</p>
+                                )}
                             </div>
 
                             {/* Purchase Date */}
@@ -191,31 +228,41 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Vendor Name */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Vendor Name
+                                    Vendor Name <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="vendor_name"
                                     value={formData.vendor_name}
                                     onChange={handleChange}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
+                                    required
+                                    minLength={2}
+                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.vendor_name ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
                                     placeholder="Enter vendor name"
                                 />
+                                {fieldErrors.vendor_name && (
+                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.vendor_name}</p>
+                                )}
                             </div>
 
                             {/* Invoice Number */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Invoice Number
+                                    Invoice Number <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="invoice_number"
                                     value={formData.invoice_number}
                                     onChange={handleChange}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
+                                    required
+                                    minLength={2}
+                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.invoice_number ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
                                     placeholder="Enter invoice number"
                                 />
+                                {fieldErrors.invoice_number && (
+                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.invoice_number}</p>
+                                )}
                             </div>
 
                             {/* Quantity */}
@@ -236,17 +283,21 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             {/* Unit Price */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Unit Price
+                                    Unit Price <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="number"
                                     name="unit_price"
                                     value={formData.unit_price}
                                     onChange={handleChange}
-                                    min="0"
+                                    required
+                                    min="0.01"
                                     step="0.01"
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
+                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.unit_price ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
                                 />
+                                {fieldErrors.unit_price && (
+                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.unit_price}</p>
+                                )}
                             </div>
 
                             {/* Warranty End Date */}

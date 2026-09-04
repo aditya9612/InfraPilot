@@ -96,7 +96,7 @@ const MaterialStockPage = () => {
         try {
             const [rep, val] = await Promise.all([
                 materialService.getMaterialReport(projectId),
-                materialService.getInventoryValuation()
+                materialService.getInventoryValuation(projectId || undefined)
             ]);
             setInventory(rep.materials as any);
             setValuation(val);

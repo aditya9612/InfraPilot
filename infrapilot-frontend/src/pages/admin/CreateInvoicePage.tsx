@@ -38,6 +38,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import EditInvoiceItemModal from "../../components/forms/EditInvoiceItemModal";
 import ImportEstimateModal from "../../components/forms/ImportEstimateModal";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
@@ -86,22 +87,7 @@ const CreateInvoicePage = () => {
   const [pendingConversionType, setPendingConversionType] = useState<"bill" | "workOrder" | null>(null);
 
   const handlePreviewModalOpen = async () => {
-    if (id) {
-      setIsPreviewLoading(true);
-      try {
-        const blob = await quotationService.downloadQuotationPDF(Number(id));
-        const url = window.URL.createObjectURL(blob);
-        setPdfUrl(url);
-        setIsPDFModalOpen(true);
-      } catch (err) {
-        console.error("Preview Error:", err);
-        toast.error("Failed to generate PDF preview");
-      } finally {
-        setIsPreviewLoading(false);
-      }
-    } else {
-      toast.error("Please save the quotation first to preview the PDF", { duration: 3000 });
-    }
+    setIsPreviewModalOpen(true);
   };
 
   const handleDownloadFromPreview = async () => {
@@ -115,6 +101,7 @@ const CreateInvoicePage = () => {
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InvoiceItem | null>(null);
 
   // Form State
@@ -143,11 +130,7 @@ const CreateInvoicePage = () => {
     dueDate: ""
   });
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: "1", description: "Soling", unit: "Brass", quantity: 0, rate: 0, amount: 0 },
-    { id: "2", description: "Plum Concrete", unit: "Cum", quantity: 0, rate: 0, amount: 0 },
-    { id: "3", description: "Stone Work", unit: "Brass", quantity: 0, rate: 0, amount: 0 }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
 
   const [discount, setDiscount] = useState(0);
   const [advancePaid, setAdvancePaid] = useState(0);
@@ -508,10 +491,6 @@ const CreateInvoicePage = () => {
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    if (items.length <= 1) {
-      toast.error("At least one item is required");
-      return;
-    }
     setItemDeleteTarget(itemId);
   };
 
@@ -522,8 +501,8 @@ const CreateInvoicePage = () => {
       try {
         await quotationService.deleteQuotationItem(Number(itemDeleteTarget));
         toast.success("Item deleted from quotation");
-      } catch (error) {
-        toast.error("Failed to delete item from database");
+      } catch (error: any) {
+        toast.error(error.response?.data?.detail || "Failed to delete item from database");
         setIsDeletingItem(false);
         setItemDeleteTarget(null);
         return;
@@ -1192,7 +1171,7 @@ const CreateInvoicePage = () => {
         toast.success("Labour item removed");
       } catch (err: any) {
         console.error("Failed to delete labour item:", err);
-        toast.error("Failed to remove labour item from server");
+        toast.error(err.response?.data?.detail || "Failed to remove labour item from server");
       }
     }
   };
@@ -1265,7 +1244,7 @@ const CreateInvoicePage = () => {
         toast.success("Material removed");
       } catch (err: any) {
         console.error("Failed to delete material item:", err);
-        toast.error("Failed to remove material from server");
+        toast.error(err.response?.data?.detail || "Failed to remove material from server");
       }
     }
   };
@@ -1344,7 +1323,7 @@ const CreateInvoicePage = () => {
         toast.success("Extra charge removed");
       } catch (err: any) {
         console.error("Failed to delete extra charge:", err);
-        toast.error("Failed to remove extra charge from server");
+        toast.error(err.response?.data?.detail || "Failed to remove extra charge from server");
       }
     }
   };
@@ -1376,6 +1355,13 @@ const CreateInvoicePage = () => {
               <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create and customize professional invoices / estimates."}</p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsPreviewModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              >
+                <Eye className="w-4 h-4 text-emerald-600" />
+                Preview Document
+              </button>
               <button
                 onClick={() => setIsImportModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -1642,11 +1628,11 @@ const CreateInvoicePage = () => {
                     <tr className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
                       <th className="px-6 py-4 w-12">#</th>
                       <th className="px-6 py-4">Item / Work Description</th>
-                      <th className="px-6 py-4 w-28">Unit</th>
-                      <th className="px-6 py-4 w-32">Quantity</th>
+                      <th className="px-6 py-4 w-40">Unit</th>
+                      <th className="px-6 py-4 w-36">Quantity</th>
                       <th className="px-6 py-4 w-40">Rate (₹)</th>
                       <th className="px-6 py-4 w-40">Amount (₹)</th>
-                      <th className="px-6 py-4 w-32 text-center">Action</th>
+                      <th className="px-6 py-4 w-28 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1657,7 +1643,8 @@ const CreateInvoicePage = () => {
                           <textarea
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none resize-none"
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="Enter item description..."
                             rows={2}
                           />
                         </td>
@@ -1666,7 +1653,7 @@ const CreateInvoicePage = () => {
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                             disabled={isReadOnly}
-                            className={`w-full bg-transparent border-none text-sm font-semibold text-slate-600 outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className={`w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 cursor-pointer transition-all ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                           >
                             <option value="">Select Unit</option>
                             {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
@@ -1677,17 +1664,47 @@ const CreateInvoicePage = () => {
                         <td className="px-6 py-4">
                           <input
                             type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={9999999}
+                            step="any"
+                            value={item.quantity === 0 ? "" : item.quantity}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "quantity", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 9999999) return;
+                                  updateItem(item.id, "quantity", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">
                           <input
                             type="number"
-                            value={item.rate}
-                            onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={99999999}
+                            step="any"
+                            value={item.rate === 0 ? "" : item.rate}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "rate", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 99999999) return;
+                                  updateItem(item.id, "rate", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-black text-indigo-600">
@@ -2642,6 +2659,35 @@ const CreateInvoicePage = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSelect={handleImportQuotation}
+      />
+
+      <QuotationPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        forceLocal={true}
+        data={{
+          id: id,
+          invoiceNo: invoiceDetails.invoiceNo,
+          date: invoiceDetails.date,
+          projectName: projectDetails.name,
+          projectType: projectDetails.type,
+          engineerName: projectDetails.engineer,
+          workOrderNo: projectDetails.workOrderNo,
+          clientName: clientDetails.name,
+          clientAddress: clientDetails.address,
+          clientMobile: clientDetails.mobile,
+          clientGst: clientDetails.gst,
+          items: items,
+          labourItems: labourItems,
+          materialItems: materialItems,
+          subTotal: subTotal,
+          cgstRate: gstRates.cgst,
+          sgstRate: gstRates.sgst,
+          grandTotal: grandTotal,
+          advancePaid: advancePaid,
+          balanceDue: balanceDue,
+          terms: terms
+        }}
       />
 
       <PDFPreviewModal
