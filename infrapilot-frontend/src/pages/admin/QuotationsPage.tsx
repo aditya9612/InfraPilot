@@ -11,7 +11,8 @@ import {
     XCircle,
     Download,
     Zap,
-    Send
+    Send,
+    ChevronDown
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -49,6 +50,9 @@ const QuotationsPage = () => {
     const [previewQuotationNo, setPreviewQuotationNo] = useState("");
     const [previewQuotationId, setPreviewQuotationId] = useState<number | null>(null);
     const [isDownloadingFromPreview, setIsDownloadingFromPreview] = useState(false);
+
+    // Create Dropdown state
+    const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
 
     const fetchQuotations = async () => {
         try {
@@ -241,7 +245,7 @@ const QuotationsPage = () => {
 
     return (
         <>
-            <Navbar title="Quotations / Estimates" breadcrumb={["Dashboard", "Invoices", "Quotations"]} />
+            <Navbar title="Quotations / Estimates" breadcrumb={["Dashboard", { label: "Invoices", path: "/admin/invoices/all" }, "Quotations"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -249,12 +253,42 @@ const QuotationsPage = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Client Quotations</h1>
                         <p className="text-slate-500 text-sm font-medium">Manage and track all project proposals and estimates.</p>
                     </div>
-                    <button
-                        onClick={() => navigate("/admin/invoices/create")} // Reusing create invoice for now as they are similar
-                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-5 h-5" /> Create New Quotation
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        >
+                            <Plus className="w-5 h-5" /> Create New Quotation <ChevronDown className={`w-4 h-4 transition-transform ${isCreateDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isCreateDropdownOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsCreateDropdownOpen(false)} />
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-20 py-2">
+                                    <button
+                                        onClick={() => {
+                                            setIsCreateDropdownOpen(false);
+                                            navigate("/admin/quotations/draft/new");
+                                        }}
+                                        className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                                    >
+                                        <span className="text-sm font-bold text-slate-800">Draft Quotation</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client & Items Only</span>
+                                    </button>
+                                    <div className="border-t border-slate-50 my-1" />
+                                    <button
+                                        onClick={() => {
+                                            setIsCreateDropdownOpen(false);
+                                            navigate("/admin/invoices/create");
+                                        }}
+                                        className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                                    >
+                                        <span className="text-sm font-bold text-slate-800">Standard Quotation</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Detailed Editor</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Quick Stats Section */}

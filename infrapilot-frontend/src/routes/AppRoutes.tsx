@@ -41,6 +41,7 @@ import BOQDetailPage from "../pages/admin/BOQDetailPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 import QuotationsPage from "../pages/admin/QuotationsPage";
+import CreateDraftQuotationPage from "../pages/admin/CreateDraftQuotationPage";
 import AdminClientPaymentPage from "../pages/admin/AdminClientPaymentPage";
 import ManagerApprovalsPage from "../pages/manager/ApprovalsPage";
 import QCGovernancePage from "../pages/manager/QCGovernancePage";
@@ -271,6 +272,7 @@ function AppRoutes() {
                 <Route path="/admin/measurements" element={<MeasurementPage />} />
                 <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
                 <Route path="/admin/quotations" element={<QuotationsPage />} />
+                <Route path="/admin/quotations/draft/new" element={<CreateDraftQuotationPage />} />
                 <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
                 <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
                 <Route path="/admin/master-data" element={<MasterDataPage />} />
