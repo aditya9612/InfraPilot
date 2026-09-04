@@ -60,7 +60,7 @@ const EquipmentPage = () => {
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [isViewMode, setIsViewMode] = useState(false);
     const [formData, setFormData] = useState<any>({});
-    const modalEquipmentList = equipmentList.filter(eq => !eq.project_id || eq.project_id === 0 || eq.id === formData?.equipment_id);
+    const modalEquipmentList = equipmentList; // Render all available equipment instead of filtering by Unassigned
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
 
@@ -100,8 +100,9 @@ const EquipmentPage = () => {
                 const res = await equipmentService.getUsageReport(pIdObj);
                 setUsageReport(res);
             } else if (activeTab === "Maintenance") {
-                const res = await equipmentService.getMaintenanceAlerts(pIdObj);
-                setMaintenanceAlerts(res);
+                const res = await equipmentService.getAllMaintenance(pIdObj);
+                console.log("[DEBUG] getAllMaintenance fetched:", res);
+                setAllMaintenance(res);
             } else if (activeTab === "Rental") {
                 const res = await equipmentService.listRental(undefined, pIdObj);
                 setRentalList(Array.isArray(res) ? res : (res as any).items || []);
@@ -275,7 +276,13 @@ const EquipmentPage = () => {
             case "Usage & Tracking":
                 return usageReport.filter(u => (u.equipment_code || "").toLowerCase().includes(term));
             case "Maintenance":
-                return maintenanceAlerts.filter(m => (m.equipment_code || "").toLowerCase().includes(term));
+                console.log("[DEBUG] allMaintenance before filter:", allMaintenance);
+                const filtered = allMaintenance.filter(m => {
+                    const matchedName = String(equipmentMap[m.equipment_id] || m.equipment_id).toLowerCase();
+                    return matchedName.includes(term) || (m.description || "").toLowerCase().includes(term);
+                });
+                console.log("[DEBUG] filtered maintenance:", filtered);
+                return filtered;
             case "Rental":
                 return rentalList.filter(r => (r.equipment_code || r.client_name || "").toLowerCase().includes(term));
             case "Purchases":
@@ -577,28 +584,61 @@ const EquipmentPage = () => {
         <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b sticky top-0 z-10">
                 <tr>
-                    <th className="px-6 py-4">Equipment Code</th>
+                    <th className="px-6 py-4">Equipment Name</th>
+                    <th className="px-6 py-4">Description</th>
                     <th className="px-6 py-4">Maintenance Date</th>
-                    <th className="px-6 py-4">Days remaining</th>
+                    <th className="px-6 py-4">Cost</th>
+                    <th className="px-6 py-4">Next Maintenance</th>
                     <th className="px-6 py-4">Status</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading maintenance schedule...</td></tr>
-                ) : pagedData.length > 0 ? pagedData.map((alert: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
-                        <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
-                        <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                {alert.status}
-                            </span>
-                        </td>
-                    </tr>
-                )) : (
-                    <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-medium">No maintenance alerts</td></tr>
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading maintenance schedule...</td></tr>
+                ) : pagedData.length > 0 ? pagedData.map((item: any, idx: number) => {
+                    const eqName = equipmentList.find(e => e.id === item.equipment_id)?.equipment_name || equipmentMap[item.equipment_id] || item.equipment_code || `Asset ${item.equipment_id}`;
+
+                    let daysUntil = 0;
+                    if (item.next_maintenance_date) {
+                        try {
+                            const nextDate = new Date(item.next_maintenance_date);
+                            const today = new Date();
+                            daysUntil = Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        } catch (e) {
+                            daysUntil = 0;
+                        }
+                    }
+
+                    const isOverdue = daysUntil < 0 && item.next_maintenance_date;
+
+                    let safeMaintDate = "—";
+                    if (item.maintenance_date) safeMaintDate = item.maintenance_date;
+                    else if (item.created_at) {
+                        try {
+                            safeMaintDate = new Date(item.created_at).toISOString().split("T")[0];
+                        } catch (e) { safeMaintDate = "—"; }
+                    }
+
+                    return (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">{eqName}</td>
+                            <td className="px-6 py-4 text-slate-600 truncate max-w-[200px]" title={item.description}>{item.description || "—"}</td>
+                            <td className="px-6 py-4 text-slate-700 font-medium">{safeMaintDate}</td>
+                            <td className="px-6 py-4 text-emerald-600 font-bold">₹{(item.cost || 0).toLocaleString()}</td>
+                            <td className="px-6 py-4 text-slate-500 font-medium">
+                                {item.next_maintenance_date ? (
+                                    <span>{item.next_maintenance_date} {isOverdue && <span className="text-rose-500 text-xs ml-1">(Overdue)</span>}</span>
+                                ) : "—"}
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${item.is_completed ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                    {item.is_completed ? "Completed" : (item.status || "Pending")}
+                                </span>
+                            </td>
+                        </tr>
+                    );
+                }) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No maintenance records found</td></tr>
                 )}
             </tbody>
         </table>
@@ -1243,8 +1283,13 @@ const EquipmentPage = () => {
                                 if (Number(eq.id) === Number(formData.equipment_id)) return true;
                                 const isRented = globalRentals.some((r: any) => Number(r.equipment_id) === Number(eq.id) && r.status !== 'CANCELLED' && r.status !== 'COMPLETED');
                                 const isInMaintenance = globalMaintenance.some((m: any) => Number(m.equipment_id) === Number(eq.id) && m.status !== 'COMPLETED');
-                                return !isRented && !isInMaintenance && (!eq.project_id);
-                            }).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                                // Removing the (!eq.project_id) strict check so users can rent equipment even if allocated.
+                                return !isRented && !isInMaintenance;
+                            }).map(eq => (
+                                <option key={eq.id} value={eq.id}>
+                                    {eq.equipment_name} ({eq.equipment_code}) {eq.project_id ? `[Allocated]` : '[Global]'}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

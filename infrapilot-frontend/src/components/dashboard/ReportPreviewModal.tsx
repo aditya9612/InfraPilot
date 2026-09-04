@@ -48,8 +48,6 @@ const ASSET_FIELD_LABELS: Record<string, string> = {
 const ASSET_FIELD_ICONS: Record<string, React.ReactNode> = {
     name: <Package size={14} />,
     purchase_date: <Calendar size={14} />,
-    purchase_value: <DollarSign size={14} />,
-    current_value: <DollarSign size={14} />,
     depreciation_rate: <TrendingDown size={14} />,
 };
 

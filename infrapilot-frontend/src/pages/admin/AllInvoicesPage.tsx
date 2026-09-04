@@ -354,11 +354,13 @@ const AllInvoicesPage = () => {
               <p className="text-sm text-slate-500">Track and manage all client estimates and final invoices.</p>
             </div>
             <div className="flex gap-3">
+              {/* 
               <button
                 onClick={handleExportAll}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
                 <Download className="w-4 h-4" /> Export
               </button>
+              */}
 
               <div className="relative">
                 <button

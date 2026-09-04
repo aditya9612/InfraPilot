@@ -157,7 +157,8 @@ const DailyProgressEntryPage = () => {
         : Number(selectedActivityId);
       const res = await workProgressService.getActivityHistory(activityId, projectId);
       const rawHistory = res?.history || res?.data || (Array.isArray(res) ? res : []);
-      
+      const parentActivity = res?.activity || activitiesList.find(a => Number(a.id) === activityId);
+
       const normalizedHistory = rawHistory.map((item: any) => ({
         ...item,
         activity_id: item.activity_id || activityId,
@@ -168,7 +169,7 @@ const DailyProgressEntryPage = () => {
           total_completed: item.running_total || item.total_completed || 0
         }
       }));
-      
+
       setActivityHistory(normalizedHistory);
       setHasLoadedHistory(true);
     } catch (err) {
@@ -341,8 +342,8 @@ const DailyProgressEntryPage = () => {
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
     return baseHistoryEntries.filter(e => {
-      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
-      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      if (activeStatFilter === "Progress Updates") return Number(e.today_progress || e.new_value?.today_progress || 0) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.status && e.old_status && e.status !== e.old_status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
       return true;
     });
   }, [baseHistoryEntries, activeStatFilter]);
@@ -449,8 +450,7 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'history') {
       cards = [
         { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
-        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
-        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.today_progress || e.new_value?.today_progress || 0) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" }
       ];
     } else if (activeTab === 'delay') {
       cards = [
@@ -464,7 +464,7 @@ const DailyProgressEntryPage = () => {
     if (cards.length === 0) return null;
 
     return (
-      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-6 mb-8 font-inter`}>
+      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'md:grid-cols-4' : cards.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6 mb-8 font-inter`}>
         {cards.map(c => (
           <div
             key={c.label}

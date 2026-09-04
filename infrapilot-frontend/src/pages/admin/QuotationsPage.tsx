@@ -147,7 +147,15 @@ const QuotationsPage = () => {
             toast.success("Converted to invoice successfully!");
             navigate("/admin/invoices/all?type=invoice");
         } catch (error: any) {
-            toast.error(error.message || "Failed to convert quotation");
+            let msg = "Failed to convert quotation";
+            if (error.response?.data?.detail) {
+                msg = typeof error.response.data.detail === 'string' ? error.response.data.detail : JSON.stringify(error.response.data.detail);
+            } else if (error.response?.data?.message) {
+                msg = error.response.data.message;
+            } else if (error.message) {
+                msg = error.message;
+            }
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -175,7 +183,15 @@ const QuotationsPage = () => {
             toast.success("Quotation sent successfully", { id: toastId });
             fetchQuotations();
         } catch (error: any) {
-            toast.error(error.message || "Failed to send quotation", { id: toastId });
+            let msg = "Failed to send quotation";
+            if (error.response?.data?.detail) {
+                msg = typeof error.response.data.detail === 'string' ? error.response.data.detail : JSON.stringify(error.response.data.detail);
+            } else if (error.response?.data?.message) {
+                msg = error.response.data.message;
+            } else if (error.message) {
+                msg = error.message;
+            }
+            toast.error(msg, { id: toastId });
         }
     };
 
