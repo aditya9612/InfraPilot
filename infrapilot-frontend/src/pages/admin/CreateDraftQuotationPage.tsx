@@ -1363,13 +1363,7 @@ const CreateDraftQuotationPage = () => {
                 <Eye className="w-4 h-4 text-emerald-600" />
                 Preview Document
               </button>
-              <button
-                onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-              >
-                <FileText className="w-4 h-4 text-indigo-600" />
-                Import from Estimate
-              </button>
+
               <button
                 onClick={handleSaveQuotation}
                 disabled={isSaving || isReadOnly}
