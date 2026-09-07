@@ -183,7 +183,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                     <option value="">Select BOQ Item...</option>
                     {boqItems.map(item => (
                       <option key={item.id} value={item.id}>
-                        {item.description} ({item.uom})
+                        {item.item_name} {item.unit ? `(${item.unit})` : ""}
                       </option>
                     ))}
                   </select>

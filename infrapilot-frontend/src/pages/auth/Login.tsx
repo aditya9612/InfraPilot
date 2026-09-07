@@ -300,16 +300,6 @@ const Login = () => {
             {/* Mobile drag handle indicator */}
             <div className="w-10 h-1.5 bg-slate-200 hover:bg-slate-300 transition-colors rounded-full mx-auto mb-6 lg:hidden cursor-pointer" />
 
-            {/* Step indicator */}
-            <div className="w-full flex items-center mb-6 gap-3 pb-1">
-              <div className="flex items-center gap-1.5">
-                <div className={`h-1.5 rounded-full transition-colors ${step === "mobile" ? "w-8 bg-blue-700" : "w-6 bg-slate-200"}`} />
-                <div className={`h-1.5 rounded-full transition-colors ${step === "otp" ? "w-8 bg-blue-700" : "w-6 bg-slate-200"}`} />
-              </div>
-              <span className="text-[12px] text-[#94A3B8] font-medium">
-                Step {step === "mobile" ? "1" : "2"} of 2
-              </span>
-            </div>
 
             {/* Step 1 */}
             {step === "mobile" && (
@@ -490,6 +480,11 @@ const Login = () => {
                 </p>
                 <p className="text-[11px] text-[#043391] font-bold tracking-wider uppercase">
                   INFRAPILOT VERIFIED PERSONNEL
+                </p>
+              </div>
+              <div className="text-center mt-6">
+                <p className="text-[10px] text-slate-400 font-medium tracking-wide">
+                  © {new Date().getFullYear()} Shekru Labs India Pvt Ltd. All rights reserved.
                 </p>
               </div>
             </div>

@@ -114,6 +114,20 @@ export const projectService = {
   },
 
   /**
+   * Update OT Policy for a project
+   * PUT /api/v1/projects/{project_id}/ot-policy
+   */
+  async updateOTPolicy(projectId: number, policyData: any) {
+    try {
+      const response = await api.put(`projects/${projectId}/ot-policy`, policyData);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update OT Policy API Error for project ${projectId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Delete project by ID
    * DELETE /api/v1/projects/{project_id}
    */

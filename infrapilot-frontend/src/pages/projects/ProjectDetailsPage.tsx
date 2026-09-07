@@ -41,7 +41,7 @@ const ProjectDetailsPage = () => {
 
   // State for tabs
   const [activeTab, setActiveTab] = useState<
-    "Overview" | "Milestones" | "Members" | "Tasks" | "Task Requests" | "Profit & Loss" | "Photos" | "Logs"
+    "Overview" | "Milestones" | "Members" | "Tasks" | "Task Requests" | "Profit & Loss" | "OT Policy" | "Photos" | "Logs"
   >(initialTab);
 
   // State for data
@@ -707,7 +707,7 @@ const ProjectDetailsPage = () => {
         {/* Tabs Navigation */}
         <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
           {(
-            ["Overview", "Milestones", "Members", "Tasks", "Task Requests", "Profit & Loss", "Photos", "Logs"] as const
+            ["Overview", "Milestones", "Members", "Tasks", "Task Requests", "Profit & Loss", "OT Policy", "Photos", "Logs"] as const
           ).map((tab) => (
             <button
               key={tab}
@@ -947,6 +947,76 @@ const ProjectDetailsPage = () => {
               />
             </div>
           )}
+          {activeTab === "OT Policy" && (
+            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Overtime (OT) Policy Configuration</h3>
+                <p className="text-sm text-slate-500 mb-6">Manage overtime rules and rates for labor members logged on this site.</p>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.target as HTMLFormElement;
+                    const formData = new FormData(form);
+                    const toastId = toast.loading("Updating OT Policy...");
+                    try {
+                      const payload = {
+                        policy_type: formData.get("policy_type") as string,
+                        normal_day_multiplier: Number(formData.get("normal_day_multiplier") || 1),
+                        sunday_multiplier: Number(formData.get("sunday_multiplier") || 1),
+                        holiday_multiplier: Number(formData.get("holiday_multiplier") || 1),
+                        fixed_ot_rate: Number(formData.get("fixed_ot_rate") || 0)
+                      };
+
+                      await projectService.updateOTPolicy(projectId, payload);
+                      toast.success("OT Policy updated!", { id: toastId });
+                      fetchProjectData();
+                    } catch (error: any) {
+                      const message = error.response?.data?.message || error.response?.data?.detail || "Failed to update OT Policy";
+                      toast.error(typeof message === 'object' ? JSON.stringify(message) : message, { id: toastId });
+                    }
+                  }}
+                  className="space-y-4 max-w-xl"
+                >
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Policy Type</label>
+                      <select name="policy_type" defaultValue={(project as any)?.ot_policy?.policy_type || "Multiplier"} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                        <option value="Multiplier">Multiplier Base (e.g. 1.5x)</option>
+                        <option value="FixedRate">Fixed Rate (Currency/hr)</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Normal Day (x)</label>
+                        <input type="number" step="0.1" name="normal_day_multiplier" defaultValue={(project as any)?.ot_policy?.normal_day_multiplier ?? 1.5} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Sunday (x)</label>
+                        <input type="number" step="0.1" name="sunday_multiplier" defaultValue={(project as any)?.ot_policy?.sunday_multiplier ?? 2} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Holiday (x)</label>
+                        <input type="number" step="0.1" name="holiday_multiplier" defaultValue={(project as any)?.ot_policy?.holiday_multiplier ?? 3} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fixed OT Rate (Amount)</label>
+                      <input type="number" step="0.1" name="fixed_ot_rate" defaultValue={(project as any)?.ot_policy?.fixed_ot_rate ?? 0} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" />
+                      <p className="text-[10px] text-slate-400 mt-1">If 'Fixed Rate' is selected, this exact amount is applied per OT hour.</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex justify-end">
+                    <button type="submit" className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">Save OT Policy</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
 
           {activeTab === "Task Requests" && (
             <div className="space-y-6">

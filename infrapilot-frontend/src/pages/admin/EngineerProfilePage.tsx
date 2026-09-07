@@ -20,6 +20,7 @@ import { workProgressService } from "../../services/workProgressService";
 import { issueService } from "../../services/issueService";
 import { expenseService } from "../../services/expenseService";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { dashboardService } from "../../services/dashboardService";
 
 const EngineerProfilePage: React.FC = () => {
     const { id } = useParams();
@@ -148,14 +149,17 @@ const EngineerProfilePage: React.FC = () => {
                 let photos: any = { items: [] };
                 let today = new Date().toISOString().split('T')[0];
 
+                let dashboardVitalsData: any = null;
+
                 if (activeProjectId) {
-                    [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos] = await Promise.all([
+                    [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos, dashboardVitalsData] = await Promise.all([
                         workProgressService.listActivities(activeProjectId!, engineerData.user_id).catch(() => []),
                         labourService.getAttendanceList(activeProjectId!, today, today).catch(() => ({ items: [] })),
                         issueService.listIssues({ project_id: activeProjectId!, limit: 1000 }).catch(() => ({ items: [] })),
                         expenseService.getExpensesByProject(activeProjectId!).catch(() => []),
                         dsrService.getDsrByProject(activeProjectId!, { limit: 100, offset: 0 }).catch(() => ({ items: [] as any[] })),
-                        sitePhotoService.getPhotos({ project_id: activeProjectId!, limit: 20 }).catch(() => ({ items: [] as any[] }))
+                        sitePhotoService.getPhotos({ project_id: activeProjectId!, limit: 20 }).catch(() => ({ items: [] as any[] })),
+                        dashboardService.getEngineerDashboard(activeProjectId!).catch(() => null)
                     ]);
                 }
 
@@ -181,6 +185,13 @@ const EngineerProfilePage: React.FC = () => {
                         allDsrs = allDsrs.concat((r as any)?.items || []);
                     });
                 }
+
+                // Strictly filter DSRs and issues to those belonging to this engineer
+                allDsrs = allDsrs.filter(d =>
+                    !d.created_by_id ||
+                    String(d.created_by_id) === String(engineerData.user_id) ||
+                    String(d.user_id) === String(engineerData.user_id)
+                );
 
                 const latestDsr = allDsrs[0];
 
@@ -212,7 +223,6 @@ const EngineerProfilePage: React.FC = () => {
                 const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
                 const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
 
-                const ap = activeProjectId ? assignedProjects.find(p => p.id === activeProjectId) : null;
                 let activeActivitiesCount = 0;
                 let progress = 0;
                 let activeActivitiesList = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && (Number(a.completion_percentage) || 0) < 100);
@@ -220,11 +230,6 @@ const EngineerProfilePage: React.FC = () => {
                 if ((activities as any[]).length > 0) {
                     activeActivitiesCount = activeActivitiesList.length;
                     progress = Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / (activities as any[]).length);
-                } else if (ap) {
-                    const totalT = Number(ap.total_tasks) || 0;
-                    const compT = Number(ap.completed_tasks) || 0;
-                    activeActivitiesCount = Math.max(0, totalT - compT);
-                    progress = Math.round(Number(ap.completion_percentage) || Number(ap.execution_completion_percentage) || 0);
                 }
                 const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
                 const totalExpenses = (expenses as any[]).reduce((sum: number, e: any) => sum + (e.amount || e.total_amount || 0), 0);
@@ -236,14 +241,18 @@ const EngineerProfilePage: React.FC = () => {
                 }
                 setMaterialLogs(Array.isArray(mlRes) ? mlRes : []);
 
+                // Fix: Fetch the API again via getEngineerDashboard to prevent Site Engineer data mismatch.
+                // We use backend's precise dashboard computation so it exactly matches EngineerDashboard.tsx
+                const dashVitals = dashboardVitalsData?.vitals || {};
+
                 setVitals({
-                    total_labour_today: activeLabourCount,
-                    skilled_labour: skilledCount,
-                    unskilled_labour: unskilledCount,
-                    active_activities: activeActivitiesCount,
-                    open_issues: { total: openIssues.length, high_priority: highPriorityIssues.length },
+                    total_labour_today: dashVitals.total_labour_today ?? activeLabourCount,
+                    skilled_labour: dashVitals.skilled_labour ?? skilledCount,
+                    unskilled_labour: dashVitals.unskilled_labour ?? unskilledCount,
+                    active_activities: dashVitals.active_activities ?? activeActivitiesCount,
+                    open_issues: dashboardVitalsData?.vitals?.open_issues || { total: openIssues.length, high_priority: highPriorityIssues.length },
                     total_expenses: totalExpenses,
-                    progress
+                    progress: dashboardVitalsData?.progress ?? progress
                 });
 
                 // Update Live Weather from DSR if available
@@ -263,7 +272,14 @@ const EngineerProfilePage: React.FC = () => {
                 setDsrData(allDsrs);
                 setDsrPage(0);
                 setMaterialPage(0);
-                setSitePhotos((photos as any)?.items || []);
+
+                const allPhotos = (photos as any)?.items || [];
+                const filteredPhotos = allPhotos.filter((p: any) =>
+                    !p.uploaded_by ||
+                    String(p.uploaded_by) === String(engineerData.user_id) ||
+                    String(p.created_by_id) === String(engineerData.user_id)
+                );
+                setSitePhotos(filteredPhotos);
 
                 const u = engineerData;
                 const activeProject = assignedProjects.find(p => p.id === activeProjectId);

@@ -1232,7 +1232,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   }, [user]);
 
   if (!user) return null;
-  const menu = sidebarMenus[user.role];
+  const menu = sidebarMenus[user.role] || [];
 
   const rolePaths: Record<string, string> = {
     SuperAdmin: "/superadmin",
@@ -1249,7 +1249,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Logo container */}
       <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative">
         <Link
-          to={rolePaths[user.role]}
+          to={rolePaths[user.role] || "/"}
           className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           <img

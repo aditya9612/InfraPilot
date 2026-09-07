@@ -463,8 +463,8 @@ const DailyProgressEntryPage = () => {
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
     return baseHistoryEntries.filter(e => {
-      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
-      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      if (activeStatFilter === "Progress Updates") return Number(e.today_progress || e.new_value?.today_progress || 0) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.status && e.old_status && e.status !== e.old_status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
       return true;
     });
   }, [baseHistoryEntries, activeStatFilter]);
@@ -580,8 +580,7 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'history') {
       cards = [
         { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
-        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
-        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.today_progress || e.new_value?.today_progress || 0) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" }
       ];
     } else if (activeTab === 'delay') {
       cards = [
@@ -594,7 +593,7 @@ const DailyProgressEntryPage = () => {
 
     if (cards.length === 0) return null;
 
-    const gridCols = cards.length === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
+    const gridCols = cards.length === 2 ? "sm:grid-cols-2 lg:grid-cols-2" : cards.length === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
 
     return (
       <div className={`grid grid-cols-1 ${gridCols} gap-6 mb-8 font-inter`}>

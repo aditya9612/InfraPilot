@@ -466,10 +466,10 @@ const TaskManagementPage = () => {
                 fetchedProjects = results[5];
             }
 
-            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
-            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
-            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
-            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || fetchedMembers.members || []);
+            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || (fetchedMilestones as any).milestones || []);
+            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || (fetchedBoqs as any).boqs || (fetchedBoqs as any).boq_items || []);
+            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || (fetchedActivities as any).activities || []);
             const projectsList = fetchedProjects ? (Array.isArray(fetchedProjects) ? fetchedProjects : (fetchedProjects.items || fetchedProjects.data || [])) : [];
 
             setProjectMilestones(milestonesList);
@@ -532,11 +532,11 @@ const TaskManagementPage = () => {
                     }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
                     : [];
 
-                const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
-                const milestoneName = milestone ? milestone.name : "None";
+                const milestone = milestonesList.find((m: any) => String(m.id || m.milestone_id) === String((t as any).milestone_id));
+                const milestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : "None";
 
-                const boq = boqsList.find((b: any) => b.id === (t as any).boq_id);
-                const boqName = boq ? boq.name : "None";
+                const boq = boqsList.find((b: any) => String(b.id || b.boq_id) === String((t as any).boq_id));
+                const boqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : "None";
 
                 return {
                     ...t,
@@ -905,9 +905,43 @@ const TaskManagementPage = () => {
         try {
             const pid = task.project_id || (projectId === ('all' as any) ? 0 : projectId);
             const fetchedTask = await projectService.getTask(pid as number, task.id || (task as any).task_id);
+
+            const mId = fetchedTask.milestone_id || (task as any).milestone_id;
+            const bId = fetchedTask.boq_id || (task as any).boq_id;
+
+            const milestone = mId && projectMilestones ? projectMilestones.find((m: any) => String(m.id || m.milestone_id) === String(mId)) : null;
+            let updatedMilestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : null;
+            if (!updatedMilestoneName) {
+                if (mId) {
+                    try {
+                        const mData = await projectService.getMilestone(pid as number, mId);
+                        updatedMilestoneName = mData ? (mData.name || mData.title || mData.milestone_name) : null;
+                    } catch (e) { }
+                }
+                if (!updatedMilestoneName) {
+                    updatedMilestoneName = (task.milestoneName && task.milestoneName !== "None") ? task.milestoneName : (mId ? `Milestone #${mId}` : "None");
+                }
+            }
+
+            const boq = bId && projectBoqs ? projectBoqs.find((b: any) => String(b.id || b.boq_id) === String(bId)) : null;
+            let updatedBoqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : null;
+            if (!updatedBoqName) {
+                if (bId) {
+                    try {
+                        const bData = await boqService.getBoqById(bId);
+                        updatedBoqName = bData ? (bData.item_name || bData.name || bData.item_description) : null;
+                    } catch (e) { }
+                }
+                if (!updatedBoqName) {
+                    updatedBoqName = (task.boqName && task.boqName !== "None") ? task.boqName : (bId ? `BOQ #${bId}` : "None");
+                }
+            }
+
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
+                milestoneName: updatedMilestoneName,
+                boqName: updatedBoqName,
                 priority: task.priority
             });
             setModalTab("Details");
@@ -1518,7 +1552,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Start / End</th>
+
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
@@ -1573,12 +1607,7 @@ const TaskManagementPage = () => {
                                                                 <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'NA'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
-                                                            </div>
-                                                        </td>
+
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName && task.creatorName !== '[object Object]' ? task.creatorName : 'NA'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length && task.assignedNames.some(n => n && n !== '[object Object]') ? task.assignedNames.filter(n => n && n !== '[object Object]').join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
@@ -2215,14 +2244,7 @@ const TaskManagementPage = () => {
 
                                     <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Execution & Delays</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
+
                                         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                             <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
                                             <p className="text-sm font-bold text-slate-800">{(selectedTask as any).execution_duration || 0} days</p>

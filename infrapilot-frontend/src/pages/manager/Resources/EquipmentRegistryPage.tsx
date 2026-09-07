@@ -1863,10 +1863,9 @@ const EquipmentRegistryPage = () => {
                             <option value="">-- Choose equipment --</option>
                             {equipmentList.filter(eq => {
                                 if (formData.equipment_id && Number(eq.id) === Number(formData.equipment_id)) return true;
-                                const isUnassigned = !eq.project_id;
                                 const isUnderMaintenance = allMaintenanceLogs.some(m => Number(m.equipment_id) === Number(eq.id) && m.status !== 'COMPLETED');
                                 const isOnRent = allRentalLogs.some(r => Number(r.equipment_id) === Number(eq.id) && r.status !== 'CANCELLED' && r.status !== 'COMPLETED');
-                                return isUnassigned && !isUnderMaintenance && !isOnRent;
+                                return !isUnderMaintenance && !isOnRent;
                             }).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>

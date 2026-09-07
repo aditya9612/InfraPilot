@@ -125,21 +125,21 @@ const InventoryPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [invData, supData, poData, transferData, logsData, allMaterials, projectsResponse] = await Promise.all([
-        materialService.listMaterials(),
-        materialService.getSuppliers(),
-        materialService.listPurchaseOrders(),
-        materialService.listTransfers(),
-        materialService.getLogs({}),
-        masterService.getEntities("materials"), // Fetch Master catalog
-        projectService.getProjects(100) // Correct method name
+      const [invData, supData, transferData, logsData, allMaterials, projectsResponse] = await Promise.all([
+        materialService.listMaterials().catch(e => { console.error("Materials failed", e); return []; }),
+        materialService.getSuppliers().catch(e => { console.error("Suppliers failed", e); return []; }),
+        // NOTE: We DO NOT fetch POs globally here because the backend throws a 403 Forbidden Error when omitting project_id.
+        // Instead, we fetch and aggregate them in a useEffect below after projectList loads!
+        materialService.listTransfers().catch(e => { console.error("Transfers failed", e); return []; }),
+        materialService.getLogs({ project_id: 1 }).catch(e => { console.error("Logs failed", e); return []; }),
+        masterService.getEntities("materials").catch(e => { console.error("Master materials failed", e); return []; }),
+        projectService.getProjects(100).catch(e => { console.error("Projects failed", e); return []; })
       ]);
 
       // Handle dynamic summary separately via useEffect
       setInventory(invData);
       setMasterMaterials(allMaterials);
       setSuppliers(supData);
-      setPos(Array.isArray(poData) ? poData : []);
       const transferItems = Array.isArray(transferData) ? transferData : (transferData?.data || []);
       setTransfers(transferItems);
       setLogs(Array.isArray(logsData) ? logsData : []);
@@ -174,10 +174,14 @@ const InventoryPage = () => {
   // Sync overview blocks and summary with the project filter
   useEffect(() => {
     const fetchSummary = async () => {
+      // Backend throws 403 when summary is fetched globally without a project ID.
+      // We rely entirely on our robust frontend local stock calculation for "all" 
+      if (inventoryProjectId === "all") {
+        setSummary(null);
+        return;
+      }
       try {
-        const sum = await materialService.getMaterialSummary(
-          inventoryProjectId === "all" ? undefined : inventoryProjectId
-        );
+        const sum = await materialService.getMaterialSummary(inventoryProjectId);
         setSummary(sum);
       } catch (e) {
         console.error("Failed to fetch project summary:", e);
@@ -185,6 +189,29 @@ const InventoryPage = () => {
     };
     fetchSummary();
   }, [inventoryProjectId]);
+
+  // Aggregate Purchase Orders safely (Avoids global query due to backend 403 constraints)
+  useEffect(() => {
+    let isMounted = true;
+    if (projectList.length === 0) return;
+
+    if (inventoryProjectId !== "all") {
+      materialService.listPurchaseOrders(inventoryProjectId as number)
+        .then(res => { if (isMounted) setPos(Array.isArray(res) ? res : []) })
+        .catch(() => { if (isMounted) setPos([]) });
+    } else {
+      // Since backend forbids global query, map over all active projects and aggregate the POs!
+      Promise.all(projectList.map(p => materialService.listPurchaseOrders(p.id).catch(() => [])))
+        .then(results => {
+          if (!isMounted) return;
+          const allPOs = results.flat().filter(p => p);
+          allPOs.sort((a, b) => (b.id || 0) - (a.id || 0));
+          setPos(allPOs);
+        })
+        .catch(() => { if (isMounted) setPos([]) });
+    }
+    return () => { isMounted = false; };
+  }, [inventoryProjectId, projectList]);
 
   // Filters
   const filteredInventory = inventory.filter(
@@ -259,11 +286,22 @@ const InventoryPage = () => {
     setIsLogsRefreshing(true);
     try {
       const params: any = {};
-      if (logProjectId !== "all") params.project_id = logProjectId;
       if (logType !== "all") params.type = logType;
 
-      const logsData = await materialService.getLogs(params);
-      setLogs(Array.isArray(logsData) ? logsData : []);
+      let allLogs: any[] = [];
+      if (logProjectId !== "all") {
+        params.project_id = logProjectId;
+        const logsData = await materialService.getLogs(params);
+        allLogs = Array.isArray(logsData) ? logsData : [];
+      } else {
+        // Backend forbids global query, so fetch from each project and aggregate
+        const results = await Promise.all(
+          projectList.map(p => materialService.getLogs({ ...params, project_id: p.id }).catch(() => []))
+        );
+        allLogs = results.flat().filter(l => l);
+      }
+
+      setLogs(allLogs);
       setLogsPage(0);
     } catch (error) {
       console.error("Failed to refresh logs:", error);
@@ -755,24 +793,34 @@ const InventoryPage = () => {
 
             {/* STAT CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard
-                title="Total Stock Valuation"
-                value={`₹${(summary?.total_stock_value || 0).toLocaleString()}`}
-                sub={inventoryProjectId === "all" ? "Across all sites" : `For Project ID #${inventoryProjectId}`}
-                accent="text-emerald-500"
-              />
-              <StatCard
-                title="Total Materials"
-                value={(summary?.total_materials || 0).toLocaleString()}
-                sub="Active catalog items"
-                accent="text-primary"
-              />
-              <StatCard
-                title="Pending Payments"
-                value={`₹${(summary?.total_pending_payments || 0).toLocaleString()}`}
-                sub="Supplier payables"
-                accent="text-rose-500"
-              />
+              {(() => {
+                const localProjectInventory = inventory.filter(i => inventoryProjectId === "all" || i.project_id === inventoryProjectId);
+                const localStockValuation = localProjectInventory.reduce((sum, m) => sum + ((m.remaining_stock || 0) * (m.purchase_rate || (m as any).avg_rate || 0)), 0);
+                const localPendingPayments = localProjectInventory.reduce((sum, m) => sum + (Number((m as any).payment_pending) || 0), 0);
+
+                return (
+                  <>
+                    <StatCard
+                      title="Total Stock Valuation"
+                      value={`₹${(summary?.total_stock_value || localStockValuation).toLocaleString()}`}
+                      sub={inventoryProjectId === "all" ? "Across all sites" : `For Project ID #${inventoryProjectId}`}
+                      accent="text-emerald-500"
+                    />
+                    <StatCard
+                      title="Total Materials"
+                      value={(summary?.total_materials || localProjectInventory.length).toLocaleString()}
+                      sub="Active catalog items"
+                      accent="text-primary"
+                    />
+                    <StatCard
+                      title="Pending Payments"
+                      value={`₹${(summary?.total_pending_payments || localPendingPayments).toLocaleString()}`}
+                      sub="Supplier payables"
+                      accent="text-rose-500"
+                    />
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
