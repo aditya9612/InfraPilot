@@ -439,12 +439,13 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div>
                             <label className={labelClasses}>
                                 <Briefcase className="w-3 h-3 text-primary" />
-                                Priority
+                                Priority <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 className={inputClasses}
                                 value={priority}
                                 onChange={(e) => setPriority(e.target.value)}
+                                required
                             >
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>

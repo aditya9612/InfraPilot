@@ -147,7 +147,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         }
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-white border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -203,7 +203,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Contextual Metadata</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label className={labelClasses}>Project Context *</label>
+                            <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
                             <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                                 <option value="">Select Project</option>
                                 {projects.map(p => (
@@ -263,7 +263,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Observation Narrative</h3>
                     <div>
                         <label className={labelClasses}>Narrative Insight</label>
-                        <textarea name="description" rows={4} value={formData.description} onChange={handleChange} placeholder="Capture milestones or quality observations..." className={`${inputClasses(errors.description)} resize-none`} />
+                        <textarea name="description" rows={4} value={formData.description} onChange={handleChange} className={`${inputClasses(errors.description)} resize-none`} />
                     </div>
                 </div>
             </form>

@@ -156,9 +156,10 @@ const TaskManagementPage = () => {
                 boqService.getBoqsByProject(projectId).catch(() => []),
                 projectService.getMilestones(projectId).catch(() => [])
             ]).then(([boqs, milestones]) => {
-                setAvailableBoqs(boqs);
-                if (boqs.length > 0) {
-                    setGenerateBoqId(Number(boqs[0].id));
+                const approvedBoqs = boqs.filter((boq: any) => boq.status && boq.status.toUpperCase() === 'APPROVED');
+                setAvailableBoqs(approvedBoqs);
+                if (approvedBoqs.length > 0) {
+                    setGenerateBoqId(Number(approvedBoqs[0].id));
                 }
                 const milestonesList = Array.isArray(milestones) ? milestones : ((milestones as any).items || []);
                 setProjectMilestones(milestonesList);
@@ -227,6 +228,7 @@ const TaskManagementPage = () => {
     const [passNewUserId, setPassNewUserId] = useState<number | "">("");
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+    const [projectLabours, setProjectLabours] = useState<any[]>([]);
 
     // Image Modal State
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -235,6 +237,9 @@ const TaskManagementPage = () => {
         if (projectId) {
             projectService.getProjectMembers(projectId).then(res => {
                 setProjectMembers(Array.isArray(res) ? res : (res.items || res.data || []));
+            }).catch(() => { });
+            labourService.getLabours(projectId, { limit: 100 }).then((res: any) => {
+                setProjectLabours(Array.isArray(res) ? res : (res.items || res.data || []));
             }).catch(() => { });
         }
     }, [projectId]);
@@ -2458,10 +2463,11 @@ const TaskManagementPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Priority
+                                    Priority <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     name="priority"
+                                    required
                                     defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                 >
@@ -2715,8 +2721,11 @@ const TaskManagementPage = () => {
                                 required
                             >
                                 <option value="">-- Select Team Member --</option>
+                                {projectLabours.map(l => (
+                                    <option key={`l_${l.id}`} value={l.id}>{l.labour_name || l.name} (Labour)</option>
+                                ))}
                                 {projectMembers.map(m => (
-                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                    <option key={`m_${m.user_id}`} value={m.user_id}>{m.full_name} ({m.role})</option>
                                 ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
@@ -2766,7 +2775,7 @@ const TaskManagementPage = () => {
             >
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">BOQ ID <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Select a BOQ <span className="text-rose-500">*</span></label>
                         <div className="relative">
                             <select
                                 value={generateBoqId}
@@ -2778,7 +2787,7 @@ const TaskManagementPage = () => {
                                 <option value="" disabled>{isFetchingBoqs ? "Loading..." : (availableBoqs.length === 0 ? "No BOQs available" : "Select a BOQ")}</option>
                                 {availableBoqs.map((boq) => (
                                     <option key={boq.id || boq.boq_id} value={boq.id || boq.boq_id}>
-                                        {boq.name || boq.boq_name || boq.title || `BOQ #${boq.id || boq.boq_id}`}
+                                        {boq.item_name || boq.name || boq.boq_name || boq.title || boq.item_description || `BOQ #${boq.id || boq.boq_id}`}
                                     </option>
                                 ))}
                             </select>

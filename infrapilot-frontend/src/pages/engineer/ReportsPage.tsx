@@ -199,6 +199,36 @@ const ReportsPage = () => {
     const [quarterlyExportFilters, setQuarterlyExportFilters] = useState({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
     const [isQuarterlyExporting, setIsQuarterlyExporting] = useState(false);
 
+    useEffect(() => {
+        const isAnyModalOpen = isExportModalOpen || isLabourExportModalOpen || isIssueExportModalOpen || isQuarterlyExportModalOpen;
+        
+        const preventScroll = (e: Event) => {
+            const target = e.target as HTMLElement;
+            // If we are scrolling inside the modal itself, allow it
+            if (target && target.closest && (target.closest('.overflow-y-auto') || target.closest('.custom-scrollbar'))) {
+                return; 
+            }
+            e.preventDefault();
+        };
+
+        if (isAnyModalOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+            document.addEventListener('wheel', preventScroll, { passive: false });
+            document.addEventListener('touchmove', preventScroll, { passive: false });
+        } else {
+            document.body.style.overflow = "";
+            document.documentElement.style.overflow = "";
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        }
+        return () => {
+            document.body.style.overflow = "";
+            document.documentElement.style.overflow = "";
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        };
+    }, [isExportModalOpen, isLabourExportModalOpen, isIssueExportModalOpen, isQuarterlyExportModalOpen]);
 
 
     const fetchReports = useCallback(async () => {
@@ -1051,6 +1081,8 @@ const ReportsPage = () => {
         return { total, generatedToday, openIssues, avgSize };
     }, [dynamicReports]);
 
+    const isAnyModalOpen = isExportModalOpen || isLabourExportModalOpen || isIssueExportModalOpen || isQuarterlyExportModalOpen;
+
     return (
         <>
             <Navbar
@@ -1251,7 +1283,7 @@ const ReportsPage = () => {
                 </div>
 
                 {/* ── Report Cards Grid ───────────────────────────── */}
-                <div className="flex-1 overflow-auto custom-scrollbar pr-2">
+                <div className={`flex-1 custom-scrollbar pr-2 ${isAnyModalOpen ? 'overflow-hidden' : 'overflow-auto'}`}>
 
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -80,7 +80,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
         </div>
     );
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = `w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${isViewOnly ? 'opacity-70 bg-slate-50 pointer-events-none' : 'focus:ring-primary/20 focus:border-primary'}`;
 
     return (
@@ -118,19 +118,19 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Equipment Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className={labelClasses}>Equipment Name *</label>
+                            <label className={labelClasses}>Equipment Name <span className="text-rose-500">*</span></label>
                             <input type="text" required value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Equipment Code *</label>
+                            <label className={labelClasses}>Equipment Code <span className="text-rose-500">*</span></label>
                             <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Operator Name *</label>
+                            <label className={labelClasses}>Operator Name <span className="text-rose-500">*</span></label>
                             <input type="text" required value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Condition *</label>
+                            <label className={labelClasses}>Condition <span className="text-rose-500">*</span></label>
                             <select required value={formData.condition || ''} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className={inputClasses}>
                                 <option value="">Select condition</option>
                                 {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
@@ -138,11 +138,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         </div>
 
                         <div>
-                            <label className={labelClasses}>Rental Cost (₹) *</label>
+                            <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Maintenance Date *</label>
+                            <label className={labelClasses}>Maintenance Date <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={inputClasses} />
                         </div>
                     </div>

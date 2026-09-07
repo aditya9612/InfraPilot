@@ -249,7 +249,7 @@ const IssueTrackerPage = () => {
         closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -676,7 +676,7 @@ const IssueTrackerPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
-                                <input name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Sand delivery delay" className={inputClasses(errors.title)} />
+                                <input name="title" value={formData.title} onChange={handleInputChange} className={inputClasses(errors.title)} />
                                 {errors.title && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.title}</p>}
                             </div>
                             <div>
@@ -712,7 +712,7 @@ const IssueTrackerPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Description</h3>
                         <div>
                             <label className={labelClasses}>Description</label>
-                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Describe the issue in detail..." className={`${inputClasses(errors.description)} resize-none`} />
+                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} className={`${inputClasses(errors.description)} resize-none`} />
                             {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
                         </div>
                     </div>

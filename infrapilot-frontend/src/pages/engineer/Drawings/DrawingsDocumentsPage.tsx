@@ -60,9 +60,9 @@ const initialFormData = {
     project_id: "",
     drawing_name: "",
     version: "",
-    approved_by: "Site Engineer",
     date: "",
     remarks: "",
+    parent_id: "",
     file: ""
 };
 
@@ -294,9 +294,9 @@ const DrawingsDocumentsPage = () => {
                 project_id: Number(formData.project_id),
                 drawing_name: formData.drawing_name,
                 version: formData.version,
-                approved_by: formData.approved_by || "Site Engineer",
                 date: formData.date || new Date().toISOString().split('T')[0],
-                remarks: formData.remarks || "Uploaded from dashboard",
+                remarks: formData.remarks || "",
+                parent_id: formData.parent_id ? Number(formData.parent_id) : null,
                 file: photoFile || formData.file || "document.png"
             };
 
@@ -359,7 +359,7 @@ const DrawingsDocumentsPage = () => {
         const toastId = toast.loading("Fetching document metadata...");
         try {
             const isDoc = typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder";
-            let metadata;
+            let metadata: any;
             let blobUrl = null;
             let finalContentType = "application/pdf";
 
@@ -453,9 +453,9 @@ const DrawingsDocumentsPage = () => {
             id: drawing.id,
             drawing_name: drawing.drawing_name,
             version: drawing.version,
-            approved_by: drawing.approved_by || "Site Engineer",
             date: drawing.date || new Date().toISOString().split("T")[0],
             remarks: drawing.remarks || "",
+            parent_id: drawing.parent_id || "",
             file_url: drawing.file_url || drawing.upload_file || "",
             approval_status: drawing.approval_status,
             approval_id: drawing.approval_id
@@ -668,7 +668,7 @@ const DrawingsDocumentsPage = () => {
     }, [drawingData]);
 
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -768,28 +768,28 @@ const DrawingsDocumentsPage = () => {
                 {typeFilter === "Documents" ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage Bytes</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Storage Bytes</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-indigo-500 tracking-tight">{backendStats ? backendStats.total_storage_bytes : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage GB</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Storage GB</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-emerald-500 tracking-tight">{backendStats ? backendStats.total_storage_gb : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption GB</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Pending Approvals</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-amber-500 tracking-tight">{backendStats ? backendStats.pending_approvals : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Documents</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : 0}</span>
                             </div>
@@ -799,14 +799,14 @@ const DrawingsDocumentsPage = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">All Files</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : stats.all}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Drawings</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.drawings}</span>
                             </div>
@@ -1219,16 +1219,12 @@ const DrawingsDocumentsPage = () => {
                     </div>
                 }
             >
-                <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
+                <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-6 font-inter">
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                            <Layers className="w-4 h-4 text-primary" />
-                            Core Blueprint Identity
-                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                    <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
                                     <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
                                         <option value="">Select Project</option>
                                         {projects.map(p => (
@@ -1240,134 +1236,129 @@ const DrawingsDocumentsPage = () => {
                                     {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                                 </div>
                             )}
+
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
-                                <label className={labelClasses}>Descriptive Drawing Name <span className="text-rose-500">*</span></label>
-                                <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} placeholder="e.g. Foundation Structural Detail" className={inputClasses(errors.drawing_name)} />
+                                <label className={labelClasses}>drawing_name <span className="text-rose-500">*</span></label>
+                                <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
+
                             <div className="font-inter">
-                                <label className={labelClasses}>Revision / Version <span className="text-rose-500">*</span></label>
-                                <input name="version" value={formData.version} onChange={handleInputChange} placeholder="e.g. V2.1" className={inputClasses(errors.version)} />
+                                <label className={labelClasses}>version <span className="text-rose-500">*</span></label>
+                                <input name="version" value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
-                            {!isEditMode && (
-                                <div className="font-inter">
-                                    <label className={labelClasses}>Authorized Approver</label>
-                                    <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="e.g. Chief Architect" className={inputClasses(errors.approved_by)} />
-                                </div>
-                            )}
+
                             <div className="font-inter">
-                                <label className={labelClasses}>Registration Sequence (Date)</label>
+                                <label className={labelClasses}>date</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                            <FileText className="w-4 h-4 text-primary" />
-                            Technical Specifications
-                        </h3>
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Lead Engineer Remarks</label>
-                            <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} placeholder="Describe technical scope or revision details..." className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
-                        </div>
-                    </div>
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>remarks</label>
+                                <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
+                            </div>
 
-                    {/* Site Documentation (DSR Style) */}
-                    {!isEditMode && (
-                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
-                                Site Documentation
-                                {photoPreview && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                                        className="text-rose-500 hover:text-rose-600 transition-colors font-inter"
-                                    >
-                                        <XIcon className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </h3>
+                            {!isEditMode && (
+                                <div className="font-inter md:col-span-2">
+                                    <label className={labelClasses}>parent_id</label>
+                                    <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} />
+                                </div>
+                            )}
 
-                            <div className="flex flex-col items-center justify-center font-inter">
-                                {photoPreview ? (
-                                    photoPreview === "__file__" ? (
-                                        // Non-image file: show document icon + filename
-                                        <div className="relative w-full rounded-xl border border-slate-200 bg-slate-50 shadow-sm p-6 flex flex-col items-center gap-3 font-inter">
-                                            <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
-                                                <FileText className="w-8 h-8 text-primary" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm font-bold text-slate-700 font-inter truncate max-w-xs">{photoFile?.name}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{photoFile ? (photoFile.size / 1024).toFixed(1) + " KB" : ""}</p>
-                                            </div>
+                            {!isEditMode && (
+                                <div className="font-inter md:col-span-2 mt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className={labelClasses}>file <span className="text-rose-500">*</span></label>
+                                        {photoPreview && (
                                             <button
                                                 type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all hover:bg-slate-50 font-inter"
+                                                onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                                                className="text-rose-500 hover:text-rose-600 transition-colors font-inter text-xs font-bold flex items-center gap-1"
                                             >
-                                                Change File
+                                                <XIcon className="w-4 h-4" /> Remove
                                             </button>
-                                        </div>
-                                    ) : (
-                                        // Image preview
-                                        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
-                                            <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-center justify-center font-inter">
+                                        {photoPreview ? (
+                                            photoPreview === "__file__" ? (
+                                                <div className="relative w-full rounded-xl border border-slate-200 bg-slate-50 shadow-sm p-6 flex flex-col items-center gap-3 font-inter">
+                                                    <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
+                                                        <FileText className="w-8 h-8 text-primary" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-bold text-slate-700 font-inter truncate max-w-xs">{photoFile?.name}</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{photoFile ? (photoFile.size / 1024).toFixed(1) + " KB" : ""}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all hover:bg-slate-50 font-inter"
+                                                    >
+                                                        Change File
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
+                                                    <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                        >
+                                                            Change Photo
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        ) : (
+                                            <div className="w-full flex flex-col items-center gap-4 font-inter">
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    className="hidden font-inter"
+                                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.dwg,.dxf,.csv"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setPhotoFile(file);
+                                                            setFormData((prev: any) => ({ ...prev, file: file.name }));
+                                                            if (file.type.startsWith("image/")) {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => {
+                                                                    setPhotoPreview(reader.result as string);
+                                                                };
+                                                                reader.readAsDataURL(file);
+                                                            } else {
+                                                                setPhotoPreview("__file__");
+                                                            }
+                                                            toast.success(`"${file.name}" selected!`);
+                                                        }
+                                                    }}
+                                                />
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                    className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
                                                 >
-                                                    Change Photo
+                                                    <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
+                                                        <Upload className="w-8 h-8 font-inter" />
+                                                    </div>
+                                                    <div className="text-center font-inter">
+                                                        <p className="text-sm font-bold text-slate-600 font-inter">Upload File</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
+                                                    </div>
                                                 </button>
+                                                {errors.file && <p className="mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-widest font-inter">{errors.file}</p>}
                                             </div>
-                                        </div>
-                                    )
-                                ) : (
-                                    <div className="w-full flex flex-col items-center gap-6 font-inter">
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            className="hidden font-inter"
-                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.dwg,.dxf,.csv"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    setPhotoFile(file);
-                                                    setFormData((prev: any) => ({ ...prev, file: file.name }));
-                                                    if (file.type.startsWith("image/")) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                            setPhotoPreview(reader.result as string);
-                                                        };
-                                                        reader.readAsDataURL(file);
-                                                    } else {
-                                                        setPhotoPreview("__file__");
-                                                    }
-                                                    toast.success(`"${file.name}" selected!`);
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
-                                        >
-                                            <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
-                                                <Upload className="w-8 h-8 font-inter" />
-                                            </div>
-                                            <div className="text-center font-inter">
-                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document <span className="text-rose-500">*</span></p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
-                                            </div>
-                                        </button>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </form>
             </Modal>
 
@@ -1473,7 +1464,7 @@ const DrawingsDocumentsPage = () => {
                                     value={folderFormData.title}
                                     onChange={(e) => setFolderFormData({ ...folderFormData, title: e.target.value })}
                                     className={inputClasses()}
-                                    placeholder="e.g. Contract Documents"
+                                   
                                 />
                             </div>
                             <div className="font-inter md:col-span-1">
@@ -1483,7 +1474,7 @@ const DrawingsDocumentsPage = () => {
                                     value={folderFormData.parent_id}
                                     onChange={(e) => setFolderFormData({ ...folderFormData, parent_id: e.target.value ? Number(e.target.value) : "" })}
                                     className={inputClasses()}
-                                    placeholder="Optional parent folder ID"
+                                   
                                 />
                             </div>
                         </div>
@@ -1541,7 +1532,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
+                                <input type="text" className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Status</label>
@@ -1609,7 +1600,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
+                                <input type="text" className={inputClasses()} value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Parent ID</label>
@@ -1670,7 +1661,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>
-                                <input type="text" placeholder="e.g. Foundation Blueprints" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
+                                <input type="text" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
                             </div>
                         </div>
                     </div>

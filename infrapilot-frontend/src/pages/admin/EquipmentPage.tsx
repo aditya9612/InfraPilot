@@ -833,7 +833,7 @@ const EquipmentPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {purchaseReport.map((p, idx) => (
                                 <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{p.category || 'General Equipment'}</p>
+                                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">{p.category || 'General Equipment'}</p>
                                     <p className="text-2xl font-bold text-slate-800 mb-1">₹{p.total_cost?.toLocaleString() || '0'}</p>
                                     <p className="text-xs text-slate-500 font-medium">{p.purchase_count || 0} Assets Purchased</p>
                                 </div>
@@ -1070,11 +1070,11 @@ const EquipmentPage = () => {
                 <div className="p-6 font-inter">
                     <form onSubmit={handleAllocate} className="space-y-5">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">EQUIPMENT NAME *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-rose-500">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={formData.project_id || ''}
@@ -1088,7 +1088,7 @@ const EquipmentPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">ALLOCATION STATUS *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-rose-500">*</span></label>
                             <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
                                 <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
                                 <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
@@ -1114,14 +1114,14 @@ const EquipmentPage = () => {
             <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveUsage} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
@@ -1134,7 +1134,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
                             value={formData.boq_item_id || ''}
                             onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })}
@@ -1148,20 +1148,20 @@ const EquipmentPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Working Hours *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Working Hours <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Fuel Used (L) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Usage Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Usage Date <span className="text-rose-500">*</span></label>
                         <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -1175,18 +1175,18 @@ const EquipmentPage = () => {
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
                 <form onSubmit={handleSaveMaintenance} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DESCRIPTION *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
@@ -1199,7 +1199,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
                             value={formData.boq_item_id || ''}
                             onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })}
@@ -1213,16 +1213,16 @@ const EquipmentPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAINTENANCE DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">COST (₹) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">COST (₹) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NEXT MAINTENANCE DATE</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE</label>
                         <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -1236,7 +1236,7 @@ const EquipmentPage = () => {
             <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title="Add Rental Record" maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {globalEquipment.filter(eq => {
@@ -1249,24 +1249,24 @@ const EquipmentPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">START DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">START DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">END DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">END DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RENTAL COST (₹) *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-rose-500">*</span></label>
                         <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CLIENT NAME *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">CLIENT NAME <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '', boq_item_id: '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => (
@@ -1275,7 +1275,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ Item --</option>
                             {boqsList
@@ -1286,7 +1286,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NOTES</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NOTES</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">

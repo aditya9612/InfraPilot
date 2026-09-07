@@ -61,6 +61,18 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
       toast.error("Project is required");
       return;
     }
+    if (!formData.title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (!formData.category) {
+      toast.error("Category is required");
+      return;
+    }
+    if (!formData.priority) {
+      toast.error("Priority is required");
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -136,7 +148,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
             </div>
 
             <div>
-              <label className={labelClasses}>Title</label>
+              <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
               <input
                 type="text"
                 name="title"
@@ -144,16 +156,18 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
                 onChange={handleChange}
                 placeholder="e.g. Needs Material"
                 className={inputClasses}
+                required
               />
             </div>
 
             <div>
-              <label className={labelClasses}>Category</label>
+              <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
               <select
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
                 className={inputClasses}
+                required
               >
                 <option value="" disabled>Select category</option>
                 <option value="Civil">Civil</option>
@@ -167,12 +181,13 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
             </div>
 
             <div>
-              <label className={labelClasses}>Priority</label>
+              <label className={labelClasses}>Priority <span className="text-rose-500">*</span></label>
               <select
                 name="priority"
                 value={formData.priority}
                 onChange={handleChange}
                 className={inputClasses}
+                required
               >
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>

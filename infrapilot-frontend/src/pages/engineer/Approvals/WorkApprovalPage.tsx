@@ -203,7 +203,6 @@ const WorkApprovalPage = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.entity_type.trim()) newErrors.entity_type = "Required";
         if (!formData.entity_id) newErrors.entity_id = "Required";
-        if (!formData.remarks.trim()) newErrors.remarks = "Required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -336,7 +335,7 @@ const WorkApprovalPage = () => {
         clearanceRate: `${baseFilteredApprovals.length > 0 ? Math.round((baseFilteredApprovals.filter(a => a.status === "Approved").length / baseFilteredApprovals.length) * 100) : 0}%`
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-white border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -865,8 +864,8 @@ const WorkApprovalPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Technical Narrative</h3>
                         <div className="font-inter">
-                            <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
-                            <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="Describe the technical requirements or justification..." className={`${inputClasses(errors.remarks)} resize-none font-inter font-bold`} />
+                            <label className={labelClasses}>Remarks</label>
+                            <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="" className={`${inputClasses(errors.remarks)} resize-none font-inter font-bold`} />
                             {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
                         </div>
                     </div>

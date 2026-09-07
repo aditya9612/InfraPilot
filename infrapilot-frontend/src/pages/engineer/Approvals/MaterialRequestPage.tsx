@@ -249,7 +249,7 @@ const MaterialRequestPage = () => {
         fulfillment: Math.round((baseFilteredRequests.filter(r => r.status === "Approved").length / (baseFilteredRequests.length || 1)) * 100) || 0
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -720,7 +720,7 @@ const MaterialRequestPage = () => {
                                     rows={4}
                                     value={formData.description}
                                     onChange={handleInputChange}
-                                    placeholder="Detail exact technical specifications or site requirement justification..."
+                                    placeholder=""
                                     className={`${inputClasses(errors.description)} resize-none font-bold shadow-inner`}
                                 />
                                 {errors.description && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.description}</p>}
@@ -733,7 +733,7 @@ const MaterialRequestPage = () => {
                                     min="0"
                                     value={formData.quantity}
                                     onChange={handleInputChange}
-                                    placeholder="e.g. 150"
+                                    placeholder=""
                                     className={inputClasses(errors.quantity)}
                                 />
                                 {errors.quantity && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.quantity}</p>}

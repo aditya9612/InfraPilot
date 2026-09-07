@@ -20,7 +20,20 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+        try {
+            const pid = localStorage.getItem("infrapilot_selected_project_id");
+            if (pid && pid !== "null") return Number(pid);
+            
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const pId = parsed.default_project_id || parsed.project_id;
+                return pId ? Number(pId) : null;
+            }
+        } catch (e) {}
+        return null;
+    });
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -49,6 +62,7 @@ const MaterialStockPage = () => {
         const newProjectId = id === 0 ? null : id;
         setSelectedProjectId(newProjectId);
         if (newProjectId) {
+            localStorage.setItem("infrapilot_selected_project_id", String(newProjectId));
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
@@ -154,9 +168,17 @@ const MaterialStockPage = () => {
 
     const filteredReports = useMemo(() => {
         let list = reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
-        if (alertFilter === 'OUT_OF_STOCK') list = list.filter(r => r.remaining_stock === 0);
-        else if (alertFilter === 'LOW_STOCK') list = list.filter(r => r.remaining_stock > 0 && r.remaining_stock < 10);
-        else if (alertFilter === 'IN_STOCK') list = list.filter(r => r.remaining_stock >= 10);
+        if (alertFilter === 'OUT_OF_STOCK') {
+            list = list.filter(r => r.alert_type === 'OUT_OF_STOCK' || r.alert_type === 'OUT OF STOCK' || (r.remaining_stock === 0 && !r.alert_type));
+        } else if (alertFilter === 'LOW_STOCK') {
+            list = list.filter(r => r.alert_type === 'LOW_STOCK' || r.alert_type === 'LOW STOCK');
+        } else if (alertFilter === 'IN_STOCK') {
+            list = list.filter(r => {
+                const isOutOfStock = r.alert_type === 'OUT_OF_STOCK' || r.alert_type === 'OUT OF STOCK' || (r.remaining_stock === 0 && !r.alert_type);
+                const isLowStock = r.alert_type === 'LOW_STOCK' || r.alert_type === 'LOW STOCK';
+                return !isOutOfStock && !isLowStock;
+            });
+        }
         return list;
     }, [reports, searchTerm, alertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
@@ -276,8 +298,8 @@ const MaterialStockPage = () => {
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
+                        <select value={projectId || ""} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value="" disabled>Select Project</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>
@@ -550,7 +572,7 @@ const MaterialStockPage = () => {
                                                         globalInventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
                                                         `Material #${a.material_id || ''}`}
                                                 </td>
-                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
+                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{String(a.type).toUpperCase() === String(a.issue_type).toUpperCase() ? a.type : `${a.type} / ${a.issue_type}`}</span></td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center">
                                                     <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                                         {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
@@ -577,7 +599,7 @@ const MaterialStockPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Material *</label>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Material <span className="text-rose-500">*</span></label>
                                 <select required value={adjustmentForm.material_id || ""} onChange={e => {
                                     const val = Number(e.target.value);
                                     setAdjustmentForm({ ...adjustmentForm, material_id: val });
@@ -594,12 +616,12 @@ const MaterialStockPage = () => {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">new_stock *</label>
-                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" placeholder="e.g. 500" />
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">New Stock <span className="text-rose-500">*</span></label>
+                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">reason *</label>
-                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} placeholder="e.g. Physical count discrepancy found during month-end audit." />
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Reason <span className="text-rose-500">*</span></label>
+                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} />
                             </div>
                         </div>
                     </div>

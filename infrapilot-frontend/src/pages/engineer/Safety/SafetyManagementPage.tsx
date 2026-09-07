@@ -288,6 +288,11 @@ const SafetyManagementPage = () => {
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
+        
+        VIOLATION_TYPES.forEach(type => {
+            groups[type] = { total: 0, resolved: 0, unresolved: 0 };
+        });
+
         baseFilteredList.forEach(q => {
             if (!groups[q.violation_type]) {
                 groups[q.violation_type] = { total: 0, resolved: 0, unresolved: 0 };
@@ -303,7 +308,7 @@ const SafetyManagementPage = () => {
         return Object.entries(groups).map(([type, data]) => ({
             type,
             ...data,
-            resolutionRate: Math.round((data.resolved / data.total) * 100) + "%"
+            resolutionRate: data.total > 0 ? Math.round((data.resolved / data.total) * 100) + "%" : "0%"
         }));
     }, [baseFilteredList]);
 

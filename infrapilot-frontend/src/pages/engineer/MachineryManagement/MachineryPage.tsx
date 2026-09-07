@@ -2131,16 +2131,16 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
                                 {selectedEquipment.project_id ? (projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.name || `PRJ-${selectedEquipment.project_id}`) : 'Not Allocated'}
                             </p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : 'N/A'}</p></div>
                         </div>
 
                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-6">
@@ -2168,11 +2168,11 @@ const MachineryPage = () => {
                 <div className="p-6 font-inter">
                     <form onSubmit={handleAllocate} className="space-y-5">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">EQUIPMENT NAME *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-rose-500">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={formData.project_id || ''}
@@ -2186,7 +2186,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">ALLOCATION STATUS *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-rose-500">*</span></label>
                             <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
                                 <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
                                 <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
@@ -2208,7 +2208,7 @@ const MachineryPage = () => {
             <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveUsage} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
@@ -2216,27 +2216,27 @@ const MachineryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Working Hours *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Working Hours <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Fuel Used (L) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Usage Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Usage Date <span className="text-rose-500">*</span></label>
                         <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">BOQ Item (Optional)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ Item (Optional)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -2250,39 +2250,39 @@ const MachineryPage = () => {
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
                 <form onSubmit={handleSaveMaintenance} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DESCRIPTION *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAINTENANCE DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">COST (₹) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">COST (₹) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NEXT MAINTENANCE DATE</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE</label>
                         <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT <span className="text-rose-500">*</span></label>
                         <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
@@ -2300,7 +2300,7 @@ const MachineryPage = () => {
             <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title="Add Rental Record" maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
@@ -2308,38 +2308,38 @@ const MachineryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">START DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">START DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">END DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">END DATE <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RENTAL COST (₹) *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-rose-500">*</span></label>
                         <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CLIENT NAME *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">CLIENT NAME <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NOTES</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NOTES</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -2569,16 +2569,16 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
                             <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p>
+                                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</p>
                                 <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{rentalToView.notes || 'No notes provided.'}</p>
                             </div>
                         </div>
@@ -2595,7 +2595,7 @@ const MachineryPage = () => {
             <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment" maxWidth="max-w-md">
                 <form onSubmit={handleTransfer} className="p-6 font-inter space-y-5">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Choose equipment --</option>
                             {equipmentList.filter(eq => eq.project_id).map(eq => (
@@ -2604,7 +2604,7 @@ const MachineryPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-rose-500">*</span></label>
                         <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Select target project --</option>
                             {projects.map(p => (
@@ -2629,19 +2629,19 @@ const MachineryPage = () => {
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                                 {(Array.isArray(purchaseHistoryData) ? purchaseHistoryData : [purchaseHistoryData]).map((hist: any, index: number) => (
                                     <div key={index} className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
-                                        <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
+                                        <div className="col-span-2"><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
                                     </div>
                                 ))}
                             </div>
@@ -2660,7 +2660,7 @@ const MachineryPage = () => {
                 <form onSubmit={handleSavePurchase} className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Type *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Purchase Type <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={createPurchaseForm.purchase_type || ""}
@@ -2673,7 +2673,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Equipment (Asset) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Equipment (Asset) <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={createPurchaseForm.asset_id || ""}
@@ -2687,7 +2687,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Project</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Project</label>
                             <select
                                 value={createPurchaseForm.project_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
@@ -2700,7 +2700,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">BOQ Item</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">BOQ Item</label>
                             <select
                                 value={createPurchaseForm.boq_item_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: parseInt(e.target.value) })}
@@ -2713,7 +2713,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Date</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Purchase Date</label>
                             <input
                                 type="date"
                                 value={createPurchaseForm.purchase_date || ""}
@@ -2722,7 +2722,7 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Warranty End Date</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Warranty End Date</label>
                             <input
                                 type="date"
                                 value={createPurchaseForm.warranty_end_date || ""}
@@ -2731,7 +2731,7 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Vendor Name</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Vendor Name</label>
                             <input
                                 type="text"
                                 value={createPurchaseForm.vendor_name || ""}
@@ -2740,7 +2740,7 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Invoice Number</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Invoice Number</label>
                             <input
                                 type="text"
                                 value={createPurchaseForm.invoice_number || ""}
@@ -2749,7 +2749,7 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quantity</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Quantity</label>
                             <input
                                 type="number"
                                 min="1"
@@ -2759,7 +2759,7 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Unit Price</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Unit Price</label>
                             <input
                                 type="number"
                                 step="0.01"
@@ -2771,7 +2771,7 @@ const MachineryPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Notes</label>
                         <textarea
                             value={createPurchaseForm.notes || ""}
                             onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, notes: e.target.value })}
@@ -2859,19 +2859,19 @@ const MachineryPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
                         {viewPurchaseData ? (
                             <div className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
-                                <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
+                                <div className="col-span-2"><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
                             </div>
                         ) : (
                             <div className="py-8 text-center text-slate-400 text-sm">No details available</div>

@@ -29,7 +29,20 @@ const MaterialReceiptPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Dashboard");
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+        try {
+            const pid = localStorage.getItem("infrapilot_selected_project_id");
+            if (pid && pid !== "null") return Number(pid);
+
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const pId = parsed.default_project_id || parsed.project_id;
+                return pId ? Number(pId) : null;
+            }
+        } catch (e) { }
+        return null;
+    });
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,6 +179,7 @@ const MaterialReceiptPage = () => {
         const newProjectId = id === 0 ? null : id;
         setSelectedProjectId(newProjectId);
         if (newProjectId) {
+            localStorage.setItem("infrapilot_selected_project_id", String(newProjectId));
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
@@ -214,7 +228,7 @@ const MaterialReceiptPage = () => {
     const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
 
     // ─── CRUD Handlers ──────────────────────────────────────────────
@@ -257,8 +271,14 @@ const MaterialReceiptPage = () => {
         if (!nameRegex.test(supplierForm.contactPerson || "")) {
             return toast.error("Contact person must contain only letters and spaces.");
         }
-        if (!/^[0-9]{10}$/.test(supplierForm.contact || "")) {
-            return toast.error("Phone number must be exactly 10 digits.");
+        const contactVal = supplierForm.contact?.trim() || "";
+        if (!contactVal) {
+            return toast.error("Phone / Email is required.");
+        }
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactVal);
+        const isPhone = /^\+?[0-9]{10,15}$/.test(contactVal);
+        if (!isEmail && !isPhone) {
+            return toast.error("Please enter a valid phone number (10-15 digits) or a valid email address.");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(supplierForm.gst || "")) {
@@ -410,8 +430,8 @@ const MaterialReceiptPage = () => {
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
+                        <select value={projectId || ""} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value="" disabled>Select Project</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>
@@ -639,23 +659,23 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
-                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            {!selectedMaterial && <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
+                            <div><label className={labelClasses}>Material Master <span className="text-rose-500">*</span></label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Purchase Rate *</label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate Type *</label><select required value={materialForm.rate_type || ""} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                            <div><label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label><select required value={materialForm.rate_type || ""} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                             {!selectedMaterial && (
                                 <>
-                                    <div><label className={labelClasses}>Qty Purchased *</label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
-                                    <div><label className={labelClasses}>Payment Given *</label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
                                 </>
                             )}
-                            <div><label className={labelClasses}>Min Stock Level *</label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -675,8 +695,8 @@ const MaterialReceiptPage = () => {
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
@@ -685,10 +705,10 @@ const MaterialReceiptPage = () => {
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_name || "—"}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_brand || "—"}</p></div>
-                                    <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Specification</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_specification || "—"}</p></div>
+                                    <div className="col-span-2 md:col-span-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Specification</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_specification || "—"}</p></div>
                                 </div>
                             </div>
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                            <div className="md:col-span-1 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Stock Details</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700">{selectedMaterial.quantity_purchased}</p></div>
@@ -717,12 +737,12 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Issue Type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                             <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Amount Paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -766,10 +786,10 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
-                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone Number * <span className="text-rose-400 text-[9px] normal-case font-normal ml-1">(exactly 10 digits)</span></label><input required type="tel" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="E.g. 9876543210" /></div>
-                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
+                            <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" title="Please enter a valid phone number (10-15 digits) or a valid email address." value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
@@ -807,10 +827,10 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                             <div>
-                                <label className={labelClasses}>Material *</label>
+                                <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
                                 <select
                                     required
                                     value={poForm.material_id || ""}
@@ -847,8 +867,8 @@ const MaterialReceiptPage = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
 
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
                                 <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>

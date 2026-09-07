@@ -62,7 +62,7 @@ const ChecklistsPage = () => {
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
-    const [newChecklistType, setNewChecklistType] = useState("Daily Checklist");
+    const [newChecklistType, setNewChecklistType] = useState("");
     const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
     const [editChecklistName, setEditChecklistName] = useState("");
     const [editChecklistDescription, setEditChecklistDescription] = useState("");
@@ -74,7 +74,7 @@ const ChecklistsPage = () => {
     const [addItemText, setAddItemText] = useState("");
     const [executeStatus, setExecuteStatus] = useState<"Done" | "Pending">("Done");
     const [executeRemarks, setExecuteRemarks] = useState("");
-    const [executeError, setExecuteError] = useState(false);
+
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [currentChecklistItems, setCurrentChecklistItems] = useState<ChecklistItemEntry[]>([]);
     const [isFetchingItems, setIsFetchingItems] = useState(false);
@@ -322,12 +322,9 @@ const ChecklistsPage = () => {
 
     const handleExecuteChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!executeRemarks.trim() || !selectedChecklist) {
-            setExecuteError(true);
-            toast.error("Remarks are required");
+        if (!selectedChecklist) {
             return;
         }
-        setExecuteError(false);
         setIsSubmitting(true);
         try {
             await checklistService.executeChecklist({
@@ -340,7 +337,6 @@ const ChecklistsPage = () => {
             await fetchData();
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");
-            setExecuteError(false);
         } catch (err) {
             toast.error("Failed to execute checklist");
         } finally {
@@ -471,7 +467,7 @@ const ChecklistsPage = () => {
         }
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
@@ -604,7 +600,7 @@ const ChecklistsPage = () => {
                                             <span className="text-[10px] font-bold uppercase tracking-widest">Manage Items</span>
                                         </button>
                                         <button
-                                            onClick={() => { setSelectedChecklist(cl); setExecuteError(false); setIsExecuteModalOpen(true); }}
+                                            onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
                                             className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
                                             title="Execute Audit"
                                         >
@@ -881,17 +877,18 @@ const ChecklistsPage = () => {
                                     type="text"
                                     value={newChecklistName}
                                     onChange={(e) => setNewChecklistName(e.target.value)}
-                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    placeholder=""
                                     className={inputClasses}
                                 />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Domain Category <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Domain Category</label>
                                 <select
                                     value={newChecklistType}
                                     onChange={(e) => setNewChecklistType(e.target.value)}
                                     className={inputClasses}
                                 >
+                                    <option value="">Select Category</option>
                                     <option value="Daily Checklist">Daily Checklist</option>
                                     <option value="Activity Checklist">Activity Checklist</option>
                                 </select>
@@ -909,7 +906,7 @@ const ChecklistsPage = () => {
                                 type="text"
                                 value={tempItemText}
                                 onChange={(e) => setTempItemText(e.target.value)}
-                                placeholder="Enter technical verification point..."
+                                placeholder=""
                                 className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                             />
                             <button
@@ -993,7 +990,7 @@ const ChecklistsPage = () => {
                                     type="text"
                                     value={editChecklistName}
                                     onChange={(e) => setEditChecklistName(e.target.value)}
-                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    placeholder=""
                                     className={inputClasses}
                                 />
                             </div>
@@ -1003,7 +1000,7 @@ const ChecklistsPage = () => {
                                     rows={3}
                                     value={editChecklistDescription}
                                     onChange={(e) => setEditChecklistDescription(e.target.value)}
-                                    placeholder="e.g. Verification steps for the foundation..."
+                                    placeholder=""
                                     className={inputClasses + " resize-none"}
                                 />
                             </div>
@@ -1042,7 +1039,7 @@ const ChecklistsPage = () => {
                             type="text"
                             value={addItemText}
                             onChange={(e) => setAddItemText(e.target.value)}
-                            placeholder="Add new verification point..."
+                            placeholder=""
                             className={inputClasses}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleAddItem(e as any);
@@ -1169,7 +1166,7 @@ const ChecklistsPage = () => {
                     <div className="p-6 bg-primary rounded-2xl border border-primary/20 text-white shadow-2xl relative overflow-hidden font-inter">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
                         <div className="relative z-10 font-inter">
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
+                            <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
                             <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
                         </div>
                     </div>
@@ -1195,19 +1192,17 @@ const ChecklistsPage = () => {
 
                     <div className="font-inter">
                         <label className={labelClasses}>
-                            Field Audit Intelligence Remarks <span className="text-rose-500">*</span>
+                            Field Audit Intelligence Remarks
                         </label>
                         <textarea
                             rows={4}
                             value={executeRemarks}
                             onChange={(e) => {
                                 setExecuteRemarks(e.target.value);
-                                if (e.target.value.trim()) setExecuteError(false);
                             }}
-                            placeholder="Describe technical observations, deviations, or site confirmations..."
-                            className={`${inputClasses} resize-none font-bold ${executeError ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : ''}`}
+                            placeholder=""
+                            className={`${inputClasses} resize-none font-bold`}
                         />
-                        {executeError && <p className="text-xs text-rose-500 mt-1.5 font-bold font-inter">Remarks are required to commit the audit.</p>}
                     </div>
                 </div>
             </Modal>
