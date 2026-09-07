@@ -863,7 +863,7 @@ const QCInspectionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
@@ -880,7 +880,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Task</label>
                                 <select
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
@@ -897,7 +897,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">DSR</label>
                                 <select
                                     value={formData.dsr_id || ""}
                                     onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
@@ -914,7 +914,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Inspection Type <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
@@ -925,7 +925,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Test Type <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
@@ -936,7 +936,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">result *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Result <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -951,7 +951,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Standard Value <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -966,7 +966,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">status *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Status <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -978,7 +978,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Engineer Name <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
@@ -995,7 +995,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">remarks</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Remarks</label>
                                 <textarea
                                     rows={3}
                                     placeholder="remarks"
@@ -1007,7 +1007,7 @@ const QCInspectionPage = () => {
 
                             {!isEditModalOpen && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 mb-2">report_file</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter mb-2">Report File</label>
                                     <div className="flex items-center gap-4">
                                         <input
                                             type="file"

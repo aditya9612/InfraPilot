@@ -192,6 +192,7 @@ const TaskManagementPage = () => {
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
     const [editProjectId, setEditProjectId] = useState<number | null>(null);
     const [editLabours, setEditLabours] = useState<any[]>([]);
+    const [editMembers, setEditMembers] = useState<any[]>([]);
 
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
@@ -540,6 +541,9 @@ const TaskManagementPage = () => {
             }).catch((err: any) => {
                 console.error("Failed to load labours for edit modal", err);
             });
+            projectService.getProjectMembers(editProjectId).then(res => {
+                setEditMembers(Array.isArray(res) ? res : (res.items || res.data || []));
+            }).catch(() => { });
         }
     }, [isEditModalOpen, editProjectId]);
 
@@ -2271,14 +2275,15 @@ const TaskManagementPage = () => {
                 }
             >
                 <form id="edit-task-form" onSubmit={handleEditFormSubmit} className="space-y-6 font-inter">
+                    {/* Basic Information */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
                             Basic Information
                         </h3>
 
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Project <span className="text-rose-500">*</span>
                                 </label>
                                 <select
@@ -2296,106 +2301,7 @@ const TaskManagementPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Voice Note
-                                </label>
-                                <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
-                                        <button
-                                            type="button"
-                                            onClick={startEditRecording}
-                                            className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors"
-                                        >
-                                            <Mic className="w-5 h-5" />
-                                        </button>
-                                    )}
-
-                                    {editIsRecording && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={stopEditRecording}
-                                                className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse"
-                                            >
-                                                <Square className="w-5 h-5 fill-current" />
-                                            </button>
-                                            <div className="flex items-center gap-2 text-rose-500 font-medium">
-                                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                                                {formatTime(editRecordingTime)}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {editAudioBlob && !editIsRecording && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={toggleEditPlay}
-                                                className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                                            >
-                                                {editIsPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
-                                            </button>
-                                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                <div className="h-full bg-blue-500 w-full opacity-30"></div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={deleteEditRecording}
-                                                className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                            <audio ref={editAudioRef} className="hidden" />
-                                        </>
-                                    )}
-
-                                    {!editIsRecording && !editAudioBlob && selectedEditTask?.audio_data && (
-                                        <div className="flex items-center gap-3 w-full">
-                                            <AudioButton audioData={selectedEditTask.audio_data} />
-                                            <span className="text-sm text-slate-600 font-medium">Existing Audio</span>
-                                            <div className="ml-auto flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    name="remove_audio"
-                                                    id="remove_audio_inline"
-                                                    value="true"
-                                                    className="w-4 h-4 text-primary rounded border-slate-300"
-                                                />
-                                                <label htmlFor="remove_audio_inline" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
-                                                    Remove
-                                                </label>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
-                                        <span className="text-sm text-slate-400">Click to record a new voice note</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Instruction Image
-                                </label>
-                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
-                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
-                                        <div className="flex-1">
-                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
-                                        </div>
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    name="instruction_image"
-                                    accept="image/*"
-                                    className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Task Title <span className="text-rose-500">*</span>
                                 </label>
                                 <input
@@ -2407,166 +2313,278 @@ const TaskManagementPage = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Description
                                 </label>
                                 <textarea
                                     name="description"
-                                    rows={4}
+                                    rows={3}
                                     defaultValue={selectedEditTask?.description}
                                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
                                 />
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Priority
-                                    </label>
-                                    <select
-                                        name="priority"
-                                        defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value={4}>Critical</option>
-                                        <option value={1}>High</option>
-                                        <option value={2}>Medium</option>
-                                        <option value={3}>Low</option>
-                                    </select>
+                    {/* Media Attachments */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Media Attachments
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Voice Note
+                                </label>
+                                <div className="flex flex-col gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        {!editIsRecording && !editAudioBlob && (
+                                            <button
+                                                type="button"
+                                                onClick={startEditRecording}
+                                                className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors shrink-0"
+                                            >
+                                                <Mic className="w-5 h-5" />
+                                            </button>
+                                        )}
+
+                                        {editIsRecording && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={stopEditRecording}
+                                                    className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse shrink-0"
+                                                >
+                                                    <Square className="w-5 h-5 fill-current" />
+                                                </button>
+                                                <div className="flex items-center gap-2 text-rose-500 font-medium">
+                                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                                                    {formatTime(editRecordingTime)}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {editAudioBlob && !editIsRecording && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleEditPlay}
+                                                    className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                >
+                                                    {editIsPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                                                </button>
+                                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500 w-full opacity-30"></div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={deleteEditRecording}
+                                                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <audio ref={editAudioRef} className="hidden" />
+                                            </>
+                                        )}
+
+                                        {!editIsRecording && !editAudioBlob && selectedEditTask?.audio_data && (
+                                            <div className="flex items-center gap-3 w-full">
+                                                <AudioButton audioData={selectedEditTask.audio_data} />
+                                                <span className="text-sm text-slate-600 font-medium">Existing Audio</span>
+                                                <div className="ml-auto flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="remove_audio"
+                                                        id="remove_audio_inline"
+                                                        value="true"
+                                                        className="w-4 h-4 text-primary rounded border-slate-300"
+                                                    />
+                                                    <label htmlFor="remove_audio_inline" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
+                                                        Remove
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
+                                            <span className="text-sm text-slate-400">Click to record a new voice note</span>
+                                        )}
+                                    </div>
                                 </div>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="start_date"
-                                        defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Instruction Image
+                                </label>
+                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
+                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
+                                        </div>
+                                        <div className="ml-auto flex items-center gap-2 pr-2">
+                                            <input
+                                                type="checkbox"
+                                                name="remove_image"
+                                                id="remove_image"
+                                                value="true"
+                                                className="w-4 h-4 text-primary rounded border-slate-300"
+                                            />
+                                            <label htmlFor="remove_image" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
+                                                Remove
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    name="instruction_image"
+                                    accept="image/*"
+                                    className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="end_date"
-                                        defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
-                                </div>
+                    {/* Additional Details */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Additional Details
+                        </h3>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Status
-                                    </label>
-                                    <select
-                                        name="status"
-                                        defaultValue={selectedEditTask?.status}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="Planned">Planned</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Cancelled">Cancelled</option>
-                                    </select>
-                                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Priority
+                                </label>
+                                <select
+                                    name="priority"
+                                    defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value={4}>Critical</option>
+                                    <option value={1}>High</option>
+                                    <option value={2}>Medium</option>
+                                    <option value={3}>Low</option>
+                                </select>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Assigned User
-                                    </label>
-                                    <select
-                                        name="assigned_user_ids"
-                                        defaultValue={selectedEditTask?.assigned_user_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Select User</option>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    name="start_date"
+                                    defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    name="end_date"
+                                    defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Status
+                                </label>
+                                <select
+                                    name="status"
+                                    defaultValue={selectedEditTask?.status}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="Planned">Planned</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Assigned User
+                                </label>
+                                <select
+                                    name="assigned_user_ids"
+                                    defaultValue={selectedEditTask?.assigned_user_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">Select User</option>
+                                    <optgroup label="Project Members">
+                                        {editMembers.map((m: any) => (
+                                            <option key={`m_${m.user_id || m.id}`} value={m.user_id || m.id}>
+                                                {m.full_name || m.name || `User ${m.user_id || m.id}`}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                    <optgroup label="Labours">
                                         {editLabours.map((l: any) => (
-                                            <option key={l.id} value={l.id}>
+                                            <option key={`l_${l.id}`} value={l.id}>
                                                 {l.labour_name || l.name}
                                             </option>
                                         ))}
-                                    </select>
-                                </div>
+                                    </optgroup>
+                                </select>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Activity Type ID
-                                    </label>
-                                    <select
-                                        name="activity_type_id"
-                                        defaultValue={selectedEditTask?.activity_type_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectActivities.map((a: any) => (
-                                            <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Activity Type ID
+                                </label>
+                                <select
+                                    name="activity_type_id"
+                                    defaultValue={selectedEditTask?.activity_type_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectActivities.map((a: any) => (
+                                        <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Milestone ID
-                                    </label>
-                                    <select
-                                        name="milestone_id"
-                                        defaultValue={selectedEditTask?.milestone_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectMilestones.map((m: any) => (
-                                            <option key={m.id} value={m.id}>{m.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Milestone ID
+                                </label>
+                                <select
+                                    name="milestone_id"
+                                    defaultValue={selectedEditTask?.milestone_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectMilestones.map((m: any) => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        BOQ ID
-                                    </label>
-                                    <select
-                                        name="boq_id"
-                                        defaultValue={selectedEditTask?.boq_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectBoqs.map((b: any) => (
-                                            <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center gap-2 mt-2 py-2">
-                                    <input
-                                        type="checkbox"
-                                        name="remove_audio"
-                                        id="remove_audio"
-                                        value="true"
-                                        className="w-4 h-4 text-primary rounded border-slate-300"
-                                    />
-                                    <label htmlFor="remove_audio" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                        Remove Audio
-                                    </label>
-                                </div>
-
-                                <div className="flex items-center gap-2 mt-2 py-2">
-                                    <input
-                                        type="checkbox"
-                                        name="remove_image"
-                                        id="remove_image"
-                                        value="true"
-                                        className="w-4 h-4 text-primary rounded border-slate-300"
-                                    />
-                                    <label htmlFor="remove_image" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                        Remove Image
-                                    </label>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    BOQ ID
+                                </label>
+                                <select
+                                    name="boq_id"
+                                    defaultValue={selectedEditTask?.boq_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectBoqs.map((b: any) => (
+                                        <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

@@ -185,7 +185,7 @@ const NewDSREntryModal = ({
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1";
   const inputClasses = (error?: string) => `
     w-full px-4 py-2.5 bg-white border 
     ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -213,7 +213,7 @@ const NewDSREntryModal = ({
 
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
@@ -289,7 +289,7 @@ const NewDSREntryModal = ({
 
         {/* Work Progress */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work Progress</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Work Progress</h3>
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Work Done Today <span className="text-rose-500">*</span></label>
@@ -304,7 +304,7 @@ const NewDSREntryModal = ({
 
         {/* Resources */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Resources Used</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Resources Used</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Machinery Used</label>
@@ -327,7 +327,7 @@ const NewDSREntryModal = ({
 
         {/* Issues & Safety */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Issues & Safety</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Issues & Safety</h3>
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Issues / Delays</label>
@@ -349,7 +349,7 @@ const NewDSREntryModal = ({
 
         {/* Photo Upload */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center justify-between">
             Site Photo
             {photoPreview && (
               <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="text-rose-500 hover:text-rose-600 transition-colors">

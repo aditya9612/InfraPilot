@@ -70,12 +70,23 @@ export const labourService = {
      */
     async createLabour(data: any): Promise<LabourItem> {
         try {
-            const { profile_image, ...queryParams } = data;
-            console.log("POST /api/v1/labour Request Query Params:", queryParams);
-            const response = await api.post<any>("labour",
-                profile_image ? { profile_image } : {},
-                { params: queryParams }
-            );
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, val]) => {
+                if (val !== undefined && val !== null && val !== "") {
+                    if (key === 'profile_image' && val instanceof File) {
+                        formData.append(key, val);
+                    } else if (key !== 'profile_image') {
+                        formData.append(key, String(val));
+                    }
+                }
+            });
+            console.log("POST /api/v1/labour Request FormData keys:");
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ', ' + (pair[1] instanceof File ? pair[1].name : pair[1])); 
+            }
+            const response = await api.post<any>("labour", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
             console.log("POST /api/v1/labour - SUCCESS", response.data);
             return this._normalizeLabour(response.data);
         } catch (error: any) {
@@ -119,6 +130,14 @@ export const labourService = {
                     formData.append(key, String(val));
                 }
             });
+            if (data.profile_image) {
+                if ((data as any).profile_image instanceof File) {
+                    formData.append("profile_image", data.profile_image);
+                } else if (data.profile_image === null) {
+                    // if they want to remove the image, maybe the backend supports an empty string or removal flag
+                    formData.append("profile_image", "");
+                }
+            }
             const response = await api.put<any>(`labour/${id}`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
@@ -437,19 +456,20 @@ export const labourService = {
      * PUT /api/v1/labour/attendance/{attendance_id}/check-out
      */
     async checkOut(attendanceId: number | string, checkOutData: any) {
-        try {
-            let formData: FormData;
-            if (checkOutData instanceof FormData) {
-                formData = checkOutData;
-            } else {
-                formData = new FormData();
-                Object.keys(checkOutData).forEach((key) => {
-                    if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
-                        formData.append(key, checkOutData[key]);
-                    }
-                });
-            }
+        let formData: FormData;
+        
+        if (checkOutData instanceof FormData) {
+            formData = checkOutData;
+        } else {
+            formData = new FormData();
+            Object.keys(checkOutData).forEach((key) => {
+                if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
+                    formData.append(key, checkOutData[key]);
+                }
+            });
+        }
 
+        try {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId} Request Body: FormData`);
             const response = await api.put(
                 `attendance/check-out/${attendanceId}`,

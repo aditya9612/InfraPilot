@@ -41,7 +41,9 @@ const initialFormData = {
     contractor_id: 1,
     status: "Active",
     notes: "",
+    project_id: "" as number | "",
     profile_image: "",
+    profile_image_file: null as File | null,
 };
 
 const formatAadhaar = (value: string) => {
@@ -107,7 +109,6 @@ const LaborDetailsPage = () => {
     const [distSkill, setDistSkill] = useState("");
 
     // Dashboard Stats & Skill Summary (new APIs)
-    const [dashboardStats, setDashboardStats] = useState<any>(null);
     const [skillSummary, setSkillSummary] = useState<any[]>([]);
 
     const handleViewQr = async (labourId: number, name: string) => {
@@ -204,15 +205,6 @@ const LaborDetailsPage = () => {
                 console.error("Failed to fetch labour types", err);
             }
         };
-        // GET /api/v1/labour/dashboard/stats
-        const fetchDashboardStats = async () => {
-            try {
-                const res = await labourService.getDashboardStats(projectId || undefined);
-                setDashboardStats(res);
-            } catch (err) {
-                console.error("Failed to fetch dashboard stats", err);
-            }
-        };
         // GET /api/v1/labour/summary/skill
         const fetchSkillSummary = async () => {
             try {
@@ -224,7 +216,6 @@ const LaborDetailsPage = () => {
         };
         fetchProjects();
         fetchLabourTypes();
-        fetchDashboardStats();
         fetchSkillSummary();
     }, [projectId]);
 
@@ -278,11 +269,8 @@ const LaborDetailsPage = () => {
                     offset: offset,
                     status: statusFilter === "All" ? undefined : statusFilter
                 });
-                // Ensure fetched items are marked as assigned to the current project
-                const items = (response.items || []).map((item: any) => ({
-                    ...item,
-                    project_id: item.project_id || projectId || 0
-                }));
+                // Ensure fetched items use actual backend project_id
+                const items = response.items || [];
                 allItems = [...allItems, ...items];
 
                 if (items.length < 50) {
@@ -411,12 +399,14 @@ const LaborDetailsPage = () => {
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    profile_image: formData.profile_image || undefined,
+                    profile_image: formData.profile_image_file || undefined,
                 };
                 const updatedLaborer = await labourService.updateLabour(editId, updatePayload as any);
 
+                const finalProfileImage = updatedLaborer.profile_image || formData.profile_image;
+                
                 // Update local state immediately with real data
-                setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer } : l));
+                setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer, profile_image: finalProfileImage } : l));
 
                 // Sync the update to localStorage to prevent old data from reappearing
                 try {
@@ -426,7 +416,7 @@ const LaborDetailsPage = () => {
                         const localItems = JSON.parse(localSaved);
                         const itemIndex = localItems.findIndex((l: any) => l.id === editId);
                         if (itemIndex !== -1) {
-                            localItems[itemIndex] = { ...localItems[itemIndex], ...updatedLaborer };
+                            localItems[itemIndex] = { ...localItems[itemIndex], ...updatedLaborer, profile_image: finalProfileImage };
                             localStorage.setItem(localKey, JSON.stringify(localItems));
                         }
                     }
@@ -449,7 +439,7 @@ const LaborDetailsPage = () => {
                     contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
                     status: formData.status || null,
                     notes: formData.notes || null,
-                    profile_image: formData.profile_image || null,
+                    profile_image: formData.profile_image_file || null,
                 };
                 console.log("Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
@@ -654,23 +644,7 @@ const LaborDetailsPage = () => {
                     ))}
                 </div>
 
-                {/* Dashboard Stats Strip (GET /labour/dashboard/stats) */}
-                {dashboardStats && (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                        {[
-                            { label: "Total Labours", val: dashboardStats.total_labours || 0, color: "text-slate-800" },
-                            { label: "Active", val: dashboardStats.active_labours || 0, color: "text-blue-500" },
-                            { label: "Present Today", val: dashboardStats.total_present_today || 0, color: "text-emerald-500" },
-                            { label: "Absent Today", val: dashboardStats.total_absent_today || 0, color: "text-rose-500" },
-                            { label: "Wage This Month", val: `\u20B9${Number(dashboardStats.total_wage_this_month || 0).toLocaleString()}`, color: "text-amber-500" },
-                        ].map(item => (
-                            <div key={item.label} className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label}</p>
-                                <p className={`text-lg font-bold mt-0.5 ${item.color}`}>{item.val}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
+
 
                 {/* Skill Summary Pills (GET /labour/summary/skill) */}
                 {skillSummary.length > 0 && (
@@ -848,7 +822,7 @@ const LaborDetailsPage = () => {
                                                             <QrCode className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", profile_image: labor.profile_image || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -960,8 +934,8 @@ const LaborDetailsPage = () => {
                         <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Scan for attendance</p>
                     </div>
                     {qrImageBlob && (
-                        <a 
-                            href={qrImageBlob} 
+                        <a
+                            href={qrImageBlob}
                             download={`QR_${currentQrLabour?.name?.replace(/\s+/g, '_')}.png`}
                             className="mt-4 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/30 flex items-center gap-2 hover:bg-primary/90 transition-colors"
                         >
@@ -1000,60 +974,59 @@ const LaborDetailsPage = () => {
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
-
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Personnel Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
                             {/* aadhaar_number */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhaar Number</label>
-                                <input type="text" value={formData.aadhaar_number} onChange={(e) => setFormData({ ...formData, aadhaar_number: formatAadhaar(e.target.value) })} placeholder="2345-6789-0123" className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Aadhaar Number</label>
+                                <input type="text" value={formData.aadhaar_number} onChange={(e) => setFormData({ ...formData, aadhaar_number: formatAadhaar(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} />
                                 {errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}
+                            </div>
+
+                            {/* pan_number */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">PAN Number</label>
+                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })} className={`w-full px-4 py-2.5 bg-white border ${errors.pan_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-mono font-bold outline-none transition-all font-inter`} />
+                                {errors.pan_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.pan_number}</p>}
                             </div>
 
                             {/* labour_name * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Ramesh Shinde" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Name <span className="text-rose-500">*</span></label>
+                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
                                 {errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}
                             </div>
 
                             {/* mobile_number * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mobile Number <span className="text-rose-500">*</span></label>
-                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="9696969696" className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Mobile Number <span className="text-rose-500">*</span></label>
+                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
                                 {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
                             </div>
 
                             {/* email */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email</label>
-                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ramesh.shinde@gmail.com" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Email</label>
+                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
-                            {/* pan_number */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PAN Number</label>
-                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })} placeholder="HHLM5621L" className={`w-full px-4 py-2.5 bg-white border ${errors.pan_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
-                                {errors.pan_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.pan_number}</p>}
-                            </div>
+
 
                             {/* address */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Address</label>
-                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Pune, Maharashtra" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Address</label>
+                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
                             {/* labour_type_id * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Type <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.labour_type_id || ""}
                                     onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
-                                    className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}
+                                    className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`}
                                 >
-                                    <option value="" disabled>Select Labour Type</option>
+                                    <option value="" disabled></option>
                                     {labourTypes.map((type) => (
                                         <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
                                     ))}
@@ -1063,52 +1036,68 @@ const LaborDetailsPage = () => {
 
                             {/* custom_daily_wage_rate */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Daily Wage Rate</label>
-                                <input type="number" value={formData.custom_daily_wage_rate} onChange={(e) => setFormData({ ...formData, custom_daily_wage_rate: e.target.value })} placeholder="900" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Custom Daily Wage Rate</label>
+                                <input type="number" value={formData.custom_daily_wage_rate} onChange={(e) => setFormData({ ...formData, custom_daily_wage_rate: e.target.value })} min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
                             {/* custom_ot_rate_per_hour */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom OT Rate / Hour</label>
-                                <input type="number" value={formData.custom_ot_rate_per_hour} onChange={(e) => setFormData({ ...formData, custom_ot_rate_per_hour: e.target.value })} placeholder="120" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Custom OT Rate / Hour</label>
+                                <input type="number" value={formData.custom_ot_rate_per_hour} onChange={(e) => setFormData({ ...formData, custom_ot_rate_per_hour: e.target.value })} min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
                             {/* contractor_id */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contractor ID</label>
-                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Contractor ID</label>
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
+
+                            {/* project_id (only on create) */}
+                            {formMode === 'create' && (
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project</label>
+                                    <select
+                                        value={formData.project_id || ""}
+                                        onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter"
+                                    >
+                                        <option value="" disabled>-- Select Project --</option>
+                                        {projects.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {/* status */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
-                                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Status</label>
+                                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter">
                                     <option value="Active">Active</option>
                                     <option value="Inactive">Inactive</option>
                                 </select>
                             </div>
 
-                            {/* notes — full width */}
+                            {/* notes */}
                             <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Notes</label>
-                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="notes" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2} />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Notes</label>
+                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all resize-none font-inter" rows={2} />
                             </div>
 
-                            {/* profile_image — full width */}
+                            {/* profile_image */}
                             <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Profile Image</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Profile Image</label>
                                 <input type="file" accept="image/*" onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
                                         const reader = new FileReader();
                                         reader.onloadend = () => {
-                                            setFormData({ ...formData, profile_image: reader.result as string });
+                                            setFormData({ ...formData, profile_image: reader.result as string, profile_image_file: file });
                                         };
                                         reader.readAsDataURL(file);
                                     }
-                                }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
+                                }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer font-inter text-slate-500" />
                             </div>
-
                         </div>
                     </div>
                 </form>

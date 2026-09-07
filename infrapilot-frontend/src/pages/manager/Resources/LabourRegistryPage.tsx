@@ -34,7 +34,7 @@ const initialFormData = {
     aadhaar_number: "", labour_name: "", mobile_number: "", email: "",
     pan_number: "", address: "", labour_type_id: 1, custom_daily_wage_rate: "",
     custom_ot_rate_per_hour: "", contractor_id: "" as string | number,
-    status: "Active", notes: "", profile_image: "",
+    status: "Active", notes: "", profile_image: "", profile_image_file: null as File | null,
 };
 
 export const calculateTotalHours = (inTime?: string | null, outTime?: string | null) => {
@@ -439,7 +439,7 @@ const LabourRegistryPage = () => {
 
     const handleEditClick = (labor: any) => {
         setFormMode("edit"); setEditId(labor.id);
-        setFormData({ aadhaar_number: labor.aadhaar_number || "", labour_name: labor.labour_name || "", mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id || 1, custom_daily_wage_rate: labor.custom_daily_wage_rate || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour || "", contractor_id: labor.contractor_id || "", status: labor.status || "Active", notes: labor.notes || "", profile_image: "" });
+        setFormData({ aadhaar_number: labor.aadhaar_number || "", labour_name: labor.labour_name || "", mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id || 1, custom_daily_wage_rate: labor.custom_daily_wage_rate || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour || "", contractor_id: labor.contractor_id || "", status: labor.status || "Active", notes: labor.notes || "", profile_image: labor.profile_image || "", profile_image_file: null });
         setErrors({}); setIsFormModalOpen(true);
     };
 
@@ -449,7 +449,7 @@ const LabourRegistryPage = () => {
         setIsSubmitting(true);
         try {
             if (formMode === "edit" && editId) {
-                const payload = { aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number || undefined, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined, status: formData.status, notes: formData.notes };
+                const payload = { aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number || undefined, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined, status: formData.status, notes: formData.notes, profile_image: formData.profile_image_file || undefined };
                 const updated = await labourService.updateLabour(editId, payload as any);
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
@@ -468,7 +468,7 @@ const LabourRegistryPage = () => {
                     contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
                     status: formData.status || "Active",
                     notes: formData.notes || null,
-                    profile_image: formData.profile_image || null
+                    profile_image: formData.profile_image_file || null
                 };
                 await labourService.createLabour(payload);
                 toast.success("Personnel registered successfully! You can now assign them to a project.");
@@ -1116,7 +1116,7 @@ const LabourRegistryPage = () => {
                             </div>
                             <div className="md:col-span-2"><label className={labelCls}>Notes</label><textarea value={formData.notes} onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="notes" className={inputCls + " resize-none"} /></div>
                             <div className="md:col-span-2"><label className={labelCls}>Profile Image</label>
-                                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => setFormData(p => ({ ...p, profile_image: r.result as string })); r.readAsDataURL(f); } }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
+                                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => setFormData(p => ({ ...p, profile_image: r.result as string, profile_image_file: f })); r.readAsDataURL(f); } }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
                             </div>
                         </div>
                     </div>

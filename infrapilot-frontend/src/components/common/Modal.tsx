@@ -15,13 +15,27 @@ interface ModalProps {
 
 const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl", hideHeader = false, bodyPadding = "p-6" }: ModalProps) => {
   useEffect(() => {
+    const preventScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target && target.closest && target.closest('.custom-scrollbar')) {
+        return; // Allow scroll inside modal body
+      }
+      e.preventDefault(); // Prevent scroll on backdrop or background
+    };
+
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      document.addEventListener('wheel', preventScroll, { passive: false });
+      document.addEventListener('touchmove', preventScroll, { passive: false });
     } else {
       document.body.style.overflow = "unset";
+      document.removeEventListener('wheel', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
     }
     return () => {
       document.body.style.overflow = "unset";
+      document.removeEventListener('wheel', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
     };
   }, [isOpen]);
 
@@ -75,7 +89,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             )}
 
             {/* Body */}
-            <div className={`${bodyPadding} overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar`}>
+            <div className={`${bodyPadding} overflow-y-auto overscroll-contain bg-slate-50/30 flex-1 custom-scrollbar`}>
               {children}
             </div>
 

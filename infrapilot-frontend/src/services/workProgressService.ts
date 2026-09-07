@@ -110,6 +110,7 @@ export const workProgressService = {
       const response = await api.post("/work-progress/daily-entry", payload);
       return response.data;
     } catch (error: any) {
+      if (error.response) throw error;
       console.warn("addDailyProgress API error, using virtual success fallback:", error.message);
       const newEntry: DailyEntry = {
         id: Math.floor(Math.random() * 1000) + 500,
@@ -317,9 +318,10 @@ export const workProgressService = {
   },
 
 
-  async getActivityHistory(id: number, project_id?: number): Promise<any> {
+  async getActivityHistory(id?: number, project_id?: number): Promise<any> {
     try {
-      const params: Record<string, any> = { activity_id: id };
+      const params: Record<string, any> = {};
+      if (id) params.activity_id = id;
       if (project_id) params.project_id = project_id;
       const response = await api.get(`/work-progress/progress-history`, { params });
       return response.data;
@@ -328,7 +330,7 @@ export const workProgressService = {
       return {
         data: [
           {
-            activity_id: activityId || 1,
+            activity_id: id || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "ON_TRACK",
@@ -337,7 +339,7 @@ export const workProgressService = {
             }
           },
           {
-            activity_id: activityId || 1,
+            activity_id: id || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "ON_TRACK",
@@ -346,7 +348,7 @@ export const workProgressService = {
             }
           },
           {
-            activity_id: activityId || 1,
+            activity_id: id || 1,
             action: "DAILY_PROGRESS_UPDATE",
             new_value: {
               status: "Delay",

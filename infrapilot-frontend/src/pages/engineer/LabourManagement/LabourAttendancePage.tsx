@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
+import { userService } from '../../../services/userService';
 import SelfCheckInModal from './components/SelfCheckInModal';
 import BulkCheckInModal from '../../../components/attendance/BulkCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
@@ -272,10 +273,39 @@ const LabourAttendancePage: React.FC = () => {
                 }
             });
 
+            // Fetch users to resolve names for self-checked-in engineers
+            let allUsers: any[] = [];
+            try {
+                let skip = 0;
+                while (true) {
+                    const userRes = await userService.getAllUsers(100, skip);
+                    const items = userRes.items || (userRes as any).data || (Array.isArray(userRes) ? userRes : []);
+                    allUsers.push(...items);
+                    if (items.length < 100) break;
+                    skip += 100;
+                }
+            } catch (err) {
+                console.error("Failed to fetch users for name resolution", err);
+            }
+
             // Also add any attendances that don't match a local labourer (just in case)
             attendances.forEach((att: any) => {
                 if (!enrichedAttendances.find((e: any) => Number(e.labour_id) === Number(att.labour_id))) {
-                    enrichedAttendances.push(att);
+                    let resolvedName = att.labour_name;
+                    if (!resolvedName || resolvedName === "Unknown Worker") {
+                        const attId = att.user_id || att.labour_id;
+                        const matchedUser = allUsers.find(u => 
+                            Number(u.user_id || u.id) === Number(attId) || 
+                            (u.user_id || u.id) === attId
+                        );
+                        if (matchedUser) {
+                            resolvedName = matchedUser.full_name || matchedUser.name || matchedUser.username || "Unknown Worker";
+                        }
+                    }
+                    enrichedAttendances.push({
+                        ...att,
+                        labour_name: resolvedName
+                    });
                 }
             });
 
@@ -415,15 +445,24 @@ const LabourAttendancePage: React.FC = () => {
 
 
     const filteredLabourAttendances = labourAttendances.filter(lab => {
+        // Status filtering
+        if (empStatusFilter !== 'All Status') {
+            const status = lab.status?.toLowerCase() || '';
+            const filterStatus = empStatusFilter.toLowerCase();
+            if (status !== filterStatus) return false;
+        }
+
         // Date-based filtering: ensure records match the selected duration
         const today = new Date().toISOString().split('T')[0];
+        const attDate = lab.attendance_date ? lab.attendance_date.split('T')[0] : null;
+
         if (empDurationFilter === 'Today') {
-            if (lab.attendance_date && lab.attendance_date !== today) return false;
+            if (attDate && attDate !== today) return false;
         } else if (empDurationFilter === 'Current Month') {
             const date = new Date();
             const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
             const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
-            if (lab.attendance_date && (lab.attendance_date < monthStart || lab.attendance_date > monthEnd)) return false;
+            if (attDate && (attDate < monthStart || attDate > monthEnd)) return false;
         }
 
         // Text search

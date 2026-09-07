@@ -77,7 +77,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
   const inputClasses = (error?: string) =>
     `w-full px-4 py-2.5 bg-white border ${error ? "border-rose-300 focus:ring-rose-200" : "border-slate-200 focus:ring-primary/20 focus:border-primary"} rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter`;
 
@@ -110,7 +110,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Basic Information</h3>
           {activity ? (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
@@ -122,7 +122,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             </div>
           ) : (
             <div>
-              <label className={labelClasses}>Select Target Activity *</label>
+              <label className={labelClasses}>Select Target Activity <span className="text-rose-500">*</span></label>
               <select
                 required name="activity_id"
                 className={inputClasses(errors.activity_id)}
@@ -140,7 +140,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Execution Details */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Execution Details</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Execution Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Entry Date <span className="text-rose-500">*</span></label>
@@ -171,7 +171,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Additional Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Additional Information</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Additional Information</h3>
           <label className={labelClasses}>Remarks</label>
           <textarea
             name="remarks" rows={3} placeholder="Describe site conditions or progress..."

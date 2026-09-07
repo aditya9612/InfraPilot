@@ -134,7 +134,24 @@ const DSRPage = () => {
             setIsPdfExporting(false);
         }
     };
-    // ──────────────────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const preventScroll = (e: Event) => {
+            e.preventDefault();
+        };
+
+        if (isExportModalOpen || isPdfExportModalOpen) {
+            document.addEventListener('wheel', preventScroll, { passive: false });
+            document.addEventListener('touchmove', preventScroll, { passive: false });
+        } else {
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        }
+
+        return () => {
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        };
+    }, [isExportModalOpen, isPdfExportModalOpen]);
 
     const fetchDsr = useCallback(async () => {
         if (!projectId) return;

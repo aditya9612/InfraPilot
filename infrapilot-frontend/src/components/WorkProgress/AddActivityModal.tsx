@@ -168,8 +168,18 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       errs.project_id = "Project selection is required";
     }
 
-    if (formData.work_order_id && formData.work_order_id <= 0) {
+    if (!formData.boq_item_id) {
+      errs.boq_item_id = "BOQ Item is required";
+    }
+
+    if (!formData.work_order_id) {
+      errs.work_order_id = "Work Order is required";
+    } else if (formData.work_order_id <= 0) {
       errs.work_order_id = "Work Order ID must be greater than 0";
+    }
+
+    if (!formData.engineer_id) {
+      errs.engineer_id = "Site Engineer assignment is required";
     }
 
     if (!formData.start_date) errs.start_date = "Start date is required";
@@ -241,7 +251,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
   const inputClasses = (error?: string) => `
     w-full px-4 py-2.5 bg-white border 
     ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -274,9 +284,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       <form id="add-activity-form" onSubmit={handleSubmit} className="space-y-6">
         {/* Core Identity Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Activity Identity
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Required Fields *</span>
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Required Fields *</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -296,7 +306,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
 
             <div>
-              <label className={labelClasses}>BOQ Item</label>
+              <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
               <select
                 name="boq_item_id"
                 className={inputClasses(errors.boq_item_id)}
@@ -310,9 +320,10 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                   </option>
                 ))}
               </select>
+                {errors.boq_item_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.boq_item_id}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Work Order</label>
+              <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
               <select
                 name="work_order_id"
                 className={inputClasses(errors.work_order_id)}
@@ -335,14 +346,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
             Assignment
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Required Fields *</span>
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className={labelClasses}>Assign Site Engineer</label>
+              <label className={labelClasses}>Assign Site Engineer <span className="text-rose-500">*</span></label>
               <select
                 name="engineer_id"
-                className={inputClasses()}
+                className={inputClasses(errors.engineer_id)}
                 value={formData.engineer_id}
                 onChange={handleChange}
               >
@@ -353,6 +364,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                   </option>
                 ))}
               </select>
+              {errors.engineer_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.engineer_id}</p>}
               <p className="mt-1 text-[10px] text-slate-400 font-medium ml-1 italic font-inter">
                 Assign this activity to a specific site engineer for execution tracking.
               </p>
@@ -363,12 +375,12 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
         {/* Timeline Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Execution Timeline
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Start Date*</label>
+              <label className={labelClasses}>Start Date <span className="text-rose-500">*</span></label>
               <input
                 required type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
@@ -376,7 +388,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>End Date*</label>
+              <label className={labelClasses}>End Date <span className="text-rose-500">*</span></label>
               <input
                 required type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}

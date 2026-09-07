@@ -145,7 +145,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
   const inputClasses = (error?: string) => `
     w-full px-4 py-2.5 bg-white border 
     ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -179,13 +179,14 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
         
         {/* Core Identity Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Activity Mapping
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>BOQ Item</label>
+              <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
               <select
+                required
                 name="boq_item_id"
                 className={inputClasses()}
                 value={formData.boq_item_id || ""}
@@ -200,8 +201,9 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
               </select>
             </div>
             <div>
-              <label className={labelClasses}>Work Order</label>
+              <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
               <select
+                required
                 name="work_order_id"
                 className={inputClasses()}
                 value={formData.work_order_id || ""}
@@ -220,14 +222,14 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
 
         {/* Assignment Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Re-Assignment
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className={labelClasses}>Assigned Site Engineer</label>
+              <label className={labelClasses}>Assigned Site Engineer <span className="text-rose-500">*</span></label>
               <select
+                required
                 name="engineer_id"
                 className={inputClasses()}
                 value={formData.engineer_id || ""}
@@ -249,12 +251,12 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
 
         {/* Timeline Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Execution Timeline
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Mobilization Date*</label>
+              <label className={labelClasses}>Mobilization Date <span className="text-rose-500">*</span></label>
               <input
                 required type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
@@ -262,7 +264,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
               {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Estimated Completion*</label>
+              <label className={labelClasses}>Estimated Completion <span className="text-rose-500">*</span></label>
               <input
                 required type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}

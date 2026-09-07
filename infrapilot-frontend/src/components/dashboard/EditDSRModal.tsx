@@ -135,7 +135,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1";
   const inputClasses = (error?: string) => `
     w-full px-4 py-2.5 bg-white border 
     ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -162,7 +162,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
       <form id="edit-dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={labelClasses}>Report Date <span className="text-rose-500">*</span></label>
@@ -222,7 +222,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Work Progress */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work Progress</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Work Progress</h3>
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Work Done Today <span className="text-rose-500">*</span></label>
@@ -237,7 +237,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Resource Tracking */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Resource Tracking</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Resource Tracking</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={labelClasses}>Machinery Used</label>
@@ -259,7 +259,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Issues & Observations */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Issues & Observations</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Issues & Observations</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Issues / Delays</label>

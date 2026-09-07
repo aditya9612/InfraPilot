@@ -334,9 +334,9 @@ const CompaniesPage = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right font-inter">
-                            <div className="flex justify-end gap-3">
-                              <Link to={`/superadmin/companies/${company.id}`} className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg" title="View"><Eye className="w-4 h-4" /></Link>
-                              <button onClick={() => handleOpenEditModal(company)} className="p-2 text-blue-500 bg-blue-50 hover:bg-blue-100 transition-colors rounded-xl" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                             <div className="flex justify-end items-center gap-1.5">
+                              <Link to={`/superadmin/companies/${company.id}`} className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg" title="View Company"><Eye className="w-4 h-4" /></Link>
+                              <button onClick={() => handleOpenEditModal(company)} className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors rounded-lg" title="Edit Company"><Edit2 className="w-4 h-4" /></button>
                               <button 
                                 onClick={() => {
                                   if (company.is_active) {
@@ -348,7 +348,8 @@ const CompaniesPage = () => {
                                   }
                                 }}
                                 disabled={activateCompanyMutation.isPending || deactivateCompanyMutation.isPending}
-                                className={`transition-colors ${(activateCompanyMutation.isPending || deactivateCompanyMutation.isPending) ? 'opacity-50 cursor-not-allowed' : company.is_active ? 'text-slate-400 hover:text-rose-600' : 'text-slate-400 hover:text-emerald-600'}`}
+                                title={company.is_active ? "Deactivate Company" : "Activate Company"}
+                                className={`p-2 rounded-lg transition-colors ${(activateCompanyMutation.isPending || deactivateCompanyMutation.isPending) ? 'opacity-50 cursor-not-allowed' : company.is_active ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
                               >
                                 {company.is_active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                               </button>
@@ -358,11 +359,11 @@ const CompaniesPage = () => {
                                   setIsSuspendModalOpen(true);
                                 }} 
                                 title="Suspend Company"
-                                className="text-slate-400 hover:text-rose-600 transition-colors"
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors rounded-lg"
                               >
                                 <Ban className="w-4 h-4" />
                               </button>
-                              <button onClick={() => handleOpenDeleteModal(company.id)} title="Delete Company" className="p-2 text-slate-400 hover:text-rose-500 transition-colors rounded-lg">
+                              <button onClick={() => handleOpenDeleteModal(company.id)} title="Delete Company" className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors rounded-lg">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>

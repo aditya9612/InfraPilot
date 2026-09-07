@@ -452,7 +452,7 @@ const SafetyManagementPage = () => {
 
     // ─── RENDER HELPERS ─────────────────────────────────────────────────
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
 
     const statCardsData = [
@@ -845,7 +845,7 @@ const SafetyManagementPage = () => {
                 <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
                     {/* Basic Info */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                        <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -866,7 +866,7 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task *</label>
+                                <label className={labelClasses}>Task <span className="text-rose-500">*</span></label>
                                 <select
                                     required
                                     name="task_id"
@@ -910,7 +910,7 @@ const SafetyManagementPage = () => {
 
                     {/* Observation Details */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                        <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">
                             Observation Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
