@@ -25,17 +25,17 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
 
     if (isOpen) {
       document.body.style.overflow = "hidden";
-      document.addEventListener('wheel', preventScroll, { passive: false });
-      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.body.classList.add("modal-open");
+      document.documentElement.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.classList.remove("modal-open");
+      document.documentElement.style.overflow = "unset";
     }
     return () => {
       document.body.style.overflow = "unset";
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.classList.remove("modal-open");
+      document.documentElement.style.overflow = "unset";
     };
   }, [isOpen]);
 

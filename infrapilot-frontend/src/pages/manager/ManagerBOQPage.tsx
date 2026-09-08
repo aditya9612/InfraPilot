@@ -819,7 +819,7 @@ const ManagerBOQPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                                                     <th className="px-6 py-5">Identified Item</th>
-                                                    <th className="px-6 py-5">Classification</th>
+                                                    <th className="px-6 py-5">Category</th>
                                                     <th className="px-6 py-5">Quantity Unit</th>
                                                     <th className="px-6 py-5">Unit Rate</th>
                                                     <th className="px-6 py-5">Estimated Total</th>

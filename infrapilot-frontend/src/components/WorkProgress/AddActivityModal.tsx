@@ -286,11 +286,11 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             Activity Identity
-            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Required Fields *</span>
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">REQUIRED FIELDS *</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Project*</label>
+              <label className={labelClasses}>Project<span className="text-rose-500">*</span></label>
               <select
                 name="project_id"
                 className={inputClasses(errors.project_id)}
@@ -320,7 +320,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                   </option>
                 ))}
               </select>
-                {errors.boq_item_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.boq_item_id}</p>}
+              {errors.boq_item_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.boq_item_id}</p>}
             </div>
             <div>
               <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
@@ -346,7 +346,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
             Assignment
-            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Required Fields *</span>
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">REQUIRED FIELDS *</span>
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>

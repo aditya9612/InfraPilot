@@ -304,6 +304,7 @@ function AppRoutes() {
                 <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
                 <Route path="/admin/quotations" element={<QuotationsPage />} />
                 <Route path="/admin/quotations/draft/new" element={<CreateDraftQuotationPage />} />
+                <Route path="/admin/quotations/draft/:id" element={<CreateDraftQuotationPage />} />
                 <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
                 <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
                 <Route path="/admin/master-data" element={<MasterDataPage />} />

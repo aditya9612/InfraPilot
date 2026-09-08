@@ -980,8 +980,9 @@ const ProjectDetailsPage = () => {
                 >
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Policy Type</label>
-                      <select name="policy_type" defaultValue={(project as any)?.ot_policy?.policy_type || "Multiplier"} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Policy Type <span className="text-rose-500">*</span></label>
+                      <select required name="policy_type" defaultValue={(project as any)?.ot_policy?.policy_type || ""} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                        <option value="" disabled>Select Policy Type</option>
                         <option value="Multiplier">Multiplier Base (e.g. 1.5x)</option>
                         <option value="FixedRate">Fixed Rate (Currency/hr)</option>
                       </select>
@@ -1368,7 +1369,7 @@ const ProjectDetailsPage = () => {
         onConfirm={handleDeletePhotoConfirm}
         title="Discard Activity Entry"
         message="Are you sure you want to delete this activity record? This action will permanently remove the entry and all its progress history from the project ledger."
-        confirmText="Archive Record"
+        confirmText="Delete"
         type="danger"
       />
 
@@ -1378,7 +1379,7 @@ const ProjectDetailsPage = () => {
         onConfirm={handleDeleteTaskConfirm}
         title="Delete Task"
         message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history from the project ledger."
-        confirmText="Archive Record"
+        confirmText="Delete"
         type="danger"
       />
 
@@ -1388,7 +1389,7 @@ const ProjectDetailsPage = () => {
         onConfirm={handleDeleteTaskRequestConfirm}
         title="Delete Task Request"
         message="Are you sure you want to delete this task request? This action will permanently remove the entry from the project ledger."
-        confirmText="Archive Record"
+        confirmText="Delete"
         type="danger"
       />
 

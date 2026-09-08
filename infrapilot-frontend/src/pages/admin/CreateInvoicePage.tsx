@@ -104,6 +104,7 @@ const CreateInvoicePage = () => {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InvoiceItem | null>(null);
   const [activeHeaderSection, setActiveHeaderSection] = useState<"client" | "project" | "quotation" | null>("client");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
@@ -458,6 +459,13 @@ const CreateInvoicePage = () => {
   const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
 
   const handleAddItem = () => {
+    if (items.length > 0) {
+      const last = items[items.length - 1];
+      if (!last.description?.trim() || !last.unit?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current item row before adding a new one.");
+        return;
+      }
+    }
     const newItem: InvoiceItem = {
       id: "new_" + Date.now().toString(),
       description: "",
@@ -595,9 +603,33 @@ const CreateInvoicePage = () => {
 
   // Implement Save
   const handleSaveQuotation = async () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!clientDetails.clientId && (!clientDetails.name || clientDetails.name.trim() === "")) {
+      newErrors.clientName = "Client Name is required";
+    }
+    if (!clientDetails.clientId && (!clientDetails.mobile || clientDetails.mobile.trim().length !== 10)) {
+      newErrors.clientMobile = "Mobile number must be exactly 10 digits";
+    }
+    if (!clientDetails.clientId && (!clientDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientDetails.email.trim()))) {
+      newErrors.clientEmail = "A valid email address is required";
+    }
+
     if (!projectDetails.name || projectDetails.name.trim() === "") {
-      toast.error("Project Name is required! Please select a valid project.");
-      setIsSaving(false);
+      newErrors.projectName = "Project Name is required";
+    }
+    if (!projectDetails.type || projectDetails.type.trim() === "") {
+      newErrors.projectType = "Project Type is required";
+    }
+    if (!projectDetails.siteAddress || projectDetails.siteAddress.trim() === "") {
+      newErrors.siteAddress = "Site Address is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Focus client section if client errors exist, else project section
+      const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
+      setActiveHeaderSection(hasClientErrors ? "client" : "project");
       return;
     }
 
@@ -1129,6 +1161,13 @@ const CreateInvoicePage = () => {
 
   const handleAddLabourRow = async () => {
     if (isReadOnly) return;
+    if (labourItems.length > 0) {
+      const last = labourItems[labourItems.length - 1];
+      if (!last.skill_type?.trim() || !last.labour_count || !last.daily_wage) {
+        toast.error("Please fill all fields in the current labour row before adding a new one.");
+        return;
+      }
+    }
     const newItem: LabourItem = {
       skill_type: "General Labourer",
       labour_count: 1,
@@ -1204,6 +1243,13 @@ const CreateInvoicePage = () => {
 
   const handleAddMaterialRow = async () => {
     if (isReadOnly) return;
+    if (materialItems.length > 0) {
+      const last = materialItems[materialItems.length - 1];
+      if (!last.material_name?.trim() || !last.category?.trim() || !last.unit?.trim() || !last.estimated_quantity || !last.estimated_rate) {
+        toast.error("Please fill all fields in the current material row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       material_name: "",
       category: "",
@@ -1283,6 +1329,13 @@ const CreateInvoicePage = () => {
 
   const handleAddExtraChargeRow = async () => {
     if (isReadOnly) return;
+    if (extraChargeItems.length > 0) {
+      const last = extraChargeItems[extraChargeItems.length - 1];
+      if (!last.description?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current extra charge row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       expense_type: "misc",
       description: "",
@@ -1404,9 +1457,6 @@ const CreateInvoicePage = () => {
                     <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Client Details</h3>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                      <Building className="w-4 h-4" />
-                    </div>
                     <div className="text-slate-400">
                       <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'client' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
@@ -1446,35 +1496,50 @@ const CreateInvoicePage = () => {
                         ))}
                       </select>
                       {!clientDetails.clientId && (
-                        <input
-                          type="text"
-                          value={clientDetails.name}
-                          onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
-                          readOnly={isReadOnly}
-                          placeholder="Type Manual Client Name..."
-                          className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                        />
+                        <>
+                          <input
+                            type="text"
+                            value={clientDetails.name}
+                            onChange={(e) => {
+                              setClientDetails({ ...clientDetails, name: e.target.value });
+                              if (errors.clientName) setErrors(prev => ({ ...prev, clientName: "" }));
+                            }}
+                            readOnly={isReadOnly}
+                            placeholder="Type Manual Client Name..."
+                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          />
+                          {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
+                        </>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number</label>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
                         <input
                           type="text"
                           value={clientDetails.mobile}
-                          onChange={(e) => setClientDetails({ ...clientDetails, mobile: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setClientDetails({ ...clientDetails, mobile: v });
+                            if (errors.clientMobile) setErrors(prev => ({ ...prev, clientMobile: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientMobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
                         />
+                        {errors.clientMobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientMobile}</p>}
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
                         <input
                           type="email"
                           value={clientDetails.email}
-                          onChange={(e) => setClientDetails({ ...clientDetails, email: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          onChange={(e) => {
+                            setClientDetails({ ...clientDetails, email: e.target.value });
+                            if (errors.clientEmail) setErrors(prev => ({ ...prev, clientEmail: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientEmail ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
                           placeholder="client@example.com"
                         />
+                        {errors.clientEmail && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientEmail}</p>}
                       </div>
                     </div>
                     <div>
@@ -1529,27 +1594,35 @@ const CreateInvoicePage = () => {
                 {activeHeaderSection === "project" && (
                   <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         value={projectDetails.name}
-                        onChange={(e) => setProjectDetails({ ...projectDetails, name: e.target.value })}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, name: e.target.value });
+                          if (errors.projectName) setErrors(prev => ({ ...prev, projectName: "" }));
+                        }}
                         placeholder="Type Manual Project Name..."
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
+                      {errors.projectName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectName}</p>}
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         list="project-types-list"
                         value={projectDetails.type}
-                        onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, type: e.target.value });
+                          if (errors.projectType) setErrors(prev => ({ ...prev, projectType: "" }));
+                        }}
                         readOnly={isReadOnly}
                         placeholder="e.g. Residential, Infrastructure"
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectType ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
+                      {errors.projectType && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectType}</p>}
                       <datalist id="project-types-list">
                         <option value="Residential" />
                         <option value="Commercial" />
@@ -1571,14 +1644,18 @@ const CreateInvoicePage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         value={projectDetails.siteAddress}
-                        onChange={(e) => setProjectDetails({ ...projectDetails, siteAddress: e.target.value })}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, siteAddress: e.target.value });
+                          if (errors.siteAddress) setErrors(prev => ({ ...prev, siteAddress: "" }));
+                        }}
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.siteAddress ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
+                      {errors.siteAddress && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.siteAddress}</p>}
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Order No.</label>
@@ -1676,12 +1753,12 @@ const CreateInvoicePage = () => {
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">{index + 1}</td>
                         <td className="px-6 py-4">
-                          <textarea
+                          <input
+                            type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
                             placeholder="Enter item description..."
-                            rows={2}
                           />
                         </td>
                         <td className="px-6 py-4">
@@ -1792,9 +1869,9 @@ const CreateInvoicePage = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
+                    className={`shrink-0 min-w-fit flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
                       ? "text-indigo-600 border-indigo-600 bg-indigo-50/20"
-                      : "text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50/50"
+                      : "text-slate-600 border-transparent hover:text-slate-800 hover:bg-slate-50/50"
                       }`}
                   >
                     {tab.icon} {tab.label}
@@ -1999,7 +2076,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_count}
+                                  value={item.labour_count === 0 ? "" : item.labour_count}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_count", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2008,7 +2085,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.daily_wage}
+                                  value={item.daily_wage === 0 ? "" : item.daily_wage}
                                   onChange={(e) => handleLabourFieldChange(idx, "daily_wage", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2017,7 +2094,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_days}
+                                  value={item.labour_days === 0 ? "" : item.labour_days}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_days", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2026,7 +2103,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_hours}
+                                  value={item.overtime_hours === 0 ? "" : item.overtime_hours}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_hours", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-16 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2036,7 +2113,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_rate}
+                                  value={item.overtime_rate === 0 ? "" : item.overtime_rate}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2123,7 +2200,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_quantity}
+                                  value={item.estimated_quantity === 0 ? "" : item.estimated_quantity}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_quantity", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -2132,7 +2209,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_rate}
+                                  value={item.estimated_rate === 0 ? "" : item.estimated_rate}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -2228,7 +2305,7 @@ const CreateInvoicePage = () => {
                           <div className="w-20">
                             <input
                               type="number"
-                              value={item.quantity}
+                              value={item.quantity === 0 ? "" : item.quantity}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "quantity", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Qty"
@@ -2238,7 +2315,7 @@ const CreateInvoicePage = () => {
                           <div className="w-32">
                             <input
                               type="number"
-                              value={item.rate}
+                              value={item.rate === 0 ? "" : item.rate}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "rate", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Amount"
@@ -2487,7 +2564,8 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">CGST</span>
                     <input
                       type="number"
-                      value={gstRates.cgst}
+                      value={gstRates.cgst === 0 ? "" : gstRates.cgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, cgst: val, gst: val + prev.sgst };
@@ -2505,7 +2583,8 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">SGST</span>
                     <input
                       type="number"
-                      value={gstRates.sgst}
+                      value={gstRates.sgst === 0 ? "" : gstRates.sgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, sgst: val, gst: val + prev.cgst };
@@ -2524,7 +2603,8 @@ const CreateInvoicePage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={discount}
+                      value={discount === 0 ? "" : discount}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2535,7 +2615,15 @@ const CreateInvoicePage = () => {
                 <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-500">TDS</span>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
+                    <input
+                      type="number"
+                      value={gstRates.tds === 0 ? "" : gstRates.tds}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
                   <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -2553,7 +2641,8 @@ const CreateInvoicePage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={advancePaid}
+                      value={advancePaid === 0 ? "" : advancePaid}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}

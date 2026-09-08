@@ -618,7 +618,7 @@ const CompaniesPage = () => {
                     className="px-6 py-2.5 text-sm font-bold text-white bg-rose-500 rounded-xl hover:bg-rose-600 transition-colors shadow-lg shadow-rose-500/20 disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     {deleteCompanyMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Archive Record
+                    Delete
                   </button>
                 </div>
               </div>

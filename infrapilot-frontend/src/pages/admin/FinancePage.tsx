@@ -205,7 +205,7 @@ const FinancePage = () => {
       setSelectedInvoice(null);
       setIsModalOpen(false);
     } catch (error: any) {
-      const errorMessage = error.message || (selectedInvoice
+      const errorMessage = error.response?.data?.detail || error.message || (selectedInvoice
         ? "Failed to update invoice"
         : "Failed to create invoice");
       toast.error(errorMessage);

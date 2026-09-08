@@ -124,14 +124,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
     );
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
             title="Edit Task Request"
             footer={modalFooter}
         >
             <form id="edit-task-request-form" onSubmit={handleSubmit} className="space-y-6 font-inter">
-                
+
                 {/* Basic Information */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Basic Information</h3>
@@ -140,8 +140,8 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             <label className={labelClasses}>
                                 Title <span className="text-rose-500">*</span>
                             </label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 name="title"
                                 value={formData.title}
                                 onChange={handleChange}
@@ -150,12 +150,12 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 required
                             />
                         </div>
-                        
+
                         <div>
                             <label className={labelClasses}>
                                 Category <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <select
                                 name="category"
                                 value={formData.category}
                                 onChange={handleChange}
@@ -177,7 +177,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             <label className={labelClasses}>
                                 Priority <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <select
                                 name="priority"
                                 value={formData.priority}
                                 onChange={handleChange}
@@ -191,12 +191,12 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 <option value="CRITICAL">CRITICAL</option>
                             </select>
                         </div>
-                        
+
                         <div>
                             <label className={labelClasses}>
                                 Status <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <select
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
@@ -226,7 +226,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             <label className={labelClasses}>
                                 Description
                             </label>
-                            <textarea 
+                            <textarea
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
@@ -241,7 +241,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 <label className={labelClasses}>
                                     Assigned To <span className="text-rose-500">*</span>
                                 </label>
-                                <select 
+                                <select
                                     name="assigned_to"
                                     value={formData.assigned_to || ""}
                                     onChange={handleChange}
@@ -262,8 +262,8 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 <label className={labelClasses}>
                                     Attachment
                                 </label>
-                                <input 
-                                    type="file" 
+                                <input
+                                    type="file"
                                     name="attachment"
                                     onChange={handleFileChange}
                                     className={`${inputClasses} cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20`}
@@ -277,8 +277,8 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 id="is_deleted"
                                 name="is_deleted"
                                 checked={formData.is_deleted}

@@ -53,6 +53,17 @@ export default function SupplierModal({
     }
   }, [apiErrors]);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
+    }
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleChange = (
@@ -88,6 +99,8 @@ export default function SupplierModal({
 
     if (!formData.gst.trim()) newErrors.gst = "GST Number is required.";
     else if (formData.gst.length !== 15) newErrors.gst = "GST Number must be 15 characters.";
+
+    if (!formData.address.trim()) newErrors.address = "Office Address is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -163,7 +176,6 @@ export default function SupplierModal({
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  placeholder="e.g. Asian Paints Dealer"
                 />
                 {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
               </div>
@@ -180,7 +192,6 @@ export default function SupplierModal({
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  placeholder="e.g. Rajesh Kumar"
                 />
                 {errors.contactPerson && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.contactPerson}</p>}
               </div>
@@ -198,7 +209,6 @@ export default function SupplierModal({
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  placeholder="e.g. 9876543210 or contact@supplier.com"
                 />
                 {!errors.contact && (
                   <p className="text-[10px] text-gray-400 font-medium ml-1 mt-1">Enter either a 10-digit phone number or a valid email address.</p>
@@ -232,16 +242,19 @@ export default function SupplierModal({
 
               <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Office Address
+                  Office Address <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-sm outline-none resize-none"
-                  placeholder="e.g. Mumbai, Maharashtra"
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none resize-none ${errors.address
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                 />
+                {errors.address && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.address}</p>}
               </div>
             </div>
           </div>

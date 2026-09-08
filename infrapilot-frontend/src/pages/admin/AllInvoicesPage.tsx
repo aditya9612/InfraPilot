@@ -48,6 +48,7 @@ const AllInvoicesPage = () => {
   const navigate = useNavigate();
 
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [dummyQuotations, setDummyQuotations] = useState<Quotation[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [owners, setOwners] = useState<any[]>([]);
@@ -65,7 +66,7 @@ const AllInvoicesPage = () => {
   const [activeCreateType, setActiveCreateType] = useState<InvoiceType>("owner");
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
-  const [activeTab, setActiveTab] = useState<"invoices" | "quotations">("invoices");
+  const [activeTab, setActiveTab] = useState<"invoices" | "quotations" | "dummy_quotations">("invoices");
   const [sendTarget, setSendTarget] = useState<{ id: number; isQuotation: boolean } | null>(null);
 
   const PAGE_SIZE = 10;
@@ -117,6 +118,13 @@ const AllInvoicesPage = () => {
           console.error("Failed to load quotations", error);
           toast.error("Quotations timed out — invoices still available. Try refreshing the page.");
         });
+
+      // Dummy quotations
+      quotationService.getDummyQuotations()
+        .then(dummyData => setDummyQuotations(dummyData))
+        .catch(error => {
+          console.error("Failed to load dummy quotations", error);
+        });
     };
     load();
   }, []);
@@ -151,9 +159,15 @@ const AllInvoicesPage = () => {
     try {
       const itemToDelete = displayData.find((d: any) => d.id === deleteTarget);
       if (itemToDelete?.isQuotation) {
-        await quotationService.deleteQuotation(deleteTarget);
-        const data = await quotationService.getQuotations();
-        setQuotations(data);
+        if (activeTab === "dummy_quotations") {
+          await quotationService.deleteDummyQuotation(deleteTarget);
+          const data = await quotationService.getDummyQuotations();
+          setDummyQuotations(data);
+        } else {
+          await quotationService.deleteQuotation(deleteTarget);
+          const data = await quotationService.getQuotations();
+          setQuotations(data);
+        }
       } else {
         await financeService.deleteInvoice(deleteTarget);
         const invData = await financeService.getInvoices(200);
@@ -276,16 +290,15 @@ const AllInvoicesPage = () => {
       return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
     });
   }, [filteredInvoices, filteredQuotations, projects, sortOrder, typeFilter]);
-
-  const displayData = activeTab === "quotations"
-    ? filteredQuotations.map(q => ({
+  const displayData = activeTab === "dummy_quotations"
+    ? dummyQuotations.map(q => ({
       id: q.id,
       isQuotation: true,
       client_user_id: q.client_user_id,
       invoice_no: q.quotation_no || `QTN-${q.id}`,
       project_name: q.project_name || "Unknown Project",
       client_name: q.client_name,
-      description: "Quotation",
+      description: "Dummy Quotation",
       type: "quotation",
       amount: q.subtotal || 0,
       gst_amount: q.gst_amount || 0,
@@ -296,7 +309,26 @@ const AllInvoicesPage = () => {
       status: q.status || "draft",
       created_at: q.created_at
     }))
-    : unifiedAllData.filter(d => !d.isQuotation);
+    : activeTab === "quotations"
+      ? filteredQuotations.map(q => ({
+        id: q.id,
+        isQuotation: true,
+        client_user_id: q.client_user_id,
+        invoice_no: q.quotation_no || `QTN-${q.id}`,
+        project_name: q.project_name || "Unknown Project",
+        client_name: q.client_name,
+        description: "Quotation",
+        type: "quotation",
+        amount: q.subtotal || 0,
+        gst_amount: q.gst_amount || 0,
+        tax_amount: q.tds_amount || 0,
+        total_amount: q.grand_total || 0,
+        paid_amount: q.advance_paid || 0,
+        pending_amount: q.balance_due || 0,
+        status: q.status || "draft",
+        created_at: q.created_at
+      }))
+      : unifiedAllData.filter(d => !d.isQuotation);
 
   const totalPages = Math.max(1, Math.ceil(displayData.length / PAGE_SIZE));
   const pagedData = displayData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -430,6 +462,18 @@ const AllInvoicesPage = () => {
               Quotations
               <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
                 }`}>{quotations.length}</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+            >
+              <Layers className="w-4 h-4" />
+              Draft Quotation
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "dummy_quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}>{dummyQuotations.length}</span>
             </button>
           </div>
 
@@ -598,7 +642,7 @@ const AllInvoicesPage = () => {
                               </button>
                               {inv.isQuotation && (
                                 <Link
-                                  to={`/admin/quotations/view/${inv.id}`}
+                                  to={activeTab === 'dummy_quotations' ? `/admin/quotations/draft/${inv.id}` : `/admin/quotations/view/${inv.id}`}
                                   className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                                   title="View Details"
                                 >

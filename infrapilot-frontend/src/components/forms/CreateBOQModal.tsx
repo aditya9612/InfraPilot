@@ -97,10 +97,15 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
         else if (value.trim().length < 2) error = 'Name must be at least 2 characters.';
         break;
       case 'quantity':
-        if (value && isNaN(Number(value))) error = 'Enter a valid quantity.';
+        if (!value) error = 'Quantity is required.';
+        else if (isNaN(Number(value))) error = 'Enter a valid quantity.';
         break;
       case 'unit_cost':
-        if (value && isNaN(Number(value))) error = 'Enter a valid unit cost.';
+        if (!value) error = 'Unit cost is required.';
+        else if (isNaN(Number(value))) error = 'Enter a valid unit cost.';
+        break;
+      case 'status':
+        if (!value) error = 'Status is required.';
         break;
       case 'activity_type_id':
         if (!value) error = 'Activity Type is required.';
@@ -143,7 +148,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   };
 
   const validateAll = () => {
-    const fieldsToCheck = ['project_id', 'item_name', 'activity_type_id'];
+    const fieldsToCheck = ['project_id', 'item_name', 'activity_type_id', 'quantity', 'unit_cost', 'status'];
 
     const newErrors: Record<string, string> = {};
     fieldsToCheck.forEach((key) => {
@@ -261,7 +266,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
               name="item_name"
               value={formData.item_name}
               onChange={handleChange}
-              placeholder="e.g. Cement Bags"
+              placeholder=""
               className={`w-full px-4 py-2.5 bg-white border ${errors.item_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
             />
             {errors.item_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.item_name}</p>}
@@ -275,14 +280,14 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
               rows={2}
               value={formData.description}
               onChange={handleChange}
-              placeholder="Provide details about the material or labor..."
+              placeholder=""
               className={`w-full px-4 py-2.5 bg-white border ${errors.description ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all resize-none`}
             />
           </div>
 
           {/* Quantity */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity <span className="text-rose-500">*</span></label>
             <input
               type="text"
               name="quantity"
@@ -296,7 +301,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
 
           {/* Unit Cost */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹) <span className="text-rose-500">*</span></label>
             <input
               type="text"
               name="unit_cost"
@@ -310,7 +315,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
 
           {/* Status */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Status</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Status <span className="text-rose-500">*</span></label>
             <select
               name="status"
               value={formData.status}
@@ -323,6 +328,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
               <option value="Under Review">Under Review</option>
               <option value="Completed">Completed</option>
             </select>
+            {errors.status && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.status}</p>}
           </div>
 
           {/* Activity Type */}

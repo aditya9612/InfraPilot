@@ -65,7 +65,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
       toast.error("Title is required");
       return;
     }
-    if (!formData.category) {
+    if (!formData.category.trim()) {
       toast.error("Category is required");
       return;
     }
@@ -77,7 +77,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
       toast.error("Assigning a user is required");
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       const payload: any = {
@@ -127,129 +127,73 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Task Request" footer={modalFooter} maxWidth="max-w-xl">
-      <form id="create-task-request-form" onSubmit={handleSubmit} className="space-y-6 font-inter">
-        
-        {/* Basic Information */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
-              <select
-                name="project_id"
-                value={formData.project_id}
-                onChange={handleChange}
-                className={inputClasses}
-                required
-              >
-                <option value="">Select a Project</option>
-                {projects.map((p: any) => (
-                  <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                    {p.project_name || p.name || `Project #${p.id || p.project_id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <form id="create-task-request-form" onSubmit={handleSubmit} className="space-y-4 font-inter">
 
-            <div>
-              <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                placeholder="e.g. Needs Material"
-                className={inputClasses}
-                required
-              />
-            </div>
-
-            <div>
-              <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className={inputClasses}
-                required
-              >
-                <option value="" disabled>Select category</option>
-                <option value="Civil">Civil</option>
-                <option value="Electrical">Electrical</option>
-                <option value="Plumbing">Plumbing</option>
-                <option value="Safety">Safety</option>
-                <option value="Material">Material</option>
-                <option value="General">General</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className={labelClasses}>Priority <span className="text-rose-500">*</span></label>
-              <select
-                name="priority"
-                value={formData.priority}
-                onChange={handleChange}
-                className={inputClasses}
-                required
-              >
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="CRITICAL">Critical</option>
-              </select>
-            </div>
-          </div>
+        <div>
+          <label className={labelClasses}>Assigned Project <span className="text-rose-500">*</span></label>
+          <select
+            name="project_id"
+            value={formData.project_id}
+            onChange={handleChange}
+            className={inputClasses}
+            required
+          >
+            <option value="">Select a Project</option>
+            {projects.map((p: any) => (
+              <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                {p.project_name || p.name || `Project #${p.id || p.project_id}`}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Additional Details */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Additional Details</h3>
-          <div className="grid grid-cols-1 gap-5">
-            <div>
-              <label className={labelClasses}>Description</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Add detailed description..."
-                rows={3}
-                className={`${inputClasses} resize-none`}
-              />
-            </div>
+        <div>
+          <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            placeholder="e.g. Needs Material"
+            className={inputClasses}
+          />
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className={labelClasses}>Assigned To <span className="text-rose-500">*</span></label>
-                  <select
-                    name="assigned_to"
-                    value={formData.assigned_to}
-                    onChange={handleChange}
-                    className={inputClasses}
-                    required
-                  >
-                    <option value="" disabled>Unassigned</option>
-                    {users.map((u: any) => (
-                      <option key={u.id || u.labour_id} value={u.id || u.labour_id}>
-                        {u.labour_name || u.name || u.full_name || `User ${u.id || u.labour_id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label className={labelClasses}>Assigned To <span className="text-rose-500">*</span></label>
+            <select
+              name="assigned_to"
+              value={formData.assigned_to}
+              onChange={handleChange}
+              className={inputClasses}
+              required
+            >
+              <option value="" disabled>Unassigned</option>
+              {users.map((u: any) => (
+                <option key={u.id || u.labour_id} value={u.id || u.labour_id}>
+                  {u.labour_name || u.name || u.full_name || `User ${u.id || u.labour_id}`}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                <div>
-                  <label className={labelClasses}>Attachment</label>
-                  <input
-                    type="file"
-                    name="attachment"
-                    onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer text-slate-500"
-                  />
-                </div>
-            </div>
+          <div>
+            <label className={labelClasses}>Priority <span className="text-rose-500">*</span></label>
+            <select
+              name="priority"
+              value={formData.priority}
+              onChange={handleChange}
+              className={inputClasses}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
           </div>
         </div>
       </form>
-    </Modal>
+    </Modal >
   );
 }

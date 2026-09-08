@@ -417,7 +417,7 @@ const AdminDashboard = () => {
               onClick={() => setIsUserModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
-              + Add User
+              + Create User
             </button>
             <button
               onClick={() => setIsBOQModalOpen(true)}

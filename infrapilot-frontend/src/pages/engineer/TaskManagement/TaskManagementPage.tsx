@@ -2636,7 +2636,7 @@ const TaskManagementPage = () => {
                 onConfirm={executeDeleteTask}
                 title="Discard Task Entry"
                 message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history."
-                confirmText="Archive Record"
+                confirmText="Delete"
                 type="danger"
                 isLoading={isSubmitting}
             /> */}

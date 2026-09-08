@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
@@ -10,6 +11,29 @@ interface Props {
 
 const DashboardContent = ({ children }: Props) => {
   const { isSidebarOpen, closeSidebar } = useSidebar();
+
+  useEffect(() => {
+    // Hyper-optimized check (no getComputedStyle, no reflows)
+    const checkOverlay = () => {
+      // Exclude pointer-events-none just in case someone adds a transparent overlay later
+      const overlay = document.querySelector('.fixed.inset-0:not(.pointer-events-none)');
+      if (overlay) {
+        document.body.classList.add('modal-open');
+      } else {
+        document.body.classList.remove('modal-open');
+      }
+    };
+    
+    checkOverlay(); // Initial check
+    
+    // Only watch for node additions/removals, NEVER attributes to prevent infinite loops/hangs
+    const observer = new MutationObserver(checkOverlay);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    return () => observer.disconnect();
+  }, []);
+
+
 
   return (
     <div className="flex min-h-screen bg-slate-100">
