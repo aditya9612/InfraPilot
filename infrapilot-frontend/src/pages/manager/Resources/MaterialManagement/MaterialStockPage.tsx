@@ -86,7 +86,7 @@ const MaterialStockPage = () => {
 
     // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
-    const [logTypeFilter, setLogTypeFilter] = useState("ADJUSTMENT");
+    const [logTypeFilter, setLogTypeFilter] = useState("");
     const [reportAlertFilter, setReportAlertFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -134,7 +134,7 @@ const MaterialStockPage = () => {
         if (activeTab === "Stock Overview") fetchStock();
         else if (activeTab === "Global Inventory") fetchGlobalInventory();
         else if (activeTab === "Reports") fetchReports();
-        else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); }
+        else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); fetchGlobalInventory(); }
     }, [activeTab, projectId, logTypeFilter]);
 
     const stats = useMemo(() => {
@@ -529,33 +529,29 @@ const MaterialStockPage = () => {
                                         <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Old Stock</th><th className="px-6 py-4 text-center">New Stock</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4">Remarks</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
-                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
-                                                <td className="px-6 py-4 text-sm text-slate-600 text-center">{(a as any).old_stock ?? '-'}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{(a as any).new_stock ?? '-'}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-center">
-                                                    <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                                        {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((a as any).avg_rate)}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">
-                                                    <div>{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</div>
-                                                    <pre className="text-[9px] text-slate-400 bg-slate-100 p-1 rounded mt-1 overflow-auto max-w-xs">{JSON.stringify({
-                                                        old_stock: (a as any).old_stock,
-                                                        new_stock: (a as any).new_stock,
-                                                        difference: (a as any).difference,
-                                                        quantity: a.quantity,
-                                                        rate: a.rate,
-                                                        avg_rate: (a as any).avg_rate,
-                                                        keys: Object.keys(a)
-                                                    })}</pre>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => {
+                                            const itemInv = globalInventory.find(i => i.material_id === a.material_id);
+                                            const newStock = (a as any).new_stock ?? (itemInv ? itemInv.remaining_stock : null);
+                                            const oldStock = (a as any).old_stock ?? (newStock !== null ? newStock - (a.quantity || 0) : null);
+                                            return (
+                                                <tr key={idx} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
+                                                    <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {(a as any).issue_type || a.type}</span></td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600 text-center">{oldStock !== null ? oldStock : '-'}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{newStock !== null ? newStock : '-'}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-center">
+                                                        <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                            {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((a as any).avg_rate)}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        <div>{(a as any).reason || (a as any).notes || 'Manual Audit Adjustment'}</div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                         {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
                                     </tbody>
                                 </table>

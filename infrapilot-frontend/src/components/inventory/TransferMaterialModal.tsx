@@ -20,7 +20,6 @@ export default function TransferMaterialModal({
     fromProjectId: "",
     toProjectId: "",
     quantity: 0,
-    transportDetails: "",
   });
 
   if (!isOpen) return null;
@@ -68,7 +67,6 @@ export default function TransferMaterialModal({
       fromProjectId: "",
       toProjectId: "",
       quantity: 0,
-      transportDetails: "",
     });
   };
 
@@ -108,7 +106,7 @@ export default function TransferMaterialModal({
           <div className="space-y-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Select Material *
+                Select Material <span className="text-rose-500">*</span>
               </label>
               <select
                 required
@@ -143,7 +141,7 @@ export default function TransferMaterialModal({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Destination Site *</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Destination Site <span className="text-rose-500">*</span></label>
                 <select
                   required
                   name="toProjectId"
@@ -164,7 +162,7 @@ export default function TransferMaterialModal({
 
             <div className="space-y-1.5 border-t border-slate-100 pt-6">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Transfer Quantity *
+                Transfer Quantity <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
@@ -188,19 +186,7 @@ export default function TransferMaterialModal({
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Transport / Logistics Memo
-              </label>
-              <textarea
-                name="transportDetails"
-                value={formData.transportDetails}
-                onChange={handleChange}
-                rows={2}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-bold outline-none resize-none"
-                placeholder="e.g. Vehicle No, Driver Name..."
-              />
-            </div>
+
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">

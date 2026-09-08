@@ -7,6 +7,7 @@ import StatCard from "../../components/common/StatCard";
 import SupplierModal from "../../components/inventory/SupplierModal";
 import TransferMaterialModal from "../../components/inventory/TransferMaterialModal";
 import AddMaterialModal from "../../components/inventory/AddMaterialModal";
+import UpdateTransferStatusModal from "../../components/inventory/UpdateTransferStatusModal";
 import PurchaseActionModal from "../../components/inventory/PurchaseActionModal";
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
@@ -86,6 +87,8 @@ const InventoryPage = () => {
   const [materialPage, setMaterialPage] = useState(0);
   const [poPage, setPoPage] = useState(0);
   const [transferPage, setTransferPage] = useState(0);
+  const [selectedUpdateTransfer, setSelectedUpdateTransfer] = useState<Transfer | null>(null);
+  const [isUpdateTransferModalOpen, setIsUpdateTransferModalOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 10;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
@@ -1095,18 +1098,13 @@ const InventoryPage = () => {
                     <>
                       <TransferTable
                         transfers={paged}
-                        onStatusUpdate={async (id, status) => {
-                          try {
-                            await materialService.updateTransferStatus(id, status);
-                            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-                            toast.success(`Transfer marked as ${status.toLowerCase()}!`);
-                          } catch {
-                            toast.error("Failed to update transfer status");
-                          }
+                        onUpdateStatus={(t) => {
+                          setSelectedUpdateTransfer(t);
+                          setIsUpdateTransferModalOpen(true);
                         }}
                         onView={(t) => setSelectedTransfer(t)}
                       />
-                      {totalPages > 1 && (
+                      {sortedTransfers.length > 0 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                             Showing {transferPage * PAGE_SIZE + 1}–{Math.min((transferPage + 1) * PAGE_SIZE, sortedTransfers.length)} of {sortedTransfers.length} Transfers
@@ -1326,6 +1324,24 @@ const InventoryPage = () => {
         onClose={() => {
           setIsViewPOModalOpen(false);
           setSelectedPO(null);
+        }}
+      />
+
+      <UpdateTransferStatusModal
+        isOpen={isUpdateTransferModalOpen}
+        onClose={() => {
+          setIsUpdateTransferModalOpen(false);
+          setSelectedUpdateTransfer(null);
+        }}
+        transfer={selectedUpdateTransfer}
+        onSubmit={async (id, status) => {
+          try {
+            await materialService.updateTransferStatus(id, status);
+            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+            toast.success(`Transfer status updated to ${status}!`);
+          } catch {
+            toast.error("Failed to update transfer status");
+          }
         }}
       />
 
