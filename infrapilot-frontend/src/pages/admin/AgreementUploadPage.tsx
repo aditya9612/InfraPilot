@@ -20,6 +20,7 @@ export default function AgreementUploadPage() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [filterProject, setFilterProject] = useState<string>("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const PAGE_SIZE = 10;
 
@@ -159,24 +160,31 @@ export default function AgreementUploadPage() {
     }
   };
 
+  const uniqueProjects = useMemo(() => {
+    const projs = agreements.map(a => a.project_name).filter(Boolean);
+    return Array.from(new Set(projs)).sort() as string[];
+  }, [agreements]);
+
   const sortedAgreements = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    const filtered = term
-      ? agreements.filter(a =>
+    const filtered = agreements.filter(a => {
+      const matchesSearch = term ? (
         (a.document_id || "").toLowerCase().includes(term) ||
         (a.owner_name || "").toLowerCase().includes(term) ||
         (a.project_name || "").toLowerCase().includes(term) ||
         (a.type || "").toLowerCase().includes(term) ||
         (a.status || "").toLowerCase().includes(term)
-      )
-      : agreements;
+      ) : true;
+      const matchesProject = filterProject ? a.project_name === filterProject : true;
+      return matchesSearch && matchesProject;
+    });
 
     return [...filtered].sort((a, b) => {
       const aDate = new Date(a.uploaded_at || 0).getTime();
       const bDate = new Date(b.uploaded_at || 0).getTime();
       return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
     });
-  }, [agreements, sortOrder, searchTerm]);
+  }, [agreements, sortOrder, searchTerm, filterProject]);
 
   const totalPages = Math.max(1, Math.ceil(sortedAgreements.length / PAGE_SIZE));
   const pagedAgreements = sortedAgreements.slice(
@@ -258,7 +266,25 @@ export default function AgreementUploadPage() {
                   </p>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                  <div className="relative">
+                    <select
+                      value={filterProject}
+                      onChange={(e) => {
+                        setFilterProject(e.target.value);
+                        setCurrentPage(0);
+                      }}
+                      className="bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer h-[34px]"
+                    >
+                      <option value="">All Projects</option>
+                      {uniqueProjects.map(proj => (
+                        <option key={proj} value={proj}>{proj}</option>
+                      ))}
+                    </select>
+                    <svg className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all h-[34px]">
                     <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>

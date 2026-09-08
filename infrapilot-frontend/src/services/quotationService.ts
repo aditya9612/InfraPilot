@@ -5,6 +5,26 @@ import { settingsService } from "./settingsService";
 
 export const quotationService = {
     /**
+     * Get all dummy quotations
+     * GET /api/v1/dummy-quotations/
+     */
+    async getDummyQuotations(skip: number = 0, limit: number = 50, client_name?: string | null): Promise<Quotation[]> {
+        try {
+            const response = await api.get("/dummy-quotations/", {
+                params: {
+                    limit,
+                    skip,
+                    ...(client_name ? { client_name } : {})
+                }
+            });
+            return Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || []);
+        } catch (error: any) {
+            console.error("Get Dummy Quotations Error:", error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
      * Get all quotations
      * GET /api/v1/quotations/
      */
@@ -20,6 +40,20 @@ export const quotationService = {
             return Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || []);
         } catch (error: any) {
             console.error("Get Quotations Error:", error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Get dummy quotation by ID
+     * GET /api/v1/dummy-quotations/{id}
+     */
+    async getDummyQuotationById(id: number): Promise<Quotation> {
+        try {
+            const response = await api.get(`/dummy-quotations/${id}`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Get Dummy Quotation ${id} Error:`, error.response?.data || error.message);
             throw error;
         }
     },
@@ -67,6 +101,25 @@ export const quotationService = {
                     (error.response?.data?.message || error.message));
 
             console.error(`Update Quotation ${id} Error:`, error.response?.data || error.message);
+            throw new Error(message);
+        }
+    },
+
+    /**
+     * Update an existing dummy quotation
+     * PUT /api/v1/dummy-quotations/{id}
+     */
+    async updateDummyQuotation(id: number, data: Partial<QuotationCreateData>): Promise<Quotation> {
+        try {
+            const response = await api.put(`/dummy-quotations/${id}`, data);
+            return response.data;
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const message = typeof detail === 'string' ? detail :
+                (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') :
+                    (error.response?.data?.message || error.message));
+
+            console.error(`Update Dummy Quotation ${id} Error:`, error.response?.data || error.message);
             throw new Error(message);
         }
     },
@@ -138,6 +191,39 @@ export const quotationService = {
 
             console.error("Create Quotation Error:", error.response?.data || error.message);
             throw new Error(message);
+        }
+    },
+
+    /**
+     * Create a new dummy quotation
+     * POST /api/v1/dummy-quotations/
+     */
+    async createDummyQuotation(data: any): Promise<any> {
+        try {
+            const response = await api.post("/dummy-quotations/", data);
+            return response.data;
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const message = typeof detail === 'string' ? detail :
+                (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') :
+                    (error.response?.data?.message || error.message));
+
+            console.error("Create Dummy Quotation Error:", error.response?.data || error.message);
+            throw new Error(message);
+        }
+    },
+
+
+    /**
+     * Delete a dummy quotation
+     * DELETE /api/v1/dummy-quotations/{id}
+     */
+    async deleteDummyQuotation(id: number): Promise<void> {
+        try {
+            await api.delete(`/dummy-quotations/${id}`);
+        } catch (error: any) {
+            console.error(`Delete Dummy Quotation ${id} Error:`, error.response?.data || error.message);
+            throw error;
         }
     },
 
@@ -487,6 +573,22 @@ export const quotationService = {
                 console.error(`Client-side PDF generation failed for quotation ${id}:`, fallbackError);
                 throw fallbackError;
             }
+        }
+    },
+
+    /**
+     * Download Dummy Quotation PDF
+     * GET /api/v1/dummy-quotations/{id}/pdf
+     */
+    async downloadDummyQuotationPDF(id: number): Promise<Blob> {
+        try {
+            const response = await api.get(`/dummy-quotations/${id}/pdf`, {
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error(`Download Dummy Quotation PDF ${id} Error:`, error.response?.data || error.message);
+            throw new Error(error.response?.data?.message || 'Failed to download dummy quotation PDF');
         }
     }
 };

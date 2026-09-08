@@ -53,6 +53,8 @@ interface InvoiceItem {
 
 const CreateDraftQuotationPage = () => {
   const { id } = useParams();
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(null);
+  const currentId = id || savedDraftId;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,6 +70,10 @@ const CreateDraftQuotationPage = () => {
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const handlePreviewModalOpen = async () => {
+    setIsPreviewModalOpen(true);
+  };
+
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
@@ -86,9 +92,7 @@ const CreateDraftQuotationPage = () => {
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
   const [pendingConversionType, setPendingConversionType] = useState<"bill" | "workOrder" | null>(null);
 
-  const handlePreviewModalOpen = async () => {
-    setIsPreviewModalOpen(true);
-  };
+
 
   const handleDownloadFromPreview = async () => {
     if (!id || !pdfUrl) return;
@@ -104,6 +108,7 @@ const CreateDraftQuotationPage = () => {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InvoiceItem | null>(null);
   const [activeHeaderSection, setActiveHeaderSection] = useState<"client" | "project" | "quotation" | null>("client");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
@@ -317,7 +322,7 @@ const CreateDraftQuotationPage = () => {
 
     const fetchQuotation = async () => {
       try {
-        const q = await quotationService.getQuotationById(Number(id));
+        const q = await quotationService.getDummyQuotationById(Number(id));
         if (q) {
           setStatus(q.status || "draft");
           // Map basic details
@@ -458,6 +463,13 @@ const CreateDraftQuotationPage = () => {
   const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
 
   const handleAddItem = () => {
+    if (items.length > 0) {
+      const last = items[items.length - 1];
+      if (!last.description?.trim() || !last.unit?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current item row before adding a new one.");
+        return;
+      }
+    }
     const newItem: InvoiceItem = {
       id: "new_" + Date.now().toString(),
       description: "",
@@ -593,281 +605,93 @@ const CreateDraftQuotationPage = () => {
     }
   };
 
+
+
   // Implement Save
   const handleSaveQuotation = async () => {
-    if (!projectDetails.name || projectDetails.name.trim() === "") {
-      toast.error("Project Name is required! Please select a valid project.");
-      setIsSaving(false);
+    const newErrors: Record<string, string> = {};
+    if (!clientDetails.clientId && (!clientDetails.name || clientDetails.name.trim() === "")) {
+      newErrors.clientName = "Client Name is required";
+    }
+    if (!clientDetails.clientId && (!clientDetails.mobile || clientDetails.mobile.trim().length !== 10)) {
+      newErrors.mobile = "Mobile number must be exactly 10 digits";
+    }
+    if (!clientDetails.clientId && (!clientDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientDetails.email.trim()))) {
+      newErrors.email = "A valid email address is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setActiveHeaderSection("client");
       return;
     }
+    const validItemsCount = items.filter(i => i.description?.trim() && i.unit?.trim()).length
+      + labourItems.filter(l => l.skill_type?.trim()).length
+      + materialItems.filter(m => m.material_name?.trim()).length
+      + extraChargeItems.filter(e => e.description?.trim()).length;
+
+    const isItemsEmpty = validItemsCount === 0;
 
     try {
       setIsSaving(true);
 
-      const payload: any = {
-        client_user_id: clientDetails.clientId || 1,
-        client_name: clientDetails.name,
-        company_name: clientDetails.company || "Patil Construction Pvt Ltd",
-        mobile_number: clientDetails.mobile,
+      const dummyPayload: any = {
+        client_name: clientDetails.name || "Draft Dummy Client",
+        mobile_number: clientDetails.mobile || "0000000000",
         email: clientDetails.email || "rahul.patil@example.com",
-        billing_address: clientDetails.address,
-        site_address: projectDetails.siteAddress,
-        gst_number: clientDetails.gst,
-        project_id: selectedProjectId,
-
-        project_name: projectDetails.name,
-        project_type: projectDetails.type,
-        project_start_date: projectStartEnd.start || null,
-        project_end_date: projectStartEnd.end || null,
-        engineer_name: projectDetails.engineer || "Er. Tejas Dhande",
-        work_order_no: projectDetails.workOrderNo,
-
-        labour_items: labourItems,
-        material_items: materialItems,
-        extra_charge_items: extraChargeItems,
-
-        items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
-          let itemType = item.item_type || "custom";
+        billing_address: clientDetails.address || "N/A",
+        gst_number: clientDetails.gst || "N/A",
+        subtotal: subTotal || 0,
+        gst_percent: gstRates.gst || 0,
+        cgst_percent: gstRates.cgst || 0,
+        sgst_percent: gstRates.sgst || 0,
+        cgst_amount: cgst || 0,
+        sgst_amount: sgst || 0,
+        grand_total: grandTotal || 0,
+        notes: notes || "N/A",
+        items: items.map(item => {
           let measurements: any[] = [];
           if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
-            itemType = "soling";
             const { l, w, h } = measurementData.soling;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
-            }
+            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
           } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
-            itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "m" }];
-            }
+            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
           } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
-            itemType = "stone_work";
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+            measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
+            if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
           } else {
-            itemType = item.item_type || "custom";
-            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
+            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
           }
-
-          if (measurements.length === 0) {
-            let dummyLength = item.quantity || 1;
-            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
-              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
-            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
-              dummyLength = dummyLength * 100;
-            }
-            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
-          }
-
-          measurements = measurements.map(m => {
-            return {
-              ...m,
-              length: m.length || 1,
-              width: m.width || 1,
-              height: m.height || 1
-            };
-          });
 
           return {
-            item_type: itemType,
-            title: item.description.split('\n')[0],
-            description: item.description,
-            unit: item.unit,
-            rate: item.rate,
+            title: item.title || item.description.split('\n')[0] || "Draft Item",
+            description: item.description || "Draft Item",
+            unit: item.unit || "unit",
+            quantity: item.quantity || 0,
+            rate: item.rate || 0,
+            amount: item.amount || ((item.quantity || 0) * (item.rate || 0)),
             measurements
           };
-        }) : items.map(item => {
-          let itemType = item.item_type || "custom";
-          let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
-            itemType = "soling";
-            const { l, w, h } = measurementData.soling;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
-            }
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
-            itemType = "plum_concrete";
-            const { l, w, h } = measurementData.plum;
-            if (l > 0 || w > 0 || h > 0) {
-              measurements = [{ length: l, width: w, height: h, unit: "m" }];
-            }
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
-            itemType = "stone_work";
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          } else {
-            itemType = item.item_type || "custom";
-            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
-          }
-
-          if (measurements.length === 0) {
-            let dummyLength = item.quantity || 1;
-            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
-              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
-            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
-              dummyLength = dummyLength * 100;
-            }
-            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
-          }
-
-          measurements = measurements.map(m => {
-            return {
-              ...m,
-              length: m.length || 1,
-              width: m.width || 1,
-              height: m.height || 1
-            };
-          });
-
-          return {
-            item_type: itemType,
-            title: item.description.split('\n')[0],
-            description: item.description,
-            unit: item.unit,
-            rate: item.rate,
-            measurements
-          };
-        }),
-
-        gst_percent: gstRates.gst,
-        cgst_percent: gstRates.cgst,
-        sgst_percent: gstRates.sgst,
-        tds_percent: gstRates.tds,
-        discount_amount: discount,
-        advance_paid: advancePaid,
-
-        // Computed totals — sent explicitly so backend stores correct values
-        // (list view reads grand_total directly from the database)
-        subtotal: subTotal,
-        cgst_amount: cgst,
-        sgst_amount: sgst,
-        tds_amount: tdsAmount,
-        grand_total: grandTotal,
-        balance_due: balanceDue,
-
-        ...paymentDetails,
-        due_date: invoiceDetails.dueDate || paymentDetails.due_date || new Date().toISOString().split('T')[0],
-        notes,
-        terms_conditions: terms
+        })
       };
 
-      console.log(`${id ? "Updating" : "Creating"} Quotation Payload:`, JSON.stringify(payload, null, 2));
+      console.log("Create Dummy Quotation Payload:", JSON.stringify(dummyPayload, null, 2));
 
-      if (id) {
-        await quotationService.updateQuotation(Number(id), payload);
-
-        // POST new items
-        const newItemsLocal = items.filter(i => String(i.id).startsWith("new_"));
-        for (const newItem of newItemsLocal) {
-          let measurements: any[] = [];
-          let itemType = newItem.item_type || "custom";
-          if (newItem.item_type === "soling" || String(newItem.id) === "1" || String(newItem.id).includes("soling")) {
-            itemType = "soling";
-            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
-          } else if (newItem.item_type === "plum_concrete" || String(newItem.id) === "2" || String(newItem.id).includes("plum")) {
-            itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
-          } else if (newItem.item_type === "stone_work" || String(newItem.id) === "3" || String(newItem.id).includes("stone")) {
-            itemType = "stone_work";
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          } else {
-            itemType = newItem.item_type || "custom";
-            measurements = [{ length: newItem.quantity || 1, width: 1, height: 1, unit: newItem.unit || "unit" }];
-          }
-
-          if (measurements.length === 0) {
-            let dummyLength = newItem.quantity || 1;
-            if (itemType === "plum_concrete" && (newItem.unit === "Cum" || newItem.unit === "m3")) {
-              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
-            } else if ((itemType === "soling" || itemType === "stone_work") && newItem.unit === "Brass") {
-              dummyLength = dummyLength * 100;
-            }
-            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
-          }
-
-          measurements = measurements.map(m => {
-            return {
-              ...m,
-              length: m.length || 1,
-              width: m.width || 1,
-              height: m.height || 1
-            };
-          });
-
-          const itemPayload = {
-            item_type: itemType,
-            title: newItem.description.split('\n')[0] || "New Work",
-            description: newItem.description,
-            unit: newItem.unit,
-            rate: newItem.rate,
-            measurements: measurements
-          };
-          await quotationService.addQuotationItem(Number(id), itemPayload);
-        }
-
-        // UPDATE existing items
-        const existingItemsLocal = items.filter(i => !String(i.id).startsWith("new_"));
-        for (const existingItem of existingItemsLocal) {
-          let measurements: any[] = [];
-          let itemType = existingItem.item_type || "custom";
-          if (existingItem.item_type === "soling" || String(existingItem.id) === "1" || String(existingItem.id).includes("soling")) {
-            itemType = "soling";
-            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
-          } else if (existingItem.item_type === "plum_concrete" || String(existingItem.id) === "2" || String(existingItem.id).includes("plum")) {
-            itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
-          } else if (existingItem.item_type === "stone_work" || String(existingItem.id) === "3" || String(existingItem.id).includes("stone")) {
-            itemType = "stone_work";
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          } else {
-            itemType = existingItem.item_type || "custom";
-            measurements = [{ length: existingItem.quantity || 1, width: 1, height: 1, unit: existingItem.unit || "unit" }];
-          }
-
-          if (measurements.length === 0) {
-            let dummyLength = existingItem.quantity || 1;
-            if (itemType === "plum_concrete" && (existingItem.unit === "Cum" || existingItem.unit === "m3")) {
-              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
-            } else if ((itemType === "soling" || itemType === "stone_work") && existingItem.unit === "Brass") {
-              dummyLength = dummyLength * 100;
-            }
-            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
-          }
-
-          measurements = measurements.map(m => {
-            return {
-              ...m,
-              length: m.length || 1,
-              width: m.width || 1,
-              height: m.height || 1
-            };
-          });
-
-          const itemPayload = {
-            item_type: itemType,
-            title: existingItem.description.split('\n')[0] || "Existing Work",
-            description: existingItem.description,
-            unit: existingItem.unit,
-            rate: existingItem.rate,
-            measurements: measurements
-          };
-          await quotationService.updateQuotationItem(Number(existingItem.id), itemPayload);
-        }
-
-        toast.success("Quotation Updated Successfully!");
-
+      let response;
+      const targetId = id || savedDraftId;
+      if (targetId) {
+        response = await quotationService.updateDummyQuotation(Number(targetId), dummyPayload);
+        toast.success("Draft Quotation Updated Successfully!");
       } else {
-        await quotationService.createQuotation(payload);
-        toast.success("Quotation Saved Successfully!");
-        navigate("/admin/invoices/all");
+        response = await quotationService.createDummyQuotation(dummyPayload);
+        toast.success("Draft Quotation Saved Successfully!");
       }
+
+      if (response && response.id) {
+        setSavedDraftId(String(response.id));
+      }
+      // navigate("/admin/invoices/all"); // User requested to stay on the same screen
     } catch (error: any) {
       toast.error(error.message || "Failed to save quotation");
     } finally {
@@ -905,7 +729,7 @@ const CreateDraftQuotationPage = () => {
 
   // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
-    if (!id) {
+    if (!currentId) {
       toast.error("Please save the quotation first to download the PDF from backend", { duration: 3000 });
       // Optional: fallback to window.print() if you want to allow draft printing
       toast.loading("Opening print preview for draft...", { id: "pdf-gen" });
@@ -916,9 +740,9 @@ const CreateDraftQuotationPage = () => {
       return;
     }
 
-    const toastId = toast.loading("Downloading PDF from backend...", { id: "pdf-gen" });
+    const toastId = toast.loading("Generating professional PDF...");
     try {
-      const blob = await quotationService.downloadQuotationPDF(Number(id));
+      const blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1129,6 +953,13 @@ const CreateDraftQuotationPage = () => {
 
   const handleAddLabourRow = async () => {
     if (isReadOnly) return;
+    if (labourItems.length > 0) {
+      const last = labourItems[labourItems.length - 1];
+      if (!last.skill_type?.trim() || !last.labour_count || !last.daily_wage) {
+        toast.error("Please fill all fields in the current labour row before adding a new one.");
+        return;
+      }
+    }
     const newItem: LabourItem = {
       skill_type: "General Labourer",
       labour_count: 1,
@@ -1204,6 +1035,13 @@ const CreateDraftQuotationPage = () => {
 
   const handleAddMaterialRow = async () => {
     if (isReadOnly) return;
+    if (materialItems.length > 0) {
+      const last = materialItems[materialItems.length - 1];
+      if (!last.material_name?.trim() || !last.category?.trim() || !last.unit?.trim() || !last.estimated_quantity || !last.estimated_rate) {
+        toast.error("Please fill all fields in the current material row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       material_name: "",
       category: "",
@@ -1283,6 +1121,13 @@ const CreateDraftQuotationPage = () => {
 
   const handleAddExtraChargeRow = async () => {
     if (isReadOnly) return;
+    if (extraChargeItems.length > 0) {
+      const last = extraChargeItems[extraChargeItems.length - 1];
+      if (!last.description?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current extra charge row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       expense_type: "misc",
       description: "",
@@ -1440,14 +1285,20 @@ const CreateDraftQuotationPage = () => {
                         ))}
                       </select>
                       {!clientDetails.clientId && (
-                        <input
-                          type="text"
-                          value={clientDetails.name}
-                          onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
-                          readOnly={isReadOnly}
-                          placeholder="Type Manual Client Name..."
-                          className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            value={clientDetails.name}
+                            onChange={(e) => {
+                              setClientDetails({ ...clientDetails, name: e.target.value });
+                              if (errors.clientName) setErrors(prev => ({ ...prev, clientName: "" }));
+                            }}
+                            readOnly={isReadOnly}
+                            placeholder="Type Manual Client Name..."
+                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          />
+                          {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
+                        </div>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1456,19 +1307,28 @@ const CreateDraftQuotationPage = () => {
                         <input
                           type="text"
                           value={clientDetails.mobile}
-                          onChange={(e) => setClientDetails({ ...clientDetails, mobile: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setClientDetails({ ...clientDetails, mobile: val });
+                            if (errors.mobile) setErrors(prev => ({ ...prev, mobile: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.mobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
                         />
+                        {errors.mobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.mobile}</p>}
                       </div>
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
                         <input
                           type="email"
                           value={clientDetails.email}
-                          onChange={(e) => setClientDetails({ ...clientDetails, email: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          onChange={(e) => {
+                            setClientDetails({ ...clientDetails, email: e.target.value });
+                            if (errors.email) setErrors(prev => ({ ...prev, email: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
                           placeholder="client@example.com"
                         />
+                        {errors.email && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.email}</p>}
                       </div>
                     </div>
                     <div>
@@ -1541,12 +1401,12 @@ const CreateDraftQuotationPage = () => {
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">{index + 1}</td>
                         <td className="px-6 py-4">
-                          <textarea
+                          <input
+                            type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
                             placeholder="Enter item description..."
-                            rows={2}
                           />
                         </td>
                         <td className="px-6 py-4">
@@ -1657,7 +1517,7 @@ const CreateDraftQuotationPage = () => {
                   </div>
                   <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Invoice Summary</h3>
                 </div>
-                {id && (
+                {currentId && (
                   <div className="flex gap-2">
                     {status === "approved" && (
                       <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
@@ -1683,7 +1543,8 @@ const CreateDraftQuotationPage = () => {
                     <span className="font-bold text-slate-500">CGST</span>
                     <input
                       type="number"
-                      value={gstRates.cgst}
+                      value={gstRates.cgst === 0 ? "" : gstRates.cgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, cgst: val, gst: val + prev.sgst };
@@ -1701,7 +1562,8 @@ const CreateDraftQuotationPage = () => {
                     <span className="font-bold text-slate-500">SGST</span>
                     <input
                       type="number"
-                      value={gstRates.sgst}
+                      value={gstRates.sgst === 0 ? "" : gstRates.sgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, sgst: val, gst: val + prev.cgst };
@@ -1720,7 +1582,8 @@ const CreateDraftQuotationPage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={discount}
+                      value={discount === 0 ? "" : discount}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1731,7 +1594,15 @@ const CreateDraftQuotationPage = () => {
                 <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-500">TDS</span>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
+                    <input
+                      type="number"
+                      value={gstRates.tds === 0 ? "" : gstRates.tds}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
                   <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -1749,7 +1620,8 @@ const CreateDraftQuotationPage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={advancePaid}
+                      value={advancePaid === 0 ? "" : advancePaid}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1842,7 +1714,7 @@ const CreateDraftQuotationPage = () => {
                 >
                   <Download className="w-3 h-3 text-indigo-600" /> Download PDF
                 </button>
-                {id && (
+                {currentId && (
                   <button
                     onClick={handleSendQuotation}
                     className="w-full py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
@@ -1898,7 +1770,7 @@ const CreateDraftQuotationPage = () => {
         onClose={() => setIsPreviewModalOpen(false)}
         forceLocal={true}
         data={{
-          id: id,
+          id: currentId,
           invoiceNo: invoiceDetails.invoiceNo,
           date: invoiceDetails.date,
           projectName: projectDetails.name,
@@ -1918,7 +1790,8 @@ const CreateDraftQuotationPage = () => {
           grandTotal: grandTotal,
           advancePaid: advancePaid,
           balanceDue: balanceDue,
-          terms: terms
+          terms: terms,
+          isDraft: true
         }}
       />
 

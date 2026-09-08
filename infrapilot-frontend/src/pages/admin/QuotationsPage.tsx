@@ -12,7 +12,8 @@ import {
     Download,
     Zap,
     Send,
-    ChevronDown
+    ChevronDown,
+    Layers
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -30,7 +31,9 @@ import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils
 const QuotationsPage = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
+    const [activeTab, setActiveTab] = useState<"quotations" | "dummy_quotations">("quotations");
     const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [dummyQuotations, setDummyQuotations] = useState<Quotation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(0);
@@ -57,8 +60,12 @@ const QuotationsPage = () => {
     const fetchQuotations = async () => {
         try {
             setIsLoading(true);
-            const data = await quotationService.getQuotations();
+            const [data, dummyData] = await Promise.all([
+                quotationService.getQuotations(),
+                quotationService.getDummyQuotations()
+            ]);
             setQuotations(data);
+            setDummyQuotations(dummyData);
         } catch (error) {
             toast.error("Failed to fetch quotations");
         } finally {
@@ -74,7 +81,11 @@ const QuotationsPage = () => {
         if (!deleteTarget) return;
         setIsDeleting(true);
         try {
-            await quotationService.deleteQuotation(deleteTarget);
+            if (activeTab === "dummy_quotations") {
+                await quotationService.deleteDummyQuotation(deleteTarget);
+            } else {
+                await quotationService.deleteQuotation(deleteTarget);
+            }
             toast.success("Quotation deleted");
             fetchQuotations();
         } catch (error) {
@@ -86,7 +97,8 @@ const QuotationsPage = () => {
     };
 
     const filteredQuotations = useMemo(() => {
-        const filtered = quotations.filter(q => {
+        const sourceData = activeTab === "dummy_quotations" ? dummyQuotations : quotations;
+        const filtered = sourceData.filter(q => {
             const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -99,15 +111,16 @@ const QuotationsPage = () => {
             const bDate = new Date(b.created_at || 0).getTime();
             return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
         });
-    }, [quotations, searchQuery, statusFilter, sortOrder]);
+    }, [quotations, dummyQuotations, activeTab, searchQuery, statusFilter, sortOrder]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
-    const pagedQuotations = filteredQuotations.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+    const displayData = filteredQuotations;
+    const totalPages = Math.max(1, Math.ceil(displayData.length / PAGE_SIZE));
+    const pagedQuotations = displayData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     // Reset to page 0 on search/filter changes
     useEffect(() => {
         setCurrentPage(0);
-    }, [searchQuery, statusFilter]);
+    }, [searchQuery, statusFilter, activeTab]);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -202,20 +215,25 @@ const QuotationsPage = () => {
     const handlePreviewPDF = async (id: number) => {
         try {
             setIsFetchingPreview(true);
-            toast.loading("Preparing preview...", { id: "preview-loading" });
+            const toastId = toast.loading("Downloading PDF...");
 
             const q = quotations.find(item => item.id === id);
-            setPreviewQuotationNo(q?.quotation_no || `QTN-${id}`);
-            setPreviewQuotationId(id);
+            const quotationNo = q?.quotation_no || `QTN-${id}`;
 
             const blob = await quotationService.downloadQuotationPDF(id);
-            const url = window.URL.createObjectURL(blob);
-            setPdfUrl(url);
-            setIsPDFModalOpen(true);
 
-            toast.success("Ready for preview!", { id: "preview-loading" });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Quotation_${quotationNo}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Download complete!", { id: toastId });
         } catch (error) {
-            toast.error("Failed to load quotation preview", { id: "preview-loading" });
+            toast.error("Failed to download PDF", { id: "preview-loading" });
         } finally {
             setIsFetchingPreview(false);
         }
@@ -289,6 +307,32 @@ const QuotationsPage = () => {
                             </>
                         )}
                     </div>
+                </div>
+
+                {/* TABS */}
+                <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit mb-6">
+                    <button
+                        onClick={() => { setActiveTab("quotations"); setCurrentPage(0); setSearchQuery(""); setStatusFilter("all"); }}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
+                            ? "bg-primary text-white shadow-md shadow-primary/20"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                            }`}
+                    >
+                        <FileText className="w-4 h-4" />
+                        Quotations
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{quotations.length}</span>
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(0); setSearchQuery(""); setStatusFilter("all"); }}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
+                            ? "bg-primary text-white shadow-md shadow-primary/20"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                            }`}
+                    >
+                        <Layers className="w-4 h-4" />
+                        Draft Quotation
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "dummy_quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{dummyQuotations.length}</span>
+                    </button>
                 </div>
 
                 {/* Quick Stats Section */}
@@ -397,7 +441,7 @@ const QuotationsPage = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    {(q.status === 'draft' || q.status === 'sent' || String(q.status) === 'pending' || !q.is_approved) && (
+                                                    {(activeTab !== 'dummy_quotations' && (q.status === 'draft' || q.status === 'sent' || String(q.status) === 'pending' || !q.is_approved)) && (
                                                         <>
                                                             <button
                                                                 onClick={() => q.id && handleApprove(q.id)}
@@ -424,15 +468,17 @@ const QuotationsPage = () => {
                                                             <Zap className="w-4 h-4 text-emerald-500" />
                                                         </button>
                                                     )}
+                                                    {activeTab !== 'dummy_quotations' && (
+                                                        <button
+                                                            onClick={() => q.id && handleSendQuotation(q.id)}
+                                                            className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                                                            title="Send Quotation"
+                                                        >
+                                                            <Send className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button
-                                                        onClick={() => q.id && handleSendQuotation(q.id)}
-                                                        className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
-                                                        title="Send Quotation"
-                                                    >
-                                                        <Send className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`/admin/quotations/view/${q.id}`)}
+                                                        onClick={() => navigate(activeTab === 'dummy_quotations' ? `/admin/quotations/draft/${q.id}` : `/admin/quotations/view/${q.id}`)}
                                                         className="p-2 text-slate-400 hover:text-primary transition-colors"
                                                     >
                                                         <Eye className="w-4 h-4" />
@@ -461,7 +507,7 @@ const QuotationsPage = () => {
 
                     <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredQuotations.length)} of {filteredQuotations.length} Quotations
+                            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, displayData.length)} of {displayData.length} Quotations
                         </p>
                         <div className="flex items-center gap-2">
                             <button

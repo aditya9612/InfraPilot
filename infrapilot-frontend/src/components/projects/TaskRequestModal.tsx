@@ -26,7 +26,7 @@ const TaskRequestModal = ({
     const [formData, setFormData] = useState({
         title: "",
         category: "",
-        priority: "MEDIUM",
+        priority: "",
         description: "",
         attachment_url: "",
         attachment_file: null as File | null,
@@ -42,7 +42,7 @@ const TaskRequestModal = ({
             setFormData({
                 title: editingRequest.title || "",
                 category: editingRequest.category || "",
-                priority: editingRequest.priority || "MEDIUM",
+                priority: editingRequest.priority || "",
                 description: editingRequest.description || "",
                 attachment_url: editingRequest.attachment_url || "",
                 attachment_file: null,
@@ -53,7 +53,7 @@ const TaskRequestModal = ({
             setFormData({
                 title: "",
                 category: "",
-                priority: "MEDIUM",
+                priority: "",
                 description: "",
                 attachment_url: "",
                 attachment_file: null,
@@ -94,6 +94,16 @@ const TaskRequestModal = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.title || !formData.category || !formData.priority || !formData.assigned_to) {
+            toast.error("Title, Category, Priority, and Assign To are required");
+            return;
+        }
+
+        if (!formData.attachment_file && !formData.attachment_url) {
+            toast.error("Attachment is required");
+            return;
+        }
+
         if (!formData.assigned_project && !projectId) {
             toast.error("Project is required");
             return;
@@ -111,7 +121,7 @@ const TaskRequestModal = ({
             setFormData({
                 title: "",
                 category: "",
-                priority: "MEDIUM",
+                priority: "",
                 description: "",
                 attachment_url: "",
                 attachment_file: null,
@@ -153,9 +163,10 @@ const TaskRequestModal = ({
             <form id="task-request-form" onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-bold text-slate-800 mb-2">
-                        Title
+                        Title <span className="text-rose-500">*</span>
                     </label>
                     <input
+                        required
                         type="text"
                         name="title"
                         value={formData.title}
@@ -166,8 +177,9 @@ const TaskRequestModal = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">Category</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Category <span className="text-rose-500">*</span></label>
                     <input
+                        required
                         type="text"
                         name="category"
                         value={formData.category}
@@ -191,13 +203,15 @@ const TaskRequestModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Priority</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Priority <span className="text-rose-500">*</span></label>
                         <select
+                            required
                             name="priority"
                             value={formData.priority}
                             onChange={handleChange}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
                         >
+                            <option value="" disabled>Select Priority</option>
                             <option value="LOW">Low</option>
                             <option value="MEDIUM">Medium</option>
                             <option value="HIGH">High</option>
@@ -224,8 +238,9 @@ const TaskRequestModal = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">Assign To</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Assign To <span className="text-rose-500">*</span></label>
                     <select
+                        required
                         name="assigned_to"
                         value={formData.assigned_to}
                         onChange={handleChange}
@@ -244,7 +259,7 @@ const TaskRequestModal = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">Attachment</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Attachment <span className="text-rose-500">*</span></label>
                     <input
                         type="file"
                         onChange={(e) => {

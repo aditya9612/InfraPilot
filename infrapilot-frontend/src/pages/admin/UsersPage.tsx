@@ -162,7 +162,7 @@ const UsersPage = () => {
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
           >
-            + Add New User
+            + Create User
           </button>
         </div>
 

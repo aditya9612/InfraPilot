@@ -141,14 +141,19 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
         // --- Page 1 ---
         drawHeader(doc, true);
         let curY = 65;
-        curY = drawTable(doc, "", [['Field', 'Value']], [
-            ['Quotation No', data.invoiceNo || 'N/A'],
+        const topTableData = [
+            ['Quotation No', data.invoiceNo || 'Draft'],
             ['Date', data.date || 'N/A'],
-            ['Project', data.projectName || 'N/A'],
-            ['Project Type', data.projectType || 'Residential'],
-            ['Engineer', data.engineerName || 'Er. Tejas Dhande'],
-            ['Work Order', data.workOrderNo || 'N/A']
-        ], curY);
+        ];
+        if (!data.isDraft) {
+            topTableData.push(
+                ['Project', data.projectName || 'N/A'],
+                ['Project Type', data.projectType || 'Residential'],
+                ['Engineer', data.engineerName || 'Er. Tejas Dhande'],
+                ['Work Order', data.workOrderNo || 'N/A']
+            );
+        }
+        curY = drawTable(doc, "", [['Field', 'Value']], topTableData, curY);
 
         curY = drawTable(doc, "Client Details", [['Field', 'Value']], [
             ['Client Name', data.clientName || 'N/A'],
@@ -230,7 +235,7 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     };
 
     const handleDownloadPDF = async () => {
-        if (forceLocal || (!data.id && !data.invoiceNo?.includes('QTN'))) {
+        if ((!data.id && !data.invoiceNo?.includes('QTN'))) {
             const doc = buildQuotationPDF();
             doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
             return;
@@ -247,7 +252,9 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                 return;
             }
 
-            const blob = await quotationService.downloadQuotationPDF(Number(qId));
+            const blob = data.isDraft 
+                ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                : await quotationService.downloadQuotationPDF(Number(qId));
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -281,7 +288,9 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                 if (!forceLocal) {
                     const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
                     if (qId && !isNaN(Number(qId))) {
-                        const blob = await quotationService.downloadQuotationPDF(Number(qId));
+                        const blob = data.isDraft 
+                ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                : await quotationService.downloadQuotationPDF(Number(qId));
                         const url = window.URL.createObjectURL(blob);
                         setPdfUrl(url);
                         setIsLoadingPdf(false);

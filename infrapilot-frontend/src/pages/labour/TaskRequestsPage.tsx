@@ -8,6 +8,7 @@ import { projectService } from '../../services/projectService';
 import { taskRequestService } from '../../services/taskRequestService';
 import type { TaskRequest } from '../../services/taskRequestService';
 import Modal from '../../components/common/Modal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import Pagination from '../../components/common/Pagination';
 import {
     Send,
@@ -108,6 +109,7 @@ const TaskRequestsPage: React.FC = () => {
     const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
     const [viewingRequest, setViewingRequest] = useState<TaskRequest | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [deleteRequestId, setDeleteRequestId] = useState<number | null>(null);
 
     // Pagination State (0-indexed)
     const [currentPage, setCurrentPage] = useState(0);
@@ -299,16 +301,22 @@ const TaskRequestsPage: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm("Are you sure you want to delete this task request?")) return;
+    const handleDelete = (id: number) => {
+        setDeleteRequestId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteRequestId) return;
         try {
-            await taskRequestService.deleteRequest(id);
+            await taskRequestService.deleteRequest(deleteRequestId);
             toast.success("Task request deleted successfully!");
             fetchRequests(); // Refresh the list
         } catch (err: any) {
             const msg = formatApiError(err, "Failed to delete request");
             toast.error(msg);
             console.error("Delete request error:", err);
+        } finally {
+            setDeleteRequestId(null);
         }
     };
 
@@ -627,40 +635,40 @@ const TaskRequestsPage: React.FC = () => {
                                                         })()}
                                                     </td>
                                                     <td className="px-8 py-6">
-                                                         {req.attachment_url ? (() => {
-                                                             const resolvedImg = formatImageUrl(req.attachment_url, req.id, req.title);
-                                                             const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
-                                                             return (
-                                                                 <div
-                                                                     onClick={() => setPreviewImage(resolvedImg || req.attachment_url || null)}
-                                                                     className="relative group/thumb w-12 h-12 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center"
-                                                                     title={`View ${fileName}`}
-                                                                 >
-                                                                     <img
-                                                                         src={resolvedImg}
-                                                                         alt={fileName}
-                                                                         className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
-                                                                         onError={(e) => {
-                                                                             const target = e.target as HTMLElement;
-                                                                             target.style.display = 'none';
-                                                                             const parent = target.parentElement;
-                                                                             if (parent) {
-                                                                                 const fallback = parent.querySelector('.img-thumb-fallback') as HTMLElement;
-                                                                                 if (fallback) fallback.style.display = 'flex';
-                                                                             }
-                                                                         }}
-                                                                     />
-                                                                     <div className="img-thumb-fallback hidden flex-col items-center justify-center text-slate-400 p-1 text-center">
-                                                                         <ImagePlus className="w-5 h-5 text-indigo-400" />
-                                                                     </div>
-                                                                     <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                                                         <Eye className="w-4 h-4" />
-                                                                     </div>
-                                                                 </div>
-                                                             );
-                                                         })() : (
-                                                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
-                                                         )}
+                                                        {req.attachment_url ? (() => {
+                                                            const resolvedImg = formatImageUrl(req.attachment_url, req.id, req.title);
+                                                            const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                            return (
+                                                                <div
+                                                                    onClick={() => setPreviewImage(resolvedImg || req.attachment_url || null)}
+                                                                    className="relative group/thumb w-12 h-12 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center"
+                                                                    title={`View ${fileName}`}
+                                                                >
+                                                                    <img
+                                                                        src={resolvedImg}
+                                                                        alt={fileName}
+                                                                        className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                                                                        onError={(e) => {
+                                                                            const target = e.target as HTMLElement;
+                                                                            target.style.display = 'none';
+                                                                            const parent = target.parentElement;
+                                                                            if (parent) {
+                                                                                const fallback = parent.querySelector('.img-thumb-fallback') as HTMLElement;
+                                                                                if (fallback) fallback.style.display = 'flex';
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <div className="img-thumb-fallback hidden flex-col items-center justify-center text-slate-400 p-1 text-center">
+                                                                        <ImagePlus className="w-5 h-5 text-indigo-400" />
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                        <Eye className="w-4 h-4" />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })() : (
+                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-8 py-6">
                                                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
@@ -771,12 +779,10 @@ const TaskRequestsPage: React.FC = () => {
                                         const isHigh = p === 'HIGH';
                                         const isMedium = p === 'MEDIUM';
                                         return (
-                                            <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest ${
-                                                isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'
-                                            }`}>
-                                                <span className={`w-2 h-2 rounded-full ${
-                                                    isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'
-                                                }`} />
+                                            <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest ${isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'
+                                                }`}>
+                                                <span className={`w-2 h-2 rounded-full ${isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'
+                                                    }`} />
                                                 {viewingRequest.priority}
                                             </span>
                                         );
@@ -915,6 +921,17 @@ const TaskRequestsPage: React.FC = () => {
                         </div>
                     )}
                 </Modal>
+
+                {/* Delete Confirmation Modal */}
+                <ConfirmationModal
+                    isOpen={deleteRequestId !== null}
+                    onClose={() => setDeleteRequestId(null)}
+                    onConfirm={confirmDelete}
+                    title="Delete Task Request"
+                    message="Are you sure you want to delete this task request? This action cannot be undone and will permanently remove it from your records."
+                    confirmLabel="Delete Request"
+                    confirmClass="bg-rose-500 hover:bg-rose-600 shadow-rose-500/20"
+                />
             </PageTransition>
         </div>
     );

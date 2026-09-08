@@ -61,7 +61,19 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
       toast.error("Project is required");
       return;
     }
-    
+    if (!formData.title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (!formData.category.trim()) {
+      toast.error("Category is required");
+      return;
+    }
+    if (!formData.priority) {
+      toast.error("Priority is required");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload: any = {
@@ -112,9 +124,9 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Task Request" footer={modalFooter} maxWidth="max-w-xl">
       <form id="create-task-request-form" onSubmit={handleSubmit} className="space-y-4 font-inter">
-        
+
         <div>
-          <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
+          <label className={labelClasses}>Assigned Project <span className="text-rose-500">*</span></label>
           <select
             name="project_id"
             value={formData.project_id}
@@ -132,7 +144,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
         </div>
 
         <div>
-          <label className={labelClasses}>Title</label>
+          <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
           <input
             type="text"
             name="title"
@@ -144,7 +156,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
         </div>
 
         <div>
-          <label className={labelClasses}>Category</label>
+          <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
           <input
             type="text"
             name="category"
@@ -156,7 +168,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
         </div>
 
         <div>
-          <label className={labelClasses}>Priority</label>
+          <label className={labelClasses}>Priority <span className="text-rose-500">*</span></label>
           <select
             name="priority"
             value={formData.priority}

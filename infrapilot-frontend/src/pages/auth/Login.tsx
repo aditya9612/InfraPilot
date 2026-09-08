@@ -11,6 +11,24 @@ import { Lock, ArrowRight, Target, Box, BarChart2, Shield, ChevronDown } from "l
 
 type Step = "mobile" | "otp";
 
+const COUNTRY_CODES = [
+  { flag: "🇮🇳", code: "+91", name: "India" },
+  { flag: "🇺🇸", code: "+1", name: "USA" },
+  { flag: "🇬🇧", code: "+44", name: "UK" },
+  { flag: "🇦🇪", code: "+971", name: "UAE" },
+  { flag: "🇸🇬", code: "+65", name: "Singapore" },
+  { flag: "🇦🇺", code: "+61", name: "Australia" },
+  { flag: "🇨🇦", code: "+1", name: "Canada" },
+  { flag: "🇩🇪", code: "+49", name: "Germany" },
+  { flag: "🇫🇷", code: "+33", name: "France" },
+  { flag: "🇯🇵", code: "+81", name: "Japan" },
+  { flag: "🇨🇳", code: "+86", name: "China" },
+  { flag: "🇿🇦", code: "+27", name: "South Africa" },
+  { flag: "🇧🇩", code: "+880", name: "Bangladesh" },
+  { flag: "🇵🇰", code: "+92", name: "Pakistan" },
+  { flag: "🇳🇵", code: "+977", name: "Nepal" },
+];
+
 const ROLE_PATHS: Record<Role, string> = {
   SuperAdmin: "/superadmin",
   Admin: "/admin",
@@ -26,6 +44,7 @@ const Login = () => {
   const { login } = useAuth();
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -68,12 +87,14 @@ const Login = () => {
       startResendTimer();
     } catch (err: any) {
       const errorData = err.response?.data;
-      const message = errorData?.message || errorData?.detail;
-      setError(
-        typeof message === "string"
-          ? message
-          : "Failed to send OTP. Please try again.",
-      );
+      const rawMessage = errorData?.message || errorData?.detail;
+      const resolvedMessage =
+        typeof rawMessage === "string"
+          ? rawMessage.toLowerCase().includes("not registered") || rawMessage.toLowerCase().includes("not found")
+            ? "Please enter a registered mobile number."
+            : rawMessage
+          : "Failed to send OTP. Please try again.";
+      setError(resolvedMessage);
     } finally {
       setLoading(false);
     }
@@ -330,14 +351,19 @@ const Login = () => {
                     Mobile Number
                   </label>
                   <div className="flex items-center rounded-xl bg-white border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition mb-1 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-                    {/* Country Code Block */}
-                    <div className="flex items-center gap-2 px-3 py-3.5 bg-white cursor-pointer hover:bg-slate-50 transition">
-                      <span className="text-lg leading-none">🇮🇳</span>
-                      <span className="text-[#475569] text-sm font-medium">+91</span>
-                      <ChevronDown className="w-3.5 h-3.5 text-[#94A3B8]" />
-                    </div>
-                    {/* Divider */}
-                    <div className="w-px h-6 bg-slate-200 shrink-0" />
+                    {/* Country Code Selector */}
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="flex items-center gap-2 px-3 py-3.5 bg-white cursor-pointer hover:bg-slate-50 transition text-sm font-medium text-[#475569] outline-none border-r border-slate-200 appearance-none"
+                      style={{ minWidth: '90px' }}
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.name} value={c.code}>
+                          {c.flag} {c.code}
+                        </option>
+                      ))}
+                    </select>
                     {/* Input */}
                     <input
                       type="tel"
@@ -351,11 +377,13 @@ const Login = () => {
                       className="flex-1 px-4 py-3.5 text-sm font-medium text-[#0F172A] bg-transparent outline-none placeholder:text-[#94A3B8]"
                     />
                   </div>
-                  {error && (
-                    <p className="text-rose-500 text-[11px] mt-2 mb-2 font-semibold px-1">
-                      {error}
-                    </p>
-                  )}
+                  <div className="h-5 mt-1 px-1">
+                    {error && (
+                      <p className="text-rose-500 text-[11px] font-semibold leading-none">
+                        {error}
+                      </p>
+                    )}
+                  </div>
 
                   <button
                     type="submit"
@@ -429,9 +457,11 @@ const Login = () => {
                       />
                     ))}
                   </div>
-                  {error && (
-                    <p className="text-rose-500 text-[11px] mt-3 mb-1 font-semibold px-1">{error}</p>
-                  )}
+                  <div className="h-5 mt-1 px-1">
+                    {error && (
+                      <p className="text-rose-500 text-[11px] font-semibold leading-none">{error}</p>
+                    )}
+                  </div>
 
                   <div className="text-right mb-6 mt-3">
                     {resendTimer > 0 ? (
