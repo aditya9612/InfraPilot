@@ -73,6 +73,10 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
       toast.error("Priority is required");
       return;
     }
+    if (!formData.assigned_to) {
+      toast.error("Assigning a user is required");
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -216,14 +220,15 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className={labelClasses}>Assigned To</label>
+                  <label className={labelClasses}>Assigned To <span className="text-rose-500">*</span></label>
                   <select
                     name="assigned_to"
                     value={formData.assigned_to}
                     onChange={handleChange}
                     className={inputClasses}
+                    required
                   >
-                    <option value="">Unassigned</option>
+                    <option value="" disabled>Unassigned</option>
                     {users.map((u: any) => (
                       <option key={u.id || u.labour_id} value={u.id || u.labour_id}>
                         {u.labour_name || u.name || u.full_name || `User ${u.id || u.labour_id}`}

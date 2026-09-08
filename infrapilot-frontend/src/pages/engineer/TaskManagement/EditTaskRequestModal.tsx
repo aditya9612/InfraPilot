@@ -72,6 +72,12 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
         e.preventDefault();
         if (!request) return;
 
+        if (!formData.title?.trim()) { toast.error("Title is required"); return; }
+        if (!formData.category) { toast.error("Category is required"); return; }
+        if (!formData.priority) { toast.error("Priority is required"); return; }
+        if (!formData.status) { toast.error("Status is required"); return; }
+        if (!formData.assigned_to) { toast.error("Assigning a user is required"); return; }
+
         setIsSubmitting(true);
         try {
             const payload = { ...formData };
@@ -147,13 +153,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         
                         <div>
                             <label className={labelClasses}>
-                                Category
+                                Category <span className="text-rose-500">*</span>
                             </label>
                             <select 
                                 name="category"
                                 value={formData.category}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select category</option>
                                 <option value="Civil">Civil</option>
@@ -168,13 +175,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
 
                         <div>
                             <label className={labelClasses}>
-                                Priority
+                                Priority <span className="text-rose-500">*</span>
                             </label>
                             <select 
                                 name="priority"
                                 value={formData.priority}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select priority</option>
                                 <option value="LOW">LOW</option>
@@ -186,13 +194,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         
                         <div>
                             <label className={labelClasses}>
-                                Status
+                                Status <span className="text-rose-500">*</span>
                             </label>
                             <select 
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select status</option>
                                 <option value="PENDING">PENDING</option>
@@ -230,13 +239,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
                                 <label className={labelClasses}>
-                                    Assigned To
+                                    Assigned To <span className="text-rose-500">*</span>
                                 </label>
                                 <select 
                                     name="assigned_to"
                                     value={formData.assigned_to || ""}
                                     onChange={handleChange}
                                     className={inputClasses}
+                                    required
                                 >
                                     <option value="" disabled>Select User</option>
                                     <option value="0">Unassigned</option>
