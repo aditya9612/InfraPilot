@@ -33,7 +33,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     email: "",
     role: "" as UserRole,
     designation: "",
-    joining_date: new Date().toISOString().split('T')[0],
+    joining_date: "",
     pan_number: "",
     aadhaar_number: "",
     address: "",
@@ -88,7 +88,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           email: "",
           role: "" as any,
           designation: "",
-          joining_date: new Date().toISOString().split('T')[0],
+          joining_date: "",
           pan_number: "",
           aadhaar_number: "",
           address: "",
@@ -282,7 +282,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
-                placeholder="John Doe"
+                placeholder=""
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
               {errors.full_name && (
@@ -298,7 +298,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="mobile_number"
                 value={formData.mobile_number}
                 onChange={handleChange}
-                placeholder="+91 9876543210"
+                placeholder=""
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile_number ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
               {errors.mobile_number && (
@@ -316,7 +316,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="john@example.com"
+                placeholder=""
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.email ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
               {errors.email && (
@@ -429,7 +429,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="designation"
                 value={formData.designation}
                 onChange={handleChange}
-                placeholder="Project Admin"
+                placeholder=""
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.designation ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
               {errors.designation && (
@@ -447,7 +447,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="pan_number"
                 value={formData.pan_number}
                 onChange={handleChange}
-                placeholder="ABCDE1234F"
+                placeholder=""
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none uppercase"
               />
             </div>
@@ -460,7 +460,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 name="aadhaar_number"
                 value={formData.aadhaar_number}
                 onChange={handleChange}
-                placeholder="1234-1234-1234"
+                placeholder=""
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none"
               />
             </div>
@@ -485,7 +485,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 rows={2}
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Enter full residential address"
+                placeholder=""
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none resize-none"
               />
             </div>

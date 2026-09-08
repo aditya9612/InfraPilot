@@ -1147,7 +1147,7 @@ const QCInspectionPage = () => {
                 onConfirm={handleDeleteConfirm}
                 title="Discard QC Audit Entry"
                 message="Are you sure you want to delete this QC record? This action will permanently remove the entry from the project ledger."
-                confirmText="Archive Record"
+                confirmText="Delete"
                 type="danger"
             />
         </>

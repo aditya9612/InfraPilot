@@ -1255,7 +1255,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
           <img
             src={logoUrl || logo}
             alt="InfraPilot Logo"
-            className="h-16 w-auto object-contain"
+            className="h-24 w-auto object-contain"
           />
         </Link>
         {onClose && (
@@ -1283,10 +1283,10 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
         {menu.map((item) => (
-          <SidebarItem 
+          <SidebarItem
             key={item.path}
-            item={item} 
-            onClose={onClose} 
+            item={item}
+            onClose={onClose}
             badgeCount={item.label === "Manual Payments" ? manualPaymentsBadge : undefined}
           />
         ))}
