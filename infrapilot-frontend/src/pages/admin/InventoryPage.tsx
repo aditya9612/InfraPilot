@@ -44,6 +44,7 @@ import EditPOModal from "../../components/admin/inventory/EditPOModal";
 import CreatePOModal from "../../components/admin/inventory/CreatePOModal";
 import ViewPOModal from "../../components/admin/inventory/ViewPOModal";
 import ViewMaterialModal from "../../components/admin/inventory/ViewMaterialModal";
+import ViewSupplierModal from "../../components/admin/inventory/ViewSupplierModal";
 import MaterialTransactionsModal from "../../components/admin/inventory/MaterialTransactionsModal";
 import PriceHistoryModal from "../../components/admin/inventory/PriceHistoryModal";
 
@@ -75,6 +76,8 @@ const InventoryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [isViewSupplierModalOpen, setViewSupplierModalOpen] = useState(false);
+  const [selectedViewSupplier, setSelectedViewSupplier] = useState<any>(null);
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
   const [supplierPage, setSupplierPage] = useState(0);
@@ -902,7 +905,7 @@ const InventoryPage = () => {
                     <option value="TRANSFER_IN">Transfer In</option>
                     <option value="TRANSFER_OUT">Transfer Out</option>
                     <option value="ADJUSTMENT">Adjustment</option>
-                    <option value="ISSUE">Issue</option>
+                    <option value="RETURN">Return</option>
                   </select>
                 </div>
               )}
@@ -997,6 +1000,17 @@ const InventoryPage = () => {
                         suppliers={paged}
                         onEdit={(s) => { setSelectedSupplier(s); setSupplierModalOpen(true); }}
                         onDelete={(id) => handleDeleteClick(id, "supplier")}
+                        onView={async (id) => {
+                          const toastId = toast.loading("Loading supplier details...");
+                          try {
+                            const data = await materialService.getSupplier(id);
+                            setSelectedViewSupplier(data);
+                            setViewSupplierModalOpen(true);
+                            toast.dismiss(toastId);
+                          } catch (err) {
+                            toast.error("Failed to load supplier details", { id: toastId });
+                          }
+                        }}
                       />
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
@@ -1322,6 +1336,12 @@ const InventoryPage = () => {
         suppliers={suppliers}
         projects={projectList}
         inventory={inventory}
+      />
+
+      <ViewSupplierModal
+        isOpen={isViewSupplierModalOpen}
+        onClose={() => { setViewSupplierModalOpen(false); setSelectedViewSupplier(null); }}
+        supplier={selectedViewSupplier}
       />
 
       <ConfirmModal

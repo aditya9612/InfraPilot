@@ -355,7 +355,7 @@ const DailyProgressEntryPage = () => {
       if (activeTab === 'today') loadTodayProgress();
       else loadAllEntries();
     } catch (err) {
-      toast.error("Failed to log progress");
+      toast.error((err as any)?.response?.data?.detail || "Failed to log progress");
     }
   };
 

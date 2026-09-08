@@ -138,6 +138,16 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
             return (pdfDoc as any).lastAutoTable.finalY + 8;
         };
 
+        const checkPageBreak = (neededSpace: number = 30) => {
+            if (curY + neededSpace > pageHeight - 40) {
+                doc.addPage();
+                drawHeader(doc);
+                curY = 40;
+            } else {
+                curY += 5; // slight spacing between sections
+            }
+        };
+
         // --- Page 1 ---
         drawHeader(doc, true);
         let curY = 65;
@@ -168,10 +178,8 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
             curY
         );
 
-        // --- Page 2 (Labour, Material, Financials) ---
-        doc.addPage();
-        drawHeader(doc);
-        curY = 40;
+        // --- Labour, Material, Financials ---
+        checkPageBreak(40);
         if (data.labourItems?.length > 0) {
             curY = drawTable(doc, "Labour Details", [['Skill', 'Count', 'Days', 'Wage', 'Amount']],
                 data.labourItems.map((it: any) => [it.skill_type, it.labour_count, it.labour_days, it.daily_wage, it.amount?.toFixed(2)]), curY
@@ -196,10 +204,8 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
         doc.setFont("helvetica", "bold");
         doc.text(`Amount in Words: ${numberToWords(data.grandTotal)}`, 15, curY);
 
-        // --- Page 3 (Terms & Signature) ---
-        doc.addPage();
-        drawHeader(doc);
-        curY = 40;
+        // --- Terms & Signature ---
+        checkPageBreak(50);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.text("Terms & Conditions", 15, curY);
@@ -252,7 +258,7 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                 return;
             }
 
-            const blob = data.isDraft 
+            const blob = data.isDraft
                 ? await quotationService.downloadDummyQuotationPDF(Number(qId))
                 : await quotationService.downloadQuotationPDF(Number(qId));
             const url = window.URL.createObjectURL(blob);
@@ -288,9 +294,9 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                 if (!forceLocal) {
                     const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
                     if (qId && !isNaN(Number(qId))) {
-                        const blob = data.isDraft 
-                ? await quotationService.downloadDummyQuotationPDF(Number(qId))
-                : await quotationService.downloadQuotationPDF(Number(qId));
+                        const blob = data.isDraft
+                            ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                            : await quotationService.downloadQuotationPDF(Number(qId));
                         const url = window.URL.createObjectURL(blob);
                         setPdfUrl(url);
                         setIsLoadingPdf(false);
