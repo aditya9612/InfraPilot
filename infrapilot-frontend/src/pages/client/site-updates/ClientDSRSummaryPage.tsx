@@ -464,18 +464,25 @@ const ClientDSRSummaryPage = () => {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto flex-1 w-full">
+            <table className="w-full text-left border-collapse table-fixed" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+              </colgroup>
               <thead>
-                <tr className="bg-slate-50/30">
-                  <th className="p-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[18%]">Report Details</th>
-                  <th className="p-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[32%]">Work Summary</th>
-                  <th className="p-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[12%]">Status</th>
-                  <th className="p-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[25%] text-left font-inter">Site Media</th>
-                  <th className="p-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[13%] text-right">Actions</th>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left" style={{ width: '20%' }}>Report Details</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left" style={{ width: '20%' }}>Work Summary</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Status</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Site Media</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 font-inter">
+              <tbody className="divide-y divide-slate-100 font-inter">
                 {loading && reports.length === 0 ? (
                    <tr>
                      <td colSpan={5} className="p-20 text-center">
@@ -490,64 +497,64 @@ const ClientDSRSummaryPage = () => {
                     </td>
                   </tr>
                 ) : paginatedReports.map((report) => (
-                  <tr key={report.id} className="group hover:bg-slate-50/50 transition-all cursor-default align-top font-inter">
-                    <td className="p-8">
+                  <tr key={report.id} className="group hover:bg-slate-50/60 transition-all cursor-default align-middle font-inter">
+                    <td className="px-6 py-6 text-left" style={{ width: '20%' }}>
                        <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5">{report.formattedDate}</p>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Daily Ledger</p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Ledger</p>
                     </td>
-                    <td className="p-8">
-                      <div className="space-y-2">
-                        <p className="text-sm font-bold text-slate-700 leading-snug break-words max-w-sm">
-                          {report.work_done || "No summary provided"}
-                        </p>
+                    <td className="px-6 py-6 text-left" style={{ width: '20%' }}>
+                      <p className="text-sm font-semibold text-slate-700 leading-snug line-clamp-2">
+                        {report.work_done || "No summary provided"}
+                      </p>
+                    </td>
+                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                      <div className="flex items-center justify-center">
+                        <span className={`inline-block px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] border ${
+                          report.status?.toLowerCase() === 'submitted' 
+                          ? 'bg-blue-50 text-blue-600 border-blue-100' 
+                          : report.status?.toLowerCase() === 'approved'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          {report.status?.toUpperCase() || 'DRAFT'}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-8">
-                      <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] border ${
-                        report.status?.toLowerCase() === 'submitted' 
-                        ? 'bg-blue-50 text-blue-600 border-blue-100' 
-                        : report.status?.toLowerCase() === 'approved'
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        : 'bg-white text-slate-400 border-slate-100 shadow-sm font-inter'
-                      }`}>
-                        {report.status?.toUpperCase() || 'DRAFT'}
-                      </span>
-                    </td>
-                    <td className="p-8">
-                        <div className="flex items-center gap-3">
+                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                        <div className="flex items-center justify-center gap-2">
                             {report.gallery && report.gallery.length > 0 ? (
-                            report.gallery.slice(0, 4).map((img: any, idx: number) => (
+                            report.gallery.slice(0, 3).map((img: any, idx: number) => (
                                 <div 
                                     key={img.id || idx} 
                                     onClick={() => setSelectedPhoto(img)}
-                                    className="w-14 h-14 rounded-xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:scale-105 cursor-zoom-in group/img bg-slate-50 relative shrink-0"
+                                    className="w-12 h-12 rounded-xl border border-slate-200 shadow-xs overflow-hidden transition-all hover:scale-105 cursor-zoom-in group/img bg-slate-50 relative shrink-0"
                                 >
                                     <img src={img.url} className="w-full h-full object-cover" alt="Site" />
                                     <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Maximize2 className="w-3.5 h-3.5 text-white shadow-sm shadow-sm shadow-sm shadow-sm" />
+                                        <Maximize2 className="w-3.5 h-3.5 text-white shadow-sm" />
                                     </div>
                                 </div>
                             ))
                             ) : (
-                                <div className="w-14 h-14 rounded-xl border border-slate-50 bg-slate-50 flex items-center justify-center text-slate-200">
-                                    <ImageIcon className="w-5 h-5 font-inter font-inter font-inter font-inter font-inter" />
+                                <div className="w-12 h-12 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-center text-slate-300">
+                                    <ImageIcon className="w-5 h-5" />
                                 </div>
                             )}
-                            {report.gallery?.length > 4 && (
-                                <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-black shrink-0 font-inter font-inter">
-                                    +{report.gallery.length - 4}
+                            {report.gallery?.length > 3 && (
+                                <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-black shrink-0">
+                                    +{report.gallery.length - 3}
                                 </div>
                             )}
                         </div>
                     </td>
-                    <td className="p-8 text-right pr-12 font-inter font-inter">
-                       <div className="flex items-center justify-end">
+                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                       <div className="flex items-center justify-center">
                           <button 
                             onClick={() => setSelectedReportForView(report)}
-                            className="p-2 text-slate-400 hover:text-blue-600 transition-all hover:bg-slate-100 rounded-xl active:scale-95"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 rounded-xl transition-all active:scale-95 cursor-pointer"
                             title="View Intelligence Insights"
                           >
-                            <Eye className="w-5 h-5 font-inter" />
+                            <Eye className="w-5 h-5" />
                           </button>
                        </div>
                     </td>

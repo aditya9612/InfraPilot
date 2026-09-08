@@ -453,31 +453,10 @@ export const labourService = {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId} Request Body: FormData`);
             const response = await api.put(
                 `attendance/check-out/${attendanceId}`,
-                formData,
-                { headers: { "Content-Type": "multipart/form-data" } }
+                formData
             );
             return response.data;
         } catch (error: any) {
-            const detailMsg = error.response?.data?.detail;
-            if (typeof detailMsg === 'string' && (detailMsg.toLowerCase().includes('labour_expense') || detailMsg.toLowerCase().includes('account is not configured'))) {
-                try {
-                    await api.post("/accountant/accounts", {
-                        name: "Labour Expense",
-                        code: "LABOUR_EXPENSE",
-                        type: "Expense",
-                        parent_id: null
-                    });
-                    const retryRes = await api.put(
-                        `attendance/check-out/${attendanceId}`,
-                        formData,
-                        { headers: { "Content-Type": "multipart/form-data" } }
-                    );
-                    return retryRes.data;
-                } catch (provisionErr) {
-                    console.warn("Auto-provisioning LABOUR_EXPENSE failed:", provisionErr);
-                }
-            }
-
             console.warn(`checkOut API error, using virtual success fallback:`, error.message);
             const timeStr = new Date().toLocaleTimeString('it-IT'); // HH:MM:SS
 
@@ -576,32 +555,11 @@ export const labourService = {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId}`);
             const response = await api.put(
                 `attendance/check-out/${attendanceId}`,
-                sanitizedFd,
-                { headers: { "Content-Type": "multipart/form-data" } }
+                sanitizedFd
             );
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId} - SUCCESS`, response.data);
             return response.data;
         } catch (error: any) {
-            const detailMsg = error.response?.data?.detail;
-            if (typeof detailMsg === 'string' && (detailMsg.toLowerCase().includes('labour_expense') || detailMsg.toLowerCase().includes('account is not configured'))) {
-                try {
-                    await api.post("/accountant/accounts", {
-                        name: "Labour Expense",
-                        code: "LABOUR_EXPENSE",
-                        type: "Expense",
-                        parent_id: null
-                    });
-                    const retryRes = await api.put(
-                        `attendance/check-out/${attendanceId}`,
-                        sanitizedFd,
-                        { headers: { "Content-Type": "multipart/form-data" } }
-                    );
-                    return retryRes.data;
-                } catch (provisionErr) {
-                    console.warn("Auto-provisioning LABOUR_EXPENSE failed in selfCheckOut:", provisionErr);
-                }
-            }
-
             console.warn("selfCheckOut API error, using virtual success fallback:", error.message);
             const timeStr = new Date().toISOString();
 

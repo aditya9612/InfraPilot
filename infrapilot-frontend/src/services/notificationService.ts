@@ -274,9 +274,9 @@ export const notificationService = {
 
     markAsRead: async (id: number | string, source = "general"): Promise<void> => {
         try {
-            if (source === "system") {
+            if (source === "system" || source === "direct") {
                 // Determine if ID is virtual or numeric
-                const numericId = String(id).replace('sys-', '');
+                const numericId = String(id).replace('sys-', '').replace('notif-', '');
                 if (!isNaN(Number(numericId))) {
                     await api.put(`/notifications/${numericId}/read`);
                 }
@@ -398,18 +398,33 @@ export const notificationService = {
 
             if (!Array.isArray(rawItems)) return [];
 
-            return rawItems.map((item: any) => ({
-                id: item.id || item.notification_id,
-                title: item.title || item.alert_type || "Notification",
-                description: item.message || item.description || "",
-                details: item.message || item.details || item.content || "",
-                type: (item.type || "Info") as any,
-                timestamp: item.created_at || item.timestamp || new Date().toISOString(),
-                created_at: item.created_at || item.timestamp || new Date().toISOString(),
-                read: !!(item.is_read || item.read || item.status === 'read'),
-                role_target: (item.role_target || "All") as any,
-                source: "direct" as const
-            }));
+            const readIdsStr = localStorage.getItem('infrapilot_notifications_read_ids') || localStorage.getItem('infrapilot_alerts_read_ids');
+            const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+            const unreadIdsStr = localStorage.getItem('infrapilot_notifications_unread_ids');
+            const unreadIds = unreadIdsStr ? JSON.parse(unreadIdsStr) : [];
+
+            return rawItems.map((item: any) => {
+                const strId = String(item.id || item.notification_id);
+                let isRead = !!(item.is_read || item.read || item.status === 'read');
+                if (unreadIds.includes(strId)) {
+                    isRead = false;
+                } else if (readIds.includes(strId)) {
+                    isRead = true;
+                }
+
+                return {
+                    id: item.id || item.notification_id,
+                    title: item.title || item.alert_type || "Notification",
+                    description: item.message || item.description || "",
+                    details: item.message || item.details || item.content || "",
+                    type: (item.type || "Info") as any,
+                    timestamp: item.created_at || item.timestamp || new Date().toISOString(),
+                    created_at: item.created_at || item.timestamp || new Date().toISOString(),
+                    read: isRead,
+                    role_target: (item.role_target || "All") as any,
+                    source: "direct" as const
+                };
+            });
         } catch (error) {
             console.error("Failed to fetch notifications from /notifications:", error);
             return [];

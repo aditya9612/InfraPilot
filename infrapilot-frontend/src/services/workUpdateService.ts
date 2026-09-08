@@ -87,8 +87,8 @@ export const workUpdateService = {
    */
   async exportWorkUpdates(params?: ExportWorkUpdatesParams): Promise<Blob | any> {
     const response = await api.get("/work-updates/export", {
-      params,
-      responseType: params?.format === 'csv' || params?.format === 'pdf' ? 'blob' : 'json'
+      params: { format: 'pdf', ...params },
+      responseType: 'blob'
     });
     return response.data;
   },

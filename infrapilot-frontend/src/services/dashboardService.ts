@@ -1,5 +1,15 @@
 import api from "./api";
 
+export interface ClientMilestoneItem {
+  id: number;
+  title: string;
+  status: string;
+  start_date?: string;
+  end_date?: string;
+  completion_percentage?: number;
+  days_remaining?: number;
+}
+
 export interface ClientDashboardData {
   // ── Core fields (confirmed from API) ──
   project_id: number;
@@ -17,20 +27,33 @@ export interface ClientDashboardData {
   end_date: string;
   days_remaining: number;
 
-  // ── Extended fields (may be returned by backend) ──
+  // ── Extended fields ──
+  project_name?: string;
   actual_progress?: number;        // actual project progress %
+  expected_progress?: number;      // expected project progress %
   expense_trend?: any[];           // monthly expense trend
+  recent_expenses?: any[];         // recent expenses list
+  recent_milestones?: ClientMilestoneItem[];
+  upcoming_milestones?: ClientMilestoneItem[];
+  executive_summary?: string;
   project_health?: string;         // e.g. "Good", "At Risk", "Critical"
   health?: string;                 // alias for project_health
+  budget_status?: string;          // e.g. "Healthy", "Over Budget"
   timeline_progress?: number;      // % of timeline elapsed
   variance_percent?: number;       // schedule variance (positive = ahead)
-  schedule_status?: string;        // e.g. "On Track", "Delayed"
+  schedule_status?: string;        // e.g. "On Track", "Delayed", "Ahead of Schedule"
   risk_level?: string;             // e.g. "Low", "Medium", "High"
+  risk_score?: number;             // e.g. 5
   overdue_tasks?: number;
   overdue_milestones?: number;
+  high_priority_tasks?: number;
   high_priority_overdue?: number;
   project_duration?: number;       // total project days
   elapsed_days?: number;           // days elapsed so far
+  tasks_pending?: number;
+  task_completion_percent?: number;
+  milestones_pending?: number;
+  milestone_completion_percent?: number;
 
   // ── Allow any additional fields from the API ──
   [key: string]: any;
@@ -204,6 +227,102 @@ export const dashboardService = {
       const risk          = raw.risk           ?? raw.risk_analysis ?? {};
       const kpis          = raw.kpis           ?? raw.key_kpis ?? {};
 
+      // ── Timeline calculations ──
+      const rawDuration = Number(
+        raw.project_duration          ??
+        timeline.project_duration     ??
+        timeline.total_days           ??
+        timeline.duration_days        ??
+        0
+      );
+      const rawElapsed = Number(
+        raw.elapsed_days              ??
+        timeline.elapsed_days         ??
+        timeline.days_elapsed         ??
+        0
+      );
+      const rawDaysRemaining = Number(
+        raw.days_remaining            ??
+        raw.remaining_days            ??
+        schedule.days_remaining       ??
+        schedule.remaining_days       ??
+        timeline.days_remaining       ??
+        0
+      );
+      const calcDaysRemaining = rawDaysRemaining > 0
+        ? rawDaysRemaining
+        : (rawDuration > 0 ? Math.max(0, rawDuration - rawElapsed) : 0);
+
+      const rawTimelineProgress = Number(
+        raw.timeline_progress         ??
+        timeline.timeline_progress    ??
+        timeline.time_elapsed_percent ??
+        timeline.progress_percent     ??
+        schedule.expected_progress    ??
+        0
+      );
+      const calcTimelineProgress = rawTimelineProgress > 0
+        ? rawTimelineProgress
+        : (rawDuration > 0 ? (rawElapsed / rawDuration) * 100 : 0);
+
+      // Tasks metrics
+      const rawTasksTotal = Number(
+        raw.tasks_total               ??
+        tasks.total                   ??
+        tasks.tasks_total             ??
+        tasks.total_tasks             ??
+        0
+      );
+      const rawTasksCompleted = Number(
+        raw.tasks_completed           ??
+        tasks.completed               ??
+        tasks.tasks_completed         ??
+        tasks.completed_tasks         ??
+        0
+      );
+      const rawTasksPending = Number(
+        raw.tasks_pending             ??
+        tasks.pending                 ??
+        tasks.tasks_pending           ??
+        tasks.pending_tasks           ??
+        Math.max(0, rawTasksTotal - rawTasksCompleted)
+      );
+      const rawTaskCompletionPct = Number(
+        raw.task_completion_percent   ??
+        tasks.completion_percent      ??
+        tasks.completion_pct          ??
+        (rawTasksTotal > 0 ? (rawTasksCompleted / rawTasksTotal) * 100 : 0)
+      );
+
+      // Milestones metrics
+      const rawMilestonesTotal = Number(
+        raw.milestones_total          ??
+        milestones.total              ??
+        milestones.milestones_total   ??
+        milestones.total_milestones   ??
+        0
+      );
+      const rawMilestonesCompleted = Number(
+        raw.milestones_completed       ??
+        milestones.completed          ??
+        milestones.milestones_completed ??
+        milestones.completed_milestones ??
+        0
+      );
+      const rawMilestonesPending = Number(
+        raw.milestones_pending        ??
+        milestones.pending            ??
+        milestones.milestones_pending ??
+        milestones.pending_milestones ??
+        Math.max(0, rawMilestonesTotal - rawMilestonesCompleted)
+      );
+      const rawMilestoneCompletionPct = Number(
+        raw.milestone_completion_percent ??
+        milestones.completion_percent ??
+        milestones.completion_pct     ??
+        (rawMilestonesTotal > 0 ? (rawMilestonesCompleted / rawMilestonesTotal) * 100 : 0)
+      );
+
       // ── Normalised flat object ─────────────────────────────────────────
       const normalized: ClientDashboardData = {
         // Spread nested sections first
@@ -226,6 +345,10 @@ export const dashboardService = {
         start_date:            raw.start_date   ?? project.start_date   ?? "",
         end_date:              raw.end_date     ?? project.end_date     ?? "",
         expense_trend:         Array.isArray(raw.expense_trend) ? raw.expense_trend : (Array.isArray(budget.expense_trend) ? budget.expense_trend : []),
+        recent_expenses:       Array.isArray(raw.recent_expenses) ? raw.recent_expenses : (Array.isArray(budget.recent_expenses) ? budget.recent_expenses : []),
+        recent_milestones:     Array.isArray(raw.recent_milestones) ? raw.recent_milestones : (Array.isArray(milestones.recent_milestones) ? milestones.recent_milestones : []),
+        upcoming_milestones:   Array.isArray(raw.upcoming_milestones) ? raw.upcoming_milestones : (Array.isArray(milestones.upcoming_milestones) ? milestones.upcoming_milestones : []),
+        executive_summary:     raw.executive_summary ?? overview.executive_summary ?? "",
 
         // Progress
         actual_progress: Number(
@@ -234,6 +357,12 @@ export const dashboardService = {
           progress.actual_progress      ??
           raw.progress_percent          ??
           progress.progress_percent     ??
+          0
+        ),
+        expected_progress: Number(
+          raw.expected_progress         ??
+          schedule.expected_progress    ??
+          calcTimelineProgress          ??
           0
         ),
         progress_percent: Number(
@@ -256,10 +385,10 @@ export const dashboardService = {
           raw.budget_total              ??
           raw.total_budget              ??
           raw.budget                    ??
+          budget.budget                 ??
           budget.budget_total           ??
           budget.total_budget           ??
           budget.total_cost             ??
-          budget.budget                 ??
           budget.contract_value         ??
           0
         ),
@@ -268,9 +397,9 @@ export const dashboardService = {
           raw.total_spent               ??
           raw.spent                     ??
           raw.expenses                  ??
+          budget.spent                  ??
           budget.total_expense          ??
           budget.total_spent            ??
-          budget.spent                  ??
           budget.actual_cost            ??
           budget.expenses               ??
           0
@@ -279,8 +408,8 @@ export const dashboardService = {
           raw.remaining_budget          ??
           raw.remaining                 ??
           raw.balance                   ??
-          budget.remaining_budget       ??
           budget.remaining              ??
+          budget.remaining_budget       ??
           budget.balance                ??
           0
         ),
@@ -298,113 +427,65 @@ export const dashboardService = {
           raw.budget_used_percent       ??
           raw.spent_percent             ??
           raw.used_percent              ??
-          budget.budget_used_percent    ??
           budget.spent_percent          ??
+          budget.budget_used_percent    ??
           budget.used_percent           ??
           overview.budget_utilized      ??
           0
         ),
         budget_status: (
           raw.budget_status             ??
+          overview.budget_status        ??
           budget.budget_status          ??
           ""
         ).toString(),
 
         // Tasks
-        tasks_total: Number(
-          raw.tasks_total               ??
-          tasks.total                   ??
-          tasks.tasks_total             ??
-          tasks.total_tasks             ??
-          0
-        ),
-        tasks_completed: Number(
-          raw.tasks_completed           ??
-          tasks.completed               ??
-          tasks.tasks_completed         ??
-          tasks.completed_tasks         ??
-          0
-        ),
+        tasks_total: rawTasksTotal,
+        tasks_completed: rawTasksCompleted,
+        tasks_pending: rawTasksPending,
+        task_completion_percent: rawTaskCompletionPct,
         overdue_tasks: Number(
           raw.overdue_tasks             ??
+          kpis.overdue_tasks            ??
           tasks.overdue_tasks           ??
           tasks.overdue                 ??
           0
         ),
 
         // Milestones
-        milestones_total: Number(
-          raw.milestones_total          ??
-          milestones.total              ??
-          milestones.milestones_total   ??
-          milestones.total_milestones   ??
-          0
-        ),
-        milestones_completed: Number(
-          raw.milestones_completed       ??
-          milestones.completed          ??
-          milestones.milestones_completed ??
-          milestones.completed_milestones ??
-          0
-        ),
+        milestones_total: rawMilestonesTotal,
+        milestones_completed: rawMilestonesCompleted,
+        milestones_pending: rawMilestonesPending,
+        milestone_completion_percent: rawMilestoneCompletionPct,
         overdue_milestones: Number(
           raw.overdue_milestones        ??
+          kpis.overdue_milestones       ??
           milestones.overdue_milestones ??
           milestones.overdue            ??
           0
         ),
 
         // Timeline
-        days_remaining: Number(
-          raw.days_remaining            ??
-          raw.remaining_days            ??
-          schedule.days_remaining       ??
-          schedule.remaining_days       ??
-          timeline.days_remaining       ??
-          0
-        ),
-        remaining_days: Number(
-          raw.days_remaining            ??
-          raw.remaining_days            ??
-          schedule.days_remaining       ??
-          schedule.remaining_days       ??
-          0
-        ),
-        project_duration: Number(
-          raw.project_duration          ??
-          timeline.project_duration     ??
-          timeline.total_days           ??
-          timeline.duration_days        ??
-          0
-        ),
-        elapsed_days: Number(
-          raw.elapsed_days              ??
-          timeline.elapsed_days         ??
-          timeline.days_elapsed         ??
-          0
-        ),
-        timeline_progress: Number(
-          raw.timeline_progress         ??
-          timeline.timeline_progress    ??
-          timeline.time_elapsed_percent ??
-          timeline.progress_percent     ??
-          schedule.expected_progress    ??
-          0
-        ),
+        days_remaining: calcDaysRemaining,
+        remaining_days: calcDaysRemaining,
+        project_duration: rawDuration,
+        elapsed_days: rawElapsed,
+        timeline_progress: calcTimelineProgress,
 
         // Schedule
         schedule_status: (
           raw.schedule_status           ??
-          schedule.schedule_status      ??
           schedule.status               ??
+          schedule.schedule_status      ??
           overview.schedule_status      ??
           ""
         ).toString(),
         variance_percent: Number(
           raw.variance_percent          ??
+          schedule.variance             ??
           schedule.variance_percent     ??
           schedule.schedule_variance    ??
-          schedule.variance             ??
           0
         ),
 
@@ -426,18 +507,29 @@ export const dashboardService = {
         ).toString(),
         risk_level: (
           raw.risk_level                ??
-          risk.risk_level               ??
           risk.level                    ??
+          risk.risk_level               ??
           risk.overall_risk             ??
           overview.risk_level           ??
           ""
         ).toString(),
+        risk_score: Number(
+          raw.risk_score                ??
+          risk.score                    ??
+          0
+        ),
 
         // KPIs
+        high_priority_tasks: Number(
+          raw.high_priority_tasks       ??
+          kpis.high_priority_tasks      ??
+          kpis.high_priority_overdue    ??
+          0
+        ),
         high_priority_overdue: Number(
           raw.high_priority_overdue     ??
-          kpis.high_priority_overdue    ??
           kpis.high_priority_tasks      ??
+          kpis.high_priority_overdue    ??
           0
         ),
       };

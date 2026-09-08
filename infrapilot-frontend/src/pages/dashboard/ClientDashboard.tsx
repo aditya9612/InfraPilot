@@ -17,6 +17,8 @@ import {
   Users,
   Heart,
   TrendingUp,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 import Navbar from "../../components/common/Navbar";
@@ -25,6 +27,7 @@ import { type ClientDashboardData, dashboardService } from "../../services/dashb
 import { projectService } from "../../services/projectService";
 import { expenseService } from "../../services/expenseService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
+import { formatDateBySettings } from "../../utils/dateUtils";
 import toast from "react-hot-toast";
 
 const ClientDashboard = () => {
@@ -89,24 +92,82 @@ const ClientDashboard = () => {
     return () => { active = false; };
   }, [projectId, projectIdLoading]);
 
-  // ── Fields from API only ──
-  const projectName = projectData?.project_name || projectData?.name || "";
+  // ── Fields from API & Fallbacks ──
+  const projectName = projectData?.project_name || dashboardData?.project_name || projectData?.name || "Dashboard";
   const projectStatus = (dashboardData?.status || projectData?.status || "").toUpperCase();
   const startDateStr = dashboardData?.start_date || projectData?.start_date || "";
   const endDateStr = dashboardData?.end_date || projectData?.end_date || "";
 
-  const daysRemaining       = Number(dashboardData?.days_remaining ?? dashboardData?.remaining_days ?? 0);
+  // Extended fields & Timeline calculations
+  const projectHealth      = dashboardData?.project_health || dashboardData?.health || "At Risk";
+  const budgetStatus       = dashboardData?.budget_status || (dashboardData?.remaining_budget !== undefined && Number(dashboardData.remaining_budget) >= 0 ? "Healthy" : "Over Budget");
+  
+  const projectDuration = Number(
+    dashboardData?.project_duration && Number(dashboardData.project_duration) > 0
+      ? dashboardData.project_duration
+      : (() => {
+          if (startDateStr && endDateStr) {
+            const s = new Date(startDateStr).getTime();
+            const e = new Date(endDateStr).getTime();
+            if (!isNaN(s) && !isNaN(e) && e > s) {
+              return Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+            }
+          }
+          return 0;
+        })()
+  );
+
+  const elapsedDays = Number(
+    dashboardData?.elapsed_days !== undefined && dashboardData?.elapsed_days !== null && Number(dashboardData.elapsed_days) >= 0 && dashboardData.elapsed_days !== ""
+      ? dashboardData.elapsed_days
+      : (() => {
+          if (startDateStr) {
+            const s = new Date(startDateStr).getTime();
+            const now = new Date().getTime();
+            if (!isNaN(s) && now >= s) {
+              return Math.floor((now - s) / (1000 * 60 * 60 * 24));
+            }
+          }
+          return 0;
+        })()
+  );
+
+  const daysRemaining = Number(
+    (dashboardData?.days_remaining && Number(dashboardData.days_remaining) > 0)
+      ? dashboardData.days_remaining
+      : (dashboardData?.remaining_days && Number(dashboardData.remaining_days) > 0)
+      ? dashboardData.remaining_days
+      : (projectDuration > 0)
+      ? Math.max(0, projectDuration - elapsedDays)
+      : (() => {
+          if (endDateStr) {
+            const e = new Date(endDateStr).getTime();
+            const now = new Date().getTime();
+            if (!isNaN(e) && e > now) {
+              return Math.ceil((e - now) / (1000 * 60 * 60 * 24));
+            }
+          }
+          return 0;
+        })()
+  );
+
+  const timelineProgress = Number(
+    dashboardData?.timeline_progress && Number(dashboardData.timeline_progress) > 0
+      ? dashboardData.timeline_progress
+      : (projectDuration > 0 ? (elapsedDays / projectDuration) * 100 : 0)
+  );
+
   const progressPercent     = Number(dashboardData?.actual_progress ?? dashboardData?.progress_percent ?? dashboardData?.progress ?? dashboardData?.overall_progress ?? 0);
+  const expectedProgress    = Number(dashboardData?.expected_progress ?? dashboardData?.schedule?.expected_progress ?? timelineProgress);
+  const scheduleVariance    = Number(dashboardData?.variance_percent ?? dashboardData?.variance ?? dashboardData?.schedule?.variance ?? (progressPercent - expectedProgress));
+  const scheduleStatus      = dashboardData?.schedule_status || dashboardData?.schedule?.status || "Ahead of Schedule";
+  const riskLevel           = dashboardData?.risk_level || dashboardData?.risk?.level || "Low";
+  const riskScore           = Number(dashboardData?.risk_score ?? dashboardData?.risk?.score ?? 5);
+
   const budgetTotal         = Number(dashboardData?.budget_total ?? dashboardData?.budget ?? 0);
   const totalExpense        = Number(dashboardData?.total_expense ?? dashboardData?.spent ?? 0);
   const remainingBudget     = Number(dashboardData?.remaining_budget ?? dashboardData?.remaining ?? (budgetTotal > 0 ? budgetTotal - totalExpense : 0));
   const budgetUsedPercent   = Number(dashboardData?.budget_used_percent ?? dashboardData?.spent_percent ?? 0);
-  const tasksCompleted      = Number(dashboardData?.tasks_completed ?? 0);
-  const tasksTotal          = Number(dashboardData?.tasks_total ?? 0);
-  const tasksPending        = Math.max(0, tasksTotal - tasksCompleted);
-  const milestonesCompleted = Number(dashboardData?.milestones_completed ?? 0);
-  const milestonesTotal     = Number(dashboardData?.milestones_total ?? 0);
-  const milestonesPending   = Math.max(0, milestonesTotal - milestonesCompleted);
 
   // Derived or direct percentage from API
   const remainingPercent = dashboardData?.remaining_percent !== undefined && dashboardData?.remaining_percent !== null
@@ -117,31 +178,55 @@ const ClientDashboard = () => {
     ? Number(dashboardData.spent_percent)
     : (budgetTotal > 0 ? (totalExpense / budgetTotal) * 100 : 0);
 
-  const budgetStatus     = dashboardData?.budget_status || (remainingBudget >= 0 ? "Healthy" : "Over Budget");
+  // KPIs
+  const overdueTasks        = Number(dashboardData?.overdue_tasks ?? dashboardData?.kpis?.overdue_tasks ?? 0);
+  const overdueMilestones   = Number(dashboardData?.overdue_milestones ?? dashboardData?.kpis?.overdue_milestones ?? 0);
+  const highPriorityTasks   = Number(dashboardData?.high_priority_tasks ?? dashboardData?.high_priority_overdue ?? dashboardData?.kpis?.high_priority_tasks ?? 0);
 
-  // Extended fields — now typed in ClientDashboardData (may be undefined if not returned by backend)
-  const projectHealth      = dashboardData?.project_health || dashboardData?.health || "";
-  const projectDuration    = dashboardData?.project_duration ?? 0;
-  const elapsedDays        = dashboardData?.elapsed_days ?? 0;
-  const timelineProgress   = dashboardData?.timeline_progress ?? 0;
-  const scheduleVariance   = dashboardData?.variance_percent ?? 0;
-  const scheduleStatus     = dashboardData?.schedule_status || "";
-  const riskLevel          = dashboardData?.risk_level || "";
-  const overdueTasks       = dashboardData?.overdue_tasks ?? 0;
-  const overdueMilestones  = dashboardData?.overdue_milestones ?? 0;
-  const highPriorityOverdue = dashboardData?.high_priority_overdue ?? 0;
+  // Task summary
+  const tasksTotal          = Number(dashboardData?.tasks_total ?? dashboardData?.task_summary?.total ?? 0);
+  const tasksCompleted      = Number(dashboardData?.tasks_completed ?? dashboardData?.task_summary?.completed ?? 0);
+  const tasksPending        = Number(dashboardData?.tasks_pending ?? dashboardData?.task_summary?.pending ?? Math.max(0, tasksTotal - tasksCompleted));
+  const taskCompletionPct   = Number(dashboardData?.task_completion_percent ?? dashboardData?.task_summary?.completion_percent ?? (tasksTotal > 0 ? (tasksCompleted / tasksTotal) * 100 : 0));
 
-  const taskCompletionPct      = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
-  const milestoneCompletionPct = milestonesTotal > 0 ? Math.round((milestonesCompleted / milestonesTotal) * 100) : 0;
+  // Milestone summary
+  const milestonesTotal     = Number(dashboardData?.milestones_total ?? dashboardData?.milestone_summary?.total ?? 0);
+  const milestonesCompleted = Number(dashboardData?.milestones_completed ?? dashboardData?.milestone_summary?.completed ?? 0);
+  const milestonesPending   = Number(dashboardData?.milestones_pending ?? dashboardData?.milestone_summary?.pending ?? Math.max(0, milestonesTotal - milestonesCompleted));
+  const milestoneCompletionPct = Number(dashboardData?.milestone_completion_percent ?? dashboardData?.milestone_summary?.completion_percent ?? (milestonesTotal > 0 ? (milestonesCompleted / milestonesTotal) * 100 : 0));
+
+  const executiveSummary: string  = dashboardData?.executive_summary || "";
+  const recentExpenses: any[]     = (Array.isArray(dashboardData?.recent_expenses) && dashboardData.recent_expenses.length > 0)
+    ? dashboardData.recent_expenses
+    : recentExpensesList;
 
   const formatCurrency = (val: number) =>
     "₹" + val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return "—";
+    if (!dateStr || dateStr === "—" || dateStr === "N/A" || dateStr === "null") return "—";
+    const str = String(dateStr).trim().split("T")[0];
+    const ymd = /^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})/.exec(str);
+    if (ymd) {
+      return `${ymd[1]}-${ymd[2].padStart(2, "0")}-${ymd[3].padStart(2, "0")}`;
+    }
+    const dmy = /^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/.exec(str);
+    if (dmy) {
+      const first = parseInt(dmy[1], 10);
+      const second = parseInt(dmy[2], 10);
+      const y = dmy[3];
+      const m = first > 12 ? dmy[2] : dmy[1];
+      const d = first > 12 ? dmy[1] : dmy[2];
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+    return dateStr;
   };
 
 
@@ -246,12 +331,24 @@ const ClientDashboard = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Project Health</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
-                <Heart className="w-5 h-5 text-red-500" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                projectHealth.toLowerCase().includes("risk")
+                  ? "bg-amber-50 text-amber-500"
+                  : projectHealth.toLowerCase().includes("crit")
+                  ? "bg-rose-50 text-rose-500"
+                  : "bg-emerald-50 text-emerald-500"
+              }`}>
+                <Heart className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-1.5 min-w-0">
                 <p className="text-lg font-black text-slate-800 truncate">{projectHealth || "—"}</p>
-                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                  projectHealth.toLowerCase().includes("risk")
+                    ? "bg-amber-400"
+                    : projectHealth.toLowerCase().includes("crit")
+                    ? "bg-rose-500"
+                    : "bg-emerald-500"
+                }`} />
               </div>
             </div>
           </div>
@@ -278,7 +375,7 @@ const ClientDashboard = () => {
                 <TrendingUp className="w-5 h-5 text-blue-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-2xl font-black text-slate-800">{progressPercent}%</p>
+                <p className="text-2xl font-black text-slate-800">{progressPercent.toFixed(2)}%</p>
                 <p className="text-[10px] font-bold text-slate-400">Actual Progress</p>
               </div>
             </div>
@@ -288,12 +385,22 @@ const ClientDashboard = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Schedule Status</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
-                <Calendar className="w-5 h-5 text-amber-500" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                scheduleStatus.toLowerCase().includes("ahead") || scheduleStatus.toLowerCase().includes("track")
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-amber-50 text-amber-500"
+              }`}>
+                <Calendar className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-1.5 min-w-0">
                 <p className="text-sm font-black text-slate-800 leading-tight">{scheduleStatus || "—"}</p>
-                {scheduleStatus && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
+                {scheduleStatus && (
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    scheduleStatus.toLowerCase().includes("ahead") || scheduleStatus.toLowerCase().includes("track")
+                      ? "bg-emerald-500"
+                      : "bg-amber-400"
+                  }`} />
+                )}
               </div>
             </div>
           </div>
@@ -302,12 +409,29 @@ const ClientDashboard = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Risk Level</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0">
-                <ShieldAlert className="w-5 h-5 text-orange-500" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                riskLevel.toLowerCase().includes("low")
+                  ? "bg-emerald-50 text-emerald-600"
+                  : riskLevel.toLowerCase().includes("med")
+                  ? "bg-amber-50 text-amber-500"
+                  : "bg-rose-50 text-rose-500"
+              }`}>
+                <ShieldAlert className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <p className="text-lg font-black text-slate-800 truncate">{riskLevel || "—"}</p>
-                {riskLevel && <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-lg font-black text-slate-800 truncate">{riskLevel || "—"}</p>
+                  {riskLevel && (
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      riskLevel.toLowerCase().includes("low")
+                        ? "bg-emerald-500"
+                        : riskLevel.toLowerCase().includes("med")
+                        ? "bg-amber-400"
+                        : "bg-rose-500"
+                    }`} />
+                  )}
+                </div>
+                <p className="text-[10px] font-bold text-slate-400">Score: {riskScore}/100</p>
               </div>
             </div>
           </div>
@@ -364,7 +488,7 @@ const ClientDashboard = () => {
                 </div>
               </div>
 
-              {/* Pure SVG ring — solid blue, no gray track */}
+              {/* Pure SVG ring */}
               <div className="relative flex-1 h-56 flex items-center justify-center">
                 <svg viewBox="0 0 120 120" className="w-56 h-56">
                   <circle
@@ -450,8 +574,8 @@ const ClientDashboard = () => {
 
             <div className="grid grid-cols-3 gap-3 mb-6">
               {[
-                { label: "Actual Progress",   val: `${progressPercent}%`,                                   color: "text-slate-800" },
-                { label: "Expected Progress", val: `${timelineProgress.toFixed(2)}%`,                        color: "text-slate-800" },
+                { label: "Actual Progress",   val: `${progressPercent.toFixed(2)}%`,                                   color: "text-slate-800" },
+                { label: "Expected Progress", val: `${expectedProgress.toFixed(2)}%`,                        color: "text-slate-800" },
                 { label: "Variance",          val: `${scheduleVariance > 0 ? "+" : ""}${scheduleVariance.toFixed(2)}%`, color: scheduleVariance < 0 ? "text-rose-500" : "text-emerald-500" },
               ].map((m) => (
                 <div key={m.label}>
@@ -464,7 +588,11 @@ const ClientDashboard = () => {
             <div>
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</p>
               {scheduleStatus ? (
-                <span className="inline-flex px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-[11px] font-black border border-rose-100">
+                <span className={`inline-flex px-3 py-1.5 rounded-xl text-[11px] font-black border ${
+                  scheduleStatus.toLowerCase().includes("ahead") || scheduleStatus.toLowerCase().includes("track")
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    : "bg-rose-50 text-rose-600 border-rose-100"
+                }`}>
                   {scheduleStatus}
                 </span>
               ) : (
@@ -488,7 +616,7 @@ const ClientDashboard = () => {
               {[
                 { dot: "bg-rose-500",   label: "Overdue Tasks",       val: overdueTasks },
                 { dot: "bg-amber-400",  label: "Overdue Milestones",   val: overdueMilestones },
-                { dot: "bg-purple-500", label: "High Priority Tasks",  val: highPriorityOverdue },
+                { dot: "bg-purple-500", label: "High Priority Tasks",  val: highPriorityTasks },
               ].map((k) => (
                 <div key={k.label} className="flex items-center gap-3">
                   <span className={`w-2.5 h-2.5 rounded-full ${k.dot} shrink-0`} />
@@ -515,9 +643,14 @@ const ClientDashboard = () => {
                   <span className="text-[11px] font-black text-slate-800">{r.val}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <span className="text-[11px] font-bold text-slate-500">Completion</span>
-                <span className="text-[11px] font-black text-slate-800">{taskCompletionPct}%</span>
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-slate-500">Completion</span>
+                  <span className="text-[11px] font-black text-slate-800">{taskCompletionPct.toFixed(1)}%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(100, taskCompletionPct)}%` }} />
+                </div>
               </div>
             </div>
           </div>
@@ -536,9 +669,14 @@ const ClientDashboard = () => {
                   <span className="text-[11px] font-black text-slate-800">{r.val}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <span className="text-[11px] font-bold text-slate-500">Completion</span>
-                <span className="text-[11px] font-black text-slate-800">{milestoneCompletionPct}%</span>
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-slate-500">Completion</span>
+                  <span className="text-[11px] font-black text-slate-800">{milestoneCompletionPct.toFixed(1)}%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, milestoneCompletionPct)}%` }} />
+                </div>
               </div>
             </div>
           </div>
@@ -549,10 +687,10 @@ const ClientDashboard = () => {
               Recent Expenses
             </h2>
             <div className="max-h-[140px] overflow-y-auto pr-1 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-200">
-              {recentExpensesList.length === 0 ? (
-                <p className="text-[11px] font-bold text-slate-400">• No recent expenses</p>
+              {recentExpenses.length === 0 ? (
+                <p className="text-[11px] font-bold text-slate-400 py-4 text-center">• No recent expenses</p>
               ) : (
-                recentExpensesList.map((exp: any, i: number) => (
+                recentExpenses.map((exp: any, i: number) => (
                   <div key={exp.id || i} className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5 min-w-0">
                       <span className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -560,7 +698,7 @@ const ClientDashboard = () => {
                       </span>
                       <div className="min-w-0">
                         <p className="text-xs font-black text-slate-800 truncate">
-                          {exp.title || exp.category || exp.expense_type || ""}
+                          {exp.title || exp.category || exp.expense_type || "Expense"}
                         </p>
                         <p className="text-[10px] font-bold text-slate-400 truncate">
                           {exp.subtitle || exp.description || exp.notes || ""}
@@ -572,12 +710,7 @@ const ClientDashboard = () => {
                         ₹{Number(exp.amount || exp.total_amount || 0).toFixed(2)}
                       </p>
                       <p className="text-[10px] font-bold text-slate-400">
-                        {exp.date ||
-                          (exp.created_at
-                            ? new Date(exp.created_at).toLocaleDateString("en-GB", {
-                                day: "2-digit", month: "short", year: "numeric",
-                              })
-                            : "")}
+                        {formatDate(exp.date || exp.created_at)}
                       </p>
                     </div>
                   </div>
@@ -632,24 +765,23 @@ const ClientDashboard = () => {
             <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
               <FileText className="w-4.5 h-4.5 text-blue-600" style={{ width: 18, height: 18 }} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1.5">
                 Executive Summary
               </h2>
-              <p className="text-xs font-bold text-slate-500 leading-relaxed">
-                Project{" "}
-                <span className="font-black text-slate-800">{projectName || "—"}</span>{" "}
-                is{" "}
-                <span className="font-black text-slate-800">{progressPercent.toFixed(2)}%</span>{" "}
-                complete. Budget utilization is{" "}
-                <span className="font-black text-slate-800">{budgetUsedPercent.toFixed(2)}%</span>.
-                Project health is{" "}
-                <span className="font-black text-rose-500">{projectHealth || "—"}</span>.
-                There are{" "}
-                <span className="font-black text-slate-800">{tasksPending}</span>{" "}
-                pending tasks and{" "}
-                <span className="font-black text-slate-800">{milestonesPending}</span>{" "}
-                pending milestones.
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                {executiveSummary ? (
+                  executiveSummary
+                ) : (
+                  <>
+                    Project <span className="font-black text-slate-800">{projectName || "—"}</span> is{" "}
+                    <span className="font-black text-slate-800">{progressPercent.toFixed(2)}%</span> complete. Budget
+                    utilization is <span className="font-black text-slate-800">{budgetUsedPercent.toFixed(2)}%</span>.
+                    Project health is <span className="font-black text-rose-500">{projectHealth || "—"}</span>. There
+                    are <span className="font-black text-slate-800">{tasksPending}</span> pending tasks and{" "}
+                    <span className="font-black text-slate-800">{milestonesPending}</span> pending milestones.
+                  </>
+                )}
               </p>
             </div>
           </div>

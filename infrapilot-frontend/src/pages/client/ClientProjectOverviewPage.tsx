@@ -4,6 +4,7 @@ import { projectService } from "../../services/projectService";
 import { ownerService } from "../../services/ownerService";
 import { userService } from "../../services/userService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
+import { formatDateBySettings } from "../../utils/dateUtils";
 import toast from "react-hot-toast";
 
 const milestones: any[] = [
@@ -30,10 +31,30 @@ const ClientProjectOverviewPage = () => {
 
   const { projectId } = useClientProjectId();
 
-  const formatDate = (d: string | undefined) => {
-    if (!d) return "—";
-    const date = new Date(d);
-    return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr || dateStr === "—" || dateStr === "N/A" || dateStr === "null") return "—";
+    const str = String(dateStr).trim().split("T")[0];
+    const ymd = /^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})/.exec(str);
+    if (ymd) {
+      return `${ymd[1]}-${ymd[2].padStart(2, "0")}-${ymd[3].padStart(2, "0")}`;
+    }
+    const dmy = /^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/.exec(str);
+    if (dmy) {
+      const first = parseInt(dmy[1], 10);
+      const second = parseInt(dmy[2], 10);
+      const y = dmy[3];
+      const m = first > 12 ? dmy[2] : dmy[1];
+      const d = first > 12 ? dmy[1] : dmy[2];
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+    return dateStr;
   };
 
   useEffect(() => {

@@ -53,6 +53,8 @@ const AttendancePage: React.FC = () => {
     const [liveLocation, setLiveLocation] = useState<string | null>(null);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const RECORDS_PER_PAGE = 4;
     const [selectedRecordForLocation, setSelectedRecordForLocation] = useState<AttendanceRecord | null>(null);
     const [selectedRecordForDetail, setSelectedRecordForDetail] = useState<AttendanceRecord | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -308,7 +310,8 @@ const AttendancePage: React.FC = () => {
                     : data.out_time)
                 : nowIso;
 
-            const formData = new FormData();
+            const summaryText = (data.work_summary || data.remarks || 'Work completed for the day').trim();
+            formData.append('work_summary', summaryText);
 
             if (data.latitude !== undefined && data.latitude !== null && data.latitude !== '' && !isNaN(Number(data.latitude))) {
                 formData.append('check_out_latitude', Number(data.latitude).toString());
@@ -320,20 +323,12 @@ const AttendancePage: React.FC = () => {
             if (resolvedAddr && typeof resolvedAddr === 'string' && resolvedAddr.trim() !== '' && !["Fetching location...", "Locating...", "Location not available"].includes(resolvedAddr.trim())) {
                 formData.append('check_out_address', resolvedAddr.trim());
             }
-            if (data.work_summary && typeof data.work_summary === 'string' && data.work_summary.trim()) {
-                formData.append('work_summary', data.work_summary.trim());
-            }
-            if (data.remarks && typeof data.remarks === 'string' && data.remarks.trim()) {
-                formData.append('remarks', data.remarks.trim());
-            }
             if (data.task_deadline_reason && typeof data.task_deadline_reason === 'string' && data.task_deadline_reason.trim()) {
                 formData.append('task_deadline_reason', data.task_deadline_reason.trim());
             }
-            if (data.overtime_hours && !isNaN(Number(data.overtime_hours)) && Number(data.overtime_hours) > 0) {
-                formData.append('overtime_hours', Number(data.overtime_hours).toString());
-            }
-            if (data.overtime_rate && !isNaN(Number(data.overtime_rate)) && Number(data.overtime_rate) > 0) {
-                formData.append('overtime_rate', Number(data.overtime_rate).toString());
+
+            if (data.work_report_pdf instanceof Blob) {
+                formData.append('work_report_pdf', data.work_report_pdf, 'report.pdf');
             }
 
             if (data.check_out_image) {
@@ -348,7 +343,7 @@ const AttendancePage: React.FC = () => {
             try {
                 await attendanceService.checkOut(Number(checkoutId), formData);
             } catch (err) {
-                console.warn('API checkout failed, service handled mock persistence');
+                console.warn('API checkout warning, handled persistence');
             }
 
             const todayDate = getISTDateString();
@@ -443,6 +438,18 @@ const AttendancePage: React.FC = () => {
     };
 
     const filteredRecords = getFilteredRecords();
+    const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE) || 1;
+    const paginatedRecords = filteredRecords.slice((currentPage - 1) * RECORDS_PER_PAGE, currentPage * RECORDS_PER_PAGE);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [historyFilter, dateFrom, dateTo, activeProjectId]);
+
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     const parseTimeToMs = (timeStr?: string | null, baseDate?: string) => {
         if (!timeStr) return 0;
@@ -457,18 +464,16 @@ const AttendancePage: React.FC = () => {
     const isRecordForToday = Boolean(
         recordDate && (recordDate === todayIST || recordDate === todayLocal)
     );
-
     const hasInTime = Boolean(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time);
     const hasOutTime = Boolean(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time);
     const inTimeMs = parseTimeToMs(statusData?.attendance?.in_time || statusData?.attendance?.check_in_time, statusData?.attendance?.attendance_date);
     const outTimeMs = parseTimeToMs(statusData?.attendance?.out_time || statusData?.attendance?.check_out_time, statusData?.attendance?.attendance_date);
 
-    const isCurrentlyCheckedIn =
-        isRecordForToday &&
-        Boolean(statusData?.checked_in || hasInTime) &&
-        (!statusData?.checked_out || !hasOutTime || inTimeMs > outTimeMs);
+    const isUserCheckedOut = Boolean(statusData?.checked_out) || (hasOutTime && outTimeMs >= inTimeMs);
+    const isUserCheckedIn = Boolean(statusData?.checked_in || hasInTime);
 
-    const isShiftCompleted = isRecordForToday && !isCurrentlyCheckedIn && Boolean(statusData?.checked_out || hasOutTime);
+    const isCurrentlyCheckedIn = isRecordForToday && isUserCheckedIn && !isUserCheckedOut;
+    const isShiftCompleted = isRecordForToday && isUserCheckedIn && isUserCheckedOut;
 
     if (isLoading) {
         return (
@@ -732,7 +737,9 @@ const AttendancePage: React.FC = () => {
 
                                     <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
-                                            Showing {filteredRecords.length} records
+                                            {filteredRecords.length > RECORDS_PER_PAGE
+                                                ? `Showing ${(currentPage - 1) * RECORDS_PER_PAGE + 1}–${Math.min(currentPage * RECORDS_PER_PAGE, filteredRecords.length)} of ${filteredRecords.length} records`
+                                                : `Showing ${filteredRecords.length} records`}
                                         </p>
                                     </div>
                                 </div>
@@ -778,8 +785,8 @@ const AttendancePage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {filteredRecords.length > 0 ? (
-                                            filteredRecords.map((record) => (
+                                        {paginatedRecords.length > 0 ? (
+                                            paginatedRecords.map((record) => (
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="text-xs font-bold text-slate-500">
@@ -900,17 +907,93 @@ const AttendancePage: React.FC = () => {
 
                             <div className="p-6 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
                                 <div className="flex items-center gap-2">
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-600 hover:text-blue-500 hover:border-blue-200 transition-colors disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:border-slate-200 disabled:cursor-not-allowed shadow-sm"
+                                        title="Previous Page"
+                                    >
                                         <ChevronRight className="w-4 h-4 rotate-180" />
                                     </button>
+
                                     <div className="flex items-center gap-1">
-                                        <span className="w-8 h-8 rounded-lg bg-[#0062ff] text-white flex items-center justify-center text-xs font-black">1</span>
+                                        {totalPages <= 5 ? (
+                                            Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => setCurrentPage(pageNum)}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
+                                                        currentPage === pageNum
+                                                            ? 'bg-[#0062ff] text-white shadow-md shadow-blue-200'
+                                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600'
+                                                    }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setCurrentPage(1)}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
+                                                        currentPage === 1
+                                                            ? 'bg-[#0062ff] text-white shadow-md shadow-blue-200'
+                                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600'
+                                                    }`}
+                                                >
+                                                    1
+                                                </button>
+
+                                                {currentPage > 3 && (
+                                                    <span className="w-6 text-center text-xs font-black text-slate-400">...</span>
+                                                )}
+
+                                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                                    .filter(p => p !== 1 && p !== totalPages && Math.abs(p - currentPage) <= 1)
+                                                    .map(pageNum => (
+                                                        <button
+                                                            key={pageNum}
+                                                            onClick={() => setCurrentPage(pageNum)}
+                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
+                                                                currentPage === pageNum
+                                                                    ? 'bg-[#0062ff] text-white shadow-md shadow-blue-200'
+                                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600'
+                                                            }`}
+                                                        >
+                                                            {pageNum}
+                                                        </button>
+                                                    ))}
+
+                                                {currentPage < totalPages - 2 && (
+                                                    <span className="w-6 text-center text-xs font-black text-slate-400">...</span>
+                                                )}
+
+                                                <button
+                                                    onClick={() => setCurrentPage(totalPages)}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
+                                                        currentPage === totalPages
+                                                            ? 'bg-[#0062ff] text-white shadow-md shadow-blue-200'
+                                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600'
+                                                    }`}
+                                                >
+                                                    {totalPages}
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages || filteredRecords.length === 0}
+                                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-600 hover:text-blue-500 hover:border-blue-200 transition-colors disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:border-slate-200 disabled:cursor-not-allowed shadow-sm"
+                                        title="Next Page"
+                                    >
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sorted by Date (Latest First)</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                                    {filteredRecords.length > 0 ? `Page ${currentPage} of ${totalPages} • Sorted by Date (Latest First)` : 'Sorted by Date (Latest First)'}
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -10,6 +10,7 @@ import {
 import { notificationService } from "../../services/notificationService";
 import { alertService } from "../../services/alertService";
 import { handleNotificationClick } from "../../utils/notificationNavigator";
+import api from "../../services/api";
 
 /* ─── Helper Date Formatters ─── */
 const formatTableDate = (tsStr: string) => {
@@ -49,6 +50,59 @@ const formatLongDate = (dateStr: string) => {
     });
   } catch {
     return dateStr;
+  }
+};
+
+/* ─── LocalStorage Persistence Helpers ─── */
+const getPersistedReadIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem("infrapilot_notifications_read_ids") || localStorage.getItem("infrapilot_alerts_read_ids");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const getPersistedUnreadIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem("infrapilot_notifications_unread_ids");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistReadId = (id: string | number) => {
+  try {
+    const strId = String(id);
+    const readIds = getPersistedReadIds();
+    if (!readIds.includes(strId)) {
+      readIds.push(strId);
+      if (readIds.length > 500) readIds.shift();
+      localStorage.setItem("infrapilot_notifications_read_ids", JSON.stringify(readIds));
+      localStorage.setItem("infrapilot_alerts_read_ids", JSON.stringify(readIds));
+    }
+    const unreadIds = getPersistedUnreadIds().filter(i => i !== strId);
+    localStorage.setItem("infrapilot_notifications_unread_ids", JSON.stringify(unreadIds));
+  } catch (err) {
+    console.warn("persistReadId error:", err);
+  }
+};
+
+const persistUnreadId = (id: string | number) => {
+  try {
+    const strId = String(id);
+    const unreadIds = getPersistedUnreadIds();
+    if (!unreadIds.includes(strId)) {
+      unreadIds.push(strId);
+      if (unreadIds.length > 500) unreadIds.shift();
+      localStorage.setItem("infrapilot_notifications_unread_ids", JSON.stringify(unreadIds));
+    }
+    const readIds = getPersistedReadIds().filter(i => i !== strId);
+    localStorage.setItem("infrapilot_notifications_read_ids", JSON.stringify(readIds));
+    localStorage.setItem("infrapilot_alerts_read_ids", JSON.stringify(readIds));
+  } catch (err) {
+    console.warn("persistUnreadId error:", err);
   }
 };
 
@@ -144,6 +198,15 @@ const LabourNotificationsPage = () => {
     try {
       // Fetch from overview API
       const raw = await notificationService.getNotificationsOverview(100, 0).catch(() => []);
+      const readIds = getPersistedReadIds();
+      const unreadIds = getPersistedUnreadIds();
+
+      const resolveIsRead = (item: any) => {
+        const strId = String(item.id || item.notification_id);
+        if (unreadIds.includes(strId)) return false;
+        if (readIds.includes(strId)) return true;
+        return !!(item.read || item.is_read || item.status === "read");
+      };
 
       if (raw && raw.length > 0) {
         const mapped: LocalNotification[] = raw.map(n => ({
@@ -151,17 +214,28 @@ const LabourNotificationsPage = () => {
           title: n.title || "Notification",
           description: n.description || n.details || "",
           type: n.type || "Info",
-          read: !!n.read,
+          read: resolveIsRead(n),
           created_at: n.created_at || n.timestamp || new Date().toISOString()
         }));
         setNotifications(mapped);
       } else {
         // Fallback to MOCK_NOTIFICATIONS to match screenshot
-        setNotifications(MOCK_NOTIFICATIONS);
+        setNotifications(MOCK_NOTIFICATIONS.map(n => ({
+          ...n,
+          read: resolveIsRead(n)
+        })));
       }
     } catch (err) {
       console.error("fetchNotifications failed, loading fallback mock data:", err);
-      setNotifications(MOCK_NOTIFICATIONS);
+      const readIds = getPersistedReadIds();
+      const unreadIds = getPersistedUnreadIds();
+      setNotifications(MOCK_NOTIFICATIONS.map(n => {
+        const strId = String(n.id);
+        let r = n.read;
+        if (unreadIds.includes(strId)) r = false;
+        else if (readIds.includes(strId)) r = true;
+        return { ...n, read: r };
+      }));
     } finally {
       setLoading(false);
     }
@@ -173,19 +247,70 @@ const LabourNotificationsPage = () => {
 
   /* ─── Mark Single Read ─── */
   const handleMarkRead = async (notif: LocalNotification) => {
-    if (notif.read) return;
+    persistReadId(notif.id);
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     try {
-      if (typeof notif.id === "number") {
-        await alertService.markAlertRead(notif.id);
-      } else {
-        // String or fallback
-        await alertService.markAlertRead(parseInt(notif.id.replace(/\D/g, "")) || 0).catch(() => { });
+      const numericId = typeof notif.id === "number" ? notif.id : parseInt(String(notif.id).replace(/\D/g, ""), 10);
+      if (!isNaN(numericId) && numericId > 0) {
+        await Promise.allSettled([
+          api.put(`/notifications/${numericId}/read`),
+          api.put(`/alerts/${numericId}/read`)
+        ]);
       }
     } catch (err) {
       console.warn("API markRead failed:", err);
     }
-    // Update local state anyway
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+  };
+
+  /* ─── Mark Single Unread ─── */
+  const handleMarkUnread = async (notif: LocalNotification) => {
+    persistUnreadId(notif.id);
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: false } : n));
+    try {
+      const numericId = typeof notif.id === "number" ? notif.id : parseInt(String(notif.id).replace(/\D/g, ""), 10);
+      if (!isNaN(numericId) && numericId > 0) {
+        await Promise.allSettled([
+          api.put(`/notifications/${numericId}/unread`),
+          api.put(`/alerts/${numericId}/unread`)
+        ]);
+      }
+    } catch (err) {
+      console.warn("API markUnread failed:", err);
+    }
+  };
+
+  /* ─── Toggle Read / Unread ─── */
+  const handleToggleRead = async (notif: LocalNotification) => {
+    if (notif.read) {
+      await handleMarkUnread(notif);
+      toast.success("Marked as unread");
+    } else {
+      await handleMarkRead(notif);
+      toast.success("Marked as read");
+    }
+  };
+
+  /* ─── Mark All Read ─── */
+  const handleMarkAllRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    if (unread.length === 0) {
+      toast.success("All notifications are already read.");
+      return;
+    }
+    unread.forEach(n => persistReadId(n.id));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    toast.success("All notifications marked as read.");
+    try {
+      await Promise.allSettled([
+        api.put('/notifications/read-all'),
+        ...unread.map(n => {
+          const num = typeof n.id === "number" ? n.id : parseInt(String(n.id).replace(/\D/g, ""), 10);
+          return !isNaN(num) && num > 0 ? api.put(`/notifications/${num}/read`) : Promise.resolve();
+        })
+      ]);
+    } catch (err) {
+      console.warn("Mark all read API error:", err);
+    }
   };
 
   /* ─── Bulk Action ─── */
@@ -193,11 +318,10 @@ const LabourNotificationsPage = () => {
     if (selectedIds.length === 0) return;
     setMarkingRead(true);
     try {
-      await Promise.allSettled(
-        notifications
-          .filter(n => selectedIds.includes(String(n.id)) && !n.read)
-          .map(n => handleMarkRead(n))
-      );
+      const toMark = notifications.filter(n => selectedIds.includes(String(n.id)) && !n.read);
+      toMark.forEach(n => persistReadId(n.id));
+      setNotifications(prev => prev.map(n => selectedIds.includes(String(n.id)) ? { ...n, read: true } : n));
+      await Promise.allSettled(toMark.map(n => handleMarkRead(n)));
       toast.success("Selected notifications marked as read.");
       setSelectedIds([]);
     } catch (err) {
@@ -270,6 +394,13 @@ const LabourNotificationsPage = () => {
                 {markingRead ? "Processing..." : `Mark Selected Read (${selectedIds.length})`}
               </button>
             )}
+            <button
+              onClick={handleMarkAllRead}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <CheckCheck className="w-4 h-4 text-emerald-500" />
+              Mark All Read
+            </button>
           </div>
         </div>
 
@@ -440,16 +571,19 @@ const LabourNotificationsPage = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <button
-                            onClick={(e) => { e.stopPropagation(); !isRead && handleMarkRead(notif); }}
-                            disabled={isRead}
-                            title={isRead ? "Already Read" : "Mark as Read"}
-                            className={`mx-auto block transition-colors ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleRead(notif);
+                            }}
+                            title={isRead ? "Click to mark as unread" : "Click to mark as read"}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer select-none active:scale-95 ${
                               isRead
-                                ? "text-slate-300 cursor-default"
-                                : "text-emerald-500 hover:text-emerald-600 cursor-pointer"
+                                ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100/80 border border-emerald-200 shadow-sm shadow-emerald-100"
+                                : "bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600 border border-slate-200/80 hover:border-blue-200"
                             }`}
                           >
-                            <CheckCheck className="w-5 h-5" />
+                            <CheckCheck className={`w-3.5 h-3.5 ${isRead ? "text-emerald-600" : "text-slate-400"}`} />
+                            <span>{isRead ? "Read" : "Unread"}</span>
                           </button>
                         </td>
                         <td className="px-6 py-4 text-right">
