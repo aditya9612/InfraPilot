@@ -10,8 +10,6 @@ import { projectService } from "../../services/projectService";
 import { PROJECTS } from "../../config/projectSeed";
 import { materialService } from "../../services/materialService";
 
-const PETTY_CASH_CATEGORIES = ["Tea Expenses", "Diesel", "Site Travel", "Local Material Purchase", "Stationery", "Miscellaneous"];
-const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equipment Owner", "Land Owner", "Legal Entity"];
 
 // --- DATE HELPERS (Exact API Response String) ---
 const formatDateTimeDMY = (dateStr: any): string => {
@@ -743,7 +741,7 @@ const PettyCashSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [, setPettyCashData] = useState<any[]>([]);
+  const [pettyCashData, setPettyCashData] = useState<any[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<any[]>([]);
 
   const fetchPettyCash = async () => {

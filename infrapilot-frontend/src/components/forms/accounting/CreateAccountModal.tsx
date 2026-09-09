@@ -105,7 +105,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <div>
-            <label className={labelClasses}>Name *</label>
+            <label className={labelClasses}>Name <span className="text-red-500">*</span></label>
             <input
               type="text"
               required
@@ -115,7 +115,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             />
           </div>
           <div>
-            <label className={labelClasses}>Code *</label>
+            <label className={labelClasses}>Code <span className="text-red-500">*</span></label>
             <input
               type="text"
               required
@@ -125,7 +125,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             />
           </div>
           <div>
-            <label className={labelClasses}>Type *</label>
+            <label className={labelClasses}>Type <span className="text-red-500">*</span></label>
             <select
               required
               className={inputClasses}

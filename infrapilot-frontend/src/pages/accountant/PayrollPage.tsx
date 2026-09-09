@@ -9,7 +9,6 @@ import { paymentService } from "../../services/paymentService";
 import { userService } from "../../services/userService";
 import { labourService } from "../../services/labourService";
 import { contractorService } from "../../services/contractorService";
-import { projectService } from "../../services/projectService";
 import { accountingService } from "../../services/accountingService";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
@@ -1432,7 +1431,7 @@ const PayrollPage = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
-  const [_summaryData, setSummaryData] = useState<any>(null);
+  const [summaryData, setSummaryData] = useState<any>(null);
   const [globalProjectId, setGlobalProjectId] = useState<string>("");
 
   useEffect(() => {
