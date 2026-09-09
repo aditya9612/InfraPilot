@@ -112,13 +112,33 @@ const CreateDraftQuotationPage = () => {
 
 
   const handleDownloadFromPreview = async () => {
-    if (!id || !pdfUrl) return;
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    let qId = currentId;
+    if (!qId) {
+        const newId = await handleSaveQuotation();
+        if (newId) {
+            qId = newId;
+        } else {
+            toast.error("Failed to generate Quotation ID for download.");
+            return;
+        }
+    }
+    
+    const toastId = toast.loading("Downloading PDF from backend...");
+    try {
+        const blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || qId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Downloaded from Server", { id: toastId });
+    } catch(err: any) {
+        console.error("Backend Download Error:", err);
+        toast.error(err.message || "Failed to download PDF via API.", { id: toastId });
+    }
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -654,10 +674,13 @@ const CreateDraftQuotationPage = () => {
 
       if (response && response.id) {
         setSavedDraftId(String(response.id));
+        return String(response.id);
       }
+      return null;
       // navigate("/admin/invoices/all"); // User requested to stay on the same screen
     } catch (error: any) {
       toast.error(error.message || "Failed to save quotation");
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -667,13 +690,22 @@ const CreateDraftQuotationPage = () => {
   const handleDownload = async () => {
     const toastId = toast.loading("Generating professional PDF...");
     try {
-      let blob;
-      if (currentId) {
-        blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
-      } else {
-        const payload = buildDummyPayload();
-        blob = await quotationService.previewDummyQuotationPDF(payload);
+      let qId = currentId;
+
+      // If no ID is present, we must save the quotation first to generate an ID
+      // so that we can hit the exact GET API the user requested.
+      if (!qId) {
+          const newId = await handleSaveQuotation();
+          if (newId) {
+              qId = newId;
+          } else {
+              toast.error("Failed to generate Quotation ID for download.", { id: toastId });
+              return;
+          }
       }
+
+      let blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -940,7 +972,7 @@ const CreateDraftQuotationPage = () => {
                             }}
                             readOnly={isReadOnly}
                             placeholder="Type Manual Client Name..."
-                            className={`w-full px-4 py-2.5 mt-2 bg-white border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                            className={`w-full px-4 py-2.5 mt-2 bg-white border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />
                           {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
                         </div>
@@ -957,7 +989,7 @@ const CreateDraftQuotationPage = () => {
                             setClientDetails({ ...clientDetails, mobile: val });
                             if (errors.mobile) setErrors(prev => ({ ...prev, mobile: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-white border ${errors.mobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500`}
+                          className={`w-full px-4 py-2.5 bg-white border ${errors.mobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-400`}
                         />
                         {errors.mobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.mobile}</p>}
                       </div>
@@ -970,7 +1002,7 @@ const CreateDraftQuotationPage = () => {
                             setClientDetails({ ...clientDetails, email: e.target.value });
                             if (errors.email) setErrors(prev => ({ ...prev, email: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-white border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500`}
+                          className={`w-full px-4 py-2.5 bg-white border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-400`}
                           placeholder="client@example.com"
                         />
                         {errors.email && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.email}</p>}
@@ -982,7 +1014,7 @@ const CreateDraftQuotationPage = () => {
                         type="text"
                         value={clientDetails.company}
                         onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-400"
                         placeholder="e.g. Patil Construction Pvt Ltd"
                       />
                     </div>
@@ -992,7 +1024,7 @@ const CreateDraftQuotationPage = () => {
                         rows={1}
                         value={clientDetails.address}
                         onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none hover:border-slate-500"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none hover:border-slate-400"
                       />
                     </div>
                     <div>
@@ -1001,7 +1033,7 @@ const CreateDraftQuotationPage = () => {
                         type="text"
                         value={clientDetails.gst}
                         onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase hover:border-slate-500"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase hover:border-slate-400"
                       />
                     </div>
                   </div>
@@ -1050,7 +1082,7 @@ const CreateDraftQuotationPage = () => {
                             type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-400"
                             placeholder="Enter item description..."
                           />
                         </td>
@@ -1059,7 +1091,7 @@ const CreateDraftQuotationPage = () => {
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                             disabled={isReadOnly}
-                            className={`w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 cursor-pointer transition-all hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 cursor-pointer transition-all hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                           >
                             <option value="">Select Unit</option>
                             {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
@@ -1086,7 +1118,7 @@ const CreateDraftQuotationPage = () => {
                                 }
                               }
                             }}
-                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-400"
                             placeholder="0"
                           />
                         </td>
@@ -1109,7 +1141,7 @@ const CreateDraftQuotationPage = () => {
                                 }
                               }
                             }}
-                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-400"
                             placeholder="0"
                           />
                         </td>
@@ -1206,7 +1238,7 @@ const CreateDraftQuotationPage = () => {
                         return { ...prev, cgst: val, gst: val + prev.sgst };
                       })}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1225,7 +1257,7 @@ const CreateDraftQuotationPage = () => {
                         return { ...prev, sgst: val, gst: val + prev.cgst };
                       })}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1242,7 +1274,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-white border border-slate-400 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-24 px-2 py-1 bg-white border border-slate-300 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                   </div>
                 </div>
@@ -1256,7 +1288,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1280,7 +1312,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-white border border-slate-400 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-24 px-2 py-1 bg-white border border-slate-300 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                   </div>
                 </div>
@@ -1425,6 +1457,7 @@ const CreateDraftQuotationPage = () => {
         isOpen={isPreviewModalOpen}
         onClose={() => setIsPreviewModalOpen(false)}
         forceLocal={true}
+        onDownloadSave={handleSaveQuotation}
         data={{
           id: currentId,
           invoiceNo: invoiceDetails.invoiceNo,

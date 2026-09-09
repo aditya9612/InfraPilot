@@ -9,7 +9,7 @@ import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import type { ChartAccount, AccountType } from "../../types/accounting";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, BookOpen, Pencil, Trash2 } from "lucide-react";
 
 
 
@@ -458,10 +458,18 @@ const ChartOfAccountsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">👁</button>
-                            <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">📒</button>
-                            <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">✏️</button>
-                            <button onClick={() => confirmDelete(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">🗑</button>
+                            <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">
+                              <BookOpen className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => confirmDelete(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>

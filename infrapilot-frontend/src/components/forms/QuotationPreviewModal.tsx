@@ -14,6 +14,7 @@ interface QuotationPreviewModalProps {
     onClose: () => void;
     data: any;
     forceLocal?: boolean;
+    onDownloadSave?: () => Promise<string | number | null | undefined>;
 }
 
 const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
@@ -21,6 +22,7 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     onClose,
     data,
     forceLocal = false,
+    onDownloadSave,
 }) => {
     const [companyInfo, setCompanyInfo] = useState<CompanySettings | null>(null);
 
@@ -235,40 +237,46 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     };
 
     const handleDownloadPDF = async () => {
-        if ((!data.id && !data.invoiceNo?.includes('QTN'))) {
-            const doc = buildQuotationPDF();
-            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
-            return;
-        }
-
         const toastId = toast.loading("Downloading PDF from backend...");
         try {
-            const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
+            let qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
 
-            if (!qId || isNaN(Number(qId))) {
-                const doc = buildQuotationPDF();
-                doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
-                toast.dismiss(toastId);
-                return;
+            // Attempt to auto-save to get an ID if we don't have one and a save callback is provided
+            if ((!qId || isNaN(Number(qId))) && onDownloadSave) {
+                const savedId = await onDownloadSave();
+                if (savedId) {
+                    qId = savedId;
+                }
             }
 
-            const blob = data.isDraft 
-                ? await quotationService.downloadDummyQuotationPDF(Number(qId))
-                : await quotationService.downloadQuotationPDF(Number(qId));
+            let blob: Blob;
+
+            if (!qId || isNaN(Number(qId))) {
+                // If it's a draft preview (no ID), use the preview PDF API
+                if (data.isDraft) {
+                    blob = await quotationService.previewDummyQuotationPDF(data);
+                } else {
+                    toast.error("No Quotation ID found to download from server.", { id: toastId });
+                    return;
+                }
+            } else {
+                blob = data.isDraft 
+                    ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                    : await quotationService.downloadQuotationPDF(Number(qId));
+            }
+
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Quotation_${data.invoiceNo}.pdf`);
+            link.setAttribute('download', `Quotation_${data.invoiceNo || 'Draft'}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Downloaded from Server", { id: toastId });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Backend Download Error:", error);
-            toast.error("Falling back to local generation", { id: toastId });
-            const doc = buildQuotationPDF();
-            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
+            toast.error(error.message || "Failed to download PDF from server", { id: toastId });
         }
     };
 
@@ -289,8 +297,14 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                     const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
                     if (qId && !isNaN(Number(qId))) {
                         const blob = data.isDraft 
-                ? await quotationService.downloadDummyQuotationPDF(Number(qId))
-                : await quotationService.downloadQuotationPDF(Number(qId));
+                            ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                            : await quotationService.downloadQuotationPDF(Number(qId));
+                        const url = window.URL.createObjectURL(blob);
+                        setPdfUrl(url);
+                        setIsLoadingPdf(false);
+                        return;
+                    } else if (data.isDraft) {
+                        const blob = await quotationService.previewDummyQuotationPDF(data);
                         const url = window.URL.createObjectURL(blob);
                         setPdfUrl(url);
                         setIsLoadingPdf(false);
