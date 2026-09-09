@@ -1465,7 +1465,7 @@ const CreateInvoicePage = () => {
                 {activeHeaderSection === "client" && (
                   <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
                       <select
                         value={clientDetails.clientId || 0}
                         onChange={(e) => {
@@ -1488,7 +1488,7 @@ const CreateInvoicePage = () => {
                           }
                         }}
                         disabled={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       >
                         <option value={0}>Walk-in / Manual Client</option>
                         {clients.map(c => (
@@ -1506,7 +1506,7 @@ const CreateInvoicePage = () => {
                             }}
                             readOnly={isReadOnly}
                             placeholder="Type Manual Client Name..."
-                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />
                           {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
                         </>
@@ -1514,7 +1514,7 @@ const CreateInvoicePage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Mobile Number {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
                         <input
                           type="text"
                           value={clientDetails.mobile}
@@ -1523,12 +1523,12 @@ const CreateInvoicePage = () => {
                             setClientDetails({ ...clientDetails, mobile: v });
                             if (errors.clientMobile) setErrors(prev => ({ ...prev, clientMobile: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientMobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientMobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
                         />
                         {errors.clientMobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientMobile}</p>}
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Email Address {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
                         <input
                           type="email"
                           value={clientDetails.email}
@@ -1536,38 +1536,38 @@ const CreateInvoicePage = () => {
                             setClientDetails({ ...clientDetails, email: e.target.value });
                             if (errors.clientEmail) setErrors(prev => ({ ...prev, clientEmail: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientEmail ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientEmail ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
                           placeholder="client@example.com"
                         />
                         {errors.clientEmail && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientEmail}</p>}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name</label>
                       <input
                         type="text"
                         value={clientDetails.company}
                         onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500"
                         placeholder="e.g. Patil Construction Pvt Ltd"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Billing Address</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Billing Address</label>
                       <textarea
                         rows={1}
                         value={clientDetails.address}
                         onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
                       <input
                         type="text"
                         value={clientDetails.gst}
                         onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all uppercase"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase"
                       />
                     </div>
                   </div>
@@ -1594,7 +1594,7 @@ const CreateInvoicePage = () => {
                 {activeHeaderSection === "project" && (
                   <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         value={projectDetails.name}
@@ -1604,12 +1604,12 @@ const CreateInvoicePage = () => {
                         }}
                         placeholder="Type Manual Project Name..."
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
                       {errors.projectName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectName}</p>}
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         list="project-types-list"
@@ -1620,7 +1620,7 @@ const CreateInvoicePage = () => {
                         }}
                         readOnly={isReadOnly}
                         placeholder="e.g. Residential, Infrastructure"
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectType ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectType ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
                       {errors.projectType && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectType}</p>}
                       <datalist id="project-types-list">
@@ -1633,18 +1633,18 @@ const CreateInvoicePage = () => {
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
                       <input
                         type="text"
                         value={projectDetails.engineer}
                         onChange={(e) => setProjectDetails({ ...projectDetails, engineer: e.target.value })}
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                         placeholder="e.g. Er. Tejas Dhande"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         value={projectDetails.siteAddress}
@@ -1653,18 +1653,18 @@ const CreateInvoicePage = () => {
                           if (errors.siteAddress) setErrors(prev => ({ ...prev, siteAddress: "" }));
                         }}
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.siteAddress ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.siteAddress ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
                       {errors.siteAddress && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.siteAddress}</p>}
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Order No.</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Work Order No.</label>
                       <input
                         type="text"
                         value={projectDetails.workOrderNo}
                         onChange={(e) => setProjectDetails({ ...projectDetails, workOrderNo: e.target.value })}
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       />
                     </div>
                   </div>
@@ -1691,24 +1691,24 @@ const CreateInvoicePage = () => {
                 {activeHeaderSection === "quotation" && (
                   <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Quotation Date</label>
                       <div className="relative">
                         <input
                           type="date"
                           value={invoiceDetails.date}
                           onChange={(e) => setInvoiceDetails({ ...invoiceDetails, date: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
                       <div className="relative">
                         <input
                           type="date"
                           value={invoiceDetails.dueDate}
                           onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
                         />
                       </div>
                     </div>
@@ -2046,7 +2046,7 @@ const CreateInvoicePage = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Skill Type</th>
                             <th className="pb-4">Count</th>
                             <th className="pb-4">Wage (₹)</th>
@@ -2162,7 +2162,7 @@ const CreateInvoicePage = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Material Name</th>
                             <th className="pb-4">Unit</th>
                             <th className="pb-4">Quantity</th>
@@ -2341,7 +2341,7 @@ const CreateInvoicePage = () => {
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">GST Breakdown Settings</h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total GST (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Total GST (%)</label>
                           <input
                             type="number"
                             value={gstRates.gst}
@@ -2351,7 +2351,7 @@ const CreateInvoicePage = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">CGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">CGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.cgst}
@@ -2360,7 +2360,7 @@ const CreateInvoicePage = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">SGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">SGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.sgst}
@@ -2370,7 +2370,7 @@ const CreateInvoicePage = () => {
                           </div>
                         </div>
                         <div className="pt-4 border-t border-slate-50">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">TDS (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">TDS (%)</label>
                           <input
                             type="number"
                             value={gstRates.tds}
@@ -2389,7 +2389,7 @@ const CreateInvoicePage = () => {
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Bank Name</label>
                           <input
                             type="text"
                             value={paymentDetails.bank_name}
@@ -2398,7 +2398,7 @@ const CreateInvoicePage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Code</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">IFSC Code</label>
                           <input
                             type="text"
                             value={paymentDetails.ifsc_code}
@@ -2408,7 +2408,7 @@ const CreateInvoicePage = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Number</label>
                         <input
                           type="text"
                           value={paymentDetails.account_number}
@@ -2417,7 +2417,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI ID</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">UPI ID</label>
                         <input
                           type="text"
                           value={paymentDetails.upi_id}
@@ -2429,7 +2429,7 @@ const CreateInvoicePage = () => {
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Company Details on Quotation</h4>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Holder Name</label>
                         <input
                           type="text"
                           value={paymentDetails.account_holder_name}
@@ -2438,7 +2438,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
                         <input
                           type="text"
                           value={clientDetails.company}
@@ -2448,7 +2448,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
                         <input
                           type="date"
                           value={paymentDetails.due_date || ""}
@@ -2466,7 +2466,7 @@ const CreateInvoicePage = () => {
                     <div className="flex items-start gap-6 flex-wrap">
                       <div className="flex-1 min-w-[240px] space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Upload Signature Image</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Upload Signature Image</label>
                           <p className="text-xs text-slate-400 mb-4">Upload a PNG/JPEG signature to be printed on this quotation. Transparent PNGs look best.</p>
                         </div>
                         <div
@@ -2498,7 +2498,7 @@ const CreateInvoicePage = () => {
                         )}
                       </div>
                       <div className="w-64 shrink-0">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Preview on Quotation</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Preview on Quotation</label>
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                           <p className="text-[10px] font-black text-slate-900 uppercase mb-3">For {clientDetails.company || "Your Company"}</p>
                           <div className="h-16 border-b border-slate-200 flex items-end justify-center pb-2 mb-2">
@@ -2700,7 +2700,7 @@ const CreateInvoicePage = () => {
                 <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
                   <div className="flex items-center justify-center gap-2 mb-0.5">
                     <Zap className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
+                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Conversion Actions</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button

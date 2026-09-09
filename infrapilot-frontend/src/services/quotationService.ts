@@ -590,5 +590,35 @@ export const quotationService = {
             console.error(`Download Dummy Quotation PDF ${id} Error:`, error.response?.data || error.message);
             throw new Error(error.response?.data?.message || 'Failed to download dummy quotation PDF');
         }
+    },
+
+    /**
+     * Preview Dummy Quotation
+     * POST /api/v1/dummy-quotations/preview
+     */
+    async previewDummyQuotation(data: any): Promise<any> {
+        try {
+            const response = await api.post("/dummy-quotations/preview", data);
+            return response.data;
+        } catch (error: any) {
+            console.error("Preview Dummy Quotation Error:", error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Preview Dummy Quotation PDF
+     * POST /api/v1/dummy-quotations/preview/pdf
+     */
+    async previewDummyQuotationPDF(data: any): Promise<Blob> {
+        try {
+            const response = await api.post("/dummy-quotations/preview/pdf", data, {
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error("Preview Dummy Quotation PDF Error:", error.response?.data || error.message);
+            throw new Error(error.response?.data?.message || 'Failed to preview dummy quotation PDF');
+        }
     }
 };

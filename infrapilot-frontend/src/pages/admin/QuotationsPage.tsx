@@ -21,7 +21,7 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
-import PDFPreviewModal from "../../components/common/PDFPreviewModal";
+// Removed unused PDFPreviewModal import
 import { quotationService } from "../../services/quotationService";
 import { financeService } from "../../services/financeService";
 import type { Quotation } from "../../types/quotation";
@@ -45,14 +45,9 @@ const QuotationsPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [rejectTarget, setRejectTarget] = useState<number | null>(null);
     const [isRejecting, setIsRejecting] = useState(false);
-
-    // Preview state
-    const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
-    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isFetchingPreview, setIsFetchingPreview] = useState(false);
-    const [previewQuotationNo, setPreviewQuotationNo] = useState("");
-    const [previewQuotationId, setPreviewQuotationId] = useState<number | null>(null);
-    const [isDownloadingFromPreview, setIsDownloadingFromPreview] = useState(false);
+
+    // Preview state removed as it is handled by navigation to view page instead of modal
 
     // Create Dropdown state
     const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
@@ -217,10 +212,17 @@ const QuotationsPage = () => {
             setIsFetchingPreview(true);
             const toastId = toast.loading("Downloading PDF...");
 
-            const q = quotations.find(item => item.id === id);
+            const isDummy = activeTab === "dummy_quotations";
+            const sourceList = isDummy ? dummyQuotations : quotations;
+            const q = sourceList.find(item => item.id === id);
             const quotationNo = q?.quotation_no || `QTN-${id}`;
 
-            const blob = await quotationService.downloadQuotationPDF(id);
+            let blob;
+            if (isDummy) {
+                blob = await quotationService.downloadDummyQuotationPDF(id);
+            } else {
+                blob = await quotationService.downloadQuotationPDF(id);
+            }
 
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -239,27 +241,7 @@ const QuotationsPage = () => {
         }
     };
 
-    const handleDownloadFromPreview = async () => {
-        if (!previewQuotationId) return;
-        setIsDownloadingFromPreview(true);
-        const toastId = toast.loading("Downloading PDF...");
-        try {
-            const blob = await quotationService.downloadQuotationPDF(previewQuotationId);
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Quotation_${previewQuotationNo}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success("PDF Downloaded Successfully", { id: toastId });
-        } catch (error) {
-            toast.error("Failed to download PDF", { id: toastId });
-        } finally {
-            setIsDownloadingFromPreview(false);
-        }
-    };
+
 
     return (
         <>
@@ -550,20 +532,7 @@ const QuotationsPage = () => {
                 isLoading={isRejecting}
                 title="Reject Quotation"
             />
-            <PDFPreviewModal
-                isOpen={isPDFModalOpen}
-                onClose={() => {
-                    setIsPDFModalOpen(false);
-                    if (pdfUrl) {
-                        window.URL.revokeObjectURL(pdfUrl);
-                        setPdfUrl(null);
-                    }
-                }}
-                pdfUrl={pdfUrl}
-                title={`Preview Quotation: ${previewQuotationNo}`}
-                onDownload={handleDownloadFromPreview}
-                isDownloading={isDownloadingFromPreview}
-            />
+
         </>
     );
 };

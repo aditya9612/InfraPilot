@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   User,
@@ -14,9 +14,6 @@ import {
   Save,
   MessageCircle,
   PlusCircle,
-  Calendar,
-  Clock,
-  MapPin,
   Building,
   CheckCircle,
   XCircle,
@@ -67,11 +64,31 @@ const CreateDraftQuotationPage = () => {
   const [clients, setClients] = useState<any[]>([]);
 
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const handlePreviewModalOpen = async () => {
-    setIsPreviewModalOpen(true);
+    setIsPreviewLoading(true);
+    const toastId = toast.loading("Generating preview from backend...");
+    try {
+      let blob;
+      if (currentId) {
+        blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
+      } else {
+        const payload = buildDummyPayload();
+        blob = await quotationService.previewDummyQuotationPDF(payload);
+      }
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setIsPDFModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to generate preview", { id: toastId });
+      // fallback to local preview modal if backend fails
+      setIsPreviewModalOpen(true);
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
 
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
@@ -156,16 +173,6 @@ const CreateDraftQuotationPage = () => {
 
   const [extraChargeItems, setExtraChargeItems] = useState<ExtraChargeItem[]>([]);
 
-  const [paymentDetails, setPaymentDetails] = useState({
-    payment_mode: "UPI",
-    upi_id: "",
-    bank_name: "",
-    account_holder_name: "",
-    account_number: "",
-    ifsc_code: "",
-    due_date: ""
-  });
-
   const [gstRates, setGstRates] = useState({
     gst: 18,
     cgst: 9,
@@ -176,25 +183,7 @@ const CreateDraftQuotationPage = () => {
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
 
-  const [projectStartEnd, setProjectStartEnd] = useState({
-    start: "",
-    end: ""
-  });
 
-  // Signature
-  const [signatureImage, setSignatureImage] = useState<string | null>(null);
-  const signatureInputRef = useRef<HTMLInputElement>(null);
-  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Signature image must be under 2MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => setSignatureImage(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
 
   // Calculate Plum Concrete
   useEffect(() => {
@@ -241,13 +230,6 @@ const CreateDraftQuotationPage = () => {
           engineer: (selectedProject as any).engineer_name || "Er. Tejas Dhande"
         });
 
-        // Also update project dates if available
-        if (selectedProject.start_date || selectedProject.end_date) {
-          setProjectStartEnd({
-            start: selectedProject.start_date || "",
-            end: selectedProject.end_date || ""
-          });
-        }
 
         // Client details will NOT be auto-populated from project owner.
         // User requested to type client details manually without them being overwritten by project selection.
@@ -354,24 +336,9 @@ const CreateDraftQuotationPage = () => {
           setDiscount(q.discount_amount || 0);
           setAdvancePaid(q.advance_paid || 0);
 
-          setPaymentDetails({
-            payment_mode: q.payment_mode || "UPI",
-            upi_id: q.upi_id || "",
-            bank_name: q.bank_name || "",
-            account_holder_name: q.account_holder_name || "", // Ensure field name match
-            account_number: q.account_number || "",
-            ifsc_code: q.ifsc_code || "",
-            due_date: q.due_date || ""
-          });
-
           // Restore Notes, Terms and Timeline
           setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
           setTerms(q.terms_conditions || (q as any).terms || "");
-          setProjectStartEnd({
-            start: q.project_start_date || "",
-            end: q.project_end_date || ""
-          });
-
           // Sync due_date into invoiceDetails (the Invoice Details card reads this field)
           if (q.due_date) {
             setInvoiceDetails(prev => ({ ...prev, dueDate: q.due_date || "" }));
@@ -607,6 +574,50 @@ const CreateDraftQuotationPage = () => {
 
 
 
+  const buildDummyPayload = () => {
+    return {
+      client_name: clientDetails.name || "Draft Dummy Client",
+      mobile_number: clientDetails.mobile || "0000000000",
+      email: clientDetails.email || "rahul.patil@example.com",
+      billing_address: clientDetails.address || "N/A",
+      gst_number: clientDetails.gst || "N/A",
+      subtotal: subTotal || 0,
+      gst_percent: gstRates.gst || 0,
+      cgst_percent: gstRates.cgst || 0,
+      sgst_percent: gstRates.sgst || 0,
+      cgst_amount: cgst || 0,
+      sgst_amount: sgst || 0,
+      grand_total: grandTotal || 0,
+      notes: notes || "N/A",
+      items: items.map(item => {
+        let measurements: any[] = [];
+        if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+          const { l, w, h } = measurementData.soling;
+          measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+        } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          const { l, w, h } = measurementData.plum;
+          measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+        } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+          measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
+          if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
+        } else {
+          measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
+        }
+
+        return {
+          title: (item as any).title || item.description.split('\n')[0] || "Draft Item",
+          description: item.description || "Draft Item",
+          item_type: item.item_type || "default",
+          unit: item.unit || "unit",
+          quantity: item.quantity || 0,
+          rate: item.rate || 0,
+          amount: item.amount || ((item.quantity || 0) * (item.rate || 0)),
+          measurements
+        };
+      })
+    };
+  };
+
   // Implement Save
   const handleSaveQuotation = async () => {
     const newErrors: Record<string, string> = {};
@@ -625,57 +636,10 @@ const CreateDraftQuotationPage = () => {
       setActiveHeaderSection("client");
       return;
     }
-    const validItemsCount = items.filter(i => i.description?.trim() && i.unit?.trim()).length
-      + labourItems.filter(l => l.skill_type?.trim()).length
-      + materialItems.filter(m => m.material_name?.trim()).length
-      + extraChargeItems.filter(e => e.description?.trim()).length;
-
-    const isItemsEmpty = validItemsCount === 0;
-
     try {
       setIsSaving(true);
 
-      const dummyPayload: any = {
-        client_name: clientDetails.name || "Draft Dummy Client",
-        mobile_number: clientDetails.mobile || "0000000000",
-        email: clientDetails.email || "rahul.patil@example.com",
-        billing_address: clientDetails.address || "N/A",
-        gst_number: clientDetails.gst || "N/A",
-        subtotal: subTotal || 0,
-        gst_percent: gstRates.gst || 0,
-        cgst_percent: gstRates.cgst || 0,
-        sgst_percent: gstRates.sgst || 0,
-        cgst_amount: cgst || 0,
-        sgst_amount: sgst || 0,
-        grand_total: grandTotal || 0,
-        notes: notes || "N/A",
-        items: items.map(item => {
-          let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
-            const { l, w, h } = measurementData.soling;
-            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
-            const { l, w, h } = measurementData.plum;
-            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
-            measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
-            if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
-          } else {
-            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
-          }
-
-          return {
-            title: item.title || item.description.split('\n')[0] || "Draft Item",
-            description: item.description || "Draft Item",
-            unit: item.unit || "unit",
-            quantity: item.quantity || 0,
-            rate: item.rate || 0,
-            amount: item.amount || ((item.quantity || 0) * (item.rate || 0)),
-            measurements
-          };
-        })
-      };
-
+      const dummyPayload = buildDummyPayload();
       console.log("Create Dummy Quotation Payload:", JSON.stringify(dummyPayload, null, 2));
 
       let response;
@@ -700,53 +664,20 @@ const CreateDraftQuotationPage = () => {
   };
 
   // Implement Professional Direct Download
-  // Helper to convert number to Indian currency words
-  const toWords = (num: number) => {
-    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-    const inWords = (n: any): string => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n_arr) return '';
-      let str = '';
-      str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
-      str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
-      str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
-      str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
-      str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
-      return str;
-    };
-
-    const amount = Math.floor(num);
-    const paisa = Math.round((num - amount) * 100);
-    let res = inWords(amount) + "Rupees Only";
-    if (paisa > 0) {
-      res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
-    }
-    return res;
-  };
-
-  // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
-    if (!currentId) {
-      toast.error("Please save the quotation first to download the PDF from backend", { duration: 3000 });
-      // Optional: fallback to window.print() if you want to allow draft printing
-      toast.loading("Opening print preview for draft...", { id: "pdf-gen" });
-      setTimeout(() => {
-        window.print();
-        toast.success("Print Ready", { id: "pdf-gen" });
-      }, 500);
-      return;
-    }
-
     const toastId = toast.loading("Generating professional PDF...");
     try {
-      const blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
+      let blob;
+      if (currentId) {
+        blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
+      } else {
+        const payload = buildDummyPayload();
+        blob = await quotationService.previewDummyQuotationPDF(payload);
+      }
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
+      link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id || 'Draft'}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -855,17 +786,6 @@ const CreateDraftQuotationPage = () => {
     setMaterialItems(q.material_items || []);
     setExtraChargeItems(q.extra_charge_items || []);
 
-    // 7. Map Bank Details
-    setPaymentDetails({
-      payment_mode: q.payment_mode || "UPI",
-      upi_id: q.upi_id || "",
-      bank_name: q.bank_name || "",
-      account_holder_name: q.account_holder_name || "",
-      account_number: q.account_number || "",
-      ifsc_code: q.ifsc_code || "",
-      due_date: q.due_date || ""
-    });
-
     setNotes(q.notes || "");
     setTerms(q.terms_conditions || "");
 
@@ -915,264 +835,6 @@ const CreateDraftQuotationPage = () => {
     }));
   };
 
-  const handleLabourFieldChange = async (idx: number, field: string, value: any) => {
-    if (isReadOnly) return;
-    const newItems = [...labourItems];
-    const item = newItems[idx];
-    (item as any)[field] = value;
-
-    // Auto-calculate amount
-    const count = field === "labour_count" ? Number(value) : (item.labour_count || 0);
-    const wage = field === "daily_wage" ? Number(value) : (item.daily_wage || 0);
-    const days = field === "labour_days" ? Number(value) : (item.labour_days || 0);
-    const ot_hrs = field === "overtime_hours" ? Number(value) : (item.overtime_hours || 0);
-    const ot_rate = field === "overtime_rate" ? Number(value) : (item.overtime_rate || 0);
-
-    item.amount = (count * wage * days) + (ot_hrs * ot_rate);
-    setLabourItems(newItems);
-
-    // If it's an existing quotation and not a new unsaved row, sync with backend
-    if (id && item.id && !String(item.id).startsWith("new_") && !String(item.id).startsWith("999")) {
-      try {
-        const payload = {
-          labour_id: (item as any).labour_id || null,
-          skill_type: item.skill_type,
-          labour_count: item.labour_count,
-          daily_wage: item.daily_wage,
-          labour_days: item.labour_days,
-          overtime_hours: item.overtime_hours,
-          overtime_rate: item.overtime_rate,
-          notes: item.notes || ""
-        };
-        await quotationService.updateLabourItem(Number(item.id), payload);
-      } catch (err: any) {
-        console.error("Failed to sync labour item update:", err);
-      }
-    }
-  };
-
-  const handleAddLabourRow = async () => {
-    if (isReadOnly) return;
-    if (labourItems.length > 0) {
-      const last = labourItems[labourItems.length - 1];
-      if (!last.skill_type?.trim() || !last.labour_count || !last.daily_wage) {
-        toast.error("Please fill all fields in the current labour row before adding a new one.");
-        return;
-      }
-    }
-    const newItem: LabourItem = {
-      skill_type: "General Labourer",
-      labour_count: 1,
-      daily_wage: 1,
-      labour_days: 1,
-      overtime_hours: 0,
-      overtime_rate: 0,
-      amount: 1
-    };
-
-    if (id) {
-      try {
-        const payload = {
-          ...newItem,
-          labour_id: null,
-          notes: ""
-        };
-        const addedItem = await quotationService.addLabourItem(Number(id), payload);
-        setLabourItems([...labourItems, addedItem]);
-        toast.success("Labour type added");
-      } catch (err: any) {
-        console.error("Failed to add labour item:", err);
-        toast.error("Failed to add labour type to server");
-      }
-    } else {
-      setLabourItems([...labourItems, {
-        ...newItem,
-        id: Number("999" + Date.now().toString().slice(-6))
-      } as any]);
-    }
-  };
-
-  const handleRemoveLabourRow = async (idx: number, itemId?: number) => {
-    if (isReadOnly) return;
-    const newItems = labourItems.filter((_, i) => i !== idx);
-    setLabourItems(newItems);
-
-    if (id && itemId && !String(itemId).startsWith("999")) {
-      try {
-        await quotationService.deleteLabourItem(Number(itemId));
-        toast.success("Labour item removed");
-      } catch (err: any) {
-        console.error("Failed to delete labour item:", err);
-        toast.error(err.response?.data?.detail || "Failed to remove labour item from server");
-      }
-    }
-  };
-
-  const handleMaterialFieldChange = async (idx: number, field: string, value: any) => {
-    if (isReadOnly) return;
-    const newItems = [...materialItems];
-    const item = newItems[idx];
-    (item as any)[field] = value;
-    setMaterialItems(newItems);
-
-    if (id && item.id && !String(item.id).startsWith("new_") && !String(item.id).startsWith("999")) {
-      try {
-        const payload = {
-          material_id: (item as any).material_id || null,
-          material_name: item.material_name,
-          category: item.category,
-          unit: item.unit,
-          estimated_quantity: item.estimated_quantity,
-          estimated_rate: item.estimated_rate,
-          notes: item.notes || ""
-        };
-        await quotationService.updateMaterialItem(Number(item.id), payload);
-      } catch (err: any) {
-        console.error("Failed to sync material item update:", err);
-      }
-    }
-  };
-
-  const handleAddMaterialRow = async () => {
-    if (isReadOnly) return;
-    if (materialItems.length > 0) {
-      const last = materialItems[materialItems.length - 1];
-      if (!last.material_name?.trim() || !last.category?.trim() || !last.unit?.trim() || !last.estimated_quantity || !last.estimated_rate) {
-        toast.error("Please fill all fields in the current material row before adding a new one.");
-        return;
-      }
-    }
-    const newItem: any = {
-      material_name: "",
-      category: "",
-      unit: "",
-      estimated_quantity: 0,
-      estimated_rate: 0,
-      notes: ""
-    };
-
-    if (id) {
-      try {
-        const payload = {
-          ...newItem,
-          material_id: null
-        };
-        const addedItem = await quotationService.addMaterialItem(Number(id), payload);
-        setMaterialItems([...materialItems, addedItem]);
-        toast.success("Material added");
-      } catch (err: any) {
-        console.error("Failed to add material item:", err);
-        toast.error("Failed to add material to server");
-      }
-    } else {
-      setMaterialItems([...materialItems, {
-        ...newItem,
-        id: Number("999" + Date.now().toString().slice(-6))
-      }]);
-    }
-  };
-
-  const handleRemoveMaterialRow = async (idx: number, itemId?: number) => {
-    if (isReadOnly) return;
-    const newItems = materialItems.filter((_, i) => i !== idx);
-    setMaterialItems(newItems);
-
-    if (id && itemId && !String(itemId).startsWith("999")) {
-      try {
-        await quotationService.deleteMaterialItem(Number(itemId));
-        toast.success("Material removed");
-      } catch (err: any) {
-        console.error("Failed to delete material item:", err);
-        toast.error(err.response?.data?.detail || "Failed to remove material from server");
-      }
-    }
-  };
-
-  const handleExtraChargeFieldChange = async (idx: number, field: string, value: any) => {
-    if (isReadOnly) return;
-    const newItems = [...extraChargeItems];
-    const item = newItems[idx];
-    (item as any)[field] = value;
-
-    // Auto-calculate amount
-    if (field === "quantity" || field === "rate") {
-      item.amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
-    }
-
-    setExtraChargeItems(newItems);
-
-    if (id && item.id && !String(item.id).startsWith("new_") && !String(item.id).startsWith("999")) {
-      try {
-        const payload = {
-          equipment_id: (item as any).equipment_id || null,
-          expense_type: item.expense_type,
-          description: item.description,
-          quantity: item.quantity,
-          rate: item.rate,
-          amount: item.amount || (item.quantity * item.rate),
-          notes: (item as any).notes || ""
-        };
-        await quotationService.updateExtraCharge(Number(item.id), payload);
-      } catch (err: any) {
-        console.error("Failed to sync extra charge update:", err);
-      }
-    }
-  };
-
-  const handleAddExtraChargeRow = async () => {
-    if (isReadOnly) return;
-    if (extraChargeItems.length > 0) {
-      const last = extraChargeItems[extraChargeItems.length - 1];
-      if (!last.description?.trim() || !last.quantity || !last.rate) {
-        toast.error("Please fill all fields in the current extra charge row before adding a new one.");
-        return;
-      }
-    }
-    const newItem: any = {
-      expense_type: "misc",
-      description: "",
-      quantity: 0,
-      rate: 0,
-      amount: 0,
-      notes: ""
-    };
-
-    if (id) {
-      try {
-        const payload = {
-          ...newItem,
-          equipment_id: null
-        };
-        const addedItem = await quotationService.addExtraCharge(Number(id), payload);
-        setExtraChargeItems([...extraChargeItems, addedItem]);
-        toast.success("Extra charge added");
-      } catch (err: any) {
-        console.error("Failed to add extra charge:", err);
-        toast.error("Failed to add extra charge to server");
-      }
-    } else {
-      setExtraChargeItems([...extraChargeItems, {
-        ...newItem,
-        id: Number("999" + Date.now().toString().slice(-6))
-      }]);
-    }
-  };
-
-  const handleRemoveExtraChargeRow = async (idx: number, itemId?: number) => {
-    if (isReadOnly) return;
-    const newItems = extraChargeItems.filter((_, i) => i !== idx);
-    setExtraChargeItems(newItems);
-
-    if (id && itemId && !String(itemId).startsWith("999")) {
-      try {
-        await quotationService.deleteExtraCharge(Number(itemId));
-        toast.success("Extra charge removed");
-      } catch (err: any) {
-        console.error("Failed to delete extra charge:", err);
-        toast.error(err.response?.data?.detail || "Failed to remove extra charge from server");
-      }
-    }
-  };
 
   return (
     <>
@@ -1200,24 +862,7 @@ const CreateDraftQuotationPage = () => {
               </h2>
               <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create a streamlined draft quotation."}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsPreviewModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-              >
-                <Eye className="w-4 h-4 text-emerald-600" />
-                Preview Document
-              </button>
 
-              <button
-                onClick={handleSaveQuotation}
-                disabled={isSaving || isReadOnly}
-                className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all ${isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95'}`}
-              >
-                {isSaving ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {isReadOnly ? "Approved" : id ? "Update Quotation" : "Save Quotation"}
-              </button>
-            </div>
           </div>
         </div>
 
@@ -1254,7 +899,7 @@ const CreateDraftQuotationPage = () => {
                 {activeHeaderSection === "client" && (
                   <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
                       <select
                         value={clientDetails.clientId || 0}
                         onChange={(e) => {
@@ -1277,7 +922,7 @@ const CreateDraftQuotationPage = () => {
                           }
                         }}
                         disabled={isReadOnly}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                       >
                         <option value={0}>Walk-in / Manual Client</option>
                         {clients.map(c => (
@@ -1295,7 +940,7 @@ const CreateDraftQuotationPage = () => {
                             }}
                             readOnly={isReadOnly}
                             placeholder="Type Manual Client Name..."
-                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                            className={`w-full px-4 py-2.5 mt-2 bg-white border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />
                           {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
                         </div>
@@ -1303,7 +948,7 @@ const CreateDraftQuotationPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Mobile Number</label>
                         <input
                           type="text"
                           value={clientDetails.mobile}
@@ -1312,12 +957,12 @@ const CreateDraftQuotationPage = () => {
                             setClientDetails({ ...clientDetails, mobile: val });
                             if (errors.mobile) setErrors(prev => ({ ...prev, mobile: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.mobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
+                          className={`w-full px-4 py-2.5 bg-white border ${errors.mobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500`}
                         />
                         {errors.mobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.mobile}</p>}
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Email Address</label>
                         <input
                           type="email"
                           value={clientDetails.email}
@@ -1325,38 +970,38 @@ const CreateDraftQuotationPage = () => {
                             setClientDetails({ ...clientDetails, email: e.target.value });
                             if (errors.email) setErrors(prev => ({ ...prev, email: "" }));
                           }}
-                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all`}
+                          className={`w-full px-4 py-2.5 bg-white border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-400 focus:ring-indigo-200'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500`}
                           placeholder="client@example.com"
                         />
                         {errors.email && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.email}</p>}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name</label>
                       <input
                         type="text"
                         value={clientDetails.company}
                         onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 hover:border-slate-500"
                         placeholder="e.g. Patil Construction Pvt Ltd"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Billing Address</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Billing Address</label>
                       <textarea
                         rows={1}
                         value={clientDetails.address}
                         onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none hover:border-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
                       <input
                         type="text"
                         value={clientDetails.gst}
                         onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all uppercase"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-400 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase hover:border-slate-500"
                       />
                     </div>
                   </div>
@@ -1391,7 +1036,7 @@ const CreateDraftQuotationPage = () => {
                       <th className="px-6 py-4">Item / Work Description</th>
                       <th className="px-6 py-4 w-40">Unit</th>
                       <th className="px-6 py-4 w-36">Quantity</th>
-                      <th className="px-6 py-4 w-40">Rate (₹)</th>
+                      <th className="px-6 py-4 w-40">Rate (₹)/unit</th>
                       <th className="px-6 py-4 w-40">Amount (₹)</th>
                       <th className="px-6 py-4 w-28 text-center">Action</th>
                     </tr>
@@ -1405,7 +1050,7 @@ const CreateDraftQuotationPage = () => {
                             type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
                             placeholder="Enter item description..."
                           />
                         </td>
@@ -1414,7 +1059,7 @@ const CreateDraftQuotationPage = () => {
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                             disabled={isReadOnly}
-                            className={`w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 cursor-pointer transition-all ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className={`w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 cursor-pointer transition-all hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                           >
                             <option value="">Select Unit</option>
                             {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
@@ -1441,7 +1086,7 @@ const CreateDraftQuotationPage = () => {
                                 }
                               }
                             }}
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
                             placeholder="0"
                           />
                         </td>
@@ -1464,7 +1109,7 @@ const CreateDraftQuotationPage = () => {
                                 }
                               }
                             }}
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            className="w-full bg-white border border-slate-400 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500 placeholder:font-medium hover:border-slate-500"
                             placeholder="0"
                           />
                         </td>
@@ -1494,11 +1139,22 @@ const CreateDraftQuotationPage = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="p-4 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
+              <div className="p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between border-t border-slate-100 gap-4">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Items: <span className="text-slate-800">{items.length}</span></p>
-                <div className="flex items-center gap-6">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Amount</p>
-                  <p className="text-xl font-black text-indigo-600">₹{subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                  {(() => {
+                    const totalSqFt = items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+                    const perSqFtValue = totalSqFt > 0 ? (subTotal / totalSqFt) : 0;
+                    return totalSqFt > 0 ? (
+                      <p className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">
+                        Per SQFT Value = ₹{perSqFtValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / SQFT
+                      </p>
+                    ) : null;
+                  })()}
+                  <div className="flex items-center gap-6 justify-end">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Amount</p>
+                    <p className="text-xl font-black text-indigo-600">₹{subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1550,7 +1206,7 @@ const CreateDraftQuotationPage = () => {
                         return { ...prev, cgst: val, gst: val + prev.sgst };
                       })}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1569,7 +1225,7 @@ const CreateDraftQuotationPage = () => {
                         return { ...prev, sgst: val, gst: val + prev.cgst };
                       })}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1586,7 +1242,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-24 px-2 py-1 bg-white border border-slate-400 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                   </div>
                 </div>
@@ -1600,7 +1256,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
                       readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-12 px-1 py-0.5 bg-white border border-slate-400 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                     <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
@@ -1624,7 +1280,7 @@ const CreateDraftQuotationPage = () => {
                       onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      className={`w-24 px-2 py-1 bg-white border border-slate-400 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 hover:border-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                   </div>
                 </div>
@@ -1679,7 +1335,7 @@ const CreateDraftQuotationPage = () => {
                 <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
                   <div className="flex items-center justify-center gap-2 mb-0.5">
                     <Zap className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
+                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Conversion Actions</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button
