@@ -57,7 +57,10 @@ export interface Material {
 
 export interface CreateMaterialPayload {
   project_id: number;
-  material_master_id: number;
+  material_master_id?: number;
+  material_name?: string;
+  category?: string;
+  unit?: string;
   supplier_id: number;
   purchase_rate: number;
   rate_type: RateType;

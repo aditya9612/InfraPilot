@@ -1099,11 +1099,11 @@ const MachineryPage = () => {
                                     </td>
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${item.condition === 'RENTED' ? 'bg-purple-100 text-purple-700' :
-                                                item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
-                                                    item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
-                                                        item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
-                                                            item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
-                                                                'bg-slate-100 text-slate-600'
+                                            item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
+                                                item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
+                                                    item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
+                                                        item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
+                                                            'bg-slate-100 text-slate-600'
                                             }`}>
                                             {item.condition || 'N/A'}
                                         </span>

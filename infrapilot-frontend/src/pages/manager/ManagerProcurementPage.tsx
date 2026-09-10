@@ -643,13 +643,13 @@ const ManagerProcurementPage = () => {
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Site Request" maxWidth="max-w-lg">
                 <div className="p-6 space-y-6">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Project</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Project <span className="text-rose-500">*</span></p>
                         <p className="text-sm font-bold text-slate-900 mt-1">{selectedProject?.project_name || "No project selected"}</p>
                     </div>
 
                     <div className="grid gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type</label>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type <span className="text-rose-500">*</span></label>
                             <select value={requestType} onChange={e => setRequestType(e.target.value)}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
                                 <option value="Material">Material</option>
@@ -666,7 +666,7 @@ const ManagerProcurementPage = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity</label>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity <span className="text-rose-500">*</span></label>
                             <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(Number(e.target.value))}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>
@@ -679,7 +679,7 @@ const ManagerProcurementPage = () => {
                         </button>
                         <button type="button" onClick={handleCreateRequest} disabled={isCreatingRequest}
                             className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50">
-                            {isCreatingRequest ? "Creating..." : "Create Request"}
+                            {isCreatingRequest ? "Saving..." : "Save Request"}
                         </button>
                     </div>
                 </div>

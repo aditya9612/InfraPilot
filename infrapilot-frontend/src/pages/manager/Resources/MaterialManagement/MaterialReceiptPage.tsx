@@ -19,6 +19,11 @@ import { useProject } from "../../../../context/ProjectContext";
 const RATE_TYPES = ["FIXED", "PER_UNIT", "PER_KG", "PER_TON", "PER_BAG"];
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
 
+const getApiErrorMessage = (error: any, defaultMessage: string = "Operation failed") => {
+    if (typeof error?.response?.data?.detail === 'string') return error.response.data.detail;
+    return error?.response?.data?.detail?.[0]?.msg || error?.response?.data?.message || defaultMessage;
+};
+
 type TabType = "Materials" | "Suppliers" | "Purchase Orders" | "Dashboard";
 
 const MaterialReceiptPage = () => {
@@ -227,7 +232,7 @@ const MaterialReceiptPage = () => {
             else await materialService.createMaterial({ ...materialForm, project_id: materialForm.project_id || projectId } as any);
             toast.success(selectedMaterial ? "Material updated!" : "Material added successfully!");
             setIsMaterialModalOpen(false); fetchMaterials();
-        } catch (e) { toast.error("Operation failed"); }
+        } catch (error: any) { toast.error(getApiErrorMessage(error, "Operation failed")); }
         finally { setIsSubmitting(false); }
     };
 
@@ -244,7 +249,7 @@ const MaterialReceiptPage = () => {
             });
             toast.success("Purchase recorded as a Purchase Order!");
             setIsPurchaseModalOpen(false); fetchPOs();
-        } catch (e) { toast.error("Failed to record purchase"); }
+        } catch (error: any) { toast.error(getApiErrorMessage(error, "Failed to record purchase")); }
         finally { setIsSubmitting(false); }
     };
 
@@ -259,8 +264,11 @@ const MaterialReceiptPage = () => {
         if (!nameRegex.test(supplierForm.contactPerson || "")) {
             return toast.error("Contact person must contain only letters and spaces.");
         }
-        if (!/^[0-9]{10}$/.test(supplierForm.contact || "")) {
-            return toast.error("Phone number must be exactly 10 digits.");
+        const contactVal = (supplierForm.contact || "").trim();
+        const isPhone = /^[0-9]{10}$/.test(contactVal);
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactVal);
+        if (!isPhone && !isEmail) {
+            return toast.error("Please enter a valid 10-digit phone number or email address.");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(supplierForm.gst || "")) {
@@ -287,7 +295,7 @@ const MaterialReceiptPage = () => {
             fetchSuppliers();
         } catch (error: any) {
             console.error("Supplier submit error:", error.response?.data || error.message);
-            toast.error(error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed");
+            toast.error(getApiErrorMessage(error, "Operation failed"));
         }
         finally { setIsSubmitting(false); }
     };
@@ -299,7 +307,7 @@ const MaterialReceiptPage = () => {
             else await materialService.createPurchaseOrder({ ...poForm, project_id: poForm.project_id || projectId || 1, supplier_id: poForm.supplier_id!, material_id: poForm.material_id!, quantity: poForm.quantity!, rate: poForm.rate! });
             toast.success(selectedPO ? "PO updated!" : "Purchase Order created!");
             setIsPOModalOpen(false); fetchPOs();
-        } catch (e) { toast.error("Operation failed"); }
+        } catch (error: any) { toast.error(getApiErrorMessage(error, "Operation failed")); }
         finally { setIsSubmitting(false); }
     };
 
@@ -314,7 +322,7 @@ const MaterialReceiptPage = () => {
             if (deleteTarget.type === 'material') fetchMaterials();
             if (deleteTarget.type === 'supplier') fetchSuppliers();
             if (deleteTarget.type === 'po') fetchPOs();
-        } catch (e) { toast.error("Failed to delete"); }
+        } catch (error: any) { toast.error(getApiErrorMessage(error, "Failed to delete")); }
         finally { setIsSubmitting(false); }
     };
 
@@ -641,24 +649,24 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
-                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => { const mId = Number(e.target.value); const mat = masterMaterials.find(m => m.id === mId); setMaterialForm({ ...materialForm, material_master_id: mId, material_name: mat ? (mat.title || mat.name || mat.material_name || materialForm.material_name) : materialForm.material_name }); }} className={inputClasses}><option value="">Select Master Material</option>{masterMaterials.map(m => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}</option>)}</select></div>
+                            {!selectedMaterial && <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
+                            <div><label className={labelClasses}>Material Master <span className="text-rose-500">*</span></label><select required value={materialForm.material_master_id || ""} onChange={e => { const mId = Number(e.target.value); const mat = masterMaterials.find(m => m.id === mId); setMaterialForm({ ...materialForm, material_master_id: mId, material_name: mat ? (mat.title || mat.name || mat.material_name || materialForm.material_name) : materialForm.material_name }); }} className={inputClasses}><option value="">Select Master Material</option>{masterMaterials.map(m => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}</option>)}</select></div>
 
-                            <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Purchase Rate *</label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate Type *</label><select required value={materialForm.rate_type} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}>{RATE_TYPES.map(r => <option key={r}>{r}</option>)}</select></div>
+                            <div><label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label><select required value={materialForm.rate_type} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}>{RATE_TYPES.map(r => <option key={r}>{r}</option>)}</select></div>
                             {!selectedMaterial && (
                                 <>
-                                    <div><label className={labelClasses}>Qty Purchased *</label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
-                                    <div><label className={labelClasses}>Payment Given *</label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
                                 </>
                             )}
-                            <div><label className={labelClasses}>Min Stock Level *</label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -719,12 +727,12 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Amount Paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Project *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: Number(e.target.value) || undefined })} className={inputClasses}><option value="">Select BOQ</option>{boqs.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Issue Type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>
                     </div>
                 </form>
@@ -760,10 +768,10 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
-                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone Number * <span className="text-rose-400 text-[9px] normal-case font-normal ml-1">(exactly 10 digits)</span></label><input required type="tel" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="E.g. 9876543210" /></div>
-                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
+                            <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
+                            <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
+                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="E.g. 9876543210 or example@gmail.com" /></div>
+                            <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
@@ -801,9 +809,9 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div>
-                                <label className={labelClasses}>Supplier *</label>
+                                <label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label>
                                 <select
                                     required
                                     value={poForm.supplier_id || ""}
@@ -822,7 +830,7 @@ const MaterialReceiptPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className={labelClasses}>Material *</label>
+                                <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
                                 <select
                                     required
                                     value={poForm.material_id || ""}
@@ -858,8 +866,8 @@ const MaterialReceiptPage = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
 
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
                                 <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>

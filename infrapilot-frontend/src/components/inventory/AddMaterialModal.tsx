@@ -32,7 +32,7 @@ export default function AddMaterialModal({
     rate_type: "",
     quantity_purchased: 0,
     payment_given: 0,
-    minimum_stock_level: 200,
+    minimum_stock_level: 0,
     material_master_id: undefined as number | undefined,
   });
 
@@ -55,7 +55,7 @@ export default function AddMaterialModal({
         rate_type: "",
         quantity_purchased: 0,
         payment_given: 0,
-        minimum_stock_level: 200,
+        minimum_stock_level: 0,
         material_master_id: undefined,
       });
     }
@@ -76,7 +76,8 @@ export default function AddMaterialModal({
     if (
       name === "purchase_rate" ||
       name === "quantity_purchased" ||
-      name === "payment_given"
+      name === "payment_given" ||
+      name === "minimum_stock_level"
     ) {
       value = value.replace(/[^\d]/g, "");
     }
@@ -86,12 +87,27 @@ export default function AddMaterialModal({
         name === "purchase_rate" ||
           name === "quantity_purchased" ||
           name === "payment_given" ||
+          name === "minimum_stock_level" ||
           name === "project_id" ||
           name === "material_master_id"
-          ? Number(value)
+          ? (value === "" ? "" : Number(value))
           : value,
     }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (name === "minimum_stock_level") {
+      if (value === "" || value === undefined || value === null) {
+        setErrors((prev) => ({ ...prev, minimum_stock_level: "Minimum stock level is required." }));
+      }
+    }
+    if (name === "payment_given" && !initialData) {
+      if (value === "" || value === undefined || value === null) {
+        setErrors((prev) => ({ ...prev, payment_given: "Payment given is required." }));
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -111,6 +127,14 @@ export default function AddMaterialModal({
       (!formData.quantity_purchased || formData.quantity_purchased <= 0)
     ) {
       newErrors.quantity_purchased = "Opening quantity must be greater than 0.";
+    }
+
+    if ((formData as any).minimum_stock_level === "" || formData.minimum_stock_level === undefined || formData.minimum_stock_level === null) {
+      newErrors.minimum_stock_level = "Minimum stock level is required.";
+    }
+
+    if (!initialData && ((formData as any).payment_given === "" || formData.payment_given === undefined || formData.payment_given === null)) {
+      newErrors.payment_given = "Payment given is required.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -311,19 +335,27 @@ export default function AddMaterialModal({
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Minimum Stock Level
+                Minimum Stock Level <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 name="minimum_stock_level"
-                value={(formData as any).minimum_stock_level || ""}
+                value={(formData as any).minimum_stock_level === undefined ? "" : (formData as any).minimum_stock_level}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                onBlur={handleBlur}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.minimum_stock_level ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10"}`}
                 placeholder="Alert at e.g. 200"
               />
-              <p className="text-[10px] text-slate-400 font-medium mt-1 ml-1">
-                System will alert when stock falls below this level.
-              </p>
+              {errors.minimum_stock_level && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.minimum_stock_level}
+                </p>
+              )}
+              {!errors.minimum_stock_level && (
+                <p className="text-[10px] text-slate-400 font-medium mt-1 ml-1">
+                  System will alert when stock falls below this level.
+                </p>
+              )}
             </div>
 
             {!initialData && (
@@ -352,7 +384,7 @@ export default function AddMaterialModal({
 
                 <div className="space-y-1 border-t border-slate-50 pt-4 mt-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Payment Given
+                    Payment Given <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">
@@ -361,12 +393,18 @@ export default function AddMaterialModal({
                     <input
                       type="text"
                       name="payment_given"
-                      value={formData.payment_given || ""}
+                      value={formData.payment_given === undefined ? "" : formData.payment_given}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none text-emerald-600 font-bold"
+                      onBlur={handleBlur}
+                      className={`w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-primary/20 transition-all outline-none text-emerald-600 font-bold ${errors.payment_given ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:border-primary"}`}
                       placeholder="0"
                     />
                   </div>
+                  {errors.payment_given && (
+                    <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                      {errors.payment_given}
+                    </p>
+                  )}
                 </div>
 
                 {/* Financial Summary Box */}

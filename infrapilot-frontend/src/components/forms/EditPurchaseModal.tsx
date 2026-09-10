@@ -194,13 +194,14 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                 {/* Warranty End Date */}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                        Warranty End Date
+                                        Warranty End Date <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="date"
                                         name="warranty_end_date"
                                         value={formData.warranty_end_date}
                                         onChange={handleChange}
+                                        required
                                         className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                     />
                                 </div>

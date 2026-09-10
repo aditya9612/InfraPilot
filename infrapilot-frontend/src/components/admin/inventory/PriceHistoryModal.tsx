@@ -46,7 +46,7 @@ export default function PriceHistoryModal({ isOpen, onClose, material }: PriceHi
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800">{material.material_name}</h3>
-                        <p className="text-xs font-bold text-slate-500 uppercase">{material.category} • {material.unit}</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase">{material.category} • {material.unit_name || material.unit}</p>
                     </div>
                 </div>
 
@@ -99,7 +99,7 @@ export default function PriceHistoryModal({ isOpen, onClose, material }: PriceHi
                                                 </td>
                                                 <td className="px-6 py-4 border-r border-slate-50">
                                                     <span className="text-base font-black text-slate-800 tracking-tight">{formatCurrency(record.rate)}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold ml-1">/ {material.unit}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold ml-1">/ {material.unit_name || material.unit}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     {previousRecord ? (

@@ -26,7 +26,6 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
             <table className="w-full text-left">
                 <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                        <th className="px-6 py-4">Transaction ID</th>
                         <th className="px-6 py-4">Project</th>
                         <th className="px-6 py-4">Type</th>
                         <th className="px-6 py-4">Material</th>
@@ -41,9 +40,6 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         const config = getTypeConfig(t.type);
                         return (
                             <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4">
-                                    <p className="font-bold text-slate-800">TXN-{t.id.toString().padStart(4, '0')}</p>
-                                </td>
                                 <td className="px-6 py-4 text-xs font-bold text-slate-600">
                                     {t.project_id ? (projectMap[t.project_id] || "Unknown") : "Global"}
                                 </td>
@@ -78,7 +74,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     })}
                     {transactions.length === 0 && (
                         <tr>
-                            <td colSpan={8} className="py-12 text-center text-slate-400">
+                            <td colSpan={7} className="py-12 text-center text-slate-400">
                                 No transactions found for this project.
                             </td>
                         </tr>
