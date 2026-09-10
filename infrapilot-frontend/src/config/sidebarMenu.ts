@@ -49,17 +49,13 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
-      label: "User & Role Management",
-      path: "/admin/users",
-      icon: "users",
+      label: "Access Control",
+      path: "/admin/access-control",
+      icon: "shield-check",
       subNav: [
-        { label: "Users", path: "/admin/users", icon: "users" },
-        { label: "Roles", path: "/admin/users/roles", icon: "user-check" },
-        {
-          label: "Permissions",
-          path: "/admin/users/permissions",
-          icon: "check-circle",
-        },
+        { label: "Roles & Permissions", path: "/admin/access-control/roles", icon: "user-check" },
+        { label: "User Management", path: "/admin/users", icon: "users" },
+        { label: "Audit Logs", path: "/admin/audit-logs", icon: "file-text" },
       ],
     },
     { label: "Clients", path: "/admin/clients", icon: "user-check" },

@@ -126,7 +126,12 @@ const ManagerQualityPage = () => {
                 const members = await projectService.getProjectMembers(Number(formData.project_id));
                 const list = Array.isArray(members) ? members : (members?.items || members?.data || []);
 
-                let mapped = list.map((m: any) => {
+                let mapped = list.filter((m: any) => {
+                    const u = m.user || m || {};
+                    const role = typeof m.role === 'string' ? m.role : typeof u.role === 'string' ? u.role : (u.role?.name || '');
+                    const normalizedRole = String(role).toLowerCase().replace(/\s+/g, '');
+                    return normalizedRole === 'siteengineer' || normalizedRole === 'engineer';
+                }).map((m: any) => {
                     const u = m.user || {};
                     const id = u.id || m.user_id || m.userId;
                     const name = u.full_name || u.username || (u.name) || `User #${id}`;
@@ -632,7 +637,7 @@ const ManagerQualityPage = () => {
                         <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Create Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Save Entry")}
                         </button>
                     </>
                 }
