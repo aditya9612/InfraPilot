@@ -381,8 +381,8 @@ const WorkOrdersPage = () => {
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
-                <select name="project_id" value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
+                <select name="project_id" required value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -394,16 +394,16 @@ const WorkOrdersPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Work Description</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Work Description <span className="text-rose-500">*</span></label>
                 <textarea name="work_description" required value={formData.work_description} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" rows={3} placeholder="Describe the scope of work..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty <span className="text-rose-500">*</span></label>
                   <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹) <span className="text-rose-500">*</span></label>
                   <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
               </div>
@@ -433,22 +433,22 @@ const WorkOrdersPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">work_description</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">work_description <span className="text-rose-500">*</span></label>
                 <textarea name="work_description" required value={formData.work_description} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">total_quantity</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">total_quantity <span className="text-rose-500">*</span></label>
                   <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">completed_quantity</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">completed_quantity <span className="text-rose-500">*</span></label>
                   <input type="number" name="completed_quantity" required value={formData.completed_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">rate</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">rate <span className="text-rose-500">*</span></label>
                   <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>

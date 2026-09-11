@@ -500,10 +500,10 @@ const ManagerSafetyPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${(item.safety_checklist_status || "pending") === "completed"
-                              ? "bg-emerald-100 text-emerald-600"
-                              : (item.safety_checklist_status || "pending") === "failed"
-                                ? "bg-rose-100 text-rose-600"
-                                : "bg-amber-100 text-amber-600"
+                            ? "bg-emerald-100 text-emerald-600"
+                            : (item.safety_checklist_status || "pending") === "failed"
+                              ? "bg-rose-100 text-rose-600"
+                              : "bg-amber-100 text-amber-600"
                             }`}>
                             {item.safety_checklist_status || "pending"}
                           </span>
@@ -628,7 +628,7 @@ const ManagerSafetyPage = () => {
             <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
               disabled={isSubmitting}
               className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
-              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Create Entry")}
+              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Save Entry")}
             </button>
           </>
         }
@@ -637,7 +637,7 @@ const ManagerSafetyPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={labelCls}>Impacted Project <span className="text-rose-500">*</span></label>
-              <select name="project_id" value={formData.project_id}
+              <select name="project_id" required value={formData.project_id}
                 onChange={(e) => setFormData(p => ({ ...p, project_id: Number(e.target.value), task_id: null }))}
                 className={inputCls}>
                 <option value="">Select Project</option>
@@ -661,7 +661,7 @@ const ManagerSafetyPage = () => {
             </div>
             <div>
               <label className={labelCls}>Date <span className="text-rose-500">*</span></label>
-              <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputCls} />
+              <input name="date" type="date" required value={formData.date} onChange={handleInputChange} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Violation Type <span className="text-rose-500">*</span></label>
@@ -676,8 +676,8 @@ const ManagerSafetyPage = () => {
                 placeholder="Full Name" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Checklist Status</label>
-              <select name="safety_checklist_status" value={formData.safety_checklist_status} onChange={handleInputChange} className={inputCls}>
+              <label className={labelCls}>Checklist Status <span className="text-rose-500">*</span></label>
+              <select name="safety_checklist_status" required value={formData.safety_checklist_status} onChange={handleInputChange} className={inputCls}>
                 <option value="pending">Pending</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
@@ -698,7 +698,7 @@ const ManagerSafetyPage = () => {
             <div className="flex items-center gap-3">
               <input type="checkbox" name="ppe_compliance" id="ppe_compliance" checked={formData.ppe_compliance}
                 onChange={handleInputChange} className="w-4 h-4 accent-primary" />
-              <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700">PPE Compliant</label>
+              <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700">PPE Compliant <span className="text-rose-500">*</span></label>
             </div>
           </div>
         </form>
@@ -719,20 +719,20 @@ const ManagerSafetyPage = () => {
                 <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
                   <span className="text-4xl font-bold font-inter text-center leading-none px-2">{selectedIncident.violation_type.split(" ").map(w => w[0]).join("").slice(0, 2)}</span>
                   <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedIncident.safety_checklist_status === 'completed'
-                      ? 'bg-emerald-500'
-                      : selectedIncident.safety_checklist_status === 'failed'
-                        ? 'bg-rose-500'
-                        : 'bg-amber-500'
+                    ? 'bg-emerald-500'
+                    : selectedIncident.safety_checklist_status === 'failed'
+                      ? 'bg-rose-500'
+                      : 'bg-amber-500'
                     }`} />
                 </div>
                 <div className="font-inter">
                   <div className="flex items-center gap-3 mb-2 font-inter">
                     <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIncident.violation_type}</h3>
                     <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIncident.safety_checklist_status === 'completed'
-                        ? 'bg-emerald-500/20 text-emerald-100'
-                        : selectedIncident.safety_checklist_status === 'failed'
-                          ? 'bg-rose-500/20 text-rose-100'
-                          : 'bg-amber-500/20 text-amber-100'
+                      ? 'bg-emerald-500/20 text-emerald-100'
+                      : selectedIncident.safety_checklist_status === 'failed'
+                        ? 'bg-rose-500/20 text-rose-100'
+                        : 'bg-amber-500/20 text-amber-100'
                       }`}>
                       {selectedIncident.safety_checklist_status || "pending"}
                     </span>

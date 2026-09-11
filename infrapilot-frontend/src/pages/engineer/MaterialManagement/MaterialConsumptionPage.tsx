@@ -21,14 +21,14 @@ const MaterialConsumptionPage = () => {
         try {
             const pid = localStorage.getItem("infrapilot_selected_project_id");
             if (pid && pid !== "null") return Number(pid);
-            
+
             const userStr = localStorage.getItem("infrapilot_user");
             if (userStr) {
                 const parsed = JSON.parse(userStr);
                 const pId = parsed.default_project_id || parsed.project_id;
                 return pId ? Number(pId) : null;
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     });
     const formatINR = (amount: number | string | undefined | null) => {
@@ -468,6 +468,7 @@ const MaterialConsumptionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
                         <div className="space-y-4">
                             <div><label className={labelClasses}>Transfer Name <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.material?.name || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
+                            <div><label className={labelClasses}>Transfer ID <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
                             <div><label className={labelClasses}>Status <span className="text-rose-500">*</span></label><select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
                         </div>
                     </div>

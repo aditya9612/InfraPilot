@@ -543,7 +543,7 @@ const FinancePage = () => {
                 className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                <span>Record Expense</span>
+                <span>Create Expense</span>
               </button>
             ) : subPage === "profit" ? null : (
               <CreateInvoiceDropdown

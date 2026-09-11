@@ -7,6 +7,7 @@ import StatCard from "../../components/common/StatCard";
 import SupplierModal from "../../components/inventory/SupplierModal";
 import TransferMaterialModal from "../../components/inventory/TransferMaterialModal";
 import AddMaterialModal from "../../components/inventory/AddMaterialModal";
+import UpdateTransferStatusModal from "../../components/inventory/UpdateTransferStatusModal";
 import PurchaseActionModal from "../../components/inventory/PurchaseActionModal";
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
@@ -44,6 +45,7 @@ import EditPOModal from "../../components/admin/inventory/EditPOModal";
 import CreatePOModal from "../../components/admin/inventory/CreatePOModal";
 import ViewPOModal from "../../components/admin/inventory/ViewPOModal";
 import ViewMaterialModal from "../../components/admin/inventory/ViewMaterialModal";
+import ViewSupplierModal from "../../components/admin/inventory/ViewSupplierModal";
 import MaterialTransactionsModal from "../../components/admin/inventory/MaterialTransactionsModal";
 import PriceHistoryModal from "../../components/admin/inventory/PriceHistoryModal";
 
@@ -75,6 +77,8 @@ const InventoryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [isViewSupplierModalOpen, setViewSupplierModalOpen] = useState(false);
+  const [selectedViewSupplier, setSelectedViewSupplier] = useState<any>(null);
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
   const [supplierPage, setSupplierPage] = useState(0);
@@ -83,6 +87,8 @@ const InventoryPage = () => {
   const [materialPage, setMaterialPage] = useState(0);
   const [poPage, setPoPage] = useState(0);
   const [transferPage, setTransferPage] = useState(0);
+  const [selectedUpdateTransfer, setSelectedUpdateTransfer] = useState<Transfer | null>(null);
+  const [isUpdateTransferModalOpen, setIsUpdateTransferModalOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 10;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
@@ -902,7 +908,7 @@ const InventoryPage = () => {
                     <option value="TRANSFER_IN">Transfer In</option>
                     <option value="TRANSFER_OUT">Transfer Out</option>
                     <option value="ADJUSTMENT">Adjustment</option>
-                    <option value="ISSUE">Issue</option>
+                    <option value="RETURN">Return</option>
                   </select>
                 </div>
               )}
@@ -997,6 +1003,17 @@ const InventoryPage = () => {
                         suppliers={paged}
                         onEdit={(s) => { setSelectedSupplier(s); setSupplierModalOpen(true); }}
                         onDelete={(id) => handleDeleteClick(id, "supplier")}
+                        onView={async (id) => {
+                          const toastId = toast.loading("Loading supplier details...");
+                          try {
+                            const data = await materialService.getSupplier(id);
+                            setSelectedViewSupplier(data);
+                            setViewSupplierModalOpen(true);
+                            toast.dismiss(toastId);
+                          } catch (err) {
+                            toast.error("Failed to load supplier details", { id: toastId });
+                          }
+                        }}
                       />
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
@@ -1081,18 +1098,13 @@ const InventoryPage = () => {
                     <>
                       <TransferTable
                         transfers={paged}
-                        onStatusUpdate={async (id, status) => {
-                          try {
-                            await materialService.updateTransferStatus(id, status);
-                            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-                            toast.success(`Transfer marked as ${status.toLowerCase()}!`);
-                          } catch {
-                            toast.error("Failed to update transfer status");
-                          }
+                        onUpdateStatus={(t) => {
+                          setSelectedUpdateTransfer(t);
+                          setIsUpdateTransferModalOpen(true);
                         }}
                         onView={(t) => setSelectedTransfer(t)}
                       />
-                      {totalPages > 1 && (
+                      {sortedTransfers.length > 0 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                             Showing {transferPage * PAGE_SIZE + 1}–{Math.min((transferPage + 1) * PAGE_SIZE, sortedTransfers.length)} of {sortedTransfers.length} Transfers
@@ -1315,6 +1327,24 @@ const InventoryPage = () => {
         }}
       />
 
+      <UpdateTransferStatusModal
+        isOpen={isUpdateTransferModalOpen}
+        onClose={() => {
+          setIsUpdateTransferModalOpen(false);
+          setSelectedUpdateTransfer(null);
+        }}
+        transfer={selectedUpdateTransfer}
+        onSubmit={async (id, status) => {
+          try {
+            await materialService.updateTransferStatus(id, status);
+            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+            toast.success(`Transfer status updated to ${status}!`);
+          } catch {
+            toast.error("Failed to update transfer status");
+          }
+        }}
+      />
+
       <CreatePOModal
         isOpen={isCreatePOModalOpen}
         onClose={() => setIsCreatePOModalOpen(false)}
@@ -1322,6 +1352,12 @@ const InventoryPage = () => {
         suppliers={suppliers}
         projects={projectList}
         inventory={inventory}
+      />
+
+      <ViewSupplierModal
+        isOpen={isViewSupplierModalOpen}
+        onClose={() => { setViewSupplierModalOpen(false); setSelectedViewSupplier(null); }}
+        supplier={selectedViewSupplier}
       />
 
       <ConfirmModal

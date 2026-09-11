@@ -76,7 +76,39 @@ const EquipmentPage = () => {
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
     const [availability, setAvailability] = useState<AvailabilityReport[]>([]);
     const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
+    const [costReport, setCostReport] = useState<any[]>([]);
     const [transferList, setTransferList] = useState<any[]>([]);
+
+    // Reports Pagination
+    const [utilizationPage, setUtilizationPage] = useState(1);
+    const [utilizationItemsPerPage, setUtilizationItemsPerPage] = useState(10);
+    const [costPage, setCostPage] = useState(1);
+    const [costItemsPerPage, setCostItemsPerPage] = useState(10);
+    const [usagePage, setUsagePage] = useState(1);
+    const [usageItemsPerPage, setUsageItemsPerPage] = useState(10);
+    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchaseItemsPerPage, setPurchaseItemsPerPage] = useState(10);
+    const [availabilityPage, setAvailabilityPage] = useState(1);
+    const [availabilityItemsPerPage, setAvailabilityItemsPerPage] = useState(10);
+
+    // Reports Filters
+    const [costDateFrom, setCostDateFrom] = useState("");
+    const [costDateTo, setCostDateTo] = useState("");
+    const [appliedCostDateFrom, setAppliedCostDateFrom] = useState("");
+    const [appliedCostDateTo, setAppliedCostDateTo] = useState("");
+
+    const [usageDateFrom, setUsageDateFrom] = useState("");
+    const [usageDateTo, setUsageDateTo] = useState("");
+    const [appliedUsageDateFrom, setAppliedUsageDateFrom] = useState("");
+    const [appliedUsageDateTo, setAppliedUsageDateTo] = useState("");
+
+    const [purchaseType, setPurchaseType] = useState("");
+    const [appliedPurchaseType, setAppliedPurchaseType] = useState("");
+
+    const [isAvailableFilter, setIsAvailableFilter] = useState("");
+    const [appliedIsAvailableFilter, setAppliedIsAvailableFilter] = useState("");
+
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // KPI Data
     const projectMap = useMemo(() => {
@@ -110,16 +142,26 @@ const EquipmentPage = () => {
                 const res = await equipmentService.listPurchase(pIdObj);
                 setPurchaseList(Array.isArray(res) ? res : (res as any).items || []);
             } else if (activeTab === "Reports & Alerts") {
-                const [avail, util, eAlerts, purchaseRes] = await Promise.all([
-                    equipmentService.getAvailabilityReport(pIdObj),
-                    equipmentService.getUtilizationReport(pIdObj),
-                    equipmentService.getEquipmentAlerts(pIdObj),
-                    equipmentService.getPurchaseReport(pIdObj).catch(() => [])
+                const utilParams = { ...pIdObj };
+                const costParams = { ...pIdObj, start_date: appliedCostDateFrom || undefined, end_date: appliedCostDateTo || undefined };
+                const usageParams = { ...pIdObj, start_date: appliedUsageDateFrom || undefined, end_date: appliedUsageDateTo || undefined };
+                const purParams = { ...pIdObj, purchase_type: appliedPurchaseType || undefined };
+                const availParams = { ...pIdObj, is_available: appliedIsAvailableFilter === "" ? undefined : appliedIsAvailableFilter === "true" };
+
+                const [avail, util, eAlerts, purchaseRes, costRes, usageRes] = await Promise.all([
+                    equipmentService.getAvailabilityReport(availParams).catch(() => []),
+                    equipmentService.getUtilizationReport(utilParams).catch(() => []),
+                    equipmentService.getEquipmentAlerts(pIdObj).catch(() => []),
+                    equipmentService.getPurchaseReport(purParams).catch(() => []),
+                    equipmentService.getCostReport(costParams).catch(() => []),
+                    equipmentService.getUsageReport(usageParams).catch(() => [])
                 ]);
                 setAvailability(avail);
                 setUtilizationReport(util);
                 setEquipmentAlerts(eAlerts);
                 setPurchaseReport(purchaseRes || []);
+                setCostReport(costRes || []);
+                setUsageReport(usageRes || []);
             } else if (activeTab === "Transfer Equipment") {
                 const res = await equipmentService.listTransferHistory(pIdObj);
                 setTransferList(res);
@@ -129,7 +171,7 @@ const EquipmentPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, selectedProjectId]);
+    }, [activeTab, selectedProjectId, appliedCostDateFrom, appliedCostDateTo, appliedUsageDateFrom, appliedUsageDateTo, appliedPurchaseType, appliedIsAvailableFilter, refreshTrigger]);
 
     useEffect(() => {
         let isMounted = true;
@@ -781,9 +823,15 @@ const EquipmentPage = () => {
         </div>
     );
 
-    const renderReports = () => (
-        <div className="space-y-6 pt-2">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    const renderReports = () => {
+        const paginatedUtilization = utilizationReport.slice((utilizationPage - 1) * utilizationItemsPerPage, utilizationPage * utilizationItemsPerPage);
+        const paginatedCost = costReport.slice((costPage - 1) * costItemsPerPage, costPage * costItemsPerPage);
+        const paginatedUsage = usageReport.slice((usagePage - 1) * usageItemsPerPage, usagePage * usageItemsPerPage);
+        const paginatedPurchase = purchaseReport.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
+        const paginatedAvailability = availability.slice((availabilityPage - 1) * availabilityItemsPerPage, availabilityPage * availabilityItemsPerPage);
+
+        return (
+            <div className="space-y-6 pt-2">
                 {/* Equipment Alerts */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -813,82 +861,229 @@ const EquipmentPage = () => {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-primary" /> <h3 className="font-bold text-sm text-slate-800">Utilization Rate</h3>
-                        </div>
-                        <div className="p-4 space-y-4 max-h-[170px] overflow-auto">
-                            {utilizationReport.length > 0 ? utilizationReport.map(r => (
-                                <div key={r.equipment_id}>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-bold text-slate-700">{r.equipment_code}</span>
-                                        <span className="font-medium text-slate-500">{r.total_hours} hrs ({r.utilization_rate}%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2">
-                                        <div className={`h-2 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <p className="text-xs text-slate-400 text-center">No utilization data.</p>
-                            )}
+                {/* Utilization Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Utilization Report</h3>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Utilization Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
+                                    <tr key={r.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
+                                        <td className="p-4">{r.total_hours} hrs</td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div></div>
+                                                <span>{r.utilization_rate}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No utilization data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={utilizationReport.length}
+                        currentPage={utilizationPage}
+                        pageSize={utilizationItemsPerPage}
+                        onPageChange={setUtilizationPage}
+                        label="Utilization Metrics"
+                    />
+                </div>
+
+                {/* Cost Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={costDateFrom} onChange={e => setCostDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={costDateTo} onChange={e => setCostDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="End Date" />
+                            <button onClick={() => { setAppliedCostDateFrom(costDateFrom); setAppliedCostDateTo(costDateTo); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
                     </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Cost</th>
+                                    <th className="p-4">Rentals</th>
+                                    <th className="p-4">Avg Cost</th>
+                                    <th className="p-4">Total Days</th>
+                                    <th className="p-4">Rev/Day</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
+                                    <tr key={c.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                        <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.rental_count}</td>
+                                        <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.total_days}</td>
+                                        <td className="p-4">₹{c.revenue_per_day?.toLocaleString()}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No cost data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={costReport.length}
+                        currentPage={costPage}
+                        pageSize={costItemsPerPage}
+                        onPageChange={setCostPage}
+                        label="Records"
+                    />
+                </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-emerald-500" /> <h3 className="font-bold text-sm text-slate-800">Availability Map</h3>
-                        </div>
-                        <div className="overflow-auto max-h-[170px]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
-                                    <tr><th className="p-3">Code</th><th className="p-3">Status</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {availability.length > 0 ? availability.map(a => (
-                                        <tr key={a.equipment_id} className="hover:bg-slate-50">
-                                            <td className="p-3 font-bold text-slate-700">{a.equipment_code}</td>
-                                            <td className="p-3">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${a.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                    {a.is_available ? 'Available' : 'Allocated'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan={2} className="p-3 text-center text-xs text-slate-400">No availability data.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
+                {/* Usage Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={usageDateFrom} onChange={e => setUsageDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={usageDateTo} onChange={e => setUsageDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="End Date" />
+                            <button onClick={() => { setAppliedUsageDateFrom(usageDateFrom); setAppliedUsageDateTo(usageDateTo); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
                     </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Total Fuel</th>
+                                    <th className="p-4">Avg Hrs</th>
+                                    <th className="p-4">Entries</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
+                                    <tr key={u.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                        <td className="p-4">{u.total_hours}</td>
+                                        <td className="p-4">{u.total_fuel}</td>
+                                        <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
+                                        <td className="p-4">{u.usage_count}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No usage data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={usageReport.length}
+                        currentPage={usagePage}
+                        pageSize={usageItemsPerPage}
+                        onPageChange={setUsagePage}
+                        label="Usage Records"
+                    />
                 </div>
-            </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-purple-500" /> <h3 className="font-bold text-sm text-slate-800">Purchase Analytics</h3>
+                {/* Purchase Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Purchase Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={purchaseType} onChange={e => setPurchaseType(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200">
+                                <option value="">All Types</option>
+                                <option value="NEW">NEW</option>
+                                <option value="USED">USED</option>
+                            </select>
+                            <button onClick={() => { setAppliedPurchaseType(purchaseType); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Purchase Count</th>
+                                    <th className="p-4 text-center">Quantity</th>
+                                    <th className="p-4">Cost</th>
+                                    <th className="p-4">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{p.asset_name}</td>
+                                        <td className="p-4">{p.purchase_count}</td>
+                                        <td className="p-4 text-center">{p.total_quantity}</td>
+                                        <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
+                                        <td className="p-4">{p.purchase_type}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No purchase data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={purchaseReport.length}
+                        currentPage={purchasePage}
+                        pageSize={purchaseItemsPerPage}
+                        onPageChange={setPurchasePage}
+                        label="Purchase Analytics"
+                    />
                 </div>
-                <div className="p-6">
-                    {purchaseReport.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {purchaseReport.map((p, idx) => (
-                                <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">{p.category || 'General Equipment'}</p>
-                                    <p className="text-2xl font-bold text-slate-800 mb-1">₹{p.total_cost?.toLocaleString() || '0'}</p>
-                                    <p className="text-xs text-slate-500 font-medium">{p.purchase_count || 0} Assets Purchased</p>
-                                </div>
-                            ))}
+
+                {/* Availability Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Availability Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={isAvailableFilter} onChange={e => setIsAvailableFilter(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200">
+                                <option value="">All</option>
+                                <option value="true">Available</option>
+                                <option value="false">Not Available</option>
+                            </select>
+                            <button onClick={() => { setAppliedIsAvailableFilter(isAvailableFilter); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                            <FileText className="w-8 h-8 mb-2 opacity-20" />
-                            <p className="text-sm font-medium">No purchase data available</p>
-                        </div>
-                    )}
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Project</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedAvailability.length > 0 ? paginatedAvailability.map((a: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{a.equipment_name || a.equipment_code}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                {a.is_available ? "true" : "false"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">{a.project_id ? (projectMap[a.project_id] || a.project_id) : '-'}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No availability data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={availability.length}
+                        currentPage={availabilityPage}
+                        pageSize={availabilityItemsPerPage}
+                        onPageChange={setAvailabilityPage}
+                        label="Registries"
+                    />
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const exportExcel = async () => {
         try {
@@ -1079,9 +1274,7 @@ const EquipmentPage = () => {
                     try {
                         await equipmentService.transferEquipment({
                             equipment_id: Number(data.equipment_id),
-                            to_project_id: Number(data.to_project_id),
-                            transfer_date: data.transfer_date,
-                            condition_notes: data.reason
+                            to_project_id: Number(data.to_project_id)
                         });
                         toast.success("Equipment successfully transferred!");
                         setIsTransferModalOpen(false);
@@ -1336,7 +1529,7 @@ const EquipmentPage = () => {
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                         <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Add Rental</button>
+                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Save Rental</button>
                     </div>
                 </form>
             </Modal>

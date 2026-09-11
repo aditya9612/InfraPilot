@@ -48,6 +48,7 @@ import SettingsPage from "../pages/admin/SettingsPage";
 import ReportsPage from "../pages/admin/ReportsPage";
 import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
+import RolesPermissionsPage from "../pages/access-control/RolesPermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 import BOQDetailPage from "../pages/admin/BOQDetailPage";
@@ -226,6 +227,10 @@ function AppRoutes() {
                 <Route
                   path="/admin/users/permissions"
                   element={<PermissionsPage />}
+                />
+                <Route
+                  path="/admin/access-control/roles"
+                  element={<RolesPermissionsPage />}
                 />
                 <Route path="/admin/clients" element={<ClientsPage />} />
                 <Route path="/admin/clients/:id" element={<ClientDetailPage />} />

@@ -1,16 +1,16 @@
 import React from "react";
-import { ArrowRight, CheckCircle, XCircle, Eye } from "lucide-react";
+import { ArrowRight, Eye } from "lucide-react";
 import type { Transfer } from "../../../types/material";
 
 interface TransferTableProps {
   transfers: Transfer[];
-  onStatusUpdate?: (id: number, status: Transfer["status"]) => void;
+  onUpdateStatus?: (transfer: Transfer) => void;
   onView?: (transfer: Transfer) => void;
 }
 
 const TransferTable: React.FC<TransferTableProps> = ({
   transfers,
-  onStatusUpdate,
+  onUpdateStatus,
   onView,
 }) => {
   const getStatusStyle = (status: string) => {
@@ -60,31 +60,20 @@ const TransferTable: React.FC<TransferTableProps> = ({
                 </span>
               </td>
               <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  {tr.status === "PENDING" && onStatusUpdate ? (
-                    <>
-                      <button
-                        onClick={() => onStatusUpdate(tr.id, "COMPLETED")}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-                        title="Complete Transfer"
-                      >
-                        <CheckCircle size={14} /> Complete
-                      </button>
-                      <button
-                        onClick={() => onStatusUpdate(tr.id, "CANCELLED")}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold transition-colors"
-                        title="Cancel Transfer"
-                      >
-                        <XCircle size={14} /> Cancel
-                      </button>
-                    </>
-                  ) : (
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => onView?.(tr)}
+                    className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                    title="View Details"
+                  >
+                    <Eye className="w-5 h-5" strokeWidth={1.5} />
+                  </button>
+                  {onUpdateStatus && (
                     <button
-                      onClick={() => onView?.(tr)}
-                      className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                      title="View Details"
+                      onClick={() => onUpdateStatus(tr)}
+                      className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-sm font-bold transition-all"
                     >
-                      <Eye className="w-4 h-4" strokeWidth={1.5} />
+                      Update Status
                     </button>
                   )}
                 </div>

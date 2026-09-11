@@ -6,9 +6,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
     const [formData, setFormData] = useState({
         equipment_id: "",
         source_project_id: "",
-        target_project_id: "",
-        transfer_date: new Date().toISOString().split("T")[0],
-        reason: ""
+        target_project_id: ""
     });
 
     useEffect(() => {
@@ -16,9 +14,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
             setFormData({
                 equipment_id: "",
                 source_project_id: "",
-                target_project_id: "",
-                transfer_date: new Date().toISOString().split("T")[0],
-                reason: ""
+                target_project_id: ""
             });
         }
     }, [isOpen]);
@@ -38,7 +34,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
             <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-slate-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="md:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Equipment *</label>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Equipment <span className="text-rose-500">*</span></label>
                         <select
                             value={formData.equipment_id}
                             onChange={e => {
@@ -73,7 +69,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                         </div>
 
                         <div className="flex-1 w-full">
-                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Target Project *</label>
+                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Target Project <span className="text-rose-500">*</span></label>
                             <select
                                 value={formData.target_project_id}
                                 onChange={e => setFormData({ ...formData, target_project_id: e.target.value })}
@@ -89,31 +85,6 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                         </div>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Transfer Date *</label>
-                        <input
-                            type="date"
-                            value={formData.transfer_date}
-                            onChange={e => setFormData({ ...formData, transfer_date: e.target.value })}
-                            required
-                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Reason for Transfer *</label>
-                        <input
-                            type="text"
-                            value={formData.reason}
-                            onChange={e => setFormData({ ...formData, reason: e.target.value })}
-                            required
-                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                            placeholder="e.g. Moved for excavation work..."
-                        />
-                    </div>
-                </div>
-
                 <div className="flex justify-end gap-3 pt-6">
                     <button type="button" onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
                         Cancel
@@ -123,7 +94,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                     </button>
                 </div>
             </form>
-        </Modal>
+        </Modal >
     );
 };
 

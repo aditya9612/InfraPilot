@@ -56,7 +56,7 @@ export default function MaterialTransactionsModal({ isOpen, onClose, material, p
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800">{material.material_name}</h3>
-                        <p className="text-xs font-bold text-slate-500 uppercase">{material.category} • {material.unit}</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase">{material.category} • {material.unit_name || material.unit}</p>
                     </div>
                 </div>
 
