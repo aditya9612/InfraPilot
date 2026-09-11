@@ -10,7 +10,7 @@ import {
     FileText,
     Activity,
     Search,
-    Plus,
+
     Edit2,
     Eye,
     MapPin,
@@ -170,7 +170,7 @@ const DSRPage = () => {
             const itemsWithPhotos = await Promise.all(
                 apiData.map(async (item: any) => {
                     try {
-                        const photoData = await dsrService.getDsrPhotos(item.id);
+                        const photoData = await dsrService.getDsrPhotos(item.id, item.project_id);
                         let photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
                             id: p.id,
                             url: p.url || p.file_url || p.photo_url
@@ -236,7 +236,7 @@ const DSRPage = () => {
             })).filter((p: any) => p.url) || [];
 
             try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                const extraPhotos = await dsrService.getDsrPhotos(data.id, data.project_id);
                 if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
                     photos = extraPhotos.map((p: any) => ({
                         id: p.id,
@@ -277,7 +277,7 @@ const DSRPage = () => {
             })).filter((p: any) => p.url) || [];
 
             try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                const extraPhotos = await dsrService.getDsrPhotos(data.id, data.project_id);
                 if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
                     photos = extraPhotos.map((p: any) => ({
                         id: p.id,
@@ -442,8 +442,7 @@ const DSRPage = () => {
                             onClick={() => setIsCreateOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
-                            <Plus className="w-4 h-4" />
-                            New Entry
+                            New DSR Entry
                         </button>
                     </div>
                 </div>

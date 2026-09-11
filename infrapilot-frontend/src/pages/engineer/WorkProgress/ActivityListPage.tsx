@@ -4,7 +4,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-  Plus,
+
   Search,
   Eye,
   Edit2,
@@ -342,8 +342,7 @@ const ActivityListPage = () => {
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              Add Activity
+              Add activity
             </button>
           </div>
         </div>

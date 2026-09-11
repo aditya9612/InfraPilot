@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -41,7 +41,7 @@ const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, 
     const p = (Array.isArray(projects) ? projects : []).find(proj => String(proj.id ?? proj.project_id) === strId);
     if (p) return p.name || p.project_name || p.client_name || p.title;
     const seed = PROJECTS.find(proj => String(proj.id) === strId);
-    if (seed) return seed.project_name || seed.name;
+    if (seed) return seed.project_name || (seed as any).name;
     return KNOWN_PROJECT_MAP[strId] || `Project #${strId}`;
   });
 
@@ -61,7 +61,7 @@ const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, 
     }
     const seed = PROJECTS.find(proj => String(proj.id) === strId);
     if (seed) {
-      setName(seed.project_name || seed.name || KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
+      setName(seed.project_name || (seed as any).name || KNOWN_PROJECT_MAP[strId] || `Project #${strId}`);
       return;
     }
     if (KNOWN_PROJECT_MAP[strId]) {
@@ -345,22 +345,22 @@ const InvoicesSection = ({
       {activeSubTab === "quotation_list" && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pipeline Value</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Total Pipeline Value</p>
             <p className="text-2xl font-bold text-blue-600">{fmt(totalPipelineValue)}</p>
             <p className="text-xs text-slate-400 mt-2">{activeQuotations.length} Active Quotations</p>
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Win / Approval Rate</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Win / Approval Rate</p>
             <p className="text-2xl font-bold text-emerald-500">{winRate}%</p>
             <p className="text-xs text-slate-400 mt-2">Based on all time</p>
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Drafts</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Pending Drafts</p>
             <p className="text-2xl font-bold text-orange-500">{pendingDraftsCount}</p>
             <p className="text-xs text-slate-400 mt-2">Requires admin review</p>
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sent Quotations</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Sent Quotations</p>
             <p className="text-2xl font-bold text-indigo-500">{sentQuotationsCount}</p>
             <p className="text-xs text-slate-400 mt-2">Awaiting client response</p>
           </div>
@@ -415,7 +415,7 @@ const InvoicesSection = ({
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
                   {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -776,17 +776,17 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
       {(activeSubTab === "labour_list" || activeSubTab === "material_list") && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Portfolio Value</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Portfolio Value</p>
             <p className="text-2xl font-bold text-blue-600">{fmt(portfolioValue)}</p>
             <p className="text-xs text-slate-400 mt-2">{filtered.length} records</p>
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Pending</p>
             <p className="text-2xl font-bold text-orange-500">{fmt(pendingValue)}</p>
             <p className="text-xs text-slate-400 mt-2">Requires action</p>
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Paid</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Paid</p>
             <p className="text-2xl font-bold text-emerald-500">{fmt(paidValue)}</p>
             <p className="text-xs text-slate-400 mt-2">Completed</p>
           </div>
@@ -839,7 +839,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
                   {["project_name", "type", "amount", "gst_percent", "gst_amount", "tax_percent", "tax_amount", "total_amount", "paid_amount", "pending_amount", "status", "description", "created_at", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -928,7 +928,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
           </h2>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Project</label>
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">Select Project <span className="text-rose-500">*</span></label>
               <select
                 required
                 value={formData.project_id}
@@ -945,7 +945,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
             {activeSubTab === "create_labour" && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Start Date</label>
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">Start Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
                     required
@@ -955,7 +955,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">End Date</label>
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">End Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
                     required
@@ -969,7 +969,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
 
             {activeSubTab === "create_measurement" && (
               <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Measurement</label>
+                <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1">Select Measurement <span className="text-rose-500">*</span></label>
                 <select
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white disabled:opacity-50"
                   value={formData.measurement_id}
@@ -1010,7 +1010,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                 disabled={isSubmitting}
                 className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
               >
-                {isSubmitting ? "Creating..." : "Create Invoice"}
+                {isSubmitting ? "Saving..." : activeSubTab === "create_labour" ? "Save Labour" : activeSubTab === "create_measurement" ? "Save Measurement" : "Save Material"}
               </button>
             </div>
           </form>
@@ -1369,7 +1369,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create" | "approval" | "payments");
   }, [initialSubTab]);
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
   const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-300";
   const selectClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer";
   const readOnlyClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-slate-50 text-slate-400 cursor-not-allowed";
@@ -1475,7 +1475,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
                   {["Bill No", "Contractor", "Project", "Bill Date", "Gross Amount", "Net Amount", "Status", "Actions"].map(h => (
-                    <th key={h} className={`px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap ${["Gross Amount", "Net Amount", "Actions"].includes(h) ? 'text-right' : ''}`}>{h}</th>
+                    <th key={h} className={`px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap ${["Gross Amount", "Net Amount", "Actions"].includes(h) ? 'text-right' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1603,7 +1603,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* RA Bill Number - auto */}
                 <div>
-                  <label className={labelClasses}>RA Bill Number</label>
+                  <label className={labelClasses}>RA Bill Number <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     className={readOnlyClasses}
@@ -1615,7 +1615,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Project dropdown */}
                 <div>
-                  <label className={labelClasses}>Project Name</label>
+                  <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
                   <select
                     required
                     className={selectClasses}
@@ -1633,7 +1633,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Contractor dropdown */}
                 <div>
-                  <label className={labelClasses}>Contractor</label>
+                  <label className={labelClasses}>Contractor <span className="text-rose-500">*</span></label>
                   <select
                     className={selectClasses}
                     value={formData.contractor_id}
@@ -1650,7 +1650,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Measurement dropdown */}
                 <div>
-                  <label className={labelClasses}>Measurement</label>
+                  <label className={labelClasses}>Measurement <span className="text-rose-500">*</span></label>
                   <select
                     className={selectClasses}
                     value={formData.measurement_id}
@@ -1667,7 +1667,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Work Order dropdown */}
                 <div>
-                  <label className={labelClasses}>Work Order</label>
+                  <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
                   <select
                     className={selectClasses}
                     value={formData.work_order_id}
@@ -1684,7 +1684,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Bill Date */}
                 <div>
-                  <label className={labelClasses}>Bill Date</label>
+                  <label className={labelClasses}>Bill Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
                     required
@@ -1707,7 +1707,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Work Description */}
                 <div className="col-span-2">
-                  <label className={labelClasses}>Work Description</label>
+                  <label className={labelClasses}>Work Description <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     className={inputClasses}
@@ -1719,7 +1719,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Quantity */}
                 <div>
-                  <label className={labelClasses}>Quantity</label>
+                  <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     min="0"
@@ -1732,7 +1732,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Rate */}
                 <div>
-                  <label className={labelClasses}>Rate (₹)</label>
+                  <label className={labelClasses}>Rate (₹) <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     min="0"
@@ -1745,7 +1745,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* GST Percent */}
                 <div>
-                  <label className={labelClasses}>GST (%)</label>
+                  <label className={labelClasses}>GST (%) <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     min="0"
@@ -1759,7 +1759,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
                 {/* Deductions */}
                 <div>
-                  <label className={labelClasses}>Deductions (₹)</label>
+                  <label className={labelClasses}>Deductions (₹) <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     min="0"
@@ -1849,7 +1849,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             <div className="p-6 space-y-4">
               <p className="text-sm text-slate-600">Please provide a reason for rejecting Bill <strong>{rejectingRABill.bill_number}</strong>.</p>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Remarks <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Remarks <span className="text-rose-500">*</span></label>
                 <textarea
                   value={rejectRemarks}
                   onChange={e => setRejectRemarks(e.target.value)}
@@ -1880,11 +1880,11 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Date</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Payment Date</label>
                 <input type="date" value={payForm.date} onChange={e => setPayForm({ ...payForm, date: e.target.value })} required className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Mode</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Payment Mode</label>
                 <select value={payForm.mode} onChange={e => setPayForm({ ...payForm, mode: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer">
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque">Cheque</option>
@@ -1893,11 +1893,11 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference Number / UTR</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Reference Number / UTR</label>
                 <input type="text" value={payForm.reference} onChange={e => setPayForm({ ...payForm, reference: e.target.value })} placeholder="e.g. UTR123456789" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Remarks</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Remarks</label>
                 <textarea value={payForm.remarks} onChange={e => setPayForm({ ...payForm, remarks: e.target.value })} rows={2} placeholder="Optional notes..." className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
               </div>
             </div>
@@ -1994,7 +1994,7 @@ const CollectionsSection = () => {
           <div key={i} className="bg-white rounded-2xl p-4 lg:p-5 shadow-sm border border-slate-100 flex items-center gap-3 lg:gap-4 overflow-hidden">
             <div className={`w-10 h-10 lg:w-12 lg:h-12 min-w-[40px] lg:min-w-[48px] rounded-xl ${k.color} flex items-center justify-center text-xl lg:text-2xl`}>{k.icon}</div>
             <div className="min-w-0 flex-1">
-              <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title={k.label}>{k.label}</p>
+              <p className="text-[9px] lg:text-[10px] font-bold text-slate-800 uppercase tracking-widest truncate" title={k.label}>{k.label}</p>
               <p className="text-sm lg:text-base xl:text-lg font-bold text-slate-800 mt-0.5 truncate" title={k.value}>{k.value}</p>
             </div>
           </div>
@@ -2035,10 +2035,10 @@ const CollectionsSection = () => {
               📤 Export Collections
             </button>
             <button onClick={() => setIsManualModalOpen(true)} className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition-all active:scale-95">
-              + Add Manual Entry
+              Add Manual Entry
             </button>
             <button onClick={() => toast.success("Payment recorded!")} className="flex items-center gap-2 bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-slate-700 transition-all active:scale-95">
-              + Record Payment
+              Record Payment
             </button>
           </div>
         </div>
@@ -2047,7 +2047,7 @@ const CollectionsSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Invoice", "Client", "Amount Received", "Received On", "Mode", "Reference", "Status", "Action"].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -2212,7 +2212,7 @@ const ClientLedgerSection = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="space-y-1.5 flex-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Client</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Select Client</label>
             <select
               value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
@@ -2238,7 +2238,7 @@ const ClientLedgerSection = () => {
           { label: "Outstanding", value: fmtExact(outstanding), red: true },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">{s.label}</p>
             <p className={`text-xl font-bold ${s.green ? "text-emerald-600" : s.red ? "text-rose-600" : "text-slate-800"}`}>{s.value}</p>
           </div>
         ))}
@@ -2255,7 +2255,7 @@ const ClientLedgerSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Date", "Particulars", "Debit (₹)", "Credit (₹)", "Balance (₹)"].map(h => (
-                  <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -2387,7 +2387,7 @@ const ReceivablesPage = () => {
     <>
       <Navbar title="Receivables (Client Billing)" breadcrumb={["Accountant", "Receivables"]} />
 
-      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
+      <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
@@ -2525,32 +2525,32 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
         {/* Details Grid */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><User size={14} /> Contractor Details</p>
+            <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2"><User size={14} /> Contractor Details</p>
             <p className="text-sm font-bold text-slate-800">{contrName}</p>
             <p className="text-xs text-slate-500 mt-1">Vendor ID: {bill.contractor_id || "—"}</p>
           </div>
 
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Briefcase size={14} /> Project Details</p>
+            <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2"><Briefcase size={14} /> Project Details</p>
             <p className="text-sm font-bold text-slate-800">{projName}</p>
             <p className="text-xs text-slate-500 mt-1">Project ID: {bill.project_id || "—"}</p>
           </div>
 
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm col-span-2 flex justify-between items-center">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><FileText size={14} /> Work Order</p>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1 flex items-center gap-2"><FileText size={14} /> Work Order</p>
               <p className="text-sm font-bold text-slate-800">{woName}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantity</p>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Quantity</p>
               <p className="text-sm font-semibold text-slate-700">{bill.quantity || "—"}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rate</p>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Rate</p>
               <p className="text-sm font-semibold text-slate-700">{bill.rate != null ? fmt(bill.rate) : "—"}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Description</p>
               <p className="text-sm font-semibold text-slate-700">{bill.work_description || "—"}</p>
             </div>
           </div>
@@ -2558,7 +2558,7 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
 
         {/* Amount Summary */}
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Banknote size={14} /> Amount Summary</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><Banknote size={14} /> Amount Summary</p>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-xs text-slate-500 font-semibold">Gross Amount</span>
@@ -2652,7 +2652,7 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
   };
 
   const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary";
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -2664,7 +2664,7 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className={labelClasses}>Work Order</label>
+              <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
               <select className={inputClasses} value={formData.work_order_id} onChange={e => setFormData({ ...formData, work_order_id: e.target.value })}>
                 <option value="">-- Select Work Order --</option>
                 {workOrders.map(w => (
@@ -2673,19 +2673,19 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
               </select>
             </div>
             <div className="col-span-2">
-              <label className={labelClasses}>Work Description</label>
+              <label className={labelClasses}>Work Description <span className="text-rose-500">*</span></label>
               <input type="text" className={inputClasses} value={formData.work_description} onChange={e => setFormData({ ...formData, work_description: e.target.value })} />
             </div>
             <div>
-              <label className={labelClasses}>Quantity</label>
+              <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
               <input type="number" step="any" className={inputClasses} value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: e.target.value })} />
             </div>
             <div>
-              <label className={labelClasses}>Rate</label>
+              <label className={labelClasses}>Rate <span className="text-rose-500">*</span></label>
               <input type="number" step="any" className={inputClasses} value={formData.rate} onChange={e => setFormData({ ...formData, rate: e.target.value })} />
             </div>
             <div>
-              <label className={labelClasses}>Deductions</label>
+              <label className={labelClasses}>Deductions <span className="text-rose-500">*</span></label>
               <input type="number" step="any" className={inputClasses} value={formData.deductions} onChange={e => setFormData({ ...formData, deductions: e.target.value })} />
             </div>
             <div>
@@ -2703,7 +2703,7 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
               </select>
             </div>
             <div>
-              <label className={labelClasses}>Bill Date</label>
+              <label className={labelClasses}>Bill Date <span className="text-rose-500">*</span></label>
               <input type="date" className={inputClasses} value={formData.bill_date} onChange={e => setFormData({ ...formData, bill_date: e.target.value })} />
             </div>
           </div>
@@ -2720,3 +2720,4 @@ const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, 
 };
 
 export default ReceivablesPage;
+

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";

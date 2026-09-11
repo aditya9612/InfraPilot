@@ -66,6 +66,19 @@ const WorkOrdersPage = () => {
     fetchWorkOrders();
   }, [selectedProjectId]);
 
+  const availableStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    workOrders.forEach(w => {
+      const st = w.status;
+      if (st) {
+        // Capitalize each word nicely for display, but here we just store the exact string
+        // Actually it's better to store uppercase in Set to deduplicate, and format for display
+        statuses.add(st.toUpperCase());
+      }
+    });
+    return Array.from(statuses);
+  }, [workOrders]);
+
   const filteredOrders = useMemo(() => {
     let list = workOrders;
 
@@ -203,10 +216,11 @@ const WorkOrdersPage = () => {
                 className="w-full md:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-primary transition-all font-medium text-slate-600"
               >
                 <option value="ALL">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
+                {availableStatuses.map(status => (
+                  <option key={status} value={status}>
+                    {status.replace(/_/g, " ")}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

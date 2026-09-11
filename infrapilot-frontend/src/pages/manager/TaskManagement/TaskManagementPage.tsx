@@ -243,8 +243,7 @@ const TaskManagementPage = () => {
 
     const [projectMilestones, setProjectMilestones] = useState<any[]>([]);
     const [projectBoqs, setProjectBoqs] = useState<any[]>([]);
-    const [projectActivities, setProjectActivities] = useState<any[]>([]);
-
+    const [, setProjectActivities] = useState<any[]>([]);
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
@@ -252,7 +251,7 @@ const TaskManagementPage = () => {
     const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
     useEffect(() => {
-        userService.getAllUsers(1000).then((res: any) => {
+        userService.getAllUsers(100).then((res: any) => {
             const users = Array.isArray(res) ? res : (res.items || res.data || []);
             const map: Record<number, string> = {};
             users.forEach((u: any) => { map[u.id || u.user_id] = u.full_name || u.name || u.username });
@@ -697,13 +696,13 @@ const TaskManagementPage = () => {
                     projectService.getMilestones(targetProjId as number).catch(() => []),
                     boqService.getBoqItems(targetProjId as number).catch(() => [])
                 ]);
-                const m = Array.isArray(resM) ? resM : (resM.items || resM.data || []);
+                const m = Array.isArray(resM) ? resM : ((resM as any).items || (resM as any).data || []);
                 if (m.length > 0) setProjectMembers(m);
 
-                const ms = Array.isArray(resMilestone) ? resMilestone : (resMilestone.items || resMilestone.data || []);
+                const ms = Array.isArray(resMilestone) ? resMilestone : ((resMilestone as any).items || (resMilestone as any).data || []);
                 if (ms.length > 0) setProjectMilestones(ms);
 
-                const bs = Array.isArray(resBoq) ? resBoq : (resBoq.items || resBoq.data || []);
+                const bs = Array.isArray(resBoq) ? resBoq : ((resBoq as any).items || (resBoq as any).data || []);
                 if (bs.length > 0) setProjectBoqs(bs);
             } catch (e) {
                 console.error("Failed to load project details for edit modal", e);
@@ -713,7 +712,7 @@ const TaskManagementPage = () => {
         // Fetch global activity types
         try {
             const types = await masterService.getEntities("activity-types");
-            setEditModalActivities(Array.isArray(types) ? types : types.items || types.data || []);
+            setEditModalActivities(Array.isArray(types) ? types : (types as any).items || (types as any).data || []);
         } catch (err) {
             console.error(err);
             setEditModalActivities([]);
@@ -888,7 +887,7 @@ const TaskManagementPage = () => {
                 } as FrontendTask;
             });
 
-            const sortedMapped = mapped.sort((a, b) => (b.id || 0) - (a.id || 0));
+            const sortedMapped = mapped.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
             setProjectTasksMap(prev => ({ ...prev, [projId]: sortedMapped }));
         } catch (error) {
             console.error('Error fetching project tasks for', projId, error);
@@ -929,7 +928,7 @@ const TaskManagementPage = () => {
                 if (bId) {
                     try {
                         const bData = await boqService.getBoqById(bId);
-                        updatedBoqName = bData ? (bData.item_name || bData.name || bData.item_description) : null;
+                        updatedBoqName = bData ? (bData.item_name || (bData as any).name || bData.description) : null;
                     } catch (e) { }
                 }
                 if (!updatedBoqName) {
@@ -2487,7 +2486,7 @@ const TaskManagementPage = () => {
                                 <select
                                     name="project_id"
                                     defaultValue={selectedEditTask?.project_id || projectId || 1}
-                                    onChange={(e) => {
+                                    onChange={() => {
                                         // Do nothing for activities since they are global, but keep the standard onchange logic if we add project-specific things later
                                     }}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"

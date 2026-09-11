@@ -108,6 +108,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
+    if (!formData.weather) errs.weather = "Weather Condition is required";
     if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done is required";
     // Project ID is implicit in the context/submission for DSR
     setErrors(errs);
@@ -154,7 +155,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
             Cancel
           </button>
           <button form="edit-dsr-form" type="submit" disabled={isLoading} className={`px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}>
-            {isLoading ? "Saving..." : "Update DSR Entry"}
+            {isLoading ? "Saving..." : "Edit DSR Entry"}
           </button>
         </>
       }
@@ -180,8 +181,9 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
               {errors.site_location && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.site_location}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Weather Condition</label>
-              <select name="weather" value={formData.weather || "Sunny"} onChange={handleChange} className={inputClasses(errors.weather)}>
+              <label className={labelClasses}>Weather Condition <span className="text-rose-500">*</span></label>
+              <select required name="weather" value={formData.weather || "Sunny"} onChange={handleChange} className={inputClasses(errors.weather)}>
+                <option value="">Select Weather</option>
                 <option value="Sunny">Sunny</option>
                 <option value="Rainy">Rainy</option>
                 <option value="Cloudy">Cloudy</option>

@@ -59,6 +59,10 @@ export const accountingService = {
     const response = await api.post("/accountant/receipts", data);
     return response.data;
   },
+  reverseReceipt: async (id: number | string, data: { reason: string }) => {
+    const response = await api.post(`/accountant/receipts/${id}/reverse`, data);
+    return response.data;
+  },
 
   // Payment Vouchers
   getPaymentVouchers: async (params?: any) => {

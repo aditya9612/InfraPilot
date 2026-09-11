@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { useProject } from "../../../context/ProjectContext";
 import {
     Search,
-    Plus,
+
     Edit2,
     Trash2,
     Eye,
@@ -52,8 +52,8 @@ const formatAadhaar = (value: string) => {
     return groups ? groups.join("-") : digits;
 };
 
-const getFullUrl = (url: string | null) => {
-    if (!url) return '';
+const getFullUrl = (url: any) => {
+    if (!url || typeof url !== 'string') return "";
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     if (url.startsWith('data:image')) return url;
     const baseUrl = import.meta.env.VITE_API_URL
@@ -66,6 +66,7 @@ const LaborDetailsPage = () => {
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [apiError, setApiError] = useState<string | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedLaborer, setSelectedLaborer] = useState<LabourItem | null>(null);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -264,7 +265,7 @@ const LaborDetailsPage = () => {
             let hasMore = true;
 
             while (hasMore) {
-                const response = await labourService.getLabours(projectId, {
+                const response = await labourService.getLabours(undefined, {
                     limit: 50,
                     offset: offset,
                     status: statusFilter === "All" ? undefined : statusFilter
@@ -281,29 +282,7 @@ const LaborDetailsPage = () => {
             }
             console.log(`Personnel Registry Sync Success: Fetched ${allItems.length} records`);
 
-            // Get local additions
-            const localKey = `created_labourers_${projectId || 0}`;
-            const localSaved = localStorage.getItem(localKey);
-            const localItems = localSaved ? JSON.parse(localSaved) : [];
-
-            // Get local deletions
-            const deletedKey = `deleted_labourers_ids_${projectId || 0}`;
-            const deletedSaved = localStorage.getItem(deletedKey);
-            const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
-
-            let combined = allItems;
-            // Merge, avoiding duplicates
-            const existingIds = new Set(combined.map((l: any) => l.id));
-            localItems.forEach((l: any) => {
-                if (!existingIds.has(l.id)) {
-                    combined.unshift(l);
-                }
-            });
-
-            // Filter out deleted laborers
-            combined = combined.filter((l: any) => !deletedIds.has(l.id));
-
-            setLaborers(combined);
+            setLaborers(allItems);
         } catch (error: any) {
             console.error("Personnel Registry Sync Failure:", error.response?.data || error.message);
             toast.error("Failed to sync personnel registry");
@@ -343,26 +322,6 @@ const LaborDetailsPage = () => {
             // ── Immediately remove from UI so list never goes blank ──
             setLaborers(prev => prev.filter(l => l.id !== labourToDelete));
 
-            // Sync deletion locally in localStorage
-            try {
-                const localKey = `created_labourers_${projectId || 0}`;
-                const localSaved = localStorage.getItem(localKey);
-                if (localSaved) {
-                    const localItems = JSON.parse(localSaved);
-                    const updatedItems = localItems.filter((l: any) => l.id !== labourToDelete);
-                    localStorage.setItem(localKey, JSON.stringify(updatedItems));
-                }
-
-                const deletedKey = `deleted_labourers_ids_${projectId || 0}`;
-                const deletedSaved = localStorage.getItem(deletedKey);
-                const deletedItems = deletedSaved ? JSON.parse(deletedSaved) : [];
-                if (!deletedItems.includes(labourToDelete)) {
-                    deletedItems.push(labourToDelete);
-                    localStorage.setItem(deletedKey, JSON.stringify(deletedItems));
-                }
-            } catch (e) {
-                console.error("Failed to sync deletion locally:", e);
-            }
 
             toast.success("Worker record deleted successfully");
             setIsDeleteModalOpen(false);
@@ -379,6 +338,7 @@ const LaborDetailsPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setApiError(null);
         if (!validate()) {
             toast.error("Please correct the errors in the form");
             return;
@@ -404,25 +364,10 @@ const LaborDetailsPage = () => {
                 const updatedLaborer = await labourService.updateLabour(editId, updatePayload as any);
 
                 const finalProfileImage = updatedLaborer.profile_image || formData.profile_image;
-                
+
                 // Update local state immediately with real data
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer, profile_image: finalProfileImage } : l));
 
-                // Sync the update to localStorage to prevent old data from reappearing
-                try {
-                    const localKey = `created_labourers_${projectId || 0}`;
-                    const localSaved = localStorage.getItem(localKey);
-                    if (localSaved) {
-                        const localItems = JSON.parse(localSaved);
-                        const itemIndex = localItems.findIndex((l: any) => l.id === editId);
-                        if (itemIndex !== -1) {
-                            localItems[itemIndex] = { ...localItems[itemIndex], ...updatedLaborer, profile_image: finalProfileImage };
-                            localStorage.setItem(localKey, JSON.stringify(localItems));
-                        }
-                    }
-                } catch (e) {
-                    console.error("Failed to update localStorage", e);
-                }
 
                 toast.success("Profile updated successfully");
             } else {
@@ -446,29 +391,35 @@ const LaborDetailsPage = () => {
 
                 // Add to local state immediately
                 setLaborers(prev => [newLaborer, ...prev]);
-                // Store in localStorage for instant sync with Attendance page
-                try {
-                    const localKey = `created_labourers_${projectId || 0}`;
-                    const localSaved = localStorage.getItem(localKey);
-                    const localItems = localSaved ? JSON.parse(localSaved) : [];
-                    localItems.unshift(newLaborer);
-                    localStorage.setItem(localKey, JSON.stringify(localItems));
-                } catch (e) {
-                    console.error("Failed to save created worker to localStorage", e);
-                }
+
                 toast.success("Personnel registered successfully");
             }
             setIsFormModalOpen(false);
             setFormData(initialFormData); // Refresh/Reset form data
             setErrors({}); // Clear errors
 
+            setApiError(null);
+            
             // Now that we've assigned them, a fetch should safely see them
             setTimeout(() => {
                 fetchLaborers();
             }, 1000);
         } catch (error: any) {
             console.error("Submission Error:", error.response?.data || error.message);
-            toast.error(error.response?.data?.detail || "Registration failed");
+            const detail = error.response?.data?.detail;
+            let errorMsg = "Registration failed";
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errorMsg = detail.map(err => {
+                    const loc = err.loc ? err.loc.join('.') : '';
+                    return `${loc}: ${err.msg}`;
+                }).join(' | ');
+            } else if (typeof detail === 'object' && detail !== null) {
+                errorMsg = JSON.stringify(detail);
+            }
+            setApiError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -594,11 +545,10 @@ const LaborDetailsPage = () => {
                             Export Report
                         </button>
                         <button
-                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
+                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setApiError(null); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
                             className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
-                            <Plus className="w-4 h-4" />
-                            Register Labour
+                            New Register Labour
                         </button>
                     </div>
                 </div>
@@ -822,7 +772,7 @@ const LaborDetailsPage = () => {
                                                             <QrCode className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setApiError(null); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -968,12 +918,25 @@ const LaborDetailsPage = () => {
                             className="min-w-[180px] px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
                         >
                             {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                            {formMode === 'create' ? 'Create Labour' : 'Update Profile'}
+                            {formMode === 'create' ? 'Save labour' : 'Edit labour'}
                         </button>
                     </div>
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
+                    {apiError && (
+                        <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-rose-100 rounded-lg">
+                                    <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-rose-800 font-inter">Submission Error</h3>
+                                    <p className="text-xs font-semibold text-rose-600 mt-0.5 font-inter">{apiError}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {/* aadhaar_number */}
@@ -1168,12 +1131,24 @@ const LaborDetailsPage = () => {
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => setIsDetailModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter mb-2"
-                        >
-                            Dismiss Profile Insight
-                        </button>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => {
+                                    setIsDetailModalOpen(false);
+                                    setLabourToDelete(selectedLaborer.id);
+                                    setIsDeleteModalOpen(true);
+                                }}
+                                className="w-full py-4 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-rose-100 hover:text-rose-700 transition-all active:scale-95 font-inter"
+                            >
+                                Delete Profile
+                            </button>
+                            <button
+                                onClick={() => setIsDetailModalOpen(false)}
+                                className="w-full py-4 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter mb-2"
+                            >
+                                Dismiss Profile Insight
+                            </button>
+                        </div>
                     </div>
                 )}
             </Modal>

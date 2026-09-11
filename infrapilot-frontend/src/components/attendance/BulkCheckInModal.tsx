@@ -40,7 +40,7 @@ const BulkCheckInModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initial
     useEffect(() => {
         if (isOpen && projectId) {
             // Fetch labourers AND project members — merge both so all assigned users show up
-            const fetchLabours = labourService.getLabours(projectId, { limit: 500 }).then((res: any) => {
+            const fetchLabours = labourService.getLabours(projectId, { limit: 100 }).then((res: any) => {
                 if (Array.isArray(res)) return res;
                 if (res && Array.isArray(res.items)) return res.items;
                 if (res && Array.isArray(res.data)) return res.data;

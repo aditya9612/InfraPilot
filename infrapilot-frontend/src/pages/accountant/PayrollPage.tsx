@@ -404,7 +404,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labor Name *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Labor Name <span className="text-rose-500">*</span></label>
               <select name="labour_id" value={formData.labour_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
                 <option value={0}>Select Labor</option>
                 {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name}</option>)}
@@ -412,7 +412,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project Name <span className="text-rose-500">*</span></label>
               <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
                 <option value={0}>Select Project</option>
                 {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
@@ -420,7 +420,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Type *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Period Type <span className="text-rose-500">*</span></label>
               <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
                 <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
@@ -429,7 +429,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Mode <span className="text-rose-500">*</span></label>
               <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Cash">Cash</option>
@@ -438,17 +438,17 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Start Date <span className="text-rose-500">*</span></label>
               <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">End Date <span className="text-rose-500">*</span></label>
               <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account ID</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Account ID</label>
               <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
 
@@ -506,7 +506,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
   };
 
   useEffect(() => {
-    labourService.getLabours(undefined, { limit: 200 }).then((res: any) => {
+    labourService.getLabours(undefined, { limit: 100 }).then((res: any) => {
       const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
       const map: Record<number, string> = {};
       items.forEach((l: any) => {
@@ -555,7 +555,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => openModal("Daily")} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm">+ Create Labour Wage</button>
+          <button onClick={() => openModal("Daily")} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm">Create Labour Wage</button>
         </div>
       </div>
 
@@ -877,8 +877,8 @@ const LedgerSection = () => {
   const loadLookupData = useCallback(async () => {
     try {
       const [usersRes, laboursRes, contractorsRes, billsRes, staffRegRes] = await Promise.allSettled([
-        userService.getAllUsers(200).catch(() => ({ items: [] })),
-        labourService.getLabours(undefined, { limit: 500 }).catch(() => ({ items: [] })),
+        userService.getAllUsers(100).catch(() => ({ items: [] })),
+        labourService.getLabours(undefined, { limit: 100 }).catch(() => ({ items: [] })),
         contractorService.getContractors().catch(() => []),
         payrollService.getContractorBills().catch(() => []),
         payrollService.getStaffRegister().catch(() => []),
@@ -1597,3 +1597,4 @@ const PayrollPage = () => {
 };
 
 export default PayrollPage;
+

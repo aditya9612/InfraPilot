@@ -803,7 +803,7 @@ const LabourRegistryPage = () => {
                                     <UserPlus className="w-4 h-4 text-primary" /> Assign Labour
                                 </button>
                                 <button onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                                    <Plus className="w-4 h-4" /> Register Labour
+                                    New Register Labour
                                 </button>
                             </div>
                         )}
@@ -1085,7 +1085,7 @@ const LabourRegistryPage = () => {
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}
             <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Labour"} maxWidth="max-w-2xl"
-                footer={<div className="flex justify-end gap-3"><button onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button><button form="personnel-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">{isSubmitting ? "Saving..." : formMode === "edit" ? "Save Changes" : "Register"}</button></div>}>
+                footer={<div className="flex justify-end gap-3"><button onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button><button form="personnel-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">{isSubmitting ? "Saving..." : formMode === "edit" ? "Edit labour" : "Save labour"}</button></div>}>
                 <form id="personnel-form" onSubmit={handleSubmit}>
                     <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">

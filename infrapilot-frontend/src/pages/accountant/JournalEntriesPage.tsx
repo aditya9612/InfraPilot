@@ -106,7 +106,7 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       footer={
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Entry"}</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Save Journal Entry"}</button>
         </>
       }
     >
@@ -117,8 +117,8 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             Entry Information
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Entry Date <span className="text-rose-500">*</span></label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           </div>
         </div>
 
@@ -131,8 +131,8 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest w-1/3">Account <span className="text-rose-500">*</span></th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Debit (₹)</th>
                   <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
               </thead>
@@ -310,7 +310,7 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
     <Modal isOpen={isOpen} onClose={onClose} title="Create Adjustment Journal" maxWidth="max-w-5xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Adjustment"}</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Save Adjustment Journal"}</button>
       </>
     }>
       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -320,8 +320,8 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             Entry Information
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Entry Date <span className="text-rose-500">*</span></label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           </div>
         </div>
 
@@ -334,9 +334,9 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest w-1/3">Account <span className="text-rose-500">*</span></th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -696,25 +696,25 @@ const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: 
     <Modal isOpen={isOpen} onClose={onClose} title="New Recurring Journal" maxWidth="max-w-2xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Template"}</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Recurring Journal"}</button>
       </>
     }>
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Name</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Template Name <span className="text-rose-500">*</span></label>
             <input type="text" name="template_name" value={formData.template_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Frequency</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Frequency <span className="text-rose-500">*</span></label>
             <input type="text" name="frequency" value={formData.frequency} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Run Date</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Next Run Date <span className="text-rose-500">*</span></label>
             <input type="date" name="next_run_date" value={formData.next_run_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Data</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Template Data <span className="text-rose-500">*</span></label>
             <textarea name="template_data" value={formData.template_data} onChange={handleChange} rows={4} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"></textarea>
           </div>
         </div>
@@ -879,7 +879,7 @@ const JournalEntriesPage = () => {
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            <span className="text-base leading-none">+</span> New Entry
+            Journal Entry
           </button>
         </div>
       ),

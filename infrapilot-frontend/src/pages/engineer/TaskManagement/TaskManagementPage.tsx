@@ -3,7 +3,7 @@ import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import toast from 'react-hot-toast';
 import {
-    Filter, Search, Plus, Eye, Calendar, User,
+    Filter, Search, Eye, Calendar, User,
     CheckCircle, Clock, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
@@ -156,7 +156,7 @@ const TaskManagementPage = () => {
                 boqService.getBoqsByProject(projectId).catch(() => []),
                 projectService.getMilestones(projectId).catch(() => [])
             ]).then(([boqs, milestones]) => {
-                const approvedBoqs = boqs.filter((boq: any) => boq.status && boq.status.toUpperCase() === 'APPROVED');
+                const approvedBoqs = boqs.filter((boq: any) => boq.approval_status && boq.approval_status.toUpperCase() === 'APPROVED');
                 setAvailableBoqs(approvedBoqs);
                 if (approvedBoqs.length > 0) {
                     setGenerateBoqId(Number(approvedBoqs[0].id));
@@ -193,7 +193,6 @@ const TaskManagementPage = () => {
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
     const [editProjectId, setEditProjectId] = useState<number | null>(null);
     const [editLabours, setEditLabours] = useState<any[]>([]);
-    const [editMembers, setEditMembers] = useState<any[]>([]);
 
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
@@ -546,9 +545,6 @@ const TaskManagementPage = () => {
             }).catch((err: any) => {
                 console.error("Failed to load labours for edit modal", err);
             });
-            projectService.getProjectMembers(editProjectId).then(res => {
-                setEditMembers(Array.isArray(res) ? res : (res.items || res.data || []));
-            }).catch(() => { });
         }
     }, [isEditModalOpen, editProjectId]);
 
@@ -667,7 +663,7 @@ const TaskManagementPage = () => {
                 if (bId) {
                     try {
                         const bData = await boqService.getBoqById(bId);
-                        updatedBoqName = bData ? (bData.item_name || bData.name || bData.item_description) : null;
+                        updatedBoqName = bData ? (bData.item_name || (bData as any).name || bData.description || (bData as any).item_description) : null;
                     } catch (e) { }
                 }
                 if (!updatedBoqName) {
@@ -892,7 +888,6 @@ const TaskManagementPage = () => {
                                     onClick={() => setIsCreateDrawerOpen(true)}
                                     className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                                 >
-                                    <Plus className="w-4 h-4" />
                                     Create Task
                                 </button>
                             </>
@@ -902,7 +897,6 @@ const TaskManagementPage = () => {
                                 onClick={() => setIsCreateTaskRequestModalOpen(true)}
                                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                             >
-                                <Plus className="w-4 h-4" />
                                 Create Task Request
                             </button>
                         )}
@@ -2296,7 +2290,7 @@ const TaskManagementPage = () => {
                             type="submit"
                             className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"
                         >
-                            Update Task
+                            Edit task
                         </button>
                     </>
                 }
@@ -2550,20 +2544,11 @@ const TaskManagementPage = () => {
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                 >
                                     <option value="">Select User</option>
-                                    <optgroup label="Project Members">
-                                        {editMembers.map((m: any) => (
-                                            <option key={`m_${m.user_id || m.id}`} value={m.user_id || m.id}>
-                                                {m.full_name || m.name || `User ${m.user_id || m.id}`}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                    <optgroup label="Labours">
-                                        {editLabours.map((l: any) => (
-                                            <option key={`l_${l.id}`} value={l.id}>
-                                                {l.labour_name || l.name}
-                                            </option>
-                                        ))}
-                                    </optgroup>
+                                    {editLabours.map((l: any) => (
+                                        <option key={`l_${l.id}`} value={l.id}>
+                                            {l.labour_name || l.name}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -2745,9 +2730,6 @@ const TaskManagementPage = () => {
                                 <option value="">-- Select Team Member --</option>
                                 {projectLabours.map(l => (
                                     <option key={`l_${l.id}`} value={l.id}>{l.labour_name || l.name} (Labour)</option>
-                                ))}
-                                {projectMembers.map(m => (
-                                    <option key={`m_${m.user_id}`} value={m.user_id}>{m.full_name} ({m.role})</option>
                                 ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">

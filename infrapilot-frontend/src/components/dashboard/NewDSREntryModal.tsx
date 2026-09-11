@@ -168,9 +168,19 @@ const NewDSREntryModal = ({
     setIsLoading(true);
     const tid = toast.loading(photoFile ? "Creating DSR with photo..." : "Creating DSR...");
     try {
-      // Send photo together with DSR creation (single POST /dsr request as multipart/form-data)
-      const payload = { ...formData, dsr_image: photoFile ?? null };
-      await dsrService.createDsr(payload);
+      // Create DSR first
+      const payload = { ...formData };
+      const dsr = await dsrService.createDsr(payload);
+      
+      // Upload photo if present
+      if (photoFile && dsr && dsr.id) {
+          try {
+              await dsrService.uploadDsrPhoto(dsr.id, photoFile, formData.project_id);
+          } catch (photoErr) {
+              console.error("Photo upload failed, but DSR was created", photoErr);
+          }
+      }
+
       toast.success(
         photoFile ? "DSR entry created with photo!" : "DSR entry created successfully!",
         { id: tid }
@@ -204,7 +214,7 @@ const NewDSREntryModal = ({
             Cancel
           </button>
           <button form="dsr-form" type="submit" disabled={isLoading} className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}>
-            {isLoading ? "Creating..." : "Create DSR Entry"}
+            {isLoading ? "Saving..." : "Save DSR Entry"}
           </button>
         </>
       }

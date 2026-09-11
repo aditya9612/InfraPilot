@@ -1364,7 +1364,7 @@ const CreateDraftQuotationPage = () => {
               )}
 
               {id && (
-                <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
+                <div className="hidden flex-col gap-2 border-t border-slate-100 pt-2">
                   <div className="flex items-center justify-center gap-2 mb-0.5">
                     <Zap className="w-3 h-3 text-indigo-500" />
                     <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Conversion Actions</span>

@@ -203,22 +203,24 @@ export default function ApprovalCenterPage() {
     }
     
     return (
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-2">
         <button 
           onClick={() => handleApprove(item)} 
           disabled={isProcessing} 
           title="Approve" 
-          className="text-emerald-500 hover:bg-emerald-50/80 p-2 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
-          <Check className="w-5 h-5 stroke-[3]" />
+          <Check className="w-4 h-4 stroke-[3]" />
+          Approve
         </button>
         <button 
           onClick={() => handleReject(item)} 
           disabled={isProcessing} 
           title="Reject" 
-          className="text-rose-500 hover:bg-rose-50/80 p-2 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
-          <X className="w-5 h-5 stroke-[3]" />
+          <X className="w-4 h-4 stroke-[3]" />
+          Reject
         </button>
       </div>
     );

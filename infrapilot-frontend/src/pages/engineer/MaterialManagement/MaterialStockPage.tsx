@@ -359,13 +359,14 @@ const MaterialStockPage = () => {
                                 <div className="flex-1 overflow-auto scrollbar-thin">
                                     <table className="w-full text-left whitespace-nowrap">
                                         <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-center">Unit</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
                                                 <tr key={i.material_id} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 text-center uppercase">{(i as any).unit_name || i.unit || '—'}</td>
                                                     <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 </tr>

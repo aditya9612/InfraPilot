@@ -1,0 +1,298 @@
+// 3. Payments Section (Make Payment)
+const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [activeSubTab, setActiveSubTab] = useState<"list" | "approval">(
+    (initialSubTab === "approval" ? "approval" : "list")
+  );
+
+  const [payments, setPayments] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [contractors, setContractors] = useState<any[]>([]);
+  const [vendorBills, setVendorBills] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [partyType, setPartyType] = useState<string>("");
+
+  useEffect(() => {
+    materialService.getSuppliers().then((res: any) => setSuppliers(res || [])).catch(() => null);
+    contractorService.getContractors().then((res: any) => setContractors(res || [])).catch(() => null);
+    api.get("/vendor-bills").then((res: any) => setVendorBills(Array.isArray(res.data) ? res.data : (res.data?.items || []))).catch(() => null);
+    accountingService.getBankAccounts().then(res => setBankAccounts(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      const data = await accountingService.getPaymentVouchers();
+      setPayments(Array.isArray(data) ? data : data?.data || data?.items || []);
+    } catch (err) {
+      toast.error("Failed to fetch payment vouchers");
+    }
+  };
+
+  useEffect(() => {
+    if (initialSubTab === "approval") setActiveSubTab("approval");
+  }, [initialSubTab]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [activeSubTab]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await accountingService.cancelVoucher(id);
+      toast.success("Payment voucher cancelled!");
+      fetchPayments();
+    } catch (err) {
+      toast.error("Failed to cancel payment voucher");
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      await accountingService.markVoucherPaid(id);
+      toast.success("Payment approved!");
+      fetchPayments();
+    } catch (err) {
+      toast.error("Failed to approve payment");
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newPay: any = {};
+    formData.forEach((value, key) => { newPay[key] = value; });
+    
+    const payload = {
+      payment_date: newPay.payment_date ? new Date(newPay.payment_date).toISOString() : new Date().toISOString(),
+      party_type: newPay.party_type || "Supplier",
+      supplier_id: newPay.supplier_id ? Number(newPay.supplier_id) : undefined,
+      contractor_id: newPay.contractor_id ? Number(newPay.contractor_id) : undefined,
+      vendor_bill_id: newPay.vendor_bill_id ? Number(newPay.vendor_bill_id) : undefined,
+      base_amount: Number(newPay.base_amount || 0),
+      gst_amount: Number(newPay.gst_amount || 0),
+      gross_amount: Number(newPay.gross_amount || 0),
+      tds_amount: Number(newPay.tds_amount || 0),
+      retention_amount: Number(newPay.retention_amount || 0),
+      net_payable_amount: Number(newPay.net_payable_amount || 0),
+      payment_method: newPay.payment_method || "BankTransfer",
+      bank_account_id: newPay.bank_account_id ? Number(newPay.bank_account_id) : undefined,
+      reference_no: newPay.reference_no || undefined
+    };
+
+    try {
+      setIsSubmitting(true);
+      await accountingService.createPaymentVoucher(payload);
+      toast.success("Payment voucher submitted!");
+      fetchPayments();
+      setIsCreateModalOpen(false);
+      e.currentTarget.reset();
+      setPartyType("");
+    } catch (err: any) {
+      handleApiError(err, "Failed to save payment voucher");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filtered = [...payments].sort((a: any, b: any) => {
+    const timeA = new Date(a.date || a.created_at || 0).getTime() || (Number(String(a.id).replace(/\D/g, '')) || 0);
+    const timeB = new Date(b.date || b.created_at || 0).getTime() || (Number(String(b.id).replace(/\D/g, '')) || 0);
+    return timeB - timeA;
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-lg font-bold text-slate-800">Payments</h2>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsCreateModalOpen(true)} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-all shadow-sm shadow-rose-500/20 active:scale-95 whitespace-nowrap">
+            + Create Payment
+          </button>
+        </div>
+      </div>
+
+      <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 w-max">
+        <button onClick={() => setActiveSubTab("list")} className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === "list" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          Payments List
+        </button>
+        <button onClick={() => setActiveSubTab("approval")} className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === "approval" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          Pending Approvals
+        </button>
+      </div>
+
+      {activeSubTab === "list" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Cash & Bank Payments</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Manage all outgoing payments</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Date", "Payment No", "Party", "Type", "Amount", "Mode", "Status", "Actions"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-700 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-xs text-slate-500">{formatDateOnlyDMY(p.date || p.created_at)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-rose-600">{p.id}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{p.party}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{p.type}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">?{p.amount?.toLocaleString("en-IN")}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{p.mode}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600`}>{p.status}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Cancel/Delete">??</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "approval" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Payment Approval Queue</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Approve and process outgoing payments</p>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {payments.filter(p => p.status !== "Paid" && p.status !== "Cancelled" && p.status !== "Failed").map(p => (
+              <div key={p.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{p.party} — {p.id}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{p.type} · Date: {formatDateOnlyDMY(p.date || p.created_at)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-rose-600">?{p.amount?.toLocaleString("en-IN")}</span>
+                  <button onClick={() => handleApprove(p.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all">Approve Payment</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Payment Voucher" maxWidth="max-w-3xl">
+        <form id="createPaymentForm" onSubmit={handleFormSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Payment Date <span className="text-rose-500">*</span></label>
+              <input type="datetime-local" name="payment_date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Party Type <span className="text-rose-500">*</span></label>
+              <select name="party_type" value={partyType} onChange={e => setPartyType(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                <option value="">Select Type...</option>
+                <option value="Supplier">Supplier</option>
+                <option value="Contractor">Contractor</option>
+              </select>
+            </div>
+
+            {partyType === "Supplier" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Supplier <span className="text-rose-500">*</span></label>
+                <select name="supplier_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                  <option value="">None</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
+                </select>
+              </div>
+            )}
+
+            {partyType === "Contractor" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Contractor <span className="text-rose-500">*</span></label>
+                <select name="contractor_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                  <option value="">None</option>
+                  {contractors.map(c => <option key={c.id} value={c.id}>{c.name || c.contractor_name || `Contractor #${c.id}`}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Vendor Bill</label>
+              <select name="vendor_bill_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                <option value="">None</option>
+                {vendorBills.map(b => <option key={b.id} value={b.id}>{b.bill_number || `Bill #${b.id}`} - {b.vendor_name || b.supplier_name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Base Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="base_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">GST Amount</label>
+              <input type="number" name="gst_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Gross Amount</label>
+              <input type="number" name="gross_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">TDS Amount</label>
+              <input type="number" name="tds_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Retention Amount</label>
+              <input type="number" name="retention_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Net Payable Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="net_payable_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" required />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Payment Method <span className="text-rose-500">*</span></label>
+              <select name="payment_method" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                <option value="BankTransfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Bank Account</label>
+              <select name="bank_account_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                <option value="">Select Bank Account...</option>
+                {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_type} - {b.account_number?.slice(-4)}</option>)}
+              </select>
+            </div>
+
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Reference No</label>
+              <input type="text" name="reference_no" placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            </div>
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6 sticky bottom-0 bg-white">
+            <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50">
+              {isSubmitting ? "Submitting..." : "Submit Payment Voucher"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};

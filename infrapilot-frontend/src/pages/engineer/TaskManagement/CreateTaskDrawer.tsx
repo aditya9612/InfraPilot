@@ -315,7 +315,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 type="submit"
                 className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
             >
-                Create Task
+                Save Task
             </button>
         </>
     );

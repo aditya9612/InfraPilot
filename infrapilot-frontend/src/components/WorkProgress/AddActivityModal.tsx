@@ -274,7 +274,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         disabled={isSubmitting}
         className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
       >
-        {isSubmitting ? "Provisioning..." : "Add Activity Entry"}
+        {isSubmitting ? "Saving..." : "Save activity"}
       </button>
     </>
   );

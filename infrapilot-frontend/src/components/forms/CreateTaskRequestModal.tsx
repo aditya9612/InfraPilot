@@ -42,14 +42,14 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
   }, [isOpen]);
 
   useEffect(() => {
-    if (formData.project_id) {
-      labourService.getLabours(Number(formData.project_id), { limit: 100 })
-        .then((data: any) => setUsers(data.items || []))
-        .catch(() => setUsers([]));
-    } else {
-      setUsers([]);
-    }
-  }, [formData.project_id]);
+    // Fetch all labourers globally or filtered by project if one is selected
+    labourService.getLabours(formData.project_id ? Number(formData.project_id) : undefined, { limit: 100 })
+      .then((data: any) => {
+        const members = Array.isArray(data) ? data : (data?.items || data?.data || []);
+        setUsers(members);
+      })
+      .catch(() => setUsers([]));
+  }, [formData.project_id, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -71,10 +71,6 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
     }
     if (!formData.priority) {
       toast.error("Priority is required");
-      return;
-    }
-    if (!formData.assigned_to) {
-      toast.error("Assigning a user is required");
       return;
     }
 
@@ -120,31 +116,47 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
         disabled={isSubmitting || !formData.project_id}
         className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
       >
-        {isSubmitting ? "Creating..." : "Create Task Request"}
+        {isSubmitting ? "Creating..." : "Save Task Request"}
       </button>
     </>
+
   );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Task Request" footer={modalFooter} maxWidth="max-w-xl">
       <form id="create-task-request-form" onSubmit={handleSubmit} className="space-y-4 font-inter">
 
-        <div>
-          <label className={labelClasses}>Assigned Project <span className="text-rose-500">*</span></label>
-          <select
-            name="project_id"
-            value={formData.project_id}
-            onChange={handleChange}
-            className={inputClasses}
-            required
-          >
-            <option value="">Select a Project</option>
-            {projects.map((p: any) => (
-              <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                {p.project_name || p.name || `Project #${p.id || p.project_id}`}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className={labelClasses}>Assigned Project <span className="text-rose-500">*</span></label>
+              <select
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className={inputClasses}
+                required
+              >
+                <option value="">Select a Project</option>
+                {projects.map((p: any) => (
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                    {p.project_name || p.name || `Project #${p.id || p.project_id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                placeholder="e.g. Construction"
+                className={inputClasses}
+                required
+              />
+            </div>
         </div>
 
         <div>
@@ -156,25 +168,40 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
             onChange={handleChange}
             placeholder="e.g. Needs Material"
             className={inputClasses}
+            required
+          />
+        </div>
+
+        <div>
+          <label className={labelClasses}>Description</label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            placeholder="Detailed description of the task request..."
+            className={`${inputClasses} resize-none`}
+            rows={3}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className={labelClasses}>Assigned To <span className="text-rose-500">*</span></label>
+            <label className={labelClasses}>Assigned To</label>
             <select
               name="assigned_to"
               value={formData.assigned_to}
               onChange={handleChange}
               className={inputClasses}
-              required
             >
-              <option value="" disabled>Unassigned</option>
-              {users.map((u: any) => (
-                <option key={u.id || u.labour_id} value={u.id || u.labour_id}>
-                  {u.labour_name || u.name || u.full_name || `User ${u.id || u.labour_id}`}
-                </option>
-              ))}
+              <option value="">Unassigned</option>
+              {users.map((u: any) => {
+                const user = u.user || u;
+                return (
+                  <option key={user.id || user.user_id} value={user.id || user.user_id}>
+                    {user.full_name || user.name || user.labour_name || `User ${user.id || user.user_id}`}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -192,6 +219,15 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
               <option value="CRITICAL">Critical</option>
             </select>
           </div>
+        </div>
+        
+        <div>
+          <label className={labelClasses}>Attachment</label>
+          <input 
+            type="file" 
+            onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)} 
+            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer font-inter text-slate-500" 
+          />
         </div>
       </form>
     </Modal >

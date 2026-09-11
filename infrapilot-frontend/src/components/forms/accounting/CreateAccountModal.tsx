@@ -82,7 +82,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
   const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300";
 
   return (
@@ -97,7 +97,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={isSubmitting} className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}>
-            {isSubmitting ? "Saving..." : "Save"}
+            {isSubmitting ? "Saving..." : initialData ? "Edit Account" : "Save Account"}
           </button>
         </>
       }

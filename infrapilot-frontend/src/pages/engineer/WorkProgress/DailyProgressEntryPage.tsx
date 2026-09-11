@@ -3,7 +3,7 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import toast from "react-hot-toast";
 import {
-  Plus,
+
   Calendar,
   AlertCircle,
   Search,
@@ -164,7 +164,7 @@ const DailyProgressEntryPage = () => {
         : Number(selectedActivityId);
       const res = await workProgressService.getActivityHistory(activityId, projectId);
       const rawHistory = res?.history || res?.data || (Array.isArray(res) ? res : []);
-      const parentActivity = res?.activity || activitiesList.find(a => Number(a.id) === activityId);
+
 
       const normalizedHistory = rawHistory.map((item: any) => ({
         ...item,
@@ -503,7 +503,6 @@ const DailyProgressEntryPage = () => {
                 onClick={() => setIsLogModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
               >
-                <Plus className="w-4 h-4" />
                 Add Daily Progress
               </button>
             )}

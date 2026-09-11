@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -738,80 +738,80 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Exactly mapping the JSON sequence */}
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier</label>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Supplier <span className="text-rose-500">*</span></label>
               <select name="supplier_id" defaultValue={editingBill?.supplier_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">Select Supplier...</option>
                 {assignedSuppliers.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
               </select>
             </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project <span className="text-rose-500">*</span></label>
               <select name="project_id" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">Select Project...</option>
                 {assignedProjects.map(p => <option key={p.id} value={p.id}>{p.name || p.title || p.project_name || `Project ${p.id}`}</option>)}
               </select>
             </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Order</label>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Order <span className="text-rose-500">*</span></label>
               <select name="purchase_order_id" defaultValue={editingBill?.purchase_order_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">Select PO...</option>
                 {assignedPOs.map(po => <option key={po.id} value={po.id}>{po.name}</option>)}
               </select>
             </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_number" defaultValue={editingBill?.bill_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="bill_date" defaultValue={editingBill?.bill_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</label><input type="date" name="due_date" defaultValue={editingBill?.due_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Number <span className="text-rose-500">*</span></label><input type="text" name="bill_number" defaultValue={editingBill?.bill_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Date <span className="text-rose-500">*</span></label><input type="date" name="bill_date" defaultValue={editingBill?.bill_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Due Date <span className="text-rose-500">*</span></label><input type="date" name="due_date" defaultValue={editingBill?.due_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Number</label><input type="text" name="grn_number" defaultValue={editingBill?.grn_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Amount</label><input type="number" name="gross_amount" defaultValue={editingBill?.gross_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Percent</label><input type="number" name="gst_percent" defaultValue={editingBill?.gst_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GRN Number</label><input type="text" name="grn_number" defaultValue={editingBill?.grn_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Gross Amount <span className="text-rose-500">*</span></label><input type="number" name="gross_amount" defaultValue={editingBill?.gross_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Percent</label><input type="number" name="gst_percent" defaultValue={editingBill?.gst_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingBill?.gst_amount || ""} placeholder="0" onChange={(e) => { const val = Number(e.target.value); const form = e.target.form as any; if (form) { form.cgst.value = val / 2; form.sgst.value = val / 2; form.igst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Percent</label><input type="number" name="tds_percent" defaultValue={editingBill?.tds_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingBill?.tds_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingBill?.gst_amount || ""} placeholder="0" onChange={(e) => { const val = Number(e.target.value); const form = e.target.form as any; if (form) { form.cgst.value = val / 2; form.sgst.value = val / 2; form.igst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Percent</label><input type="number" name="tds_percent" defaultValue={editingBill?.tds_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingBill?.tds_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Advance Paid</label><input type="number" name="advance_paid" defaultValue={editingBill?.advance_paid || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-primary">Total Amount</label><input type="number" name="total_amount" defaultValue={editingBill?.total_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Advance Paid</label><input type="number" name="advance_paid" defaultValue={editingBill?.advance_paid || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest text-primary">Total Amount <span className="text-rose-500">*</span></label><input type="number" name="total_amount" defaultValue={editingBill?.total_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Invoice URL</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Vendor Invoice URL</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400">🔗</span>
+                <span className="absolute left-3 text-slate-800">🔗</span>
                 <input type="url" name="vendor_invoice_url" defaultValue={editingBill?.vendor_invoice_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PO Copy URL</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">PO Copy URL</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400">🔗</span>
+                <span className="absolute left-3 text-slate-800">🔗</span>
                 <input type="url" name="po_copy_url" defaultValue={editingBill?.po_copy_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Copy URL</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GRN Copy URL</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400">🔗</span>
+                <span className="absolute left-3 text-slate-800">🔗</span>
                 <input type="url" name="grn_copy_url" defaultValue={editingBill?.grn_copy_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supporting Docs URL</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Supporting Docs URL</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400">🔗</span>
+                <span className="absolute left-3 text-slate-800">🔗</span>
                 <input type="url" name="supporting_docs_url" defaultValue={editingBill?.supporting_docs_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN</label><input type="text" name="party_gstin" defaultValue={editingBill?.party_gstin || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CGST</label><input type="number" name="cgst" defaultValue={editingBill?.cgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SGST</label><input type="number" name="sgst" defaultValue={editingBill?.sgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Party GSTIN</label><input type="text" name="party_gstin" defaultValue={editingBill?.party_gstin || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">CGST</label><input type="number" name="cgst" defaultValue={editingBill?.cgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">SGST</label><input type="number" name="sgst" defaultValue={editingBill?.sgst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) form.igst.value = 0; }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IGST</label><input type="number" name="igst" defaultValue={editingBill?.igst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) { form.cgst.value = 0; form.sgst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">IGST</label><input type="number" name="igst" defaultValue={editingBill?.igst || ""} placeholder="0" onChange={(e) => { const form = e.target.form as any; if (form && Number(e.target.value) > 0) { form.cgst.value = 0; form.sgst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Document URL</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Document URL</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400">🔗</span>
+                <span className="absolute left-3 text-slate-800">🔗</span>
                 <input type="url" name="gst_document_url" defaultValue={editingBill?.gst_document_url || ""} placeholder="https://..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>

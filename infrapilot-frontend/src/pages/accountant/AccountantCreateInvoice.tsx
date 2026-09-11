@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -1176,7 +1176,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   </span>
                 )}
               </h2>
-              <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create and customize professional invoices / estimates."}</p>
+              <p className="text-slate-700 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create and customize professional invoices / estimates."}</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -1219,7 +1219,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Name <span className="text-rose-500">*</span></label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Client Name <span className="text-rose-500">*</span></label>
                     <input
                       list="clients-list"
                       value={clientDetails.name}
@@ -1253,7 +1253,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number</label>
+                      <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Mobile Number <span className="text-rose-500">*</span></label>
                       <input
                         type="text"
                         value={clientDetails.mobile}
@@ -1262,7 +1262,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                      <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Email Address <span className="text-rose-500">*</span></label>
                       <input
                         type="email"
                         value={clientDetails.email}
@@ -1273,7 +1273,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Company Name <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       value={clientDetails.company}
@@ -1283,7 +1283,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Billing Address</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Billing Address <span className="text-rose-500">*</span></label>
                     <textarea
                       rows={1}
                       value={clientDetails.address}
@@ -1292,7 +1292,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
                     <input
                       type="text"
                       value={clientDetails.gst}
@@ -1313,7 +1313,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
                     <select
                       value={projectDetails.name}
                       onChange={(e) => {
@@ -1336,8 +1336,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       })}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
+                  <div className="hidden">
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       list="project-types-list"
@@ -1356,8 +1356,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       <option value="Government" />
                     </datalist>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
+                  <div className="hidden">
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Engineer In-Charge <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       value={projectDetails.engineer}
@@ -1368,7 +1368,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       value={projectDetails.siteAddress}
@@ -1377,8 +1377,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Order No.</label>
+                  <div className="hidden">
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Work Order No. <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       value={projectDetails.workOrderNo}
@@ -1401,7 +1401,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 <div className="space-y-4">
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Quotation Date <span className="text-rose-500">*</span></label>
                     <div className="relative">
                       <input
                         type="date"
@@ -1413,7 +1413,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                    <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Due Date <span className="text-rose-500">*</span></label>
                     <div className="relative">
                       <input
                         type="date"
@@ -1448,7 +1448,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
+                    <tr className="bg-indigo-50/50 text-indigo-700 text-[10px] font-black uppercase tracking-widest border-b border-indigo-100">
                       <th className="px-6 py-4 w-12">#</th>
                       <th className="px-6 py-4">Item / Work Description</th>
                       <th className="px-6 py-4 w-28">Unit</th>
@@ -1461,7 +1461,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   <tbody className="divide-y divide-slate-100">
                     {items.map((item, index) => (
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 text-xs font-bold text-slate-400">{index + 1}</td>
+                        <td className="px-6 py-4 text-xs font-bold text-slate-700">{index + 1}</td>
                         <td className="px-6 py-4">
                           <textarea
                             value={item.description}
@@ -1526,9 +1526,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 </table>
               </div>
               <div className="p-4 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Items: <span className="text-slate-800">{items.length}</span></p>
+                <p className="text-xs font-bold text-slate-800 uppercase tracking-widest">Total Items: <span className="text-slate-800">{items.length}</span></p>
                 <div className="flex items-center gap-6">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Amount</p>
+                  <p className="text-xs font-bold text-slate-800 uppercase tracking-widest">Total Amount</p>
                   <p className="text-xl font-black text-indigo-600">₹{subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
@@ -1551,7 +1551,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-6 py-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
                       ? "text-indigo-600 border-indigo-600 bg-indigo-50/20"
-                      : "text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50/50"
+                      : "text-slate-700 border-transparent hover:text-slate-800 hover:bg-slate-50/50"
                       }`}
                   >
                     {tab.icon} {tab.label}
@@ -1571,7 +1571,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       </div>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-500 font-mono">Enter Direct Quantity if L/W/H not applicable</span>
+                          <span className="text-xs font-bold text-slate-700 font-mono">Enter Direct Quantity if L/W/H not applicable</span>
                         </div>
                         <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
                           <span className="text-xs font-black text-slate-800">Quantity (Brass)</span>
@@ -1600,7 +1600,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       </div>
                       <div className="grid grid-cols-3 gap-4 mb-4">
                         <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Length (ft)</label>
+                          <label className="block text-[9px] font-black text-slate-800 uppercase mb-1">Length (ft)</label>
                           <input
                             type="number"
                             value={measurementData.plum.l}
@@ -1610,7 +1610,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Width (ft)</label>
+                          <label className="block text-[9px] font-black text-slate-800 uppercase mb-1">Width (ft)</label>
                           <input
                             type="number"
                             value={measurementData.plum.w}
@@ -1619,7 +1619,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Height (ft)</label>
+                          <label className="block text-[9px] font-black text-slate-800 uppercase mb-1">Height (ft)</label>
                           <input
                             type="number"
                             value={measurementData.plum.h}
@@ -1630,11 +1630,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <p className="text-[9px] font-black text-slate-400 uppercase">Cubic Feet (cu.ft)</p>
+                          <p className="text-[9px] font-black text-slate-800 uppercase">Cubic Feet (cu.ft)</p>
                           <p className="text-sm font-black text-slate-800">{measurementData.plum.cuft.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-[9px] font-black text-slate-400 uppercase">Cubic Meter (m³)</p>
+                          <p className="text-[9px] font-black text-slate-800 uppercase">Cubic Meter (m³)</p>
                           <p className="text-sm font-black text-slate-800">{measurementData.plum.m3.toFixed(2)}</p>
                         </div>
                       </div>
@@ -1698,7 +1698,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       </div>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between font-mono bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Total Brass (Volume/100)</span>
+                          <span className="text-[10px] font-bold text-slate-800 uppercase tracking-tighter">Total Brass (Volume/100)</span>
                           <span className="text-sm font-black text-emerald-600">
                             {(measurementData.stone.reduce((sum, s) => sum + s.l * s.w * s.h, 0) / 100).toFixed(2)} Brass
                           </span>
@@ -1726,7 +1726,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-800 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Skill Type</th>
                             <th className="pb-4">Count</th>
                             <th className="pb-4">Wage (₹)</th>
@@ -1842,7 +1842,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-800 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Material Name</th>
                             <th className="pb-4">Unit</th>
                             <th className="pb-4">Quantity</th>
@@ -1950,8 +1950,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="space-y-4">
                       {extraChargeItems.length > 0 && (
                         <div className="flex gap-4 items-center px-3 pb-1">
-                          <div className="w-32 text-[10px] font-black uppercase tracking-widest text-slate-400">Type</div>
-                          <div className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Description</div>
+                          <div className="w-32 text-[10px] font-black uppercase tracking-widest text-slate-800">Type</div>
+                          <div className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-800">Description</div>
                           <div className="w-20 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qty</div>
                           <div className="w-32 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Amount</div>
                           <div className="w-8" />
@@ -2021,7 +2021,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">GST Breakdown Settings</h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total GST (%)</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Total GST (%)</label>
                           <input
                             type="number"
                             value={gstRates.gst}
@@ -2031,7 +2031,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">CGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">CGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.cgst}
@@ -2040,7 +2040,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">SGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">SGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.sgst}
@@ -2050,7 +2050,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           </div>
                         </div>
                         <div className="pt-4 border-t border-slate-50">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">TDS (%)</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">TDS (%)</label>
                           <input
                             type="number"
                             value={gstRates.tds}
@@ -2065,7 +2065,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Project Timeline</h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Start Date</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Site Start Date</label>
                           <input
                             type="date"
                             value={projectStartEnd.start}
@@ -2074,7 +2074,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Completion Date</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Est. Completion Date</label>
                           <input
                             type="date"
                             value={projectStartEnd.end}
@@ -2092,7 +2092,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Mode</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Payment Mode</label>
                         <select
                           value={paymentDetails.payment_mode}
                           onChange={(e) => setPaymentDetails({ ...paymentDetails, payment_mode: e.target.value })}
@@ -2106,7 +2106,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Bank Name</label>
                           <input
                             type="text"
                             value={paymentDetails.bank_name}
@@ -2115,7 +2115,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Code</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">IFSC Code</label>
                           <input
                             type="text"
                             value={paymentDetails.ifsc_code}
@@ -2125,7 +2125,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Account Number</label>
                         <input
                           type="text"
                           value={paymentDetails.account_number}
@@ -2134,7 +2134,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI ID</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">UPI ID</label>
                         <input
                           type="text"
                           value={paymentDetails.upi_id}
@@ -2146,7 +2146,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Company Details on Quotation</h4>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Account Holder Name</label>
                         <input
                           type="text"
                           value={paymentDetails.account_holder_name}
@@ -2155,7 +2155,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
                         <input
                           type="text"
                           value={clientDetails.company}
@@ -2165,7 +2165,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1.5">Due Date <span className="text-rose-500">*</span></label>
                         <input
                           type="date"
                           value={paymentDetails.due_date || ""}
@@ -2180,7 +2180,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 {activeTab === "notes" && (
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notes</label>
+                      <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Notes</label>
                       <textarea
                         rows={4}
                         value={notes}
@@ -2190,7 +2190,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Terms & Conditions</label>
+                      <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Terms & Conditions</label>
                       <textarea
                         rows={4}
                         value={terms}
@@ -2207,7 +2207,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="flex items-start gap-6 flex-wrap">
                       <div className="flex-1 min-w-[240px] space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Upload Signature Image</label>
+                          <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Upload Signature Image</label>
                           <p className="text-xs text-slate-400 mb-4">Upload a PNG/JPEG signature to be printed on this quotation. Transparent PNGs look best.</p>
                         </div>
                         <div
@@ -2221,7 +2221,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
                                 <Edit3 className="w-6 h-6 text-indigo-400" />
                               </div>
-                              <p className="text-sm font-bold text-slate-500">Click to upload signature</p>
+                              <p className="text-sm font-bold text-slate-700">Click to upload signature</p>
                               <p className="text-xs text-slate-400 mt-1">PNG, JPEG · Max 2MB</p>
                             </>
                           )}
@@ -2239,7 +2239,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         )}
                       </div>
                       <div className="w-64 shrink-0">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Preview on Quotation</label>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-3">Preview on Quotation</label>
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                           <p className="text-[10px] font-black text-slate-900 uppercase mb-3">For {clientDetails.company || "Your Company"}</p>
                           <div className="h-16 border-b border-slate-200 flex items-end justify-center pb-2 mb-2">
@@ -2297,12 +2297,12 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Sub Total</span>
+                  <span className="font-bold text-slate-800">Sub Total</span>
                   <span className="font-black text-slate-800">₹ {subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">CGST</span>
+                    <span className="font-bold text-slate-800">CGST</span>
                     <input
                       type="number"
                       value={gstRates.cgst}
@@ -2313,14 +2313,14 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       readOnly={isReadOnly}
                       className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">%</span>
+                    <span className="text-[10px] font-bold text-slate-700">%</span>
                   </div>
                   <span className="font-black text-slate-800">₹ {cgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">SGST</span>
+                    <span className="font-bold text-slate-800">SGST</span>
                     <input
                       type="number"
                       value={gstRates.sgst}
@@ -2331,13 +2331,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       readOnly={isReadOnly}
                       className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">%</span>
+                    <span className="text-[10px] font-bold text-slate-700">%</span>
                   </div>
                   <span className="font-black text-slate-800">₹ {sgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Discount</span>
+                  <span className="font-bold text-slate-800">Discount</span>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
@@ -2352,8 +2352,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
                 <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">TDS</span>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
+                    <span className="font-bold text-slate-800">TDS</span>
+                    <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
                   </div>
                   <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -2366,7 +2366,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Advance Paid</span>
+                  <span className="font-bold text-slate-800">Advance Paid</span>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
@@ -2429,7 +2429,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Zap className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
+                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Conversion Actions</span>
                   </div>
 
                   <button
@@ -2543,7 +2543,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
       {/* PORTAL FOR PERFECT PRINTING (ULTRATECH STYLE) */}
       {createPortal(
-        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto">
+        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto pointer-events-none">
           <div className="bg-white max-w-[210mm] mx-auto p-0 min-h-[297mm]">
             {/* Header: Logo and Title */}
             <div className="flex justify-between items-center mb-8">
@@ -2639,11 +2639,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             <div className="flex justify-end mb-8">
               <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Subtotal:</span>
+                  <span className="text-slate-800">Subtotal:</span>
                   <span className="font-bold">INR {subTotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Grand Total:</span>
+                  <span className="text-slate-800">Grand Total:</span>
                   <span className="font-black text-slate-900 text-lg">INR {grandTotal.toLocaleString()}</span>
                 </div>
                 <div className="pt-2 border-t border-slate-200">

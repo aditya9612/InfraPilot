@@ -326,7 +326,7 @@ const ChartOfAccountsPage = () => {
               onClick={() => { setEditingAccount(null); setIsModalOpen(true); }}
               className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
             >
-              <span className="text-base leading-none">+</span> Add Account
+              Add Account
             </button>
           </div>
         </div>

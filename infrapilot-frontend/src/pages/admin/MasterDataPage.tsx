@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -286,7 +286,7 @@ const MasterDataPage = () => {
               }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
-              + New Entry
+              New Entry
             </button>
           </div>
         </div>
@@ -537,3 +537,4 @@ const MasterDataPage = () => {
 };
 
 export default MasterDataPage;
+

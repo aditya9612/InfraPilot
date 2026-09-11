@@ -6,7 +6,7 @@ import Modal from "../../components/common/Modal";
 import LedgerModal from "../../components/forms/accounting/LedgerModal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Pencil } from "lucide-react";
 
 // --- UI COMPONENTS ---
 
@@ -234,7 +234,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
           </button>
           {activeTab === "accounts" && (
             <button onClick={onAddAccount} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> Add Account
+              Add Account
             </button>
           )}
         </div>
@@ -345,7 +345,7 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
           <button onClick={handleSubmit} disabled={isLoading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
-            {isLoading ? "Saving..." : initialData ? "Save Changes" : "Create Account"}
+            {isLoading ? "Saving..." : initialData ? "Edit Bank Account" : "Save Bank Account"}
           </button>
         </>
       }
@@ -358,7 +358,7 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account *</label>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account <span className="text-rose-500">*</span></label>
               <select required value={formData.account_id || ""} onChange={e => setFormData({ ...formData, account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
                 <option value="">Select an Account</option>
                 {accountsList.map(acc => (
@@ -366,9 +366,9 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Name *</label><input type="text" required value={formData.bank_name} onChange={e => setFormData({ ...formData, bank_name: e.target.value })} placeholder="e.g. HDFC Bank" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Number *</label><input type="text" required value={formData.account_number} onChange={e => setFormData({ ...formData, account_number: e.target.value })} placeholder="0000 0000 0000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IFSC Code *</label><input type="text" required value={formData.ifsc_code} onChange={e => setFormData({ ...formData, ifsc_code: e.target.value })} placeholder="HDFC0001234" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono uppercase" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Name <span className="text-rose-500">*</span></label><input type="text" required value={formData.bank_name} onChange={e => setFormData({ ...formData, bank_name: e.target.value })} placeholder="e.g. HDFC Bank" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Number <span className="text-rose-500">*</span></label><input type="text" required value={formData.account_number} onChange={e => setFormData({ ...formData, account_number: e.target.value })} placeholder="0000 0000 0000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">IFSC Code <span className="text-rose-500">*</span></label><input type="text" required value={formData.ifsc_code} onChange={e => setFormData({ ...formData, ifsc_code: e.target.value })} placeholder="HDFC0001234" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono uppercase" /></div>
           </div>
         </div>
       </form>
@@ -460,8 +460,8 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button onClick={() => handleViewLedger(acc)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">View Ledger</button>
-                    <button onClick={() => handleEdit(acc.id)} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all">Edit</button>
+                    <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="View Ledger"><BookOpen className="w-4 h-4" /></button>
+                    <button onClick={() => handleEdit(acc.id)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit"><Pencil className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -761,7 +761,7 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <button onClick={() => setIsTransactionModalOpen(true)} className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">+ Add Bank Txn</button>
+          <button onClick={() => setIsTransactionModalOpen(true)} className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">Add Bank Txn</button>
           <button onClick={() => setIsAutoRunModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm">Auto Run Recon</button>
         </div>
       </div>
@@ -1181,3 +1181,4 @@ const BankingPage = () => {
 };
 
 export default BankingPage;
+

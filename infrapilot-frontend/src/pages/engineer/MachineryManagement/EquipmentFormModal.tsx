@@ -126,8 +126,8 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Operator Name <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Operator Name</label>
+                            <input type="text" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Condition <span className="text-rose-500">*</span></label>

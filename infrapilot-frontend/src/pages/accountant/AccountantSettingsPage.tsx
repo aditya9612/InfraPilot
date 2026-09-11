@@ -1,343 +1,392 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
+import api from "../../services/api";
+import { 
+  User, Bell, Ruler, Folder, Building, DollarSign, Receipt, BookOpen, Search 
+} from "lucide-react";
 
-// Generic Wrapper Generator for Settings
-const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}[], formsGenerators: Record<string, () => React.ReactNode>) => {
-  return ({ initialSubTab }: { initialSubTab?: string }) => {
-    const navigate = useNavigate();
-    const sub = initialSubTab || categoryTabs[0].key;
-    
-    return (
-      <div className="space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 overflow-x-auto w-full md:w-auto">
-            {categoryTabs.map(t => (
-              <button key={t.key} onClick={() => navigate(`?sub=${t.key}`, { replace: true })}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}>
-                {t.icon && <span>{t.icon}</span>}
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="relative shrink-0">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
-            <input type="text" placeholder="Search settings..." className="pl-8 pr-4 py-2 text-xs border border-slate-200 rounded-xl w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all bg-white" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 max-w-4xl">
-          {formsGenerators[sub] ? formsGenerators[sub]() : (
-            <div className="p-12 text-center">
-              <p className="text-slate-500">Settings configuration for {categoryTabs.find(t=>t.key===sub)?.label} is configured here.</p>
-            </div>
-          )}
-          
-          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-             <button onClick={() => toast.success("Settings saved successfully!")} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Save Configuration</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-};
+type TabKey = "profile" | "notifications" | "units" | "default_project" | "general" | "financial" | "billing" | "ledger";
 
-const CompanySettingsWrapper = createWrapper([
-  { key: "profile", label: "Company Profile", icon: "🏢" }, { key: "branches", label: "Branches", icon: "📍" }, 
-  { key: "departments", label: "Departments", icon: "👥" }, { key: "documents", label: "Company Documents", icon: "📁" }
-], {
-  "profile": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Company Profile</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company Name *</label><input type="text" defaultValue="InfraPilot Construction Ltd" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company Logo</label><input type="file" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GSTIN *</label><input type="text" defaultValue="27AADCB2230M1Z2" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PAN Number *</label><input type="text" defaultValue="AADCB2230M" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CIN Number</label><input type="text" defaultValue="L45200MH1999PLC012345" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Number</label><input type="text" defaultValue="+91 98765 43210" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registered Address</label><textarea rows={3} defaultValue="123, Infra Tower, Business Park, Mumbai, Maharashtra 400001" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
-        <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</label><input type="email" defaultValue="accounts@infrapilot.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-      </div>
-    </div>
-  )
-});
-
-const FinancialSettingsWrapper = createWrapper([
-  { key: "year", label: "Financial Year", icon: "📅" }, { key: "currency", label: "Currency", icon: "💱" }, 
-  { key: "periods", label: "Fiscal Periods", icon: "⏱️" }, { key: "numbering", label: "Account Numbering", icon: "🔢" }, { key: "balances", label: "Opening Balances", icon: "⚖️" }
-], {
-  "year": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Financial Year Settings</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Financial Year</label><select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option>2026-2027</option></select></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Currency</label><select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option>INR (₹)</option></select></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financial Year Start Date</label><input type="date" defaultValue="2026-04-01" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financial Year End Date</label><input type="date" defaultValue="2027-03-31" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Decimal Precision</label><select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option>2 Decimal Places</option></select></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default Ledger Accounts</label><select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option>Standard Construction Chart of Accounts</option></select></div>
-      </div>
-    </div>
-  )
-});
-
-const TaxSettingsWrapper = createWrapper([
-  { key: "gst", label: "GST Configuration", icon: "🏛️" }, { key: "tds", label: "TDS Configuration", icon: "✂️" }, 
-  { key: "rates", label: "Tax Rates", icon: "📊" }, { key: "rules", label: "Tax Rules", icon: "📜" }
-], {
-  "gst": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">GST Configuration</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GSTIN</label><input type="text" defaultValue="27AADCB2230M1Z2" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default CGST Rate (%)</label><input type="number" defaultValue="9" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default SGST Rate (%)</label><input type="number" defaultValue="9" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default IGST Rate (%)</label><input type="number" defaultValue="18" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-      </div>
-    </div>
-  ),
-  "tds": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">TDS Configuration</h3>
-      <div className="grid grid-cols-1 gap-6">
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section</label><input type="text" defaultValue="194C (Contractors)" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Percentage</label><input type="text" defaultValue="1% (Individual) / 2% (Company)" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Applicable On</label><input type="text" defaultValue="Contractor Bills" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-        </div>
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section</label><input type="text" defaultValue="194J (Professionals)" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Percentage</label><input type="text" defaultValue="10%" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Applicable On</label><input type="text" defaultValue="Consultancy Fees" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-        </div>
-      </div>
-    </div>
-  )
-});
-
-const InvoiceSettingsWrapper = createWrapper([
-  { key: "format", label: "Invoice Format", icon: "📄" }, { key: "series", label: "Invoice Number Series", icon: "🔢" }, 
-  { key: "rabill", label: "RA Bill Format", icon: "🏗️" }, { key: "credit", label: "Credit Note Format", icon: "💳" }, { key: "templates", label: "PDF Templates", icon: "🖨️" }
-], {
-  "series": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Numbering Series</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Prefix</label><input type="text" defaultValue="INV" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Starting Number</label><input type="text" defaultValue="INV-2026-0001" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RA Bill Prefix</label><input type="text" defaultValue="RA" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RA Bill Starting Number</label><input type="text" defaultValue="RA-2026-0001" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit Note Prefix</label><input type="text" defaultValue="CN" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-      </div>
-    </div>
-  ),
-  "format": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Invoice Print Settings</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company Logo for Invoice</label><input type="file" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Footer Notes (T&C)</label><textarea rows={4} defaultValue="1. Payment due within 30 days.\n2. Interest @ 18% p.a. applies for delayed payment.\n3. Subject to Mumbai Jurisdiction." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
-      </div>
-    </div>
-  )
-});
-
-const ApprovalWorkflowWrapper = createWrapper([
-  { key: "expense", label: "Expense Approval", icon: "📉" }, { key: "purchase", label: "Purchase Approval", icon: "🛍️" }, 
-  { key: "payroll", label: "Payroll Approval", icon: "👥" }, { key: "payment", label: "Payment Approval", icon: "💸" }, { key: "journal", label: "Journal Approval", icon: "📓" }
-], {
-  "expense": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Expense Approval Workflow</h3>
-      <div className="flex flex-col items-center">
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Employee</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-slate-400">↓</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Manager</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-slate-400">↓</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Accountant</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-emerald-500 font-black">↓</div>
-        <div className="w-64 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-4 text-center font-black text-sm mt-2">Approved</div>
-      </div>
-    </div>
-  ),
-  "payment": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Vendor Payment Approval Workflow</h3>
-      <div className="flex flex-col items-center">
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Accountant</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-slate-400">↓</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Finance Manager</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-slate-400">↓</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="w-64 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center font-bold text-sm">Director</div>
-        <div className="h-6 w-px bg-slate-300"></div>
-        <div className="text-xs text-indigo-500 font-black">↓</div>
-        <div className="w-64 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl p-4 text-center font-black text-sm mt-2">Payment Release</div>
-      </div>
-    </div>
-  )
-});
-
-const UsersRolesWrapper = createWrapper([
-  { key: "roles", label: "Role Management", icon: "🎭" }, { key: "permissions", label: "User Permissions", icon: "🔐" }, 
-  { key: "access", label: "Access Control", icon: "🚧" }, { key: "audit", label: "Audit Logs", icon: "📋" }
-], {
-  "roles": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">System Roles</h3>
-      <div className="flex flex-wrap gap-3">
-        {["Admin", "Accountant", "Finance Manager", "Project Manager", "Purchase Manager", "HR", "Director", "Auditor"].map(r => (
-          <div key={r} className="px-4 py-2 border border-slate-200 rounded-xl bg-slate-50 text-sm font-bold text-slate-700">{r}</div>
-        ))}
-      </div>
-    </div>
-  ),
-  "permissions": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Permissions Matrix (Accountant)</h3>
-      <div className="overflow-x-auto w-full">
-        <table className="w-full min-w-[600px] text-left border border-slate-200 rounded-xl overflow-hidden table">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Module</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-center">View</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-center">Create</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-center">Edit</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-center">Delete</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase text-center">Approve</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm">
-            {[
-              { m: "Journal Entries", v: true, c: true, e: true, d: false, a: false },
-              { m: "Payables", v: true, c: true, e: true, d: false, a: false },
-              { m: "Receivables", v: true, c: true, e: true, d: false, a: false },
-              { m: "Payroll", v: true, c: true, e: true, d: false, a: false },
-              { m: "Bank Reconciliations", v: true, c: true, e: true, d: false, a: false },
-              { m: "Financial Reports", v: true, c: false, e: false, d: false, a: false },
-            ].map(row => (
-              <tr key={row.m}>
-                <td className="px-4 py-3 font-bold text-slate-700">{row.m}</td>
-                <td className="px-4 py-3 text-center"><input type="checkbox" checked={row.v} readOnly className="rounded text-indigo-600" /></td>
-                <td className="px-4 py-3 text-center"><input type="checkbox" checked={row.c} readOnly className="rounded text-indigo-600" /></td>
-                <td className="px-4 py-3 text-center"><input type="checkbox" checked={row.e} readOnly className="rounded text-indigo-600" /></td>
-                <td className="px-4 py-3 text-center"><input type="checkbox" checked={row.d} readOnly className="rounded text-indigo-600" /></td>
-                <td className="px-4 py-3 text-center"><input type="checkbox" checked={row.a} readOnly className="rounded text-indigo-600" /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-});
-
-// --- MAIN PAGE ---
-type TabKey = "company" | "financial" | "tax" | "invoice" | "users" | "approvals";
-
-const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "company",   label: "Company",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg> },
-  { key: "financial", label: "Finance",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
-  { key: "tax",       label: "Tax",       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> },
-  { key: "invoice",   label: "Invoice",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> },
-  { key: "users",     label: "Users",     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg> },
-  { key: "approvals", label: "Approvals", icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+const SIDEBAR_NAV = [
+  {
+    group: "My Settings",
+    items: [
+      { key: "profile", label: "Profile", icon: <User className="w-4 h-4" /> },
+      { key: "notifications", label: "Notifications", icon: <Bell className="w-4 h-4" /> },
+      { key: "units", label: "Units", icon: <Ruler className="w-4 h-4" /> },
+      { key: "default_project", label: "Default Project", icon: <Folder className="w-4 h-4" /> },
+    ]
+  },
+  {
+    group: "Company Settings",
+    items: [
+      { key: "general", label: "General", icon: <Building className="w-4 h-4" /> },
+      { key: "financial", label: "Financial", icon: <DollarSign className="w-4 h-4" /> },
+      { key: "billing", label: "Billing", icon: <Receipt className="w-4 h-4" /> },
+      { key: "ledger", label: "Ledger", icon: <BookOpen className="w-4 h-4" /> },
+    ]
+  }
 ];
 
-const AccountantSettingsPage = () => {
-  const { category } = useParams<{ category?: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const subTab = searchParams.get("sub") || undefined;
+// --- Form Components ---
 
-  const resolveTab = (): TabKey => {
-    const pathParts = location.pathname.split("/").filter(Boolean);
-    const lastPart = pathParts[pathParts.length - 1];
-    const currentSub = category || lastPart;
+const ProfileForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Profile Settings</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Full Name <span className="text-rose-500">*</span></label><input type="text" value={data.full_name || ""} onChange={(e) => onChange({...data, full_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Email <span className="text-rose-500">*</span></label><input type="email" value={data.email || ""} onChange={(e) => onChange({...data, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Phone Number</label><input type="text" value={data.phone_number || ""} onChange={(e) => onChange({...data, phone_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Role</label><input type="text" value={data.role || "Accountant"} readOnly className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" /></div>
+    </div>
+  </div>
+);
 
-    const map: Record<string, TabKey> = {
-      "company": "company",
-      "financial": "financial",
-      "tax": "tax",
-      "invoice": "invoice",
-      "users": "users",
-      "approvals": "approvals",
-    };
-    return map[currentSub || ""] || "company";
+const NotificationsForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Notification Preferences</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        <div>
+          <h4 className="text-sm font-bold text-slate-800">Email Notifications</h4>
+          <p className="text-xs text-slate-500 mt-1">Receive daily summaries and alerts via email.</p>
+        </div>
+        <input type="checkbox" checked={data.email_notifications ?? true} onChange={(e) => onChange({...data, email_notifications: e.target.checked})} className="w-4 h-4 rounded text-blue-600" />
+      </div>
+      <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        <div>
+          <h4 className="text-sm font-bold text-slate-800">In-App Notifications</h4>
+          <p className="text-xs text-slate-500 mt-1">Show push notifications within the application.</p>
+        </div>
+        <input type="checkbox" checked={data.in_app_notifications ?? true} onChange={(e) => onChange({...data, in_app_notifications: e.target.checked})} className="w-4 h-4 rounded text-blue-600" />
+      </div>
+      <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        <div>
+          <h4 className="text-sm font-bold text-slate-800">Approval Alerts</h4>
+          <p className="text-xs text-slate-500 mt-1">Get notified immediately when an item requires your approval.</p>
+        </div>
+        <input type="checkbox" checked={data.approval_alerts ?? true} onChange={(e) => onChange({...data, approval_alerts: e.target.checked})} className="w-4 h-4 rounded text-blue-600" />
+      </div>
+    </div>
+  </div>
+);
+
+const UnitsForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Unit Preferences</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Primary Currency</label>
+        <select value={data.primary_currency || "INR"} onChange={(e) => onChange({...data, primary_currency: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value="INR">INR (₹)</option>
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Date Format</label>
+        <select value={data.date_format || "DD/MM/YYYY"} onChange={(e) => onChange({...data, date_format: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Number System</label>
+        <select value={data.number_system || "Indian"} onChange={(e) => onChange({...data, number_system: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value="Indian">Indian (Lakhs, Crores)</option>
+          <option value="International">International (Millions, Billions)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+);
+
+const DefaultProjectForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Default Project Settings</h3>
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Default Project Workspace</label>
+      <select value={data.default_project || ""} onChange={(e) => onChange({...data, default_project: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        <option value="">-- Select Default Project --</option>
+        <option value="Mumbai Metro Line 3">Mumbai Metro Line 3</option>
+        <option value="Pune Ring Road">Pune Ring Road</option>
+        <option value="Navi Mumbai Airport Phase 1">Navi Mumbai Airport Phase 1</option>
+      </select>
+      <p className="text-xs text-slate-500 mt-2">This project will be pre-selected in forms and dashboards.</p>
+    </div>
+  </div>
+);
+
+const GeneralCompanyForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => {
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setUploadingLogo(true);
+    try {
+      const res = await api.post("/settings/upload-logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      onChange({ ...data, company_logo_url: res.data?.url || "" });
+      toast.success("Logo uploaded successfully");
+    } catch (error) {
+      toast.error("Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
-  const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-black text-slate-800 mb-6">General Company Details</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Company Name <span className="text-rose-500">*</span></label><input type="text" value={data.company_name || ""} onChange={(e) => onChange({...data, company_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Company Logo</label>
+          <div className="flex gap-2">
+            <input type="file" onChange={handleLogoUpload} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+            {uploadingLogo && <div className="px-4 py-2 text-sm text-slate-500 flex items-center">Uploading...</div>}
+          </div>
+        </div>
+        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GSTIN <span className="text-rose-500">*</span></label><input type="text" value={data.gstin || ""} onChange={(e) => onChange({...data, gstin: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">PAN Number <span className="text-rose-500">*</span></label><input type="text" value={data.pan_number || ""} onChange={(e) => onChange({...data, pan_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">CIN Number</label><input type="text" value={data.cin_number || ""} onChange={(e) => onChange({...data, cin_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contact Number</label><input type="text" value={data.contact_number || ""} onChange={(e) => onChange({...data, contact_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+        <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Registered Address</label><textarea rows={3} value={data.registered_address || ""} onChange={(e) => onChange({...data, registered_address: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
+      </div>
+    </div>
+  );
+};
+
+const FinancialForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Financial Settings</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Financial Year</label>
+        <input type="text" value={data.financial_year || ""} onChange={(e) => onChange({...data, financial_year: e.target.value})} placeholder="e.g. 2026-2027" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+      </div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Financial Year Start Date</label><input type="date" value={data.financial_year_start || ""} onChange={(e) => onChange({...data, financial_year_start: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Financial Year End Date</label><input type="date" value={data.financial_year_end || ""} onChange={(e) => onChange({...data, financial_year_end: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Decimal Precision</label>
+        <select value={data.decimal_precision || 2} onChange={(e) => onChange({...data, decimal_precision: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value={0}>0 Decimal Places</option>
+          <option value={2}>2 Decimal Places</option>
+          <option value={3}>3 Decimal Places</option>
+        </select>
+      </div>
+    </div>
+  </div>
+);
+
+const BillingForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Billing & Invoicing</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Prefix</label><input type="text" value={data.invoice_prefix || ""} onChange={(e) => onChange({...data, invoice_prefix: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Starting Number</label><input type="text" value={data.invoice_starting_number || ""} onChange={(e) => onChange({...data, invoice_starting_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">RA Bill Prefix</label><input type="text" value={data.ra_bill_prefix || ""} onChange={(e) => onChange({...data, ra_bill_prefix: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">RA Bill Starting Number</label><input type="text" value={data.ra_bill_starting_number || ""} onChange={(e) => onChange({...data, ra_bill_starting_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+      <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Footer Notes (T&C)</label><textarea rows={3} value={data.footer_notes || ""} onChange={(e) => onChange({...data, footer_notes: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
+    </div>
+  </div>
+);
+
+const LedgerForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-black text-slate-800 mb-6">Ledger Settings</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Default Ledger Template</label>
+        <select value={data.default_ledger_template || "Standard"} onChange={(e) => onChange({...data, default_ledger_template: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value="Standard">Standard Construction Chart of Accounts</option>
+          <option value="Minimal">Minimal Template</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Numbering</label>
+        <select value={data.account_numbering || "Automatic"} onChange={(e) => onChange({...data, account_numbering: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <option value="Automatic">Automatic</option>
+          <option value="Manual">Manual</option>
+        </select>
+      </div>
+    </div>
+  </div>
+);
+
+// --- MAIN PAGE ---
+
+export default function AccountantSettingsPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabKey>("profile");
+
+  const [profileData, setProfileData] = useState<any>({});
+  const [companyData, setCompanyData] = useState<any>({});
+  const [appSettingsData, setAppSettingsData] = useState<any>({});
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setActiveTab(resolveTab());
-  }, [category, location.pathname]);
+    const tabFromUrl = searchParams.get("tab") as TabKey;
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Fetch logic based on active tab category
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      try {
+        if (activeTab === "profile") {
+          const res = await api.get("/settings/profile");
+          setProfileData(res.data);
+        } else if (["general", "financial", "billing", "ledger"].includes(activeTab)) {
+          const res = await api.get("/settings/company");
+          setCompanyData(res.data);
+        } else if (["notifications", "units", "default_project"].includes(activeTab)) {
+          const res = await api.get("/settings");
+          setAppSettingsData(res.data);
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSettings();
+  }, [activeTab]);
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
-    navigate(`/accountant/settings/${key}`, { replace: true });
+    navigate(`?tab=${key}`, { replace: true });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      if (activeTab === "profile") {
+        await api.put("/settings/profile", profileData);
+      } else if (["general", "financial", "billing", "ledger"].includes(activeTab)) {
+        await api.put("/settings/company", companyData);
+      } else if (["notifications", "units", "default_project"].includes(activeTab)) {
+        await api.put("/settings", appSettingsData);
+      }
+      toast.success("Settings saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving settings:", error);
+      toast.error(error.response?.data?.detail || "Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return <div className="flex items-center justify-center p-20 text-slate-400 font-bold uppercase tracking-widest text-sm animate-pulse">Loading Configuration...</div>;
+    }
+
+    switch (activeTab) {
+      case "profile": return <ProfileForm data={profileData} onChange={setProfileData} />;
+      case "notifications": return <NotificationsForm data={appSettingsData} onChange={setAppSettingsData} />;
+      case "units": return <UnitsForm data={appSettingsData} onChange={setAppSettingsData} />;
+      case "default_project": return <DefaultProjectForm data={appSettingsData} onChange={setAppSettingsData} />;
+      case "general": return <GeneralCompanyForm data={companyData} onChange={setCompanyData} />;
+      case "financial": return <FinancialForm data={companyData} onChange={setCompanyData} />;
+      case "billing": return <BillingForm data={companyData} onChange={setCompanyData} />;
+      case "ledger": return <LedgerForm data={companyData} onChange={setCompanyData} />;
+      default: return <ProfileForm data={profileData} onChange={setProfileData} />;
+    }
   };
 
   return (
     <>
-      <Navbar title="Settings & Configuration" breadcrumb={["Accountant", "Settings"]} />
+      <Navbar title="Settings" breadcrumb={["Accountant", "Settings"]} />
 
-      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        {/* Header */}
+      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] font-inter pb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Settings</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage financial rules, tax settings, numbering formats, and company preferences.</p>
+            <p className="text-slate-500 text-sm mt-1">Manage your profile, preferences, and company configurations.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">💾</span> Save Changes
-            </button>
+          <div className="relative font-inter shrink-0">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input 
+              type="text" 
+              placeholder="Search settings..."
+              className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-slate-400 shadow-sm"
+            />
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
-          {TABS.map(tab => (
-            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
-              }`}>
-              <span>{tab.icon}</span>{tab.label}
-            </button>
-          ))}
-        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar */}
+          <div className="lg:w-64 shrink-0 flex flex-col gap-6">
+            {SIDEBAR_NAV.map((group) => (
+              <div key={group.group}>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-3">
+                  {group.group}
+                </h4>
+                <div className="flex flex-col gap-1">
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => handleTabChange(item.key as TabKey)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          isActive 
+                            ? "bg-white text-primary shadow-sm border border-slate-200" 
+                            : "text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm hover:border-slate-200 border border-transparent"
+                        }`}
+                      >
+                        <span className={isActive ? "text-primary" : "text-slate-400"}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
 
-        {/* Breadcrumb Label */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">Settings</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">{TABS.find(t => t.key === activeTab)?.label}</span>
+          {/* Main Content Area */}
+          <div className="flex-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 min-h-[500px] flex flex-col">
+              <div className="p-6 md:p-8 flex-1">
+                {renderContent()}
+              </div>
+              
+              {/* Bottom Actions */}
+              <div className="p-6 border-t border-slate-100 flex items-center justify-end bg-slate-50/50 rounded-b-2xl">
+                <button 
+                  onClick={handleSave}
+                  disabled={isSaving || isLoading}
+                  className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? "Saving..." : "Save Configuration"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Content Rendering */}
-        {activeTab === "company"       && <CompanySettingsWrapper initialSubTab={subTab} key={subTab || "profile"} />}
-        {activeTab === "financial"     && <FinancialSettingsWrapper initialSubTab={subTab} key={subTab || "year"} />}
-        {activeTab === "tax"           && <TaxSettingsWrapper initialSubTab={subTab} key={subTab || "gst"} />}
-        {activeTab === "invoice"       && <InvoiceSettingsWrapper initialSubTab={subTab} key={subTab || "format"} />}
-        {activeTab === "users"         && <UsersRolesWrapper initialSubTab={subTab} key={subTab || "roles"} />}
-        {activeTab === "approvals"     && <ApprovalWorkflowWrapper initialSubTab={subTab} key={subTab || "expense"} />}
       </PageTransition>
     </>
   );
-};
-
-export default AccountantSettingsPage;
+}

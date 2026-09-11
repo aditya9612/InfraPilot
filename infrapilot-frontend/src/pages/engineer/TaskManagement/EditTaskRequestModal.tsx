@@ -38,12 +38,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
             setAttachmentFile(null);
 
             if (request.project_id) {
-                projectService.getProjectMembers(request.project_id)
-                    .then(res => {
-                        const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
-                        setProjectMembers(membersList);
-                    })
-                    .catch(err => console.error("Failed to fetch project members:", err));
+                import('../../../services/labourService').then(({ labourService }) => {
+                    labourService.getLabours(request.project_id, { limit: 100 })
+                        .then((res: any) => {
+                            const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                            setProjectMembers(membersList);
+                        })
+                        .catch(err => console.error("Failed to fetch project members:", err));
+                });
             }
         }
     }, [request, isOpen]);
@@ -118,7 +120,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                 className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
             >
                 {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                Save changes
+                Edit Task Request
             </button>
         </div>
     );
@@ -252,7 +254,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                     <option value="0">Unassigned</option>
                                     {projectMembers.map(m => (
                                         <option key={m.id || m.user_id} value={m.user_id || m.id}>
-                                            {m.full_name || m.name || `User ${m.user_id || m.id}`}
+                                            {m.labour_name || m.full_name || m.name || `User ${m.user_id || m.id}`}
                                         </option>
                                     ))}
                                 </select>

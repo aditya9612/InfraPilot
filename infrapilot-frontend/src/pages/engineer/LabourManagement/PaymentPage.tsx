@@ -334,12 +334,9 @@ const PaymentPage: React.FC = () => {
                                         )}
                                         {activeTab === 'weekly' && (
                                             <>
-                                                <th className="px-6 py-4 font-inter">Interval Velocity</th>
-                                                <th className="px-6 py-4 text-center font-inter">Duty Days</th>
-                                                <th className="px-6 py-4 text-center font-inter">Verified Presence</th>
-                                                <th className="px-6 py-4 text-center font-inter">Operational Hrs</th>
-                                                <th className="px-6 py-4 text-center font-inter text-amber-500">OT Efficiency</th>
-                                                <th className="px-6 py-4 text-right font-inter">Gross Disbursement</th>
+                                                <th className="px-6 py-4 font-inter">Week Number</th>
+                                                <th className="px-6 py-4 text-center font-inter">Attendance Count</th>
+                                                <th className="px-6 py-4 text-right font-inter">Total Wage</th>
                                             </>
                                         )}
                                     </tr>
@@ -471,16 +468,7 @@ const PaymentPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 font-inter">-</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
                                                 <span className="text-sm font-bold text-emerald-600 font-inter">{r.attendance_count || 0} Verified</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-700 font-inter">-</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-amber-500 font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString() || 0}</span>
