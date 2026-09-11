@@ -197,31 +197,34 @@ const MaterialConsumptionPage = () => {
     // Handlers
     const handleUsageSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); if (!selectedInventory) return; setIsSubmitting(true);
+        const toastId = toast.loading("Recording usage...");
         try {
             const payload = { ...usageForm, issue_type: usageForm.issue_type as IssueType };
             if (!payload.task_id) delete payload.task_id;
             if (!payload.boq_item_id) delete payload.boq_item_id;
-            await materialService.recordUsage(selectedInventory.material_id, payload);
-            toast.success("Usage recorded!"); setIsUsageModalOpen(false); fetchInventory();
-        } catch (e) { toast.error("Failed to record usage"); }
+            const res = await materialService.recordUsage(selectedInventory.material_id, payload);
+            toast.success((res as any)?.message || "Usage recorded!", { id: toastId }); setIsUsageModalOpen(false); fetchInventory();
+        } catch (e: any) { toast.error(e.response?.data?.message || "Failed to record usage", { id: toastId }); }
         finally { setIsSubmitting(false); }
     };
 
     const handleTransferSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSubmitting(true);
+        const toastId = toast.loading("Initiating transfer...");
         try {
-            await materialService.createTransfer({ ...transferForm } as any);
-            toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to create transfer"); }
+            const res = await materialService.createTransfer({ ...transferForm } as any);
+            toast.success((res as any)?.message || "Transfer initiated!", { id: toastId }); setIsTransferModalOpen(false); fetchTransfers();
+        } catch (e: any) { toast.error(e.response?.data?.message || "Failed to create transfer", { id: toastId }); }
         finally { setIsSubmitting(false); }
     };
 
     const handleUpdateTransfer = async (e: React.FormEvent) => {
         e.preventDefault(); if (!selectedTransfer) return; setIsSubmitting(true);
+        const toastId = toast.loading("Updating transfer...");
         try {
-            await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
-            toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to update transfer"); }
+            const res = await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
+            toast.success((res as any)?.message || "Transfer updated!", { id: toastId }); setIsUpdateTransferOpen(false); fetchTransfers();
+        } catch (e: any) { toast.error(e.response?.data?.message || "Failed to update transfer", { id: toastId }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -417,7 +420,7 @@ const MaterialConsumptionPage = () => {
 
             {/* Modals */}
             {/* Usage Modal */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
+            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Save Usage"}</button></>}>
                 <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
@@ -446,7 +449,7 @@ const MaterialConsumptionPage = () => {
             </Modal>
 
             {/* Create Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Create Transfer"}</button></>}>
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
                 <form id="transfer-form" onSubmit={handleTransferSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
@@ -462,7 +465,7 @@ const MaterialConsumptionPage = () => {
             </Modal>
 
             {/* Update Transfer Modal */}
-            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Update"}</button></>}>
+            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Edit Transfer Status"}</button></>}>
                 <form id="update-transfer-form" onSubmit={handleUpdateTransfer} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>

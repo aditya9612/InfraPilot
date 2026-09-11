@@ -203,12 +203,13 @@ const MaterialStockPage = () => {
 
     const handleAdjustmentSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSubmitting(true);
+        const toastId = toast.loading("Processing adjustment...");
         try {
-            await materialService.adjustInventory(adjustmentForm);
-            toast.success("Inventory adjusted!");
+            const res = await materialService.adjustInventory(adjustmentForm);
+            toast.success((res as any)?.message || "Inventory adjusted!", { id: toastId });
             setIsAdjustmentModalOpen(false);
             fetchAdjustments(); fetchStock();
-        } catch (e) { toast.error("Failed to adjust inventory"); }
+        } catch (e: any) { toast.error(e.response?.data?.message || "Failed to adjust inventory", { id: toastId }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -594,7 +595,7 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Audit Adjustment"}</button></>}>
                 <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>

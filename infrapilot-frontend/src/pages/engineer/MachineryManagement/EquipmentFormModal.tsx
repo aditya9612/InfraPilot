@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../../../components/common/Modal";
 import { Building2 } from "lucide-react";
 import { projectService } from "../../../services/projectService";
+import toast from "react-hot-toast";
 
 interface EquipmentFormModalProps {
     isOpen: boolean;
@@ -48,6 +49,13 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isViewOnly) return;
+        
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
+
         setIsSaving(true);
         try {
             await onSave({ ...formData });
@@ -74,18 +82,18 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     disabled={isSaving}
                     className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
                 >
-                    {isSaving ? "Saving..." : (formData.id ? "Update Equipment" : "Add Equipment")}
+                    {isSaving ? "Saving..." : (formData.id ? "Edit Equipment" : "Save Equipment")}
                 </button>
             )}
         </div>
     );
 
-    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
+    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = `w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${isViewOnly ? 'opacity-70 bg-slate-50 pointer-events-none' : 'focus:ring-primary/20 focus:border-primary'}`;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={isViewOnly ? "View Equipment" : formData.id ? "Edit Equipment" : "Add Equipment"} maxWidth="max-w-3xl" footer={modalFooter}>
-            <form id="equipment-form" onSubmit={handleSubmit} className="p-2 sm:p-4 font-inter space-y-6">
+            <form id="equipment-form" onSubmit={handleSubmit} noValidate className="p-2 sm:p-4 font-inter space-y-6">
                 <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -118,11 +126,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Equipment Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className={labelClasses}>Equipment Name <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Equipment Name <span className="text-red-600">*</span></label>
                             <input type="text" required value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Equipment Code <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Equipment Code <span className="text-red-600">*</span></label>
                             <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
@@ -130,7 +138,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             <input type="text" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Condition <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Condition <span className="text-red-600">*</span></label>
                             <select required value={formData.condition || ''} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className={inputClasses}>
                                 <option value="">Select condition</option>
                                 {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
@@ -138,11 +146,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         </div>
 
                         <div>
-                            <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Rental Cost (₹) <span className="text-red-600">*</span></label>
                             <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Maintenance Date <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Maintenance Date <span className="text-red-600">*</span></label>
                             <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={inputClasses} />
                         </div>
                     </div>

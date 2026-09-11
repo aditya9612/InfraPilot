@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -1836,7 +1836,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         disabled={isReadOnly}
                         className={`flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold transition-all ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-100'}`}
                       >
-                        <Plus className="w-4 h-4" /> Add Material
+                        Add Material
                       </button>
                     </div>
                     <div className="overflow-x-auto">

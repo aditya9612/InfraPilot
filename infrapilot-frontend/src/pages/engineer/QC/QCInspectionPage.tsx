@@ -76,7 +76,7 @@ const QCInspectionPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
-        report_file: string;
+        report_file: File | string | null;
     }
 
     // Form States
@@ -91,7 +91,7 @@ const QCInspectionPage = () => {
         status: "Pass",
         engineer_name: "",
         remarks: "",
-        report_file: ""
+        report_file: null
     });
 
     // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
@@ -211,18 +211,13 @@ const QCInspectionPage = () => {
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
-        if (!formData.engineer_name.trim()) {
-            toast.error("Please enter the Engineer In-Charge name");
-            return;
-        }
+        const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
+                        formData.result === null || formData.result === undefined || formData.result === "" || 
+                        formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
+                        !formData.status || !formData.engineer_name?.trim();
 
-        if (formData.result === null || formData.result === undefined || formData.result === "") {
-            toast.error("Please enter the observed value");
-            return;
-        }
-
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
-            toast.error("Please enter the standard threshold");
+        if (missing) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
             return;
         }
 
@@ -247,18 +242,13 @@ const QCInspectionPage = () => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
 
-        if (!formData.engineer_name.trim()) {
-            toast.error("Please enter the Engineer In-Charge name");
-            return;
-        }
+        const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
+                        formData.result === null || formData.result === undefined || formData.result === "" || 
+                        formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
+                        !formData.status || !formData.engineer_name?.trim();
 
-        if (formData.result === null || formData.result === undefined || formData.result === "") {
-            toast.error("Please enter the observed value");
-            return;
-        }
-
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
-            toast.error("Please enter the standard threshold");
+        if (missing) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
             return;
         }
 
@@ -319,7 +309,7 @@ const QCInspectionPage = () => {
             status: "Pass",
             engineer_name: defaultEngineerName,
             remarks: "",
-            report_file: ""
+            report_file: null
         });
     };
 
@@ -478,7 +468,6 @@ const QCInspectionPage = () => {
                             onClick={() => { resetForm(); setIsNewModalOpen(true); }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             Log QC Entry
                         </button>
                     </div>
@@ -504,7 +493,7 @@ const QCInspectionPage = () => {
                             title: "Failed Tests",
                             value: stats.failed.toString(),
                             sub: "Failed Tests",
-                            accent: "text-rose-500",
+                            accent: "text-red-600",
                             status: "Failed",
                         },
                         {
@@ -520,7 +509,7 @@ const QCInspectionPage = () => {
                             onClick={() => s.status && setActiveStatFilter(s.status as any)}
                             className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
                         >
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
                                 {s.title}
                             </p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
@@ -582,7 +571,7 @@ const QCInspectionPage = () => {
                                     <option value="Fail">Fail</option>
                                 </select>
                                 {activeStatFilter !== "All" && (
-                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
+                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-red-600 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
                                         <RotateCcw className="w-4 h-4" />
                                     </button>
                                 )}
@@ -621,7 +610,7 @@ const QCInspectionPage = () => {
                                             paginatedList.map((qc) => (
                                                 <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                     <td className="px-6 py-4">
-                                                        <span className="text-sm font-bold text-slate-700 font-inter">
+                                                        <span className="text-sm font-bold text-slate-900 font-inter">
                                                             {projects.find(p => Number(p.id) === Number(qc.project_id))?.project_name ||
                                                                 projects.find(p => Number(p.id) === Number(qc.project_id))?.name ||
                                                                 `Project #${qc.project_id}`}
@@ -634,7 +623,7 @@ const QCInspectionPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col max-w-xs font-inter">
-                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter">{qc.test_type}</span>
+                                                            <span className="text-xs font-bold text-slate-900 truncate font-inter">{qc.test_type}</span>
                                                             <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter truncate">
                                                                 <Activity className="w-3 h-3" />
                                                                 <span className="truncate font-inter">{qc.remarks || "No additional remarks"}</span>
@@ -709,7 +698,7 @@ const QCInspectionPage = () => {
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-900 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                     >
                                         <option value={10}>10</option>
                                         <option value={20}>20</option>
@@ -853,7 +842,7 @@ const QCInspectionPage = () => {
                             disabled={isSubmitting}
                             className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Update Inspection" : "Commit Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Edit Qc" : "Save Qc")}
                         </button>
                     </>
                 }
@@ -863,7 +852,7 @@ const QCInspectionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Project <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
@@ -880,7 +869,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Task</label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Task</label>
                                 <select
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
@@ -897,7 +886,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">DSR</label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">DSR</label>
                                 <select
                                     value={formData.dsr_id || ""}
                                     onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
@@ -914,7 +903,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Inspection Type <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Inspection Type <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
@@ -925,7 +914,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Test Type <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Test Type <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
@@ -936,7 +925,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Result <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Result <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -951,7 +940,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Standard Value <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Standard Value <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -966,7 +955,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Status <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Status <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -978,7 +967,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Engineer Name <span className="text-rose-500">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Engineer Name <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
@@ -995,7 +984,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Remarks</label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Remarks</label>
                                 <textarea
                                     rows={3}
                                     placeholder="remarks"
@@ -1007,7 +996,7 @@ const QCInspectionPage = () => {
 
                             {!isEditModalOpen && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter mb-2">Report File</label>
+                                    <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter mb-2">Report File</label>
                                     <div className="flex items-center gap-4">
                                         <input
                                             type="file"
@@ -1019,11 +1008,11 @@ const QCInspectionPage = () => {
                                                 if (file) {
                                                     toast.success(`Selected: ${file.name}`);
                                                     setSelectedFile(file);
-                                                    setFormData({ ...formData, report_file: file.name });
+                                                    setFormData({ ...formData, report_file: file });
                                                 }
                                             }}
                                         />
-                                        <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                        <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-900 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
                                             Choose File
                                         </label>
                                         <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
@@ -1034,7 +1023,7 @@ const QCInspectionPage = () => {
                                                 type="button"
                                                 onClick={() => {
                                                     setSelectedFile(null);
-                                                    setFormData({ ...formData, report_file: "" });
+                                                    setFormData({ ...formData, report_file: null });
                                                 }}
                                                 className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
                                             >
@@ -1115,7 +1104,7 @@ const QCInspectionPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
-                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-red-600'}`}>
                                             {selectedQc.status}
                                         </p>
                                     </div>
