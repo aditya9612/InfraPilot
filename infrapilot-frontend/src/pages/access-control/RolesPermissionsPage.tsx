@@ -62,30 +62,31 @@ const RolesPermissionsPage = () => {
         return [];
     };
 
+    const fetchInitialData = async () => {
+        try {
+            const [rolesRes, permsRes] = await Promise.all([
+                rbacService.getRoles(),
+                rbacService.getModulesAndPermissions(),
+            ]);
+
+            const rolesArray = extractArray(rolesRes);
+            if (rolesArray.length > 0) {
+                setRoles(rolesArray);
+                setSelectedRole((prev) => prev || rolesArray[0]);
+            }
+
+            const permsArray = extractArray(permsRes);
+            if (permsArray.length > 0) {
+                setModules(permsArray);
+            }
+        } catch (error) {
+            console.error("Failed to load initial RBAC data:", error);
+            toast.error("Failed to load roles and modules.");
+        }
+    };
+
     // Fetch initial data
     useEffect(() => {
-        const fetchInitialData = async () => {
-            try {
-                const [rolesRes, permsRes] = await Promise.all([
-                    rbacService.getRoles(),
-                    rbacService.getModulesAndPermissions(),
-                ]);
-
-                const rolesArray = extractArray(rolesRes);
-                if (rolesArray.length > 0) {
-                    setRoles(rolesArray);
-                    setSelectedRole(rolesArray[0]);
-                }
-
-                const permsArray = extractArray(permsRes);
-                if (permsArray.length > 0) {
-                    setModules(permsArray);
-                }
-            } catch (error) {
-                console.error("Failed to load initial RBAC data:", error);
-                toast.error("Failed to load roles and modules.");
-            }
-        };
         fetchInitialData();
     }, []);
 
@@ -569,6 +570,7 @@ const RolesPermissionsPage = () => {
                                         const id = toast.loading('Seeding permissions...');
                                         try {
                                             await rbacService.seedRbacData();
+                                            await fetchInitialData();
                                             toast.success('RBAC definitions seeded', { id });
                                         } catch {
                                             toast.error('Failed to seed RBAC definitions', { id });
@@ -577,13 +579,14 @@ const RolesPermissionsPage = () => {
                                     className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-sm hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-                                    Seed RBAC
+                                    Seed RBAC Permissions
                                 </button>
                                 <button
                                     onClick={async () => {
                                         const id = toast.loading('Assigning defaults...');
                                         try {
                                             await rbacService.assignDefaults();
+                                            await fetchInitialData();
                                             toast.success('System defaults enforced', { id });
                                         } catch {
                                             toast.error('Failed to assign defaults', { id });

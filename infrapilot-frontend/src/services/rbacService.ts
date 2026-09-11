@@ -64,7 +64,7 @@ export const rbacService = {
     },
 
     updateRolePermissions: async (role: string, permissions: any[]) => {
-        const response = await api.put(`/rbac/roles/${role}/permissions`, permissions);
+        const response = await api.put(`/rbac/roles/${role}/permissions`, { permissions });
         return response.data;
     },
 
