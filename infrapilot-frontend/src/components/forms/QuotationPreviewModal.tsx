@@ -258,16 +258,11 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
             let blob: Blob;
 
             if (!qId || isNaN(Number(qId))) {
-                // If it's a draft preview (no ID), use the preview PDF API
-                if (data.isDraft) {
-                    blob = await quotationService.previewDummyQuotationPDF(data);
-                } else {
-                    toast.error("No Quotation ID found to download from server.", { id: toastId });
-                    return;
-                }
+                toast.error("No Quotation ID found to download from server.", { id: toastId });
+                return;
             } else {
                 blob = data.isDraft
-                    ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                    ? await quotationService.downloadDummyQuotationPDF(Number(qId), true)
                     : await quotationService.downloadQuotationPDF(Number(qId));
             }
 
@@ -303,14 +298,8 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                     const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
                     if (qId && !isNaN(Number(qId))) {
                         const blob = data.isDraft
-                            ? await quotationService.downloadDummyQuotationPDF(Number(qId))
+                            ? await quotationService.downloadDummyQuotationPDF(Number(qId), false)
                             : await quotationService.downloadQuotationPDF(Number(qId));
-                        const url = window.URL.createObjectURL(blob);
-                        setPdfUrl(url);
-                        setIsLoadingPdf(false);
-                        return;
-                    } else if (data.isDraft) {
-                        const blob = await quotationService.previewDummyQuotationPDF(data);
                         const url = window.URL.createObjectURL(blob);
                         setPdfUrl(url);
                         setIsLoadingPdf(false);

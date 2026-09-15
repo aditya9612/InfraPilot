@@ -23,8 +23,8 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     brand: "",
     specification: "",
     hsn_code: "",
-    default_rate: 0,
-    minimum_stock_level: 0,
+    default_rate: "" as string | number,
+    minimum_stock_level: "" as string | number,
     is_active: true,
     type: "Material"
   });
@@ -64,8 +64,8 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
         brand: initialData.brand ?? "",
         specification: initialData.specification ?? "",
         hsn_code: initialData.hsn_code ?? "",
-        default_rate: initialData.default_rate ?? 0,
-        minimum_stock_level: initialData.minimum_stock_level ?? 0,
+        default_rate: initialData.default_rate ?? "",
+        minimum_stock_level: initialData.minimum_stock_level ?? "",
         is_active: initialData.is_active ?? true,
         type: "Material"
       });
@@ -77,8 +77,8 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
         brand: "",
         specification: "",
         hsn_code: "",
-        default_rate: 0,
-        minimum_stock_level: 0,
+        default_rate: "",
+        minimum_stock_level: "",
         is_active: true,
         type: "Material"
       });
@@ -94,7 +94,7 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     if (!formData.category.trim()) newErrors.category = "Category is required.";
     if (!formData.unit_id) newErrors.unit_id = "Unit is required.";
 
-    if (formData.default_rate <= 0) newErrors.default_rate = "Default rate must be positive.";
+    if (Number(formData.default_rate) <= 0) newErrors.default_rate = "Default rate must be positive.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -129,7 +129,7 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
         type="submit"
         className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
       >
-        {initialData ? "Save changes" : "Create material"}
+        {initialData ? "Save changes" : "Save Material"}
       </button>
     </div>
   );
@@ -195,7 +195,6 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               <label className="block text-sm font-medium text-gray-600 mb-1">Brand</label>
               <input
                 type="text"
-                placeholder="e.g. UltraTech"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
@@ -206,7 +205,6 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">Specification</label>
             <textarea
-              placeholder="e.g. OPC 53 Grade"
               rows={2}
               className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
               value={formData.specification}
@@ -219,7 +217,6 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               <label className="block text-sm font-medium text-gray-600 mb-1">HSN Code</label>
               <input
                 type="text"
-                placeholder="e.g. 25232930"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
                 value={formData.hsn_code}
                 onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
@@ -229,10 +226,9 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               <label className="block text-sm font-medium text-gray-600 mb-1">Default Rate (₹)</label>
               <input
                 type="number"
-                placeholder="0"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
                 value={formData.default_rate}
-                onChange={(e) => setFormData({ ...formData, default_rate: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, default_rate: e.target.value === '' ? '' : Number(e.target.value) })}
               />
               {errors.default_rate && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_rate}</p>}
             </div>
@@ -243,10 +239,9 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               <label className="block text-sm font-medium text-gray-600 mb-1">Min Stock Level</label>
               <input
                 type="number"
-                placeholder="0"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
                 value={formData.minimum_stock_level}
-                onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, minimum_stock_level: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
             <div className="flex items-center gap-2 pt-8">

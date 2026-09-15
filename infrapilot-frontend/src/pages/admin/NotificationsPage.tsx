@@ -31,7 +31,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [notifToDelete, setNotifToDelete] = useState<string | number | null>(null);
-  const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
   const [currentPage, setCurrentPage] = useState(0);
   const [projects, setProjects] = useState<any[]>([]);
@@ -101,7 +100,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   // Reset page on filter/search change
   useEffect(() => {
     setCurrentPage(0);
-    setSelectedIds([]);
   }, [searchTerm, activeStatFilter, filter, selectedProjectId, sourceFilter, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
@@ -110,32 +108,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead("Admin", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setSelectedIds([]);
-  };
-
-  const handleMarkSelectedRead = async () => {
-    if (selectedIds.length === 0) return;
-    const toMark = notifications.filter(n => selectedIds.includes(n.id) && !n.read);
-    await Promise.all(toMark.map(n => notificationService.markAsRead(n.id as any, n.source)));
-    setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, read: true } : n));
-    setSelectedIds([]);
-    toast.success(`${toMark.length} notification(s) marked as read.`);
-  };
-
-  const handleToggleSelectAll = () => {
-    const allIds = pagedNotifs.map(n => n.id);
-    const allSelected = allIds.every(id => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds(prev => prev.filter(id => !allIds.includes(id)));
-    } else {
-      setSelectedIds(prev => Array.from(new Set([...prev, ...allIds])));
-    }
-  };
-
-  const handleToggleSelect = (id: number | string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
   };
 
   const handleViewDetails = async (notif: Notification) => {
@@ -205,15 +177,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
             <p className="text-slate-500 text-sm">View all alerts, approvals, and system messages.</p>
           </div>
           <div className="flex gap-2">
-            {selectedIds.length > 0 && (
-              <button
-                onClick={handleMarkSelectedRead}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-              >
-                <CheckCheck className="w-4 h-4" />
-                Mark Selected Read ({selectedIds.length})
-              </button>
-            )}
             <button
               onClick={handleMarkAllRead}
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
@@ -380,8 +343,8 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                   value={sourceFilter}
                   onChange={(e) => { setSourceFilter(e.target.value); }}
                   className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${sourceFilter !== "All"
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "bg-slate-50 border-slate-200 text-slate-600"
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-slate-50 border-slate-200 text-slate-600"
                     }`}
                 >
                   <option value="All">All Sources</option>
@@ -399,14 +362,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={pagedNotifs.length > 0 && pagedNotifs.every(n => selectedIds.includes(n.id))}
-                      onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                    />
-                  </th>
+
                   <th className="px-6 py-4 w-48">Type</th>
                   <th className="px-6 py-4">Title & Description</th>
                   <th className="px-6 py-4">Source</th>
@@ -437,14 +393,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 ) : (
                   pagedNotifs.map((notif) => (
                     <tr key={String(notif.id)} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
-                      <td className="px-6 py-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(notif.id)}
-                          onChange={() => handleToggleSelect(notif.id)}
-                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                        />
-                      </td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -469,8 +418,8 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${notif.read
-                            ? "bg-slate-100 text-slate-500"
-                            : "bg-primary/10 text-primary"
+                          ? "bg-slate-100 text-slate-500"
+                          : "bg-primary/10 text-primary"
                           }`}>
                           {notif.read ? "Read" : "Unread"}
                         </span>

@@ -82,6 +82,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                 project_id: projectId,
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
                 warranty_end_date: formData.warranty_end_date || null,
+                total_amount: (Number(formData.quantity) || 0) * (Number(formData.unit_price) || 0),
             });
             toast.success("Purchase updated successfully!");
             onSuccess();
@@ -146,13 +147,14 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                 {/* Invoice Number */}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                        Invoice Number
+                                        Invoice Number <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         name="invoice_number"
                                         value={formData.invoice_number}
                                         onChange={handleChange}
+                                        required
                                         className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
                                         placeholder="Enter invoice number"
                                     />

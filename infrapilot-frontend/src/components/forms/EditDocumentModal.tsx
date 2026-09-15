@@ -119,43 +119,45 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
                         {!document.is_folder && (
                             <>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            Document Type <span className="text-rose-500">*</span>
-                                        </label>
-                                        <select
-                                            required
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
-                                            value={formData.document_type || "General"}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
-                                        >
-                                            <option value="General">General</option>
-                                            <option value="Drawing">Drawing</option>
-                                            <option value="Contract">Contract</option>
-                                            <option value="Invoice">Invoice</option>
-                                            <option value="Report">Report</option>
-                                            <option value="Blueprint">Blueprint</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
+                                {formData.document_type !== "Drawing" && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                Document Type <span className="text-rose-500">*</span>
+                                            </label>
+                                            <select
+                                                required
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                                value={formData.document_type || "General"}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
+                                            >
+                                                <option value="General">General</option>
+                                                <option value="Drawing">Drawing</option>
+                                                <option value="Contract">Contract</option>
+                                                <option value="Invoice">Invoice</option>
+                                                <option value="Report">Report</option>
+                                                <option value="Blueprint">Blueprint</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            Status <span className="text-rose-500">*</span>
-                                        </label>
-                                        <select
-                                            required
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
-                                            value={formData.status || "PENDING"}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                                        >
-                                            <option value="PENDING">PENDING</option>
-                                            <option value="APPROVED">APPROVED</option>
-                                            <option value="REJECTED">REJECTED</option>
-                                        </select>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                Status <span className="text-rose-500">*</span>
+                                            </label>
+                                            <select
+                                                required
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                                value={formData.status || "PENDING"}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                                            >
+                                                <option value="PENDING">PENDING</option>
+                                                <option value="APPROVED">APPROVED</option>
+                                                <option value="REJECTED">REJECTED</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-1" : "col-span-1"}`}>
@@ -165,7 +167,6 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                         <input
                                             type="text"
                                             required
-                                            placeholder="e.g. 1.0"
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
                                             value={formData.version || ""}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}

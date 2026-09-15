@@ -97,7 +97,7 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
         type="submit"
         className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
       >
-        {initialData ? "Save changes" : "Create activity"}
+        {initialData ? "Save changes" : "Save Activity type"}
       </button>
     </div>
   );
