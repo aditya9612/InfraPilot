@@ -38,6 +38,8 @@ export interface MaintenanceItem {
     next_maintenance_date: string;
     created_at: string;
     status: string;
+    project_id?: number | null;
+    boq_item_id?: number | null;
 }
 
 export interface RentalItem {
@@ -274,58 +276,67 @@ export const equipmentService = {
         return response.data;
     },
 
-    async updateMaintenance(maintenance_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number | null }): Promise<MaintenanceItem> {
-        const payload: any = {
+    async updateMaintenance(equipment_id: number, maintenance_id: number, data: Partial<MaintenanceItem>): Promise<MaintenanceItem> {
+        const payload = {
             description: data.description,
             maintenance_date: data.maintenance_date,
-            cost: data.cost,
+            cost: data.cost ? Number(data.cost) : 0,
             next_maintenance_date: data.next_maintenance_date || null,
-            project_id: data.project_id || undefined,
-            boq_item_id: data.boq_item_id
+            project_id: data.project_id ? Number(data.project_id) : undefined,
+            boq_item_id: data.boq_item_id ? Number(data.boq_item_id) : undefined
         };
+        // Ensure to keep update route unchanged, assuming it worked as /equipment/maintenance/...
         const response = await api.put<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`, payload);
         return response.data;
     },
 
-    async completeMaintenance(maintenance_id: number): Promise<any> {
+    async completeMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
         const response = await api.put<any>(`/equipment/maintenance/${maintenance_id}/complete`);
         return response.data;
     },
 
-    async deleteMaintenance(maintenance_id: number): Promise<any> {
-        const response = await api.delete<any>(`/equipment/maintenance/${maintenance_id}`);
+    async deleteMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
+        // Backend typo: maintainance
+        const response = await api.delete<any>(`/equipment/maintainance/${maintenance_id}`);
         return response.data;
     },
 
-    async getMaintenance(maintenance_id: number): Promise<MaintenanceItem> {
-        const response = await api.get<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`);
+    async getMaintenance(equipment_id: number, maintenance_id: number): Promise<MaintenanceItem> {
+        // Backend typo: maintainance
+        const response = await api.get<MaintenanceItem>(`/equipment/maintainance/${maintenance_id}`);
         return response.data;
     },
 
     async listMaintenance(equipment_id?: number, params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         const queryParams: any = { limit: 500 };
+        // Testing if the list API is also strictly "maintainance" or if it is "maintenance"
         if (equipment_id) queryParams.equipment_id = equipment_id;
-        const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams });
-        let data = Array.isArray(response.data) ? response.data : ((response.data as any).items || []);
+        const response = await api.get<MaintenanceItem[]>(`/equipment/maintainance`, { params: queryParams }).catch(() => api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams }));
+        let data = Array.isArray(response.data) ? response.data : ((response.data as any)?.items || []);
         if (params?.project_id) {
             data = data.filter((d: any) => d.project_id === params.project_id);
         }
         return data;
     },
 
-    async getAllMaintenance(params?: { project_id?: number }): Promise<MaintenanceItem[]> {
+    async getAllMaintenance(_params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         try {
-            // First fetch the global list without project_id to avoid 422 errors
-            const res = await api.get<any>('/equipment/maintenance', { params: { limit: 500 } });
-            console.log("[DEBUG] raw api response:", res);
-            console.log("[DEBUG] raw api response.data:", res.data);
-            let allMaint = Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []);
+            // First fetch the global list without project_id to avoid 422 errors, try both spellings
+            const res = await api.get<any>('/equipment/maintainance', { params: { limit: 500 } }).catch(() => api.get<any>('/equipment/maintenance', { params: { limit: 500 } }));
+            let allMaint = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.data || []);
             console.log("[DEBUG] allMaint extracted:", allMaint);
 
-            // Apply project filtering locally if needed
-            if (params?.project_id) {
-                allMaint = allMaint.filter((m: any) => m.project_id === params.project_id || m.project_id === null || m.project_id === 0);
+            if (allMaint.length === 0) {
+                console.log("[DEBUG] allMaint is empty, running fallback to fetch per equipment...");
+                const eqRes = await api.get<any>('/equipment', { params: { limit: 500 } });
+                const equipments = Array.isArray(eqRes.data) ? eqRes.data : (eqRes.data.items || []);
+                const maintPromises = equipments.map((eq: any) => this.listMaintenance(eq.id));
+                const maintResults = await Promise.all(maintPromises);
+                allMaint = maintResults.flat();
+                console.log("[DEBUG] fallback gathered maintenance items:", allMaint.length);
             }
+
+            // Removed broken project filtering as maintenance objects do not reliably have project_id attached to them; they use equipment_id.
 
             return allMaint.sort((a: any, b: any) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
         } catch (error) {

@@ -111,8 +111,8 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             )}
                         </div>
                         <div>
-                            <label className={labelClasses}>Equipment Code</label>
-                            <input type="text" value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Equipment Code {!isViewOnly && <span className="text-rose-500">*</span>}</label>
+                            <input type="text" required={!isViewOnly} value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Operator Name {!isViewOnly && <span className="text-rose-500">*</span>}</label>
@@ -546,7 +546,7 @@ const EquipmentRegistryPage = () => {
 
     const openUsageModal = (item: Equipment) => {
         setSelectedEquipment(item);
-        setFormData({ equipment_id: item.id, working_hours: (item as any).working_hours || 0, fuel_used: (item as any).fuel_used || 0, usage_date: new Date().toISOString().split('T')[0], notes: '' });
+        setFormData({ equipment_id: item.id, working_hours: (item as any).working_hours || '', fuel_used: (item as any).fuel_used || '', usage_date: new Date().toISOString().split('T')[0], notes: '' });
         setIsUsageModalOpen(true);
     };
 
@@ -1055,9 +1055,6 @@ const EquipmentRegistryPage = () => {
                     <div className="flex flex-wrap items-center gap-3">
                         <button onClick={handleUsageRefresh} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-all">
                             <RefreshCcw className="w-4 h-4" /> Refresh
-                        </button>
-                        <button onClick={() => { setFormData({ equipment_id: selectedEquipment?.id || undefined, working_hours: 0, fuel_used: 0, usage_date: new Date().toISOString().split('T')[0], notes: '' }); setIsUsageModalOpen(true); }} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">
-                            <Plus className="w-4 h-4" /> Log Usage
                         </button>
                     </div>
                 </div>

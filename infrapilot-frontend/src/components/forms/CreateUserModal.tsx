@@ -266,7 +266,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       footer={modalFooter}
       maxWidth="max-w-3xl"
     >
-      <form id="user-form" onSubmit={handleSubmit} noValidate>
+      <form id="user-form" onSubmit={handleSubmit} noValidate autoComplete="off">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>
@@ -317,6 +317,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 value={formData.email}
                 onChange={handleChange}
                 placeholder=""
+                autoComplete="off"
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.email ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
               {errors.email && (
@@ -335,6 +336,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="••••••••"
+                    autoComplete="new-password"
                     className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none pr-10`}
                   />
                   <button

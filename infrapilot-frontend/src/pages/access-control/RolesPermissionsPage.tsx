@@ -31,16 +31,8 @@ const RolesPermissionsPage = () => {
         "BOQ & Materials": true
     });
 
-    const MODULE_GROUPS = [
-        { name: "Project Execution", bg: "bg-blue-500", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10", keywords: ["project", "task", "dsr", "daily", "photo", "issue", "snag", "execution"] },
-        { name: "BOQ & Materials", bg: "bg-emerald-500", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", keywords: ["boq", "material", "inventory", "supplier"] },
-        { name: "Labour & Attendance", bg: "bg-amber-500", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z", keywords: ["labour", "attendance", "worker"] },
-        { name: "Finance & Billing", bg: "bg-orange-500", icon: "M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z", keywords: ["finance", "billing", "invoice", "payment", "account"] },
-        { name: "Safety & Quality Control", bg: "bg-red-500", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", keywords: ["safety", "quality", "inspection"] },
-        { name: "Equipment Management", bg: "bg-yellow-500", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10", keywords: ["equipment", "machine", "vehicle"] },
-        { name: "Reports & Analytics", bg: "bg-cyan-500", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", keywords: ["report", "analytic", "dashboard", "metric"] },
-        { name: "Other Modules", bg: "bg-slate-400", icon: "M4 6h16M4 10h16M4 14h16M4 18h16", keywords: [] }
-    ];
+    const PREDEFINED_COLORS = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-orange-500", "bg-red-500", "bg-yellow-500", "bg-cyan-500", "bg-indigo-500"];
+    const DEFAULT_ICON = "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z";
 
     const getRoleName = (r: any) => {
         if (typeof r === 'string') return r;
@@ -169,26 +161,27 @@ const RolesPermissionsPage = () => {
     const groupedPermissions = useMemo(() => {
         const map = new Map();
         rolePermissions
-            .filter((p: any) => searchModule.trim() === '' || getPermId(p).toLowerCase().trim().startsWith(searchModule.toLowerCase().trim()))
+            .filter((p: any) => searchModule.trim() === '' || getPermId(p).toLowerCase().trim().includes(searchModule.toLowerCase().trim()))
             .forEach(p => {
                 const ident = getPermId(p);
-                const identLower = ident.toLowerCase();
-                let targetGroup = MODULE_GROUPS[MODULE_GROUPS.length - 1]; // Other Modules
-                for (const group of MODULE_GROUPS) {
-                    if (group.keywords.some(kw => identLower.includes(kw))) {
-                        targetGroup = group;
-                        break;
-                    }
+                const parts = ident.split('.');
+                const groupNameRaw = parts.length > 1 ? parts[0] : 'other';
+                const groupName = groupNameRaw.charAt(0).toUpperCase() + groupNameRaw.slice(1);
+
+                if (!map.has(groupName)) {
+                    map.set(groupName, {
+                        group: {
+                            name: groupName,
+                            bg: PREDEFINED_COLORS[map.size % PREDEFINED_COLORS.length],
+                            icon: DEFAULT_ICON
+                        },
+                        items: []
+                    });
                 }
-                if (!map.has(targetGroup.name)) map.set(targetGroup.name, { group: targetGroup, items: [] });
-                map.get(targetGroup.name).items.push({ p, ident });
+                map.get(groupName).items.push({ p, ident });
             });
 
-        return Array.from(map.values()).sort((a, b) => {
-            const indexA = MODULE_GROUPS.findIndex(g => g.name === a.group.name);
-            const indexB = MODULE_GROUPS.findIndex(g => g.name === b.group.name);
-            return indexA - indexB;
-        });
+        return Array.from(map.values()).sort((a, b) => a.group.name.localeCompare(b.group.name));
     }, [rolePermissions, searchModule]);
 
     const togglePermission = (moduleId: string, action: keyof Omit<RBACPermission, 'module_id'>, checked: boolean) => {
@@ -218,6 +211,24 @@ const RolesPermissionsPage = () => {
                         : { ...p, view: checked, create: checked, edit: checked, delete: checked, approve: checked, export: checked };
                 } else {
                     next.push({ module_id: ident, view: checked, create: checked, edit: checked, delete: checked, approve: checked, export: checked } as any);
+                }
+            });
+            return next;
+        });
+    };
+
+    const toggleGroupAction = (items: any[], action: keyof Omit<RBACPermission, 'module_id'>, checked: boolean) => {
+        setRolePermissions(prev => {
+            let next = [...prev];
+            items.forEach(({ ident }) => {
+                let existingIndex = next.findIndex(p => getPermId(p) === ident);
+                if (existingIndex > -1) {
+                    const p = next[existingIndex];
+                    next[existingIndex] = typeof p === 'string'
+                        ? { module_id: p, [action]: checked } as any
+                        : { ...p, [action]: checked };
+                } else {
+                    next.push({ module_id: ident, [action]: checked } as any);
                 }
             });
             return next;
@@ -314,29 +325,38 @@ const RolesPermissionsPage = () => {
                             {roles.length === 0 && (
                                 <div className="text-center text-sm text-slate-400 py-4">No roles found.</div>
                             )}
-                            {roles.filter(r => getRoleName(r).toLowerCase().includes(searchRole.toLowerCase())).map((role, idx) => (
-                                <div
-                                    key={role.id || idx}
-                                    onClick={() => setSelectedRole(role)}
-                                    className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${getRoleName(selectedRole) === getRoleName(role) ? 'bg-primary text-white font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className={`w-5 h-5 flex items-center justify-center rounded ${getRoleName(selectedRole) === getRoleName(role) ? 'bg-white/20' : 'text-slate-400'}`}>
-                                            {getRoleName(role).includes('Admin') ? '👑' : '👤'}
-                                        </span>
-                                        <span className="text-sm">{getRoleName(role)}</span>
+                            {roles
+                                .filter(r => getRoleName(r).toLowerCase().includes(searchRole.toLowerCase()))
+                                .sort((a, b) => {
+                                    const aName = getRoleName(a).toLowerCase();
+                                    const bName = getRoleName(b).toLowerCase();
+                                    if (aName === 'admin' && bName !== 'admin') return -1;
+                                    if (bName === 'admin' && aName !== 'admin') return 1;
+                                    return aName.localeCompare(bName);
+                                })
+                                .map((role, idx) => (
+                                    <div
+                                        key={role.id || idx}
+                                        onClick={() => setSelectedRole(role)}
+                                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${getRoleName(selectedRole) === getRoleName(role) ? 'bg-primary text-white font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-5 h-5 flex items-center justify-center rounded ${getRoleName(selectedRole) === getRoleName(role) ? 'bg-white/20' : 'text-slate-400'}`}>
+                                                {getRoleName(role).includes('Admin') ? '👑' : '👤'}
+                                            </span>
+                                            <span className="text-sm">{getRoleName(role)}</span>
+                                        </div>
+                                        {getRoleName(role).toLowerCase() !== 'admin' && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setDeleteRoleConfirm(role); }}
+                                                className={`p-1.5 rounded-lg hover:bg-red-100 hover:text-red-500 transition ${getRoleName(selectedRole) === getRoleName(role) ? 'text-white/70 hover:bg-white/20' : 'text-slate-400'}`}
+                                                title="Delete Role"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        )}
                                     </div>
-                                    {getRoleName(role).toLowerCase() !== 'admin' && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setDeleteRoleConfirm(role); }}
-                                            className={`p-1.5 rounded-lg hover:bg-red-100 hover:text-red-500 transition ${getRoleName(selectedRole) === getRoleName(role) ? 'text-white/70 hover:bg-white/20' : 'text-slate-400'}`}
-                                            title="Delete Role"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                                ))}
                         </div>
                         <div className="p-4 border-t border-slate-50 bg-slate-50/50">
                             <button onClick={() => setShowAddRoleModal(true)} className="w-full py-2.5 bg-white border border-primary/20 text-primary rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/5 transition flex items-center justify-center gap-2">
@@ -396,7 +416,7 @@ const RolesPermissionsPage = () => {
                                                     <th className="pb-3 text-center">Edit</th>
                                                     <th className="pb-3 text-center">Delete</th>
                                                     <th className="pb-3 text-center">Approve</th>
-                                                    <th className="pb-3 text-center">Export</th>
+                                                    <th className="pb-3 text-center pr-8">Export</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -423,15 +443,28 @@ const RolesPermissionsPage = () => {
                                                                         <div className={`w-[18px] h-[18px] bg-white rounded-full absolute top-[2px] transition-all shadow-sm ${isAllGroupChecked ? 'right-[2px]' : 'left-[2px]'}`}></div>
                                                                     </div>
                                                                 </td>
-                                                                <td colSpan={6} className="text-right px-4">
-                                                                    <div className="p-1 text-slate-400 rounded transition inline-block">
-                                                                        {isExpanded ? (
-                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
-                                                                        ) : (
-                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                                        )}
-                                                                    </div>
-                                                                </td>
+                                                                {(['view', 'create', 'edit', 'delete', 'approve', 'export'] as const).map((action, idx) => {
+                                                                    const isActionAllChecked = items.length > 0 && items.every((i: any) => !!i.p?.[action]);
+                                                                    return (
+                                                                        <td key={action} className={`py-2.5 text-center relative ${idx === 5 ? 'pr-8' : ''}`} onClick={(e) => e.stopPropagation()}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={isActionAllChecked}
+                                                                                onChange={(e) => toggleGroupAction(items, action, e.target.checked)}
+                                                                                className="w-4 h-4 accent-primary cursor-pointer transition-all align-middle"
+                                                                            />
+                                                                            {idx === 5 && (
+                                                                                <div className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded transition cursor-pointer" onClick={() => setExpandedGroups(prev => ({ ...prev, [group.name]: !isExpanded }))}>
+                                                                                    {isExpanded ? (
+                                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                                                                    ) : (
+                                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                })}
                                                             </tr>
 
                                                             {/* Group Child Rows */}
@@ -442,7 +475,11 @@ const RolesPermissionsPage = () => {
                                                                 return (
                                                                     <tr key={`module-${ident}-${index}`} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition bg-white group">
                                                                         <td className="py-3 text-sm text-slate-700 pl-[4.5rem]">
-                                                                            {typeof ident === 'string' && ident.includes('{') ? 'Unknown Payload' : ident}
+                                                                            {typeof ident === 'string' && ident.includes('{')
+                                                                                ? 'Unknown Payload'
+                                                                                : ident.includes('.')
+                                                                                    ? ident.split('.').slice(1).join('.')
+                                                                                    : ident}
                                                                         </td>
                                                                         <td className="py-3 text-center">
                                                                             <div onClick={() => {
@@ -451,13 +488,13 @@ const RolesPermissionsPage = () => {
                                                                                 <div className={`w-3 h-3 rounded-full absolute top-0.5 transition-all ${isRowAllChecked ? 'right-0.5 bg-green-500' : 'left-0.5 bg-white shadow-sm'}`}></div>
                                                                             </div>
                                                                         </td>
-                                                                        {(['view', 'create', 'edit', 'delete', 'approve', 'export'] as const).map(action => (
-                                                                            <td key={action} className="py-3 text-center">
+                                                                        {(['view', 'create', 'edit', 'delete', 'approve', 'export'] as const).map((action, idx) => (
+                                                                            <td key={action} className={`py-3 text-center ${idx === 5 ? 'pr-8' : ''}`}>
                                                                                 <input
                                                                                     type="checkbox"
                                                                                     checked={!!p?.[action]}
                                                                                     onChange={(e) => togglePermission(ident, action as any, e.target.checked)}
-                                                                                    className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary cursor-pointer transition"
+                                                                                    className="w-4 h-4 accent-primary cursor-pointer transition-all align-middle"
                                                                                 />
                                                                             </td>
                                                                         ))}
@@ -558,47 +595,6 @@ const RolesPermissionsPage = () => {
                             </div>
                         </div>
 
-                        {/* Admin / Maintenance */}
-                        <div className="p-4 border-t border-slate-50 bg-slate-50/50 mt-auto">
-                            <h4 className="font-bold text-xs text-slate-700 mb-3 flex items-center gap-2">
-                                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                Admin / Maintenance
-                            </h4>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={async () => {
-                                        const id = toast.loading('Seeding permissions...');
-                                        try {
-                                            await rbacService.seedRbacData();
-                                            await fetchInitialData();
-                                            toast.success('RBAC definitions seeded', { id });
-                                        } catch {
-                                            toast.error('Failed to seed RBAC definitions', { id });
-                                        }
-                                    }}
-                                    className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-sm hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-                                    Seed RBAC Permissions
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        const id = toast.loading('Assigning defaults...');
-                                        try {
-                                            await rbacService.assignDefaults();
-                                            await fetchInitialData();
-                                            toast.success('System defaults enforced', { id });
-                                        } catch {
-                                            toast.error('Failed to assign defaults', { id });
-                                        }
-                                    }}
-                                    className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-sm hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                                    Assign Defaults
-                                </button>
-                            </div>
-                        </div>
 
                     </div>
                 </div>

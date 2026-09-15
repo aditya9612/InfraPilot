@@ -115,30 +115,30 @@ const CreateDraftQuotationPage = () => {
   const handleDownloadFromPreview = async () => {
     let qId = currentId;
     if (!qId) {
-        const newId = await handleSaveQuotation();
-        if (newId) {
-            qId = newId;
-        } else {
-            toast.error("Failed to generate Quotation ID for download.");
-            return;
-        }
+      const newId = await handleSaveQuotation();
+      if (newId) {
+        qId = newId;
+      } else {
+        toast.error("Failed to generate Quotation ID for download.");
+        return;
+      }
     }
-    
+
     const toastId = toast.loading("Downloading PDF from backend...");
     try {
-        const blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || qId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        toast.success("Downloaded from Server", { id: toastId });
-    } catch(err: any) {
-        console.error("Backend Download Error:", err);
-        toast.error(err.message || "Failed to download PDF via API.", { id: toastId });
+      const blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || qId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Downloaded from Server", { id: toastId });
+    } catch (err: any) {
+      console.error("Backend Download Error:", err);
+      toast.error(err.message || "Failed to download PDF via API.", { id: toastId });
     }
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -176,8 +176,7 @@ const CreateDraftQuotationPage = () => {
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
 
-  const [discount, setDiscount] = useState(0);
-  const [advancePaid, setAdvancePaid] = useState(0);
+
 
   // Measurements State
   const [measurementData, setMeasurementData] = useState({
@@ -197,8 +196,7 @@ const CreateDraftQuotationPage = () => {
   const [gstRates, setGstRates] = useState({
     gst: 18,
     cgst: 9,
-    sgst: 9,
-    tds: 1
+    sgst: 9
   });
 
   const [notes, setNotes] = useState("");
@@ -350,12 +348,8 @@ const CreateDraftQuotationPage = () => {
           setGstRates({
             gst: q.gst_percent || 0,
             cgst: q.cgst_percent || 0,
-            sgst: q.sgst_percent || 0,
-            tds: q.tds_percent || 0
+            sgst: q.sgst_percent || 0
           });
-
-          setDiscount(q.discount_amount || 0);
-          setAdvancePaid(q.advance_paid || 0);
 
           // Restore Notes, Terms and Timeline
           setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
@@ -445,10 +439,8 @@ const CreateDraftQuotationPage = () => {
 
   const cgst = useMemo(() => Number((subTotal * (gstRates.cgst / 100)).toFixed(2)), [subTotal, gstRates.cgst]);
   const sgst = useMemo(() => Number((subTotal * (gstRates.sgst / 100)).toFixed(2)), [subTotal, gstRates.sgst]);
-  // TDS is deducted on total invoice value including GST (matches backend formula)
-  const tdsAmount = useMemo(() => Number(((subTotal + cgst + sgst) * (gstRates.tds / 100)).toFixed(2)), [subTotal, cgst, sgst, gstRates.tds]);
-  const grandTotal = Number((subTotal + cgst + sgst - discount - tdsAmount).toFixed(2));
-  const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
+  const grandTotal = Number((subTotal + cgst + sgst).toFixed(2));
+  const balanceDue = grandTotal;
 
   const handleAddItem = () => {
     if (items.length > 0) {
@@ -696,13 +688,13 @@ const CreateDraftQuotationPage = () => {
       // If no ID is present, we must save the quotation first to generate an ID
       // so that we can hit the exact GET API the user requested.
       if (!qId) {
-          const newId = await handleSaveQuotation();
-          if (newId) {
-              qId = newId;
-          } else {
-              toast.error("Failed to generate Quotation ID for download.", { id: toastId });
-              return;
-          }
+        const newId = await handleSaveQuotation();
+        if (newId) {
+          qId = newId;
+        } else {
+          toast.error("Failed to generate Quotation ID for download.", { id: toastId });
+          return;
+        }
       }
 
       let blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
@@ -808,11 +800,8 @@ const CreateDraftQuotationPage = () => {
     setGstRates({
       gst: q.gst_percent || 18,
       cgst: q.cgst_percent || 9,
-      sgst: q.sgst_percent || 9,
-      tds: q.tds_percent || 1
+      sgst: q.sgst_percent || 9
     });
-    setDiscount(q.discount_amount || 0);
-    setAdvancePaid(q.advance_paid || 0);
 
     // 6. Map Other Items
     setLabourItems(q.labour_items || []);
@@ -1262,56 +1251,12 @@ const CreateDraftQuotationPage = () => {
                   <span className="font-black text-slate-800">₹ {sgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Discount</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-300 text-xs">₹</span>
-                    <input
-                      type="number"
-                      value={discount === 0 ? "" : discount}
-                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                      readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-white border border-slate-300 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">TDS</span>
-                    <input
-                      type="number"
-                      value={gstRates.tds === 0 ? "" : gstRates.tds}
-                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
-                      onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
-                      readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                    <span className="text-[10px] font-bold text-slate-400">%</span>
-                  </div>
-                  <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
 
                 <div className="py-4 border-y border-slate-100 my-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Grand Total</span>
                     <span className="text-xl font-black text-indigo-600">₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Advance Paid</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-300 text-xs">₹</span>
-                    <input
-                      type="number"
-                      value={advancePaid === 0 ? "" : advancePaid}
-                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
-                      onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
-                      readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-white border border-slate-300 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 hover:border-slate-400 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
                   </div>
                 </div>
 
@@ -1475,7 +1420,6 @@ const CreateDraftQuotationPage = () => {
           cgstRate: gstRates.cgst,
           sgstRate: gstRates.sgst,
           grandTotal: grandTotal,
-          advancePaid: advancePaid,
           balanceDue: balanceDue,
           terms: terms,
           isDraft: true
