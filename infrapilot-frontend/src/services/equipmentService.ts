@@ -276,7 +276,7 @@ export const equipmentService = {
         return response.data;
     },
 
-    async updateMaintenance(equipment_id: number, maintenance_id: number, data: Partial<MaintenanceItem>): Promise<MaintenanceItem> {
+    async updateMaintenance(_equipment_id: number, maintenance_id: number, data: Partial<MaintenanceItem>): Promise<MaintenanceItem> {
         const payload = {
             description: data.description,
             maintenance_date: data.maintenance_date,
@@ -290,28 +290,25 @@ export const equipmentService = {
         return response.data;
     },
 
-    async completeMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
+    async completeMaintenance(_equipment_id: number, maintenance_id: number): Promise<any> {
         const response = await api.put<any>(`/equipment/maintenance/${maintenance_id}/complete`);
         return response.data;
     },
 
-    async deleteMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
-        // Backend typo: maintainance
-        const response = await api.delete<any>(`/equipment/maintainance/${maintenance_id}`);
+    async deleteMaintenance(_equipment_id: number, maintenance_id: number): Promise<any> {
+        const response = await api.delete<any>(`/equipment/maintenance/${maintenance_id}`);
         return response.data;
     },
 
-    async getMaintenance(equipment_id: number, maintenance_id: number): Promise<MaintenanceItem> {
-        // Backend typo: maintainance
-        const response = await api.get<MaintenanceItem>(`/equipment/maintainance/${maintenance_id}`);
+    async getMaintenance(_equipment_id: number, maintenance_id: number): Promise<MaintenanceItem> {
+        const response = await api.get<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`);
         return response.data;
     },
 
     async listMaintenance(equipment_id?: number, params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         const queryParams: any = { limit: 500 };
-        // Testing if the list API is also strictly "maintainance" or if it is "maintenance"
         if (equipment_id) queryParams.equipment_id = equipment_id;
-        const response = await api.get<MaintenanceItem[]>(`/equipment/maintainance`, { params: queryParams }).catch(() => api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams }));
+        const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams });
         let data = Array.isArray(response.data) ? response.data : ((response.data as any)?.items || []);
         if (params?.project_id) {
             data = data.filter((d: any) => d.project_id === params.project_id);
@@ -321,8 +318,8 @@ export const equipmentService = {
 
     async getAllMaintenance(_params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         try {
-            // First fetch the global list without project_id to avoid 422 errors, try both spellings
-            const res = await api.get<any>('/equipment/maintainance', { params: { limit: 500 } }).catch(() => api.get<any>('/equipment/maintenance', { params: { limit: 500 } }));
+            // Fetch the global list without project_id to avoid 422 errors
+            const res = await api.get<any>('/equipment/maintenance', { params: { limit: 500 } });
             let allMaint = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.data || []);
             console.log("[DEBUG] allMaint extracted:", allMaint);
 

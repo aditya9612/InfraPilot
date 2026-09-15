@@ -615,6 +615,10 @@ const MachineryPage = () => {
             return;
         }
         try {
+            const payload = {
+                ...createPurchaseForm,
+                total_amount: createPurchaseForm.total_amount || ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
+            };
             if (createPurchaseForm.id) {
                 await equipmentService.updatePurchase(createPurchaseForm.id, payload);
                 toast.success("Purchase updated successfully!");
@@ -1375,9 +1379,9 @@ const MachineryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    {modalEquipmentList.filter(eq => maintenanceAlerts.some(a => a.equipment_id === eq.id)).map(eq => (
+                    {equipmentList.map(eq => (
                         <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-900'}`}>
-                            {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
+                            {eq.equipment_name} <span className="text-xs text-slate-400 block truncate">{eq.equipment_code}</span>
                         </button>
                     ))}
                 </div>
@@ -2746,7 +2750,6 @@ const MachineryPage = () => {
                             <input
                                 required
                                 type="date"
-                                required
                                 value={createPurchaseForm.purchase_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2757,7 +2760,6 @@ const MachineryPage = () => {
                             <input
                                 required
                                 type="date"
-                                required
                                 value={createPurchaseForm.warranty_end_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, warranty_end_date: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2777,7 +2779,6 @@ const MachineryPage = () => {
                             <input
                                 required
                                 type="text"
-                                required
                                 value={createPurchaseForm.invoice_number || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2789,7 +2790,6 @@ const MachineryPage = () => {
                                 required
                                 type="number"
                                 min="1"
-                                required
                                 value={createPurchaseForm.quantity || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value), total_amount: parseInt(e.target.value) * (createPurchaseForm.unit_price || 0) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2802,7 +2802,6 @@ const MachineryPage = () => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                required
                                 value={createPurchaseForm.unit_price || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value), total_amount: (createPurchaseForm.quantity || 0) * parseFloat(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
