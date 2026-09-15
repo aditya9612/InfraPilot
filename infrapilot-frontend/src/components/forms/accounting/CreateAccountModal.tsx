@@ -26,6 +26,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     parent_id: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -49,8 +50,15 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.code || !formData.type) {
-      toast.error("Please fill all required fields");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.name) newErrors.name = "Name is required";
+    if (!formData.code) newErrors.code = "Code is required";
+    if (!formData.type) newErrors.type = "Type is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
       return;
     }
 
@@ -83,7 +91,24 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   };
 
   const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300";
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 bg-white border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let parsedValue: any = value;
+    if (name === 'parent_id') {
+      parsedValue = value === "" ? "" : Number(value);
+    }
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
 
   return (
     <Modal
@@ -105,46 +130,50 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <div>
-            <label className={labelClasses}>Name <span className="text-red-500">*</span></label>
+            <label className={labelClasses}>Name <span className="text-rose-500">*</span></label>
             <input
               type="text"
-              required
-              className={inputClasses}
+              name="name"
+              className={inputClasses(errors.name)}
               value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              onChange={handleChange}
             />
+            {errors.name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.name}</p>}
           </div>
           <div>
-            <label className={labelClasses}>Code <span className="text-red-500">*</span></label>
+            <label className={labelClasses}>Code <span className="text-rose-500">*</span></label>
             <input
               type="text"
-              required
-              className={inputClasses}
+              name="code"
+              className={inputClasses(errors.code)}
               value={formData.code}
-              onChange={e => setFormData({ ...formData, code: e.target.value })}
+              onChange={handleChange}
             />
+            {errors.code && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.code}</p>}
           </div>
           <div>
-            <label className={labelClasses}>Type <span className="text-red-500">*</span></label>
+            <label className={labelClasses}>Type <span className="text-rose-500">*</span></label>
             <select
-              required
-              className={inputClasses}
+              name="type"
+              className={inputClasses(errors.type)}
               value={formData.type}
-              onChange={e => setFormData({ ...formData, type: e.target.value })}
+              onChange={handleChange}
             >
               <option value="Asset">Asset</option>
               <option value="Liability">Liability</option>
               <option value="Expense">Expense</option>
               <option value="Income">Income</option>
             </select>
+            {errors.type && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.type}</p>}
           </div>
           <div>
             <label className={labelClasses}>Parent ID</label>
             <input
               type="number"
-              className={inputClasses}
+              name="parent_id"
+              className={inputClasses()}
               value={formData.parent_id === null ? "" : formData.parent_id}
-              onChange={e => setFormData({ ...formData, parent_id: e.target.value === "" ? "" : Number(e.target.value) })}
+              onChange={handleChange}
               placeholder="Leave empty if none"
             />
           </div>

@@ -52,7 +52,7 @@ const Pagination = ({
     if (totalItems === 0) return null;
 
     return (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
             {/* Left: Items per page */}
             <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1071,7 +1071,7 @@ const MachineryPage = () => {
         <div className="space-y-4 h-full flex flex-col">
             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Register</h2>
             <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
-                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1580,7 +1580,7 @@ const MachineryPage = () => {
                         </div>
                         {/* Pagination for All Rentals */}
                         {allRentals.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                     <select
@@ -2075,7 +2075,7 @@ const MachineryPage = () => {
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ─── Main Header ─── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Machinery & Equipment
@@ -2202,7 +2202,7 @@ const MachineryPage = () => {
             {/* 4. Allocate Equipment */}
             <Modal isOpen={isAllocateModalOpen} onClose={() => setIsAllocateModalOpen(false)} title="Allocate Equipment" maxWidth="max-w-md">
                 <div className="p-6 font-inter">
-                    <form  onSubmit={handleAllocate}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="space-y-5">
+                    <form onSubmit={handleAllocate} noValidate className="space-y-5">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-red-600">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
@@ -2242,7 +2242,7 @@ const MachineryPage = () => {
 
             {/* 5. Log Usage */}
             <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
-                <form  onSubmit={handleSaveUsage}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="p-6 font-inter space-y-4">
+                <form onSubmit={handleSaveUsage} noValidate className="p-6 font-inter space-y-4">
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
@@ -2284,7 +2284,7 @@ const MachineryPage = () => {
 
             {/* 6. Schedule Maintenance */}
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title={formData.id ? "Edit Schedule" : "Schedule Maintenance"} maxWidth="max-w-md">
-                <form  onSubmit={handleSaveMaintenance}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="p-6 font-inter space-y-4">
+                <form onSubmit={handleSaveMaintenance} noValidate className="p-6 font-inter space-y-4">
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
@@ -2334,7 +2334,7 @@ const MachineryPage = () => {
 
             {/* 7. Add Rental */}
             <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title={formData.id ? "Edit Rental" : "Add Rental Record"} maxWidth="max-w-md">
-                <form  onSubmit={handleSaveRental}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="p-6 font-inter space-y-4">
+                <form onSubmit={handleSaveRental} noValidate className="p-6 font-inter space-y-4">
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
@@ -2629,7 +2629,7 @@ const MachineryPage = () => {
 
             {/* Transfer Modal */}
             <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment" maxWidth="max-w-md">
-                <form  onSubmit={handleTransfer}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="p-6 font-inter space-y-5">
+                <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5">
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
@@ -2693,7 +2693,7 @@ const MachineryPage = () => {
 
             {/* Create Purchase Modal */}
             <Modal isOpen={isCreatePurchaseModalOpen} onClose={() => setIsCreatePurchaseModalOpen(false)} title={createPurchaseForm.id ? "Edit Purchase" : "Create Purchase"} maxWidth="max-w-2xl">
-                <form  onSubmit={handleSavePurchase}  noValidate onInvalid={() = noValidate > toast.error("Please fill mandatory field", { id: 'validation' })} className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
+                <form onSubmit={handleSavePurchase} noValidate className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Type <span className="text-red-600">*</span></label>

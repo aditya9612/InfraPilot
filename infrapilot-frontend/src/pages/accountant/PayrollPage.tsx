@@ -73,8 +73,16 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     payment_mode: "Bank Transfer",
     bank_account_id: 0
   });
-
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
 
   const [users, setUsers] = useState<any[]>([]);
 
@@ -91,6 +99,7 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setErrors(prev => ({ ...prev, [name]: "" }));
     setFormData(prev => {
       const updated = { ...prev, [name]: name.includes("salary") || name === "deductions" || name.includes("_id") ? Number(value) : value };
 
@@ -105,10 +114,19 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.user_id || !formData.project_id || !formData.month_year) {
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.user_id) newErrors.user_id = "User (Employee) is required";
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.month_year) newErrors.month_year = "Month & Year is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       toast.error("Please select User, Project and Month");
       return;
     }
+
 
     setLoading(true);
     try {
@@ -143,44 +161,47 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User (Employee) *</label>
-              <select name="user_id" value={formData.user_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">User (Employee) <span className="text-rose-500">*</span></label>
+              <select name="user_id" value={formData.user_id} onChange={handleChange} className={inputClasses(errors.user_id)}>
                 <option value={0}>Select Employee</option>
                 {users.map(u => <option key={u.user_id || u.id} value={u.user_id || u.id}>{u.full_name || u.name}</option>)}
               </select>
+              {errors.user_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.user_id}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project *</label>
-              <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project <span className="text-rose-500">*</span></label>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 <option value={0}>Select Project</option>
                 {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_id}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month & Year *</label>
-              <input type="month" name="month_year" value={formData.month_year} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Month & Year <span className="text-rose-500">*</span></label>
+              <input type="month" name="month_year" value={formData.month_year} onChange={handleChange} className={inputClasses(errors.month_year)} />
+              {errors.month_year && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.month_year}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Salary (₹)</label>
-              <input type="number" name="gross_salary" value={formData.gross_salary} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Gross Salary (₹)</label>
+              <input type="number" name="gross_salary" value={formData.gross_salary || ""} onChange={handleChange} className={inputClasses(errors.gross_salary)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deductions (₹)</label>
-              <input type="number" name="deductions" value={formData.deductions} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Deductions (₹)</label>
+              <input type="number" name="deductions" value={formData.deductions || ""} onChange={handleChange} className={inputClasses(errors.deductions)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Salary (₹)</label>
-              <input type="number" name="net_salary" value={formData.net_salary} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-emerald-50 font-bold text-emerald-700 outline-none" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Net Salary (₹)</label>
+              <input type="number" name="net_salary" value={formData.net_salary || ""} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-emerald-50 font-bold text-emerald-700 outline-none" />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Mode</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className={inputClasses(errors.payment_mode)}>
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Cash">Cash</option>
                 <option value="Cheque">Cheque</option>
@@ -188,8 +209,8 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account ID</label>
-              <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Account ID</label>
+              <input type="number" name="bank_account_id" value={formData.bank_account_id || ""} onChange={handleChange} className={inputClasses(errors.bank_account_id)} />
             </div>
 
           </div>
@@ -277,7 +298,7 @@ export const StaffSalaryWrapper = ({ initialSubTab = "process" }: { initialSubTa
             </table>
           </div>
           {staffRegister.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
                 <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -327,6 +348,14 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
     bank_account_id: 0
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-amber-500'
+    }`;
   const [labours, setLabours] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
 
@@ -352,6 +381,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setErrors(prev => ({ ...prev, [name]: "" }));
     setFormData(prev => ({
       ...prev,
       [name]: name.includes("_id") ? Number(value) : value
@@ -360,10 +390,21 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.labour_id || !formData.project_id || !formData.start_date || !formData.end_date) {
-      toast.error("Please fill required fields");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.labour_id) newErrors.labour_id = "Labor Name is required";
+    if (!formData.project_id) newErrors.project_id = "Project Name is required";
+    if (!formData.period_type) newErrors.period_type = "Period Type is required";
+    if (!formData.start_date) newErrors.start_date = "Start Date is required";
+    if (!formData.end_date) newErrors.end_date = "End Date is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
       return;
     }
+
     setLoading(true);
     try {
       await payrollService.payLabourWages({
@@ -405,32 +446,35 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Labor Name <span className="text-rose-500">*</span></label>
-              <select name="labour_id" value={formData.labour_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+              <select name="labour_id" value={formData.labour_id} onChange={handleChange} className={inputClasses(errors.labour_id)}>
                 <option value={0}>Select Labor</option>
                 {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name}</option>)}
               </select>
+              {errors.labour_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.labour_id}</p>}
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project Name <span className="text-rose-500">*</span></label>
-              <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 <option value={0}>Select Project</option>
                 {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_id}</p>}
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Period Type <span className="text-rose-500">*</span></label>
-              <select name="period_type" value={formData.period_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
+              <select name="period_type" value={formData.period_type} onChange={handleChange} className={inputClasses(errors.period_type) + " cursor-pointer"}>
                 <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
                 <option value="Monthly">Monthly</option>
               </select>
+              {errors.period_type && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.period_type}</p>}
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Mode <span className="text-rose-500">*</span></label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500 cursor-pointer">
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className={inputClasses(errors.payment_mode) + " cursor-pointer"}>
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Cash">Cash</option>
                 <option value="Cheque">Cheque</option>
@@ -439,17 +483,19 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Start Date <span className="text-rose-500">*</span></label>
-              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className={inputClasses(errors.start_date)} />
+              {errors.start_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.start_date}</p>}
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">End Date <span className="text-rose-500">*</span></label>
-              <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+              <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className={inputClasses(errors.end_date)} />
+              {errors.end_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.end_date}</p>}
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Account ID</label>
-              <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+              <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className={inputClasses(errors.bank_account_id)} />
             </div>
 
           </div>
@@ -638,7 +684,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
               </table>
             </div>
             {wages.length > 0 && (
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
                   <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -670,11 +716,18 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
     bank_account_id: 0
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-emerald-500'
+    }`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setErrors(prev => ({ ...prev, [name]: "" }));
     setFormData(prev => ({
       ...prev,
       [name]: name === "payment_mode" ? value : Number(value)
@@ -683,10 +736,18 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.rabill_id || formData.paid_amount <= 0) {
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.rabill_id) newErrors.rabill_id = "Pending Bill is required";
+    if (!formData.paid_amount || formData.paid_amount <= 0) newErrors.paid_amount = "Paid Amount is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       toast.error("Please select a bill and enter paid amount");
       return;
     }
+
     setLoading(true);
     try {
       await payrollService.payContractorBill(formData);
@@ -720,42 +781,40 @@ const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen:
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Bills *</label>
-              <select name="rabill_id" value={formData.rabill_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Pending Bills <span className="text-rose-500">*</span></label>
+              <select name="rabill_id" value={formData.rabill_id} onChange={handleChange} className={inputClasses(errors.rabill_id)}>
                 <option value={0}>Select Bill</option>
                 {bills.map(b => (
                   <option key={b.id} value={b.id}>{b.bill_number || `Bill #${b.id}`} - {b.quotation?.company_name || b.client?.full_name || 'Contractor'} (Amount: ₹{b.net_amount || b.total_amount || b.gross_amount || 0})</option>
                 ))}
               </select>
+              {errors.rabill_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.rabill_id}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid Amount (₹) *</label>
-                <input type="number" name="paid_amount" value={formData.paid_amount || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Paid Amount (₹) <span className="text-rose-500">*</span></label>
+                <input type="number" name="paid_amount" value={formData.paid_amount || ""} onChange={handleChange} className={inputClasses(errors.paid_amount)} />
+                {errors.paid_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.paid_amount}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Deductions (₹)</label>
-                <input type="number" name="total_deductions" value={formData.total_deductions || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Total Deductions (₹)</label>
+                <input type="number" name="total_deductions" value={formData.total_deductions || ""} onChange={handleChange} className={inputClasses(errors.total_deductions)} />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
-                <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Mode</label>
+                <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className={inputClasses(errors.payment_mode)}>
                   <option value="Cash">Cash</option>
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque">Cheque</option>
                 </select>
               </div>
 
-              {formData.payment_mode === "Bank Transfer" && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
-                  <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
-                    <option value={0}>Select Bank Account</option>
-                  </select>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Account ID</label>
+                <input type="number" name="bank_account_id" value={formData.bank_account_id || ""} onChange={handleChange} className={inputClasses(errors.bank_account_id)} />
+              </div>
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100">
@@ -825,7 +884,7 @@ export const ContractorPaymentSection = () => {
           </table>
         </div>
         {bills.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={billRpp} onChange={(e) => { setBillRpp(Number(e.target.value)); setBillPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1160,7 +1219,7 @@ const LedgerSection = () => {
         )}
       </div>
       {!loading && registerData.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Per page:</span>
             <select value={ledgerRpp} onChange={(e) => { setLedgerRpp(Number(e.target.value)); setLedgerPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1561,7 +1620,7 @@ const PayrollPage = () => {
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
         {/* ── Section Header ─────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>

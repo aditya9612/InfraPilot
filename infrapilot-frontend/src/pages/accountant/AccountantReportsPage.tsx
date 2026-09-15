@@ -282,7 +282,7 @@ const AccountantReportsPage = () => {
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
         {/* ── Section Header ─────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>

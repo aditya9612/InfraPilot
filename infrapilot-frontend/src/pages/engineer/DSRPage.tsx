@@ -619,8 +619,8 @@ const DSRPage = () => {
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">DSR Ledger</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex flex-col">
                             {/* Integrated Filter Bar */}
-                            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                                <div className="relative flex-1 max-w-md font-inter">
+                            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                                <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                         <Search className="w-4 h-4" />
                                     </span>
@@ -853,7 +853,7 @@ const DSRPage = () => {
 
                             {/* ── Pagination Controls ──────────────────────────── */}
                             {!isLoading && dsrList.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                     {/* Left: Items per page */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -875,7 +875,7 @@ const DSRPage = () => {
                                     </div>
 
                                     {/* Right: Pagination */}
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-wrap justify-center items-center gap-1.5">
                                         <button
                                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                             disabled={currentPage === 1}

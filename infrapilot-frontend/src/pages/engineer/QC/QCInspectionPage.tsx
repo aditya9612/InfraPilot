@@ -6,7 +6,6 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-    Plus,
     Search,
     Eye,
     Edit2,
@@ -539,8 +538,8 @@ const QCInspectionPage = () => {
 
                 {activeTab === "Inspection" && (
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                            <div className="relative flex-1 max-w-md font-inter">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                            <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                     <Search className="w-4 h-4" />
                                 </span>
@@ -691,7 +690,7 @@ const QCInspectionPage = () => {
 
                         {/* ─── Pagination ─────────────────────────────────── */}
                         {!isLoading && filteredList.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1016,7 +1015,7 @@ const QCInspectionPage = () => {
                                             Choose File
                                         </label>
                                         <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
-                                            {formData.report_file || "No file chosen"}
+                                            {formData.report_file ? (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name) : "No file chosen"}
                                         </span>
                                         {formData.report_file && (
                                             <button

@@ -87,15 +87,15 @@ const LabourTaskDetailPage = () => {
                     console.error("Failed to load labours for edit modal", err);
                 });
 
-                projectService.getMilestones(validProjectId).then(data => {
+                projectService.getMilestones(projectIdToUse).then(data => {
                     setMilestones(data || []);
                 }).catch(err => console.error("Failed to load milestones", err));
 
-                boqService.getBoqs({ limit: 100, project_id: validProjectId }).then(data => {
+                boqService.getBoqs({ limit: 100, project_id: projectIdToUse }).then(data => {
                     setBoqs(data.items || []);
                 }).catch(err => console.error("Failed to load BOQs", err));
 
-                workProgressService.listActivities(validProjectId).then(data => {
+                workProgressService.listActivities(projectIdToUse).then(data => {
                     setActivityTypes(data || []);
                 }).catch(err => console.error("Failed to load activity types", err));
             }
@@ -122,17 +122,17 @@ const LabourTaskDetailPage = () => {
                 }
 
                 // Fallback to the settings page selected project if labour doesn't have a specific project_id
-                const projectIdToUse = labourInfo?.project_id || getDefaultProjectId();
+                const fetchProjectId = labourInfo?.project_id || projectIdToUse;
 
                 // Then fetch reports and tasks using the correct project ID to avoid 404 errors
                 const targetUserId = labourInfo?.user_id ? Number(labourInfo.user_id) : Number(id);
                 const [weeklyData, monthlyData, taskList, projectsRes, membersRes, laboursRes] = await Promise.all([
                     labourService.getLabourWeeklyReport(id).catch(() => []),
                     labourService.getLabourMonthlyReport(id).catch(() => []),
-                    projectService.getTasks(Number(projectIdToUse), { assigned_user_id: targetUserId, limit: 100, offset: 0 }).catch(() => []),
+                    projectService.getTasks(Number(fetchProjectId), { assigned_user_id: targetUserId, limit: 100, offset: 0 }).catch(() => []),
                     projectService.getProjects().catch(() => ({ items: [] })),
-                    projectService.getProjectMembers(Number(projectIdToUse)).catch(() => ({ items: [] })),
-                    labourService.getLabours(Number(projectIdToUse), { limit: 100 }).catch(() => ({ items: [] }))
+                    projectService.getProjectMembers(Number(fetchProjectId)).catch(() => ({ items: [] })),
+                    labourService.getLabours(Number(fetchProjectId), { limit: 100 }).catch(() => ({ items: [] }))
                 ]);
 
                 if (weeklyData && weeklyData.length > 0) {
@@ -153,7 +153,7 @@ const LabourTaskDetailPage = () => {
 
                 // Map tasks to frontend table format using exact response fields
                 const mappedTasks = myTasks.map((t: any) => {
-                    let projectName = `Project ${t.project_id || projectIdToUse}`;
+                    let projectName = `Project ${t.project_id || fetchProjectId}`;
                     if (t.project_id) {
                         const matchedProj = projectsList.find((p: any) => p.id === t.project_id || p.project_id === t.project_id);
                         if (matchedProj) projectName = matchedProj.project_name || matchedProj.name;
@@ -239,7 +239,7 @@ const LabourTaskDetailPage = () => {
 
     const openEditModal = (task: TaskItem) => {
         setSelectedEditTask(task);
-        setEditProjectId((task as any).project_id || (labourDetails ? labourDetails.project_id : getDefaultProjectId()));
+        setEditProjectId((task as any).project_id || (labourDetails ? labourDetails.project_id : projectIdToUse));
         setIsEditModalOpen(true);
     };
 
@@ -362,7 +362,7 @@ const LabourTaskDetailPage = () => {
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate('/engineer/labor/labour-attendance')}
@@ -450,7 +450,7 @@ const LabourTaskDetailPage = () => {
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
 
                             {/* All Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex items-center gap-3 text-slate-800 shrink-0">
                                     <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
                                         <Filter className="w-4 h-4" />

@@ -383,7 +383,7 @@ const AttendancePage: React.FC = () => {
             <PageTransition className="p-4 md:p-6 bg-slate-50 font-inter min-h-[calc(100vh-64px)] overflow-y-auto pb-8 flex flex-col gap-6">
 
                 {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center shadow-sm">
                             <Clock className="w-6 h-6 text-white" />
@@ -687,7 +687,7 @@ const AttendancePage: React.FC = () => {
 
                         {/* Pagination footer - only for Yesterday / All / Date */}
                         {historyFilter !== 'Today' && selfAttendances.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -766,7 +766,7 @@ const AttendancePage: React.FC = () => {
                             </div>
                         )}
                         {historyFilter === 'Today' && attendanceState !== 'NOT_CHECKED_IN' && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <span className="text-[10px] font-bold text-slate-500">Showing 1 to 1 of 1 entries</span>
                             </div>
                         )}

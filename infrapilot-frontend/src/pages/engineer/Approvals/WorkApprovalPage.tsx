@@ -7,7 +7,6 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     Search,
-    Plus,
     Eye,
     FileText,
     Loader2,
@@ -116,7 +115,7 @@ const WorkApprovalPage = () => {
     useEffect(() => {
         const fetchEntities = async () => {
             if (!isFormModalOpen) return;
-            
+
             let pId = selectedProjectId || 0;
 
             setIsFetchingEntities(true);
@@ -154,7 +153,7 @@ const WorkApprovalPage = () => {
                 });
 
                 setAvailableEntities(pendingItems);
-                
+
                 // If there are pending items and no entity_id is selected or the selected is not in the list, auto-select the first one
                 if (pendingItems.length > 0) {
                     const firstId = pendingItems[0].id || pendingItems[0].labour_id || pendingItems[0].material_id || "";
@@ -381,8 +380,7 @@ const WorkApprovalPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
-                            Approvals
+                            Approval
                         </button>
                     </div>
                 </div>
@@ -438,7 +436,7 @@ const WorkApprovalPage = () => {
 
                 {/* ── Filter Bar & Table Container ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                         <div className="relative w-full md:max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -590,12 +588,12 @@ const WorkApprovalPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!loading && filteredApprovals.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -612,7 +610,7 @@ const WorkApprovalPage = () => {
                             </div>
 
                             {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap justify-center items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
@@ -620,7 +618,7 @@ const WorkApprovalPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredApprovals.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -647,11 +645,10 @@ const WorkApprovalPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -788,7 +785,7 @@ const WorkApprovalPage = () => {
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
-                title={isEditMode ? "Modify Work Approval" : "New Work Request"}
+                title="Save Approval"
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end gap-3 px-6 pb-6">
@@ -805,7 +802,7 @@ const WorkApprovalPage = () => {
                             {isSubmitting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : null}
-                            {isEditMode ? "Update Request" : "Submit Request"}
+                            {isEditMode ? "Save Approval" : "Save Approval"}
                         </button>
                     </div>
                 }
@@ -830,10 +827,10 @@ const WorkApprovalPage = () => {
                             <div>
                                 <label className={labelClasses}>Entity ID <span className="text-rose-500">*</span></label>
                                 <div className="relative">
-                                    <select 
-                                        name="entity_id" 
-                                        value={formData.entity_id} 
-                                        onChange={handleInputChange} 
+                                    <select
+                                        name="entity_id"
+                                        value={formData.entity_id}
+                                        onChange={handleInputChange}
                                         className={inputClasses(errors.entity_id)}
                                         disabled={isFetchingEntities || availableEntities.length === 0}
                                     >

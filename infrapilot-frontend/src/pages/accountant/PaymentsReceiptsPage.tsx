@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -206,6 +206,22 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
+  
+  const [formData, setFormData] = useState({
+    project_id: "",
+    amount: "",
+    mode: "Cash",
+    reference: ""
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-emerald-500'
+    }`;
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -252,24 +268,39 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     toast.success("Receipt cleared!");
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newRec: any = {};
-    formData.forEach((value, key) => { newRec[key] = value; });
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = "Valid amount is required";
+    
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
 
     try {
       setIsLoading(true);
       await accountingService.createReceipt({
-        project_id: Number(newRec.project_id || 0),
-        amount: Number(newRec.amount || 0),
-        mode: newRec.mode || "Cash",
-        reference: newRec.reference || ""
+        project_id: Number(formData.project_id || 0),
+        amount: Number(formData.amount || 0),
+        mode: formData.mode || "Cash",
+        reference: formData.reference || ""
       });
       toast.success("Receipt recorded!");
       fetchReceipts();
       setIsCreateModalOpen(false);
-      e.currentTarget.reset();
+      setFormData({ project_id: "", amount: "", mode: "Cash", reference: "" });
     } catch (err: any) {
       handleApiError(err, "Failed to create receipt");
     } finally {
@@ -432,21 +463,23 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
         <form onSubmit={handleFormSubmit} className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
-              <select name="project_id" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 <option value="">Select Project</option>
                 {projects.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project #${p.id || p.project_id}`}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-1.5 ml-1">Amount <span className="text-rose-500">*</span></label>
-              <input type="number" name="amount" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all" />
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="amount" value={formData.amount} onChange={handleChange} className={inputClasses(errors.amount)} />
+              {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-1.5 ml-1">Mode</label>
-              <select name="mode" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Mode</label>
+              <select name="mode" value={formData.mode} onChange={handleChange} className={inputClasses(errors.mode)}>
                 <option value="Cash">Cash</option>
                 <option value="BankTransfer">Bank Transfer</option>
                 <option value="Cheque">Cheque</option>
@@ -455,8 +488,8 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-1.5 ml-1">Reference No</label>
-              <input type="text" name="reference" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all" />
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-800 mb-1.5 ml-1">Reference No</label>
+              <input type="text" name="reference" value={formData.reference} onChange={handleChange} className={inputClasses(errors.reference)} />
             </div>
           </div>
 
@@ -532,7 +565,30 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [partyType, setPartyType] = useState<string>("");
+  const [formData, setFormData] = useState({
+    payment_date: new Date().toISOString().slice(0, 16),
+    party_type: "",
+    supplier_id: "",
+    contractor_id: "",
+    vendor_bill_id: "",
+    base_amount: "",
+    gst_amount: "",
+    gross_amount: "",
+    tds_amount: "",
+    retention_amount: "",
+    net_payable_amount: "",
+    payment_method: "BankTransfer",
+    bank_account_id: "",
+    reference_no: ""
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-rose-500'
+    }`;
 
   useEffect(() => {
     materialService.getSuppliers().then((res: any) => setSuppliers(res || [])).catch(() => null);
@@ -578,27 +634,46 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newPay: any = {};
-    formData.forEach((value, key) => { newPay[key] = value; });
     
+    const newErrors: Record<string, string> = {};
+    if (!formData.payment_date) newErrors.payment_date = "Payment Date is required";
+    if (!formData.party_type) newErrors.party_type = "Party Type is required";
+    if (formData.party_type === "Supplier" && !formData.supplier_id) newErrors.supplier_id = "Supplier is required";
+    if (formData.party_type === "Contractor" && !formData.contractor_id) newErrors.contractor_id = "Contractor is required";
+    if (!formData.base_amount || Number(formData.base_amount) <= 0) newErrors.base_amount = "Valid Base Amount is required";
+    if (!formData.net_payable_amount || Number(formData.net_payable_amount) <= 0) newErrors.net_payable_amount = "Valid Net Payable is required";
+    
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     const payload = {
-      payment_date: newPay.payment_date ? new Date(newPay.payment_date).toISOString() : new Date().toISOString(),
-      party_type: newPay.party_type || "Supplier",
-      supplier_id: newPay.supplier_id ? Number(newPay.supplier_id) : undefined,
-      contractor_id: newPay.contractor_id ? Number(newPay.contractor_id) : undefined,
-      vendor_bill_id: newPay.vendor_bill_id ? Number(newPay.vendor_bill_id) : undefined,
-      base_amount: Number(newPay.base_amount || 0),
-      gst_amount: Number(newPay.gst_amount || 0),
-      gross_amount: Number(newPay.gross_amount || 0),
-      tds_amount: Number(newPay.tds_amount || 0),
-      retention_amount: Number(newPay.retention_amount || 0),
-      net_payable_amount: Number(newPay.net_payable_amount || 0),
-      payment_method: newPay.payment_method || "BankTransfer",
-      bank_account_id: newPay.bank_account_id ? Number(newPay.bank_account_id) : undefined,
-      reference_no: newPay.reference_no || undefined
+      payment_date: new Date(formData.payment_date).toISOString(),
+      party_type: formData.party_type,
+      supplier_id: formData.supplier_id ? Number(formData.supplier_id) : undefined,
+      contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined,
+      vendor_bill_id: formData.vendor_bill_id ? Number(formData.vendor_bill_id) : undefined,
+      base_amount: Number(formData.base_amount || 0),
+      gst_amount: Number(formData.gst_amount || 0),
+      gross_amount: Number(formData.gross_amount || 0),
+      tds_amount: Number(formData.tds_amount || 0),
+      retention_amount: Number(formData.retention_amount || 0),
+      net_payable_amount: Number(formData.net_payable_amount || 0),
+      payment_method: formData.payment_method || "BankTransfer",
+      bank_account_id: formData.bank_account_id ? Number(formData.bank_account_id) : undefined,
+      reference_no: formData.reference_no || undefined
     };
 
     try {
@@ -607,8 +682,10 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
       toast.success("Payment voucher submitted!");
       fetchPayments();
       setIsCreateModalOpen(false);
-      e.currentTarget.reset();
-      setPartyType("");
+      setFormData({
+        payment_date: new Date().toISOString().slice(0, 16),
+        party_type: "", supplier_id: "", contractor_id: "", vendor_bill_id: "", base_amount: "", gst_amount: "", gross_amount: "", tds_amount: "", retention_amount: "", net_payable_amount: "", payment_method: "BankTransfer", bank_account_id: "", reference_no: ""
+      });
     } catch (err: any) {
       handleApiError(err, "Failed to save payment voucher");
     } finally {
@@ -707,80 +784,86 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
         <form id="createPaymentForm" onSubmit={handleFormSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Payment Date <span className="text-rose-500">*</span></label>
-              <input type="datetime-local" name="payment_date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Date <span className="text-rose-500">*</span></label>
+              <input type="datetime-local" name="payment_date" value={formData.payment_date} onChange={handleChange} className={inputClasses(errors.payment_date)} />
+              {errors.payment_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_date}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Party Type <span className="text-rose-500">*</span></label>
-              <select name="party_type" value={partyType} onChange={e => setPartyType(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Party Type <span className="text-rose-500">*</span></label>
+              <select name="party_type" value={formData.party_type} onChange={handleChange} className={inputClasses(errors.party_type)}>
                 <option value="">Select Type...</option>
                 <option value="Supplier">Supplier</option>
                 <option value="Contractor">Contractor</option>
               </select>
+              {errors.party_type && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.party_type}</p>}
             </div>
 
-            {partyType === "Supplier" && (
+            {formData.party_type === "Supplier" && (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Supplier <span className="text-rose-500">*</span></label>
-                <select name="supplier_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Supplier <span className="text-rose-500">*</span></label>
+                <select name="supplier_id" value={formData.supplier_id} onChange={handleChange} className={inputClasses(errors.supplier_id)}>
                   <option value="">None</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
                 </select>
+                {errors.supplier_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.supplier_id}</p>}
               </div>
             )}
 
-            {partyType === "Contractor" && (
+            {formData.party_type === "Contractor" && (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Contractor <span className="text-rose-500">*</span></label>
-                <select name="contractor_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contractor <span className="text-rose-500">*</span></label>
+                <select name="contractor_id" value={formData.contractor_id} onChange={handleChange} className={inputClasses(errors.contractor_id)}>
                   <option value="">None</option>
                   {contractors.map(c => <option key={c.id} value={c.id}>{c.name || c.contractor_name || `Contractor #${c.id}`}</option>)}
                 </select>
+                {errors.contractor_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.contractor_id}</p>}
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Vendor Bill</label>
-              <select name="vendor_bill_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Vendor Bill</label>
+              <select name="vendor_bill_id" value={formData.vendor_bill_id} onChange={handleChange} className={inputClasses(errors.vendor_bill_id)}>
                 <option value="">None</option>
                 {vendorBills.map(b => <option key={b.id} value={b.id}>{b.bill_number || `Bill #${b.id}`} - {b.vendor_name || b.supplier_name}</option>)}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Base Amount <span className="text-rose-500">*</span></label>
-              <input type="number" name="base_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Base Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="base_amount" value={formData.base_amount} onChange={handleChange} className={inputClasses(errors.base_amount)} />
+              {errors.base_amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.base_amount}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">GST Amount</label>
-              <input type="number" name="gst_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Amount</label>
+              <input type="number" name="gst_amount" value={formData.gst_amount} onChange={handleChange} className={inputClasses(errors.gst_amount)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Gross Amount</label>
-              <input type="number" name="gross_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Gross Amount</label>
+              <input type="number" name="gross_amount" value={formData.gross_amount} onChange={handleChange} className={inputClasses(errors.gross_amount)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">TDS Amount</label>
-              <input type="number" name="tds_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Amount</label>
+              <input type="number" name="tds_amount" value={formData.tds_amount} onChange={handleChange} className={inputClasses(errors.tds_amount)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Retention Amount</label>
-              <input type="number" name="retention_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-500" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Retention Amount</label>
+              <input type="number" name="retention_amount" value={formData.retention_amount} onChange={handleChange} className={inputClasses(errors.retention_amount)} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Net Payable Amount <span className="text-rose-500">*</span></label>
-              <input type="number" name="net_payable_amount" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600" required />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Net Payable Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="net_payable_amount" value={formData.net_payable_amount} onChange={handleChange} className={inputClasses(errors.net_payable_amount)} />
+              {errors.net_payable_amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.net_payable_amount}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Payment Method <span className="text-rose-500">*</span></label>
-              <select name="payment_method" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" required>
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Method <span className="text-rose-500">*</span></label>
+              <select name="payment_method" value={formData.payment_method} onChange={handleChange} className={inputClasses(errors.payment_method)}>
                 <option value="BankTransfer">Bank Transfer</option>
                 <option value="Cheque">Cheque</option>
                 <option value="Cash">Cash</option>
@@ -789,16 +872,16 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Bank Account</label>
-              <select name="bank_account_id" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Account</label>
+              <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className={inputClasses(errors.bank_account_id)}>
                 <option value="">Select Bank Account...</option>
                 {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_type} - {b.account_number?.slice(-4)}</option>)}
               </select>
             </div>
 
             <div className="col-span-2 space-y-1.5">
-              <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Reference No</label>
-              <input type="text" name="reference_no" placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Reference No</label>
+              <input type="text" name="reference_no" value={formData.reference_no} onChange={handleChange} className={inputClasses(errors.reference_no)} />
             </div>
           </div>
           
@@ -852,10 +935,37 @@ const PettyCashSection = () => {
     approved_by: 0,
     remarks: ""
   });
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let parsedValue: any = value;
+    if (['category_id', 'source_account_id', 'approved_by', 'amount'].includes(name)) {
+      parsedValue = Number(value) || 0;
+    }
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
 
   const handleSaveTransaction = async () => {
-    if (!formData.amount || !formData.category_id || !formData.source_account_id) {
-      toast.error("Please fill required fields (Category, Source Account, Amount)");
+    const newErrors: Record<string, string> = {};
+    if (!formData.category_id) newErrors.category_id = "Category is required";
+    if (!formData.source_account_id) newErrors.source_account_id = "Source Account is required";
+    if (formData.amount <= 0) newErrors.amount = "Valid amount is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
       return;
     }
     setIsSubmitting(true);
@@ -908,14 +1018,14 @@ const PettyCashSection = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record New Transaction" maxWidth="max-w-2xl">
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Type</label><select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Date</label><input type="date" value={formData.transaction_date} onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Category <span className="text-rose-500">*</span></label><select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select...</option>{expenseAccounts.filter(c => formData.type === 'CASH_OUT' ? (c.type === 'Expense' || c.account_type === 'Expense') : (c.type !== 'Expense' && c.account_type !== 'Expense')).map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Source Account <span className="text-rose-500">*</span></label><select value={formData.source_account_id} onChange={(e) => setFormData({ ...formData, source_account_id: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Amount (₹) <span className="text-rose-500">*</span></label><input type="number" value={formData.amount || ""} onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })} placeholder="0" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Paid To / Received From</label><input type="text" value={formData.paid_to_received_from} onChange={(e) => setFormData({ ...formData, paid_to_received_from: e.target.value })} placeholder="Name" className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Approved By</label><select value={formData.approved_by} onChange={(e) => setFormData({ ...formData, approved_by: Number(e.target.value) })} className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value={0}>Select Approver...</option><option value={1}>Admin</option><option value={2}>Manager</option></select></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Remarks</label><input type="text" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Description..." className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Type</label><select name="type" value={formData.type} onChange={handleChange} className={inputClasses()}><option value="CASH_OUT">Cash Out (Expense)</option><option value="CASH_IN">Cash In (Top-up)</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Date</label><input type="date" name="transaction_date" value={formData.transaction_date} onChange={handleChange} className={inputClasses()} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Category <span className="text-rose-500">*</span></label><select name="category_id" value={formData.category_id} onChange={handleChange} className={inputClasses(errors.category_id)}><option value={0}>Select...</option>{expenseAccounts.filter(c => formData.type === 'CASH_OUT' ? (c.type === 'Expense' || c.account_type === 'Expense') : (c.type !== 'Expense' && c.account_type !== 'Expense')).map(c => <option key={c.id} value={c.id}>{c.account_name || c.name}</option>)}</select>{errors.category_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category_id}</p>}</div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Source Account <span className="text-rose-500">*</span></label><select name="source_account_id" value={formData.source_account_id} onChange={handleChange} className={inputClasses(errors.source_account_id)}><option value={0}>Select Source Account...</option>{bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}</select>{errors.source_account_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.source_account_id}</p>}</div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Amount (₹) <span className="text-rose-500">*</span></label><input type="number" name="amount" value={formData.amount || ""} onChange={handleChange} placeholder="0" className={`${inputClasses(errors.amount)} font-bold`} />{errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}</div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Paid To / Received From</label><input type="text" name="paid_to_received_from" value={formData.paid_to_received_from} onChange={handleChange} placeholder="Name" className={inputClasses()} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Approved By</label><select name="approved_by" value={formData.approved_by} onChange={handleChange} className={inputClasses()}><option value={0}>Select Approver...</option><option value={1}>Admin</option><option value={2}>Manager</option></select></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Remarks</label><input type="text" name="remarks" value={formData.remarks} onChange={handleChange} placeholder="Description..." className={inputClasses()} /></div>
           </div>
           <div className="flex justify-end pt-4 border-t border-slate-100 gap-3">
             <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
@@ -981,6 +1091,27 @@ const CreateFundTransferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
   const [isLoading, setIsLoading] = useState(false);
   const [accountsList, setAccountsList] = useState<any[]>([]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let parsedValue: any = value;
+    if (['from_account_id', 'to_account_id', 'amount'].includes(name)) {
+      parsedValue = Number(value) || 0;
+    }
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
@@ -989,6 +1120,23 @@ const CreateFundTransferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors: Record<string, string> = {};
+    if (!formData.from_account_id) newErrors.from_account_id = "From Account is required";
+    if (!formData.to_account_id) newErrors.to_account_id = "To Account is required";
+    if (formData.from_account_id && formData.to_account_id && formData.from_account_id === formData.to_account_id) {
+        newErrors.to_account_id = "Cannot transfer to same account";
+    }
+    if (formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.transfer_date) newErrors.transfer_date = "Transfer date is required";
+    if (!formData.reference_number) newErrors.reference_number = "Reference number is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await accountingService.createFundTransfer(formData);
@@ -1014,33 +1162,38 @@ const CreateFundTransferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boole
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">From Account <span className="text-rose-500">*</span></label>
-          <select required value={formData.from_account_id || ""} onChange={e => setFormData({ ...formData, from_account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <select name="from_account_id" value={formData.from_account_id || ""} onChange={handleChange} className={inputClasses(errors.from_account_id) + " cursor-pointer"}>
             <option value="">Select From Account</option>
             {accountsList.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>)}
           </select>
+          {errors.from_account_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.from_account_id}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">To Account <span className="text-rose-500">*</span></label>
-          <select required value={formData.to_account_id || ""} onChange={e => setFormData({ ...formData, to_account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <select name="to_account_id" value={formData.to_account_id || ""} onChange={handleChange} className={inputClasses(errors.to_account_id) + " cursor-pointer"}>
             <option value="">Select To Account</option>
             {accountsList.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>)}
           </select>
+          {errors.to_account_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.to_account_id}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Amount <span className="text-rose-500">*</span></label>
-          <input type="number" required value={formData.amount || ""} onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <input type="number" name="amount" value={formData.amount || ""} onChange={handleChange} className={inputClasses(errors.amount)} />
+          {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Transfer Date <span className="text-rose-500">*</span></label>
-          <input type="date" required value={formData.transfer_date} onChange={e => setFormData({ ...formData, transfer_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <input type="date" name="transfer_date" value={formData.transfer_date} onChange={handleChange} className={inputClasses(errors.transfer_date)} />
+          {errors.transfer_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.transfer_date}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Reference Number <span className="text-rose-500">*</span></label>
-          <input type="text" required value={formData.reference_number} onChange={e => setFormData({ ...formData, reference_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <input type="text" name="reference_number" value={formData.reference_number} onChange={handleChange} className={inputClasses(errors.reference_number)} />
+          {errors.reference_number && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.reference_number}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Remarks</label>
-          <input type="text" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <input type="text" name="remarks" value={formData.remarks} onChange={handleChange} className={inputClasses()} />
         </div>
       </form>
     </Modal>
@@ -1284,7 +1437,7 @@ const PaymentsReceiptsPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payments & Receipts</h1>
             <p className="text-slate-500 text-sm mt-1">Manage all cash inflows, outflows, petty cash, and bank transactions.</p>

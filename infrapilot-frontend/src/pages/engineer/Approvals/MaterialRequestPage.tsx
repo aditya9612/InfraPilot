@@ -5,7 +5,6 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
     Search,
-    Plus,
     Eye,
     Loader2,
     Check,
@@ -301,7 +300,6 @@ const MaterialRequestPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             New Entry
                         </button>
                     </div>
@@ -359,7 +357,7 @@ const MaterialRequestPage = () => {
 
                 {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -506,7 +504,7 @@ const MaterialRequestPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && filteredRequests.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -528,7 +526,7 @@ const MaterialRequestPage = () => {
                             </div>
 
                             {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap justify-center items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
@@ -650,7 +648,7 @@ const MaterialRequestPage = () => {
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
-                title="Initiate Resource Requisition"
+                title="Save Resources Request"
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -660,7 +658,7 @@ const MaterialRequestPage = () => {
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Commit Requisition"}
+                            {isSubmitting ? "Syncing..." : "Save Resources Request"}
                         </button>
                     </div>
                 }

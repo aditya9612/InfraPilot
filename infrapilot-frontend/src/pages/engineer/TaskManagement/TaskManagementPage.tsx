@@ -865,7 +865,7 @@ const TaskManagementPage = () => {
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Task Management
@@ -1078,7 +1078,7 @@ const TaskManagementPage = () => {
                     {activeTab === "All Tasks" ? (
                         <>
                             {/* All Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1408,7 +1408,7 @@ const TaskManagementPage = () => {
 
                             {/* Pagination Block */}
                             {filteredTasks.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                         <select
@@ -1477,7 +1477,7 @@ const TaskManagementPage = () => {
                     ) : activeTab === "Project Tasks" ? (
                         <>
                             {/* Project Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1723,7 +1723,7 @@ const TaskManagementPage = () => {
                     ) : (
                         <>
                             {/* Task Requests Content */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
                                         <AlertCircle className="w-4 h-4" />

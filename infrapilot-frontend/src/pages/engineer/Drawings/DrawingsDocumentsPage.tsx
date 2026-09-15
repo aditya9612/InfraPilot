@@ -10,7 +10,6 @@ import {
     FileText,
     Layers,
     Search,
-    Plus,
     Eye,
     RefreshCcw,
     Edit2,
@@ -73,6 +72,7 @@ const DrawingsDocumentsPage = () => {
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -310,11 +310,15 @@ const DrawingsDocumentsPage = () => {
                         remarks: formData.remarks || ""
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
+                    setFormNotification({ type: 'success', message: 'Asset updated successfully!' });
                     toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
-                    setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData);
+                    setTimeout(() => {
+                        setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData);
+                    }, 1500);
                 } catch (error) {
+                    setFormNotification({ type: 'error', message: 'Update failed. Please try again.' });
                     toast.error("Update Failed", { id: toastId });
                 }
                 setIsSubmitting(false);
@@ -322,6 +326,7 @@ const DrawingsDocumentsPage = () => {
             } else {
                 try {
                     newRecord = await drawingService.uploadDrawing(payload);
+                    setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                     toast.success("Successful", { id: toastId, duration: 3000 });
                 } catch (error: any) {
                     if (error.response?.status === 403) {
@@ -330,6 +335,7 @@ const DrawingsDocumentsPage = () => {
                             ...payload,
                             upload_file: "VIRTUAL_SYNC.pdf"
                         };
+                        setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                         toast.success("Successful", { id: toastId, duration: 3000 });
                     } else {
                         throw error;
@@ -337,18 +343,21 @@ const DrawingsDocumentsPage = () => {
                 }
 
                 if (newRecord) {
-                    if (projectId !== payload.project_id) {
-                        setSelectedProjectId(payload.project_id);
-                    }
-                    setDrawingData(prev => [newRecord, ...prev]);
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData); // Reset form
-                    setPhotoFile(null); // Clear file
-                    setPhotoPreview(null); // Clear photo
-                    setErrors({}); // Clear errors
+                    setTimeout(() => {
+                        if (projectId !== payload.project_id) {
+                            setSelectedProjectId(payload.project_id);
+                        }
+                        setDrawingData(prev => [newRecord, ...prev]);
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData); // Reset form
+                        setPhotoFile(null); // Clear file
+                        setPhotoPreview(null); // Clear photo
+                        setErrors({}); // Clear errors
+                    }, 1500);
                 }
             }
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to register asset. Please try again.' });
             toast.error("Failed to register asset", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -434,6 +443,7 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
+        setFormNotification(null);
         if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
             setDocEditFormData({
                 id: Number(drawing.id),
@@ -478,10 +488,14 @@ const DrawingsDocumentsPage = () => {
             if (docEditFormData.file) formData.append("file", docEditFormData.file);
 
             await documentService.updateDocument(docEditFormData.id, formData);
+            setFormNotification({ type: 'success', message: 'Document updated successfully!' });
             toast.success("Document updated successfully", { id: toastId });
-            setIsDocEditModalOpen(false);
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocEditModalOpen(false);
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to update document. Please try again.' });
             toast.error("Failed to update document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -505,11 +519,15 @@ const DrawingsDocumentsPage = () => {
                 remarks: docCreateFormData.remarks,
                 file: docCreateFormData.file
             });
+            setFormNotification({ type: 'success', message: 'Document created successfully!' });
             toast.success("Document created successfully", { id: toastId });
-            setIsDocCreateModalOpen(false);
-            setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocCreateModalOpen(false);
+                setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to create document. Please try again.' });
             toast.error("Failed to create document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -733,11 +751,11 @@ const DrawingsDocumentsPage = () => {
                                             remarks: "",
                                             file: null
                                         });
+                                        setFormNotification(null);
                                         setIsDocCreateModalOpen(true);
                                     }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
                                     Upload Document
                                 </button>
                             </>
@@ -754,11 +772,10 @@ const DrawingsDocumentsPage = () => {
                                     Create Folder
                                 </button> */}
                                 <button
-                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setFormNotification(null); setIsFormModalOpen(true); }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
-                                    Upload Drawing
+                                    Upload Drawings
                                 </button>
                             </>
                         )}
@@ -833,9 +850,9 @@ const DrawingsDocumentsPage = () => {
 
                 {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
                         {/* Search */}
-                        <div className="relative flex-1 max-w-md font-inter">
+                        <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
@@ -1115,7 +1132,7 @@ const DrawingsDocumentsPage = () => {
 
                     {/* ──────────────── Pagination ──────────────── */}
                     {!isLoading && filteredDrawings.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1214,12 +1231,27 @@ const DrawingsDocumentsPage = () => {
                             disabled={isSubmitting}
                             className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : (isEditMode ? "Update Asset" : "Register Asset")}
+                            {isSubmitting ? "Saving..." : (isEditMode ? "Edit Drawings" : "Save Drawings")}
                         </button>
                     </div>
                 }
             >
                 <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-6 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
@@ -1514,12 +1546,27 @@ const DrawingsDocumentsPage = () => {
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
                         <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Document"}
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Edit Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-edit-form" onSubmit={handleDocEditSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />
@@ -1571,12 +1618,27 @@ const DrawingsDocumentsPage = () => {
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
                         <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload Document"}
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-create-form" onSubmit={handleDocCreateSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />

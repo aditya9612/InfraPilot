@@ -295,7 +295,7 @@ const ChartOfAccountsPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Chart of Accounts</h1>
             <p className="text-slate-500 text-sm mt-1">Manage hierarchical general ledger accounts for the organization.</p>
@@ -371,7 +371,7 @@ const ChartOfAccountsPage = () => {
             
             {/* Pagination Controls for Hierarchy */}
             {totalHierarchyItems > 0 && (
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   {Math.min((hierarchyPage - 1) * hierarchyItemsPerPage + 1, totalHierarchyItems)}–{Math.min(hierarchyPage * hierarchyItemsPerPage, totalHierarchyItems)} of {totalHierarchyItems}
                 </span>
@@ -487,7 +487,7 @@ const ChartOfAccountsPage = () => {
 
             {/* Pagination Controls for Table */}
             {totalTableItems > 0 && (
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
                 <div className="text-[11px] font-bold text-slate-500">
                   Showing {Math.min((tablePage - 1) * tableItemsPerPage + 1, totalTableItems)} to {Math.min(tablePage * tableItemsPerPage, totalTableItems)} of {totalTableItems} entries
                 </div>

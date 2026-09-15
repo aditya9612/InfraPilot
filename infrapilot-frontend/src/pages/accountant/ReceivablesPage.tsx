@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -13,7 +13,7 @@ import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
 import { financeService } from "../../services/financeService";
 import { ownerService } from "../../services/ownerService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle } from "lucide-react";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle, Plus, ChevronDown } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
@@ -150,6 +150,8 @@ const InvoicesSection = ({
   const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
 
   const handleExportReceivables = async () => {
     try {
@@ -296,7 +298,6 @@ const InvoicesSection = ({
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "create", label: "Create Quotation" },
     { key: "quotation_list", label: "Quotation List" },
     { key: "invoice_list", label: "Invoice List" },
   ] as const;
@@ -370,7 +371,7 @@ const InvoicesSection = ({
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
           {subTabs.map(t => (
-            <button key={t.key} onClick={() => { setActiveSubTab(t.key); if (t.key !== 'create') setEditingInvoice(null); }}
+            <button key={t.key} onClick={() => { setActiveSubTab(t.key); setEditingInvoice(null); }}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
               {t.label}
             </button>
@@ -405,6 +406,43 @@ const InvoicesSection = ({
             className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
             📤 Export
           </button>
+
+          <div className="relative">
+              <button
+                  onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
+                  className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+              >
+                  <Plus className="w-4 h-4" /> Create New Quotation <ChevronDown className={`w-3 h-3 transition-transform ${isCreateDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isCreateDropdownOpen && (
+                  <>
+                      <div className="fixed inset-0 z-10" onClick={() => setIsCreateDropdownOpen(false)} />
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-20 py-2">
+                          <button
+                              onClick={() => {
+                                  setIsCreateDropdownOpen(false);
+                                  setActiveSubTab("create");
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                          >
+                              <span className="text-sm font-bold text-slate-800">Draft Quotation</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client & Items Only</span>
+                          </button>
+                          <div className="border-t border-slate-50 my-1" />
+                          <button
+                              onClick={() => {
+                                  setIsCreateDropdownOpen(false);
+                                  navigate("/accountant/quotations/create");
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                          >
+                              <span className="text-sm font-bold text-slate-800">Standard Quotation</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Detailed Editor</span>
+                          </button>
+                      </div>
+                  </>
+              )}
+          </div>
         </div>
       </div>
 
@@ -483,7 +521,7 @@ const InvoicesSection = ({
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -715,6 +753,14 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [measurements, setMeasurements] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full text-sm border rounded-xl px-4 py-3 outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20'
+    }`;
 
   useEffect(() => {
     if (formData.project_id && activeSubTab === "create_measurement") {
@@ -726,8 +772,20 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_id) {
-      toast.error("Please select a project.");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (activeSubTab === "create_labour") {
+      if (!formData.start_date) newErrors.start_date = "Start Date is required";
+      if (!formData.end_date) newErrors.end_date = "End Date is required";
+    }
+    if (activeSubTab === "create_measurement") {
+      if (!formData.measurement_id) newErrors.measurement_id = "Measurement is required";
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
       return;
     }
 
@@ -930,16 +988,19 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
             <div>
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">Select Project <span className="text-rose-500">*</span></label>
               <select
-                required
                 value={formData.project_id}
-                onChange={e => setFormData({ ...formData, project_id: e.target.value })}
-                className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+                onChange={e => {
+                  setFormData({ ...formData, project_id: e.target.value });
+                  if (errors.project_id) setErrors({ ...errors, project_id: "" });
+                }}
+                className={inputClasses(errors.project_id)}
               >
                 <option value="">-- Choose Project --</option>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>{p.project_name} {p.client_name ? `(${p.client_name})` : ''}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_id}</p>}
             </div>
 
             {activeSubTab === "create_labour" && (
@@ -948,21 +1009,27 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">Start Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
-                    required
                     value={formData.start_date}
-                    onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+                    onChange={e => {
+                      setFormData({ ...formData, start_date: e.target.value });
+                      if (errors.start_date) setErrors({ ...errors, start_date: "" });
+                    }}
+                    className={inputClasses(errors.start_date)}
                   />
+                  {errors.start_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.start_date}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-widest mb-2">End Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
-                    required
                     value={formData.end_date}
-                    onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+                    onChange={e => {
+                      setFormData({ ...formData, end_date: e.target.value });
+                      if (errors.end_date) setErrors({ ...errors, end_date: "" });
+                    }}
+                    className={inputClasses(errors.end_date)}
                   />
+                  {errors.end_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.end_date}</p>}
                 </div>
               </div>
             )}
@@ -971,9 +1038,16 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                 <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1">Select Measurement <span className="text-rose-500">*</span></label>
                 <select
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white disabled:opacity-50"
+                  className={`w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all ${
+                      errors.measurement_id 
+                          ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+                          : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                  } disabled:opacity-50`}
                   value={formData.measurement_id}
-                  onChange={e => setFormData({ ...formData, measurement_id: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, measurement_id: e.target.value });
+                    if (errors.measurement_id) setErrors({ ...errors, measurement_id: "" });
+                  }}
                   disabled={!formData.project_id}
                 >
                   <option value="">-- Choose Measurement --</option>
@@ -981,6 +1055,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                     <option key={m.id} value={m.id}>Measurement #{m.id} - {m.status}</option>
                   ))}
                 </select>
+                {errors.measurement_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.measurement_id}</p>}
                 {!formData.project_id && (
                   <p className="text-xs text-amber-600 mt-2 font-medium">
                     Please select a project first to view its measurements.
@@ -1065,6 +1140,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   };
   const [formData, setFormData] = useState<any>(defaultForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleTabChange = (key: "list" | "create" | "approval" | "payments") => {
     setActiveSubTab(key);
@@ -1072,6 +1148,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     if (key !== "create") {
       setEditingRABill(null);
       setFormData(defaultForm);
+      setErrors({});
     }
   };
   const [raBills, setRaBills] = useState<any[]>([]);
@@ -1330,8 +1407,22 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_id) { toast.error("Please select a Project"); return; }
-    if (!formData.bill_number) { toast.error("Bill Number is required"); return; }
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.contractor_id) newErrors.contractor_id = "Contractor is required";
+    if (!formData.bill_date) newErrors.bill_date = "Bill Date is required";
+    if (!formData.work_description) newErrors.work_description = "Work Description is required";
+    if (formData.quantity === undefined || formData.quantity === null || formData.quantity.toString() === "") newErrors.quantity = "Quantity is required";
+    if (formData.rate === undefined || formData.rate === null || formData.rate.toString() === "") newErrors.rate = "Rate is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -1370,8 +1461,12 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   }, [initialSubTab]);
 
   const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-300";
-  const selectClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer";
+  const rabillInputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+      error 
+        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white text-slate-700' 
+        : 'border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary'
+    }`;
   const readOnlyClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-slate-50 text-slate-400 cursor-not-allowed";
 
   const subTabs = [
@@ -1533,7 +1628,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               </tbody>
             </table>
           </div>
-          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -1617,10 +1712,12 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 <div>
                   <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
                   <select
-                    required
-                    className={selectClasses}
+                    className={rabillInputClasses(errors.project_id)}
                     value={formData.project_id}
-                    onChange={e => setFormData({ ...formData, project_id: e.target.value, measurement_id: "", work_order_id: "" })}
+                    onChange={e => {
+                      setFormData({ ...formData, project_id: e.target.value, measurement_id: "", work_order_id: "" });
+                      if (errors.project_id) setErrors({ ...errors, project_id: "" });
+                    }}
                   >
                     <option value="">-- Select Project --</option>
                     {projects.map(p => (
@@ -1629,15 +1726,19 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_id}</p>}
                 </div>
 
                 {/* Contractor dropdown */}
                 <div>
                   <label className={labelClasses}>Contractor <span className="text-rose-500">*</span></label>
                   <select
-                    className={selectClasses}
+                    className={rabillInputClasses(errors.contractor_id)}
                     value={formData.contractor_id}
-                    onChange={e => setFormData({ ...formData, contractor_id: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, contractor_id: e.target.value });
+                      if (errors.contractor_id) setErrors({ ...errors, contractor_id: "" });
+                    }}
                   >
                     <option value="">-- Select Contractor --</option>
                     {contractors.map(c => (
@@ -1646,15 +1747,19 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.contractor_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.contractor_id}</p>}
                 </div>
 
                 {/* Measurement dropdown */}
                 <div>
                   <label className={labelClasses}>Measurement <span className="text-rose-500">*</span></label>
                   <select
-                    className={selectClasses}
+                    className={rabillInputClasses(errors.measurement_id)}
                     value={formData.measurement_id}
-                    onChange={e => setFormData({ ...formData, measurement_id: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, measurement_id: e.target.value });
+                      if (errors.measurement_id) setErrors({ ...errors, measurement_id: "" });
+                    }}
                   >
                     <option value="">-- Select Measurement --</option>
                     {measurements.map(m => (
@@ -1663,15 +1768,19 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.measurement_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.measurement_id}</p>}
                 </div>
 
                 {/* Work Order dropdown */}
                 <div>
                   <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
                   <select
-                    className={selectClasses}
+                    className={rabillInputClasses(errors.work_order_id)}
                     value={formData.work_order_id}
-                    onChange={e => setFormData({ ...formData, work_order_id: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, work_order_id: e.target.value });
+                      if (errors.work_order_id) setErrors({ ...errors, work_order_id: "" });
+                    }}
                   >
                     <option value="">-- Select Work Order --</option>
                     {workOrders.map(w => (
@@ -1680,6 +1789,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.work_order_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.work_order_id}</p>}
                 </div>
 
                 {/* Bill Date */}
@@ -1687,11 +1797,14 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   <label className={labelClasses}>Bill Date <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
-                    required
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.bill_date)}
                     value={formData.bill_date}
-                    onChange={e => setFormData({ ...formData, bill_date: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, bill_date: e.target.value });
+                      if (errors.bill_date) setErrors({ ...errors, bill_date: "" });
+                    }}
                   />
+                  {errors.bill_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.bill_date}</p>}
                 </div>
 
               </div>
@@ -1710,11 +1823,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   <label className={labelClasses}>Work Description <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.work_description)}
                     placeholder="e.g. Earthwork Excavation – Phase 2"
                     value={formData.work_description}
-                    onChange={e => setFormData({ ...formData, work_description: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, work_description: e.target.value });
+                      if (errors.work_description) setErrors({ ...errors, work_description: "" });
+                    }}
                   />
+                  {errors.work_description && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.work_description}</p>}
                 </div>
 
                 {/* Quantity */}
@@ -1723,11 +1840,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   <input
                     type="number"
                     min="0"
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.quantity)}
                     placeholder="e.g. 100"
                     value={formData.quantity || ''}
-                    onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, quantity: e.target.value });
+                      if (errors.quantity) setErrors({ ...errors, quantity: "" });
+                    }}
                   />
+                  {errors.quantity && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.quantity}</p>}
                 </div>
 
                 {/* Rate */}
@@ -1736,11 +1857,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   <input
                     type="number"
                     min="0"
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.rate)}
                     placeholder="e.g. 1500"
                     value={formData.rate || ''}
-                    onChange={e => setFormData({ ...formData, rate: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, rate: e.target.value });
+                      if (errors.rate) setErrors({ ...errors, rate: "" });
+                    }}
                   />
+                  {errors.rate && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.rate}</p>}
                 </div>
 
                 {/* GST Percent */}
@@ -1750,11 +1875,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     type="number"
                     min="0"
                     max="100"
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.gst_percent)}
                     placeholder="18"
                     value={formData.gst_percent || ''}
-                    onChange={e => setFormData({ ...formData, gst_percent: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, gst_percent: e.target.value });
+                      if (errors.gst_percent) setErrors({ ...errors, gst_percent: "" });
+                    }}
                   />
+                  {errors.gst_percent && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.gst_percent}</p>}
                 </div>
 
                 {/* Deductions */}
@@ -1763,11 +1892,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                   <input
                     type="number"
                     min="0"
-                    className={inputClasses}
+                    className={rabillInputClasses(errors.deductions)}
                     placeholder="e.g. 5000"
                     value={formData.deductions || ''}
-                    onChange={e => setFormData({ ...formData, deductions: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, deductions: e.target.value });
+                      if (errors.deductions) setErrors({ ...errors, deductions: "" });
+                    }}
                   />
+                  {errors.deductions && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.deductions}</p>}
                 </div>
 
               </div>
@@ -2083,7 +2216,7 @@ const CollectionsSection = () => {
             </tbody>
           </table>
         </div>
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select
@@ -2291,7 +2424,7 @@ const ClientLedgerSection = () => {
           </table>
         </div>
         {transactions.length > 0 && (
-          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -2389,7 +2522,7 @@ const ReceivablesPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Receivables</h1>
             <p className="text-slate-500 text-sm mt-1">Manage invoices, running bills, collections, client ledger &amp; reports.</p>
