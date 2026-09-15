@@ -131,6 +131,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 warranty_end_date: formData.warranty_end_date || null,
                 quantity: formData.quantity ? Number(formData.quantity) : 0,
                 unit_price: formData.unit_price ? Number(formData.unit_price) : 0,
+                total_amount: (formData.quantity ? Number(formData.quantity) : 0) * (formData.unit_price ? Number(formData.unit_price) : 0),
             });
             toast.success("Purchase created successfully!");
             onSuccess();

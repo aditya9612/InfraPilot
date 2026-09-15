@@ -286,8 +286,19 @@ const DocumentsPage = () => {
       }
       toast.success("Successful", { id: toastId });
       fetchDocs();
-    } catch (err) {
-      toast.error("Process failed", { id: toastId });
+    } catch (err: any) {
+      let errMsg = "Process failed";
+      const detail = err?.response?.data?.detail;
+      if (typeof detail === "string") {
+        errMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errMsg = detail[0]?.msg || "Validation error";
+      } else if (err?.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err?.message) {
+        errMsg = err.message;
+      }
+      toast.error(errMsg, { id: toastId });
       throw err;
     }
   };
@@ -429,14 +440,11 @@ const DocumentsPage = () => {
     // Main tab: Drawings vs Documents
     if (mainTab === "Drawings") {
       // Show only drawing-type items and folders
-      data = data.filter(d => /* d.is_folder || */(d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing");
+      data = data.filter(d => d.is_folder || (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing");
     } else {
       // Show only non-drawing items (documents and folders)
-      data = data.filter(d => /* d.is_folder || */((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
+      data = data.filter(d => d.is_folder || ((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
     }
-
-    // Temporarily hide ALL folders unconditionally
-    data = data.filter(d => !d.is_folder);
 
     // Sub-tab: All, Documents (non-folders), Folders
     if (typeFilter === "Documents") {
@@ -521,13 +529,13 @@ const DocumentsPage = () => {
             >
               <RefreshCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             </button>
-            {/* <button
+            <button
               onClick={() => setIsFolderModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all font-semibold"
             >
               <FolderPlus className="w-4 h-4 text-indigo-500" />
               New Folder
-            </button> */}
+            </button>
             <button
               onClick={() => {
                 const type = mainTab === "Drawings" ? "Drawing" : "Document";
@@ -556,36 +564,38 @@ const DocumentsPage = () => {
         </div>
 
         {/* Document Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Storage"
-            icon={<FileText className="w-5 h-5" />}
-            value={stats ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : "..."}
-            sub={`${stats?.total_storage_gb || 0} GB used of 10 GB`}
-            accent="text-primary"
-          />
-          <StatCard
-            title="Total Storage Bytes"
-            icon={<Folder className="w-5 h-5 text-indigo-500" />}
-            value={stats ? stats.total_storage_bytes.toLocaleString() : "..."}
-            sub="Exact bytes on disk"
-            accent="text-indigo-500"
-          />
-          <StatCard
-            title="Pending Approval"
-            icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
-            value={derivedPendingCount.toString()}
-            sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
-            accent="text-amber-500"
-          />
-          <StatCard
-            title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
-            icon={<FileText className="w-5 h-5 text-emerald-500" />}
-            value={derivedTotalCount.toString()}
-            sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
-            accent="text-emerald-500"
-          />
-        </div>
+        {mainTab !== 'Drawings' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              title="Total Storage"
+              icon={<FileText className="w-5 h-5" />}
+              value={stats ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : "..."}
+              sub={`${stats?.total_storage_gb || 0} GB used of 10 GB`}
+              accent="text-primary"
+            />
+            <StatCard
+              title="Total Storage Bytes"
+              icon={<Folder className="w-5 h-5 text-indigo-500" />}
+              value={stats ? stats.total_storage_bytes.toLocaleString() : "..."}
+              sub="Exact bytes on disk"
+              accent="text-indigo-500"
+            />
+            <StatCard
+              title="Pending Approval"
+              icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
+              value={derivedPendingCount.toString()}
+              sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
+              accent="text-amber-500"
+            />
+            <StatCard
+              title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
+              icon={<FileText className="w-5 h-5 text-emerald-500" />}
+              value={derivedTotalCount.toString()}
+              sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
+              accent="text-emerald-500"
+            />
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
           {/* Toolbar */}
@@ -618,25 +628,12 @@ const DocumentsPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
-              <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-              <select
-                value={typeFilter}
-                onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
-                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${typeFilter !== "All"
-                  ? "bg-primary/10 border-primary/30 text-primary"
-                  : "bg-slate-50 border-slate-200 text-slate-600"
-                  }`}
-              >
-                <option value="All">All</option>
-                <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
-                {/* <option value="Folders">Folders</option> */}
-              </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
           </div>
 
-          {/* Breadcrumbs (Temporarily hidden) */}
-          {/* {(folderPath.length > 0 || currentFolderId !== null) && (
+          {/* Breadcrumbs */}
+          {(folderPath.length > 0 || currentFolderId !== null) && (
             <div className="px-6 py-3 bg-slate-50/60 border-b border-slate-50 flex items-center gap-2">
               <button onClick={() => handleBreadcrumb(-1)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-primary transition-colors">Root Vault</button>
               {folderPath.map((f, idx) => (
@@ -651,7 +648,7 @@ const DocumentsPage = () => {
                 </React.Fragment>
               ))}
             </div>
-          )} */}
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[800px]">
@@ -713,9 +710,13 @@ const DocumentsPage = () => {
                         </td>
                         <td className="hidden md:table-cell px-6 py-4 text-xs font-bold text-slate-500 whitespace-nowrap">{doc.project_name || "General"}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
-                            {doc.status || "PENDING"}
-                          </span>
+                          {!doc.is_folder ? (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
+                              {doc.status || "PENDING"}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">—</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-xs font-bold text-slate-500">
                           {doc.version || "v1.0"}
@@ -859,11 +860,11 @@ const DocumentsPage = () => {
         </div>
       </PageTransition>
 
-      {/* <CreateFolderModal
+      <CreateFolderModal
         isOpen={isFolderModalOpen}
         onClose={() => setIsFolderModalOpen(false)}
         onSubmit={handleNewFolder}
-      /> */}
+      />
 
       <UploadDocumentModal
         isOpen={isUploadModalOpen}

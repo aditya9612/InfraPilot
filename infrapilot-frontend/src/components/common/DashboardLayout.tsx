@@ -23,13 +23,13 @@ const DashboardContent = ({ children }: Props) => {
         document.body.classList.remove('modal-open');
       }
     };
-    
+
     checkOverlay(); // Initial check
-    
+
     // Only watch for node additions/removals, NEVER attributes to prevent infinite loops/hangs
     const observer = new MutationObserver(checkOverlay);
     observer.observe(document.body, { childList: true, subtree: true });
-    
+
     return () => observer.disconnect();
   }, []);
 

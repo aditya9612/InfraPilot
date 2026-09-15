@@ -596,12 +596,20 @@ const MachineryPage = () => {
 
     const handleSavePurchase = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Ensure total_amount is calculated before submitting if not present
+        const payload = {
+            ...createPurchaseForm,
+            total_amount: createPurchaseForm.total_amount ||
+                ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
+        };
+
         try {
             if (createPurchaseForm.id) {
-                await equipmentService.updatePurchase(createPurchaseForm.id, createPurchaseForm);
+                await equipmentService.updatePurchase(createPurchaseForm.id, payload);
                 toast.success("Purchase updated successfully!");
             } else {
-                await equipmentService.createPurchase(createPurchaseForm);
+                await equipmentService.createPurchase(payload);
                 toast.success("Purchase created successfully!");
             }
             setIsCreatePurchaseModalOpen(false);
@@ -677,10 +685,29 @@ const MachineryPage = () => {
         }
     };
 
-    const handleDeleteMaintenanceConfirm = async () => {
+    const handleCompleteMaintenance = async (maint_id: number, equipment_id: number) => {
+        if (!confirm("Are you sure you want to mark this maintenance as complete?")) return;
+        try {
+            await equipmentService.completeMaintenance(equipment_id, maint_id);
+            toast.success("Maintenance marked as complete");
+            if (activeTab === "Maintenance") {
+                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
+                setMaintenanceAlerts(alerts);
+                const eq = equipmentList.find(e => e.id === equipment_id);
+                if (eq) {
+                    const logs = await equipmentService.listMaintenance(eq.id);
+                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to complete maintenance");
+        }
+    };
+
+    const handleDeleteMaintenance = async () => {
         if (!maintenanceToDelete) return;
         try {
-            await equipmentService.deleteMaintenance(maintenanceToDelete.id);
+            await equipmentService.deleteMaintenance(maintenanceToDelete.equipment_id, maintenanceToDelete.id);
             toast.success("Maintenance record deleted");
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
@@ -699,39 +726,16 @@ const MachineryPage = () => {
         }
     };
 
-    const handleCompleteMaintenance = async (maintenance_id: number, equipment_id: number) => {
-        try {
-            await equipmentService.completeMaintenance(maintenance_id);
-            toast.success("Maintenance marked as completed!");
-            if (activeTab === "Maintenance") {
-                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
-                setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === equipment_id);
-                if (eq) {
-                    const logs = await equipmentService.listMaintenance(eq.id);
-                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
-                }
-            }
-        } catch (error) {
-            toast.error("Failed to complete maintenance");
-        }
-    };
-
     const handleSaveMaintenance = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (formData.id) {
-                await equipmentService.updateMaintenance(formData.id, {
-                    ...formData,
-                    maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0]
-                } as any);
-                toast.success("Maintenance updated!");
+            if (formData.id || formData.maintenance_id) {
+                const mid = formData.id || formData.maintenance_id;
+                await equipmentService.updateMaintenance(Number(formData.equipment_id), mid, formData as any);
+                toast.success("Maintenance updated successfully");
             } else {
-                await equipmentService.createMaintenance(formData.equipment_id, {
-                    ...formData,
-                    maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0]
-                } as any);
-                toast.success("Maintenance scheduled!");
+                await equipmentService.createMaintenance(Number(formData.equipment_id), formData as any);
+                toast.success("Maintenance scheduled successfully");
             }
             setIsMaintenanceModalOpen(false);
             if (activeTab === "Maintenance") {
@@ -1394,7 +1398,7 @@ const MachineryPage = () => {
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-1">
                                                     <button onClick={async () => {
-                                                        const item = await equipmentService.getMaintenance(log.id);
+                                                        const item = await equipmentService.getMaintenance(log.equipment_id || selectedEquipment?.id || 0, log.id);
                                                         setViewMaintenanceItem(item);
                                                         setIsViewMaintenanceModalOpen(true);
                                                     }} className="p-1.5 text-slate-400 hover:text-indigo-500 rounded hover:bg-slate-50 transition-colors" title="View Details">
@@ -2263,7 +2267,7 @@ const MachineryPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-rose-500">*</span></label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">COST (₹) <span className="text-rose-500">*</span></label>
@@ -2271,8 +2275,8 @@ const MachineryPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE</label>
-                        <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE <span className="text-rose-500">*</span></label>
+                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT <span className="text-rose-500">*</span></label>
@@ -2296,8 +2300,8 @@ const MachineryPage = () => {
                 </form>
             </Modal>
 
-            {/* 7. Add Rental */}
-            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title="Add Rental Record" maxWidth="max-w-md">
+            {/* 7. Add/Update Rental */}
+            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title={formData.id ? "Update Rental" : "Add Rental Record"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
@@ -2309,11 +2313,11 @@ const MachineryPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">START DATE <span className="text-rose-500">*</span></label>
-                            <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.start_date || ''} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">END DATE <span className="text-rose-500">*</span></label>
-                            <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.end_date || ''} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
@@ -2535,7 +2539,7 @@ const MachineryPage = () => {
             <ConfirmModal
                 isOpen={isMaintenanceDeleteModalOpen}
                 onClose={() => setIsMaintenanceDeleteModalOpen(false)}
-                onConfirm={handleDeleteMaintenanceConfirm}
+                onConfirm={handleDeleteMaintenance}
                 title="Remove Maintenance Entry"
                 message="Are you sure you want to delete this maintenance record?"
                 confirmText="Confirm Deletion"
@@ -2687,8 +2691,9 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Project</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
                             <select
+                                required
                                 value={createPurchaseForm.project_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2713,18 +2718,20 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Purchase Date</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Purchase Date <span className="text-rose-500">*</span></label>
                             <input
                                 type="date"
+                                required
                                 value={createPurchaseForm.purchase_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Warranty End Date</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Warranty End Date <span className="text-rose-500">*</span></label>
                             <input
                                 type="date"
+                                required
                                 value={createPurchaseForm.warranty_end_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, warranty_end_date: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2740,30 +2747,33 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Invoice Number</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Invoice Number <span className="text-rose-500">*</span></label>
                             <input
                                 type="text"
+                                required
                                 value={createPurchaseForm.invoice_number || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Quantity</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Quantity <span className="text-rose-500">*</span></label>
                             <input
                                 type="number"
                                 min="1"
+                                required
                                 value={createPurchaseForm.quantity || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Unit Price</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Unit Price <span className="text-rose-500">*</span></label>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0"
+                                required
                                 value={createPurchaseForm.unit_price || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"

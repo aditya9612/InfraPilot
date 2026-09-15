@@ -115,30 +115,30 @@ const CreateDraftQuotationPage = () => {
   const handleDownloadFromPreview = async () => {
     let qId = currentId;
     if (!qId) {
-        const newId = await handleSaveQuotation();
-        if (newId) {
-            qId = newId;
-        } else {
-            toast.error("Failed to generate Quotation ID for download.");
-            return;
-        }
+      const newId = await handleSaveQuotation();
+      if (newId) {
+        qId = newId;
+      } else {
+        toast.error("Failed to generate Quotation ID for download.");
+        return;
+      }
     }
-    
+
     const toastId = toast.loading("Downloading PDF from backend...");
     try {
-        const blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || qId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        toast.success("Downloaded from Server", { id: toastId });
-    } catch(err: any) {
-        console.error("Backend Download Error:", err);
-        toast.error(err.message || "Failed to download PDF via API.", { id: toastId });
+      const blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || qId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Downloaded from Server", { id: toastId });
+    } catch (err: any) {
+      console.error("Backend Download Error:", err);
+      toast.error(err.message || "Failed to download PDF via API.", { id: toastId });
     }
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -696,13 +696,13 @@ const CreateDraftQuotationPage = () => {
       // If no ID is present, we must save the quotation first to generate an ID
       // so that we can hit the exact GET API the user requested.
       if (!qId) {
-          const newId = await handleSaveQuotation();
-          if (newId) {
-              qId = newId;
-          } else {
-              toast.error("Failed to generate Quotation ID for download.", { id: toastId });
-              return;
-          }
+        const newId = await handleSaveQuotation();
+        if (newId) {
+          qId = newId;
+        } else {
+          toast.error("Failed to generate Quotation ID for download.", { id: toastId });
+          return;
+        }
       }
 
       let blob = await quotationService.downloadDummyQuotationPDF(Number(qId));
