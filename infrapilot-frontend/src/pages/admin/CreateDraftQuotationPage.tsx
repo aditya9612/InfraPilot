@@ -71,13 +71,18 @@ const CreateDraftQuotationPage = () => {
     setIsPreviewLoading(true);
     const toastId = toast.loading("Generating preview from backend...");
     try {
-      let blob;
-      if (currentId) {
-        blob = await quotationService.downloadDummyQuotationPDF(Number(currentId));
-      } else {
-        const payload = buildDummyPayload();
-        blob = await quotationService.previewDummyQuotationPDF(payload);
+      let qId = currentId;
+      if (!qId) {
+        const newId = await handleSaveQuotation();
+        if (newId) {
+          qId = newId;
+        } else {
+          toast.error("Please save the quotation first to generate a preview.", { id: toastId });
+          return;
+        }
       }
+      // download=false → inline PDF for preview
+      const blob = await quotationService.downloadDummyQuotationPDF(Number(qId), false);
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setIsPDFModalOpen(true);
