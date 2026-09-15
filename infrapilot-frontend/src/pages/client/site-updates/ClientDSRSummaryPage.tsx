@@ -465,49 +465,62 @@ const ClientDSRSummaryPage = () => {
 
           {/* Table */}
           <div className="overflow-x-auto flex-1 w-full">
-            <table className="w-full text-left border-collapse table-fixed" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <table className="w-full text-left border-collapse" style={{ minWidth: '900px' }}>
               <colgroup>
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '12%' }} />
                 <col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '20%' }} />
+                <col style={{ width: '12%' }} />
               </colgroup>
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left" style={{ width: '20%' }}>Report Details</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left" style={{ width: '20%' }}>Work Summary</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Status</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Site Media</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center" style={{ width: '20%' }}>Actions</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left">Report Details</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left">Work Summary</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-left">Personnel</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center">Status</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center">Site Media</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-inter">
                 {loading && reports.length === 0 ? (
                    <tr>
-                     <td colSpan={5} className="p-20 text-center">
+                     <td colSpan={6} className="p-20 text-center">
                         <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Loading Ledger Records...</p>
                      </td>
                    </tr>
                 ) : paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-20 text-center">
+                    <td colSpan={6} className="p-20 text-center">
                       <p className="text-sm font-medium text-slate-400">No reports found matching your criteria.</p>
                     </td>
                   </tr>
                 ) : paginatedReports.map((report) => (
                   <tr key={report.id} className="group hover:bg-slate-50/60 transition-all cursor-default align-middle font-inter">
-                    <td className="px-6 py-6 text-left" style={{ width: '20%' }}>
+                    <td className="px-6 py-6 text-left">
                        <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5">{report.formattedDate}</p>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Ledger</p>
                     </td>
-                    <td className="px-6 py-6 text-left" style={{ width: '20%' }}>
+                    <td className="px-6 py-6 text-left">
                       <p className="text-sm font-semibold text-slate-700 leading-snug line-clamp-2">
                         {report.work_done || "No summary provided"}
                       </p>
                     </td>
-                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                    {/* Personnel column */}
+                    <td className="px-6 py-6 text-left">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-slate-700 truncate max-w-[160px]">
+                          Contractor: <span className="text-blue-600">{report.contractor_name || '—'}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold truncate max-w-[160px] mt-0.5">
+                          By: {report.created_by_name || report.created_by || '—'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6 text-center">
                       <div className="flex items-center justify-center">
                         <span className={`inline-block px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] border ${
                           report.status?.toLowerCase() === 'submitted' 
@@ -520,7 +533,7 @@ const ClientDSRSummaryPage = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                    <td className="px-6 py-6 text-center">
                         <div className="flex items-center justify-center gap-2">
                             {report.gallery && report.gallery.length > 0 ? (
                             report.gallery.slice(0, 3).map((img: any, idx: number) => (
@@ -547,7 +560,7 @@ const ClientDSRSummaryPage = () => {
                             )}
                         </div>
                     </td>
-                    <td className="px-6 py-6 text-center" style={{ width: '20%' }}>
+                    <td className="px-6 py-6 text-center">
                        <div className="flex items-center justify-center">
                           <button 
                             onClick={() => setSelectedReportForView(report)}

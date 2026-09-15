@@ -104,8 +104,15 @@ export const clientPaymentService = {
      * Payment Analytics
      * GET /api/v1/client-payments/analytics
      */
-    async getAnalytics(params?: any): Promise<ClientPaymentAnalytics> {
-        const p = parseParams(params);
+    async getAnalytics(projectIdOrParams?: any, params?: any): Promise<ClientPaymentAnalytics> {
+        let p: any = {};
+        if (typeof projectIdOrParams === "number" || typeof projectIdOrParams === "string") {
+            p = { project_id: projectIdOrParams, ...params };
+        } else if (projectIdOrParams && typeof projectIdOrParams === "object") {
+            p = { ...projectIdOrParams, ...params };
+        } else if (params) {
+            p = { ...params };
+        }
         console.log("GET /api/v1/client-payments/analytics", p);
         const response = await api.get("/client-payments/analytics", { params: p });
         return response.data;
