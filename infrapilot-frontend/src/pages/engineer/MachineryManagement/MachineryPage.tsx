@@ -503,9 +503,9 @@ const MachineryPage = () => {
                 toast.success("Equipment updated successfully!");
             } else {
                 const payload = { ...submittedData };
-                // Backend requires project_id — use selectedProjectId or first available project as fallback
+                // If no project selected, remove it from payload
                 if (!payload.project_id) {
-                    payload.project_id = selectedProjectId || projects[0]?.id || 1;
+                    delete payload.project_id;
                 }
                 await equipmentService.createEquipment(payload);
 
@@ -2316,8 +2316,8 @@ const MachineryPage = () => {
                         <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT {!!formData.maintenance_id && <span className="text-red-600">*</span>}</label>
-                        <select required={!!formData.maintenance_id} value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT <span className="text-red-600">*</span></label>
+                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>

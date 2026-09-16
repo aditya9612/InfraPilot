@@ -38,7 +38,7 @@ const initialFormData = {
     labour_type_id: 1,
     custom_daily_wage_rate: "",
     custom_ot_rate_per_hour: "",
-    contractor_id: 1,
+    contractor_id: "" as number | "",
     status: "Active",
     notes: "",
     project_id: "" as number | "",
@@ -772,7 +772,7 @@ const LaborDetailsPage = () => {
                                                             <QrCode className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setApiError(null); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? "", status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setApiError(null); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -1012,7 +1012,7 @@ const LaborDetailsPage = () => {
                             {/* contractor_id */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Contractor ID</label>
-                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: e.target.value ? Number(e.target.value) : "" })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
                             {/* project_id (only on create) */}

@@ -310,8 +310,8 @@ const DrawingsDocumentsPage = () => {
                         remarks: formData.remarks || ""
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
-                    setFormNotification({ type: 'success', message: 'Asset updated successfully!' });
-                    toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
+                    setFormNotification({ type: 'success', message: 'Drawing updated successfully!' });
+                    toast.success("Drawing updated successfully", { id: toastId, duration: 3000 });
                     setTimeout(() => {
                         setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
                         setIsFormModalOpen(false);

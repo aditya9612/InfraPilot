@@ -753,8 +753,12 @@ const TaskManagementPage = () => {
             toast.success("Task passed successfully!");
             setIsPassModalOpen(false);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to pass task.");
+        } catch (error: any) {
+            if (error?.response?.status === 422) {
+                toast.error(error.response?.data?.detail || error.response?.data?.message || "Validation failed.");
+            } else {
+                toast.error("Failed to pass task.");
+            }
         }
     };
 
@@ -2728,6 +2732,9 @@ const TaskManagementPage = () => {
                                 required
                             >
                                 <option value="">-- Select Team Member --</option>
+                                {projectMembers.map(m => (
+                                    <option key={`m_${m.user_id}`} value={m.user_id}>{m.full_name} ({m.role || 'Member'})</option>
+                                ))}
                                 {projectLabours.map(l => (
                                     <option key={`l_${l.id}`} value={l.id}>{l.labour_name || l.name} (Labour)</option>
                                 ))}
