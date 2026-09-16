@@ -247,7 +247,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
             type="submit"
             className="px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            {initialData ? "Update Record" : "Create Expense"}
+            {initialData ? "Update Record" : "Save Expense"}
           </button>
         </div>
       </form>

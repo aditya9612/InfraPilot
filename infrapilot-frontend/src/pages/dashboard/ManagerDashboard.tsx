@@ -236,6 +236,13 @@ const ManagerDashboard = () => {
                 </span>
               )}
               <Link
+                to="/manager/attendance"
+                className="px-4 py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-bold rounded-lg shadow-sm hover:bg-indigo-50 transition-all flex items-center gap-2"
+              >
+                <CalendarDays className="w-4 h-4 text-indigo-500" />
+                My Attendance
+              </Link>
+              <Link
                 to="/manager/approvals"
                 className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"
               >
@@ -258,17 +265,17 @@ const ManagerDashboard = () => {
 
           {/* ── KPI Grid — single unified row ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <KpiCard title="Total Projects"     value={kpis?.total_managed_projects ?? pmSummary?.total_projects ?? 0}    sub="Under Management"      icon={<FolderCheck className="w-5 h-5 text-indigo-600" />}   accent="text-indigo-700"  bg="bg-indigo-50" />
-            <KpiCard title="Active Projects"    value={pmSummary?.active_projects ?? 0}                                    sub="Ongoing Deployments"   icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}    accent="text-emerald-700" bg="bg-emerald-50" />
-            <KpiCard title="Completed"          value={pmSummary?.completed_projects ?? 0}                                 sub="Handed Over"           icon={<CheckCircle className="w-5 h-5 text-blue-600" />}      accent="text-blue-700"    bg="bg-blue-50" />
-            <KpiCard title="Delayed Sites"      value={kpis?.delayed_sites_count ?? pmSummary?.delayed_projects ?? 0}     sub="Needs Attention"       icon={<AlertCircle className="w-5 h-5 text-rose-600" />}      accent="text-rose-700"    bg="bg-rose-50" />
-            <KpiCard title="Avg Completion"     value={`${kpis?.avg_completion_percent ?? 0}%`}                            sub="Portfolio Progress"    icon={<Activity className="w-5 h-5 text-purple-600" />}       accent="text-purple-700"  bg="bg-purple-50" />
+            <KpiCard title="Total Projects" value={kpis?.total_managed_projects ?? pmSummary?.total_projects ?? 0} sub="Under Management" icon={<FolderCheck className="w-5 h-5 text-indigo-600" />} accent="text-indigo-700" bg="bg-indigo-50" />
+            <KpiCard title="Active Projects" value={pmSummary?.active_projects ?? 0} sub="Ongoing Deployments" icon={<TrendingUp className="w-5 h-5 text-emerald-600" />} accent="text-emerald-700" bg="bg-emerald-50" />
+            <KpiCard title="Completed" value={pmSummary?.completed_projects ?? 0} sub="Handed Over" icon={<CheckCircle className="w-5 h-5 text-blue-600" />} accent="text-blue-700" bg="bg-blue-50" />
+            <KpiCard title="Delayed Sites" value={kpis?.delayed_sites_count ?? pmSummary?.delayed_projects ?? 0} sub="Needs Attention" icon={<AlertCircle className="w-5 h-5 text-rose-600" />} accent="text-rose-700" bg="bg-rose-50" />
+            <KpiCard title="Avg Completion" value={`${kpis?.avg_completion_percent ?? 0}%`} sub="Portfolio Progress" icon={<Activity className="w-5 h-5 text-purple-600" />} accent="text-purple-700" bg="bg-purple-50" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard title="Open Issues"        value={pmSummary?.open_issues ?? 0}                                        sub="Requiring Intervention" icon={<Info className="w-5 h-5 text-orange-500" />}          accent="text-orange-600"  bg="bg-orange-50" />
-            <KpiCard title="Pending Approvals"  value={pmSummary?.pending_approvals ?? kpis?.pending_reviews_count ?? 0}  sub="Authorization Queue"   icon={<Clock className="w-5 h-5 text-amber-500" />}           accent="text-amber-600"   bg="bg-amber-50" />
-            <KpiCard title="Budget Utilized"    value={`${pmSummary?.budget_utilized_percent ?? 0}%`}                      sub="Of Total Allocated"    icon={<PieChart className="w-5 h-5 text-teal-600" />}          accent="text-teal-700"    bg="bg-teal-50" />
-            <KpiCard title="Today's Activities" value={pmSummary?.todays_activities ?? 0}                                  sub="Logged Today"          icon={<CalendarDays className="w-5 h-5 text-sky-600" />}       accent="text-sky-700"     bg="bg-sky-50" />
+            <KpiCard title="Open Issues" value={pmSummary?.open_issues ?? 0} sub="Requiring Intervention" icon={<Info className="w-5 h-5 text-orange-500" />} accent="text-orange-600" bg="bg-orange-50" />
+            <KpiCard title="Pending Approvals" value={pmSummary?.pending_approvals ?? kpis?.pending_reviews_count ?? 0} sub="Authorization Queue" icon={<Clock className="w-5 h-5 text-amber-500" />} accent="text-amber-600" bg="bg-amber-50" />
+            <KpiCard title="Budget Utilized" value={`${pmSummary?.budget_utilized_percent ?? 0}%`} sub="Of Total Allocated" icon={<PieChart className="w-5 h-5 text-teal-600" />} accent="text-teal-700" bg="bg-teal-50" />
+            <KpiCard title="Today's Activities" value={pmSummary?.todays_activities ?? 0} sub="Logged Today" icon={<CalendarDays className="w-5 h-5 text-sky-600" />} accent="text-sky-700" bg="bg-sky-50" />
           </div>
 
           {/* ── Row A: Project Performance (2/3) + Quality/Safety + Alerts (1/3) ── */}
@@ -423,10 +430,11 @@ const ManagerDashboard = () => {
                 <h3 className="font-bold text-slate-800 text-sm mb-3">Quick Navigation</h3>
                 <div className="space-y-2">
                   {[
+                    { label: "My Attendance", to: "/manager/attendance", color: "text-blue-600" },
                     { label: "View All Projects", to: "/manager/projects", color: "text-indigo-600" },
-                    { label: "Safety Reports",    to: "/manager/safety",   color: "text-rose-600" },
-                    { label: "QC Inspections",    to: "/manager/qc",       color: "text-emerald-600" },
-                    { label: "Analytics",         to: "/manager/reports",  color: "text-slate-600" },
+                    { label: "Safety Reports", to: "/manager/safety", color: "text-rose-600" },
+                    { label: "QC Inspections", to: "/manager/qc", color: "text-emerald-600" },
+                    { label: "Analytics", to: "/manager/reports", color: "text-slate-600" },
                   ].map((l) => (
                     <Link key={l.to} to={l.to} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 transition-colors group">
                       <span className={`text-xs font-semibold ${l.color}`}>{l.label}</span>

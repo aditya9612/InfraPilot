@@ -208,6 +208,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
+    { label: "My Attendance", path: "/manager/attendance", icon: "calendar" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
     {
       label: "Work Progress",

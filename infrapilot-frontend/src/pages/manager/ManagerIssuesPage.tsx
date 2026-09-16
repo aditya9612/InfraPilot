@@ -236,8 +236,17 @@ const ManagerIssuesPage = () => {
     const handleUpdate = async () => {
         if (!selectedIssue) return;
 
-        if (formData.status === "Closed" && (!formData.resolution || formData.resolution.trim() === "")) {
-            toast.error("Resolution is required to close the issue.");
+        if (
+            !formData.title?.trim() ||
+            !formData.category?.trim() ||
+            !formData.description?.trim() ||
+            !formData.priority?.trim() ||
+            !formData.status?.trim() ||
+            !formData.reported_date ||
+            !formData.resolution?.trim() ||
+            Number(formData.assigned_to) === 0
+        ) {
+            toast.error("All fields are mandatory.");
             return;
         }
 
@@ -256,7 +265,7 @@ const ManagerIssuesPage = () => {
             setIsEditModalOpen(false);
             setSelectedIssue(null);
             fetchIssues();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error); toast.error(error.response?.data?.message || "Failed to update issue");
         } finally {
             setIsSubmitting(false);
@@ -613,7 +622,7 @@ const ManagerIssuesPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title *</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title <span className="text-rose-500">*</span></label>
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
@@ -630,7 +639,7 @@ const ManagerIssuesPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description *</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description <span className="text-rose-500">*</span></label>
                         <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                     </div>
                     <div>
@@ -661,29 +670,29 @@ const ManagerIssuesPage = () => {
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title *</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title <span className="text-rose-500">*</span></label>
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category <span className="text-rose-500">*</span></label>
                             <select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Material">Material</option><option value="Safety">Safety</option><option value="Delay">Delay</option>
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description *</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description <span className="text-rose-500">*</span></label>
                         <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority <span className="text-rose-500">*</span></label>
                             <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Status</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Status <span className="text-rose-500">*</span></label>
                             <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Open">Open</option><option value="Closed">Closed</option>
                             </select>
@@ -691,7 +700,7 @@ const ManagerIssuesPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Assigned To</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Assigned To <span className="text-rose-500">*</span></label>
                             <select name="assigned_to" value={formData.assigned_to || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value={0}>Unassigned</option>
                                 {projectMembers.map(member => (
@@ -702,12 +711,12 @@ const ManagerIssuesPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date <span className="text-rose-500">*</span></label>
                             <input type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution <span className="text-rose-500">*</span></label>
                         <textarea name="resolution" value={formData.resolution || ""} onChange={handleInputChange} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" placeholder="Details of how the issue was resolved (if closed)..." />
                     </div>
                 </div>
