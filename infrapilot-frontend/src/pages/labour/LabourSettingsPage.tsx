@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Check, Trash2, Upload, Calendar, MapPin, AlertTriangle, Landmark, ShieldCheck, Loader2, Edit2, Sliders, Bell, Mail, Smartphone, Phone } from 'lucide-react';
+import { User, Check, Trash2, Upload, Calendar, MapPin, AlertTriangle, Loader2, Edit2, Sliders, Bell, Mail, Smartphone, Phone } from 'lucide-react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import { useAuth } from '../../context/AuthContext';
@@ -17,7 +17,6 @@ const LabourSettingsPage: React.FC = () => {
 
     // Edit Modes
     const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [isEditingBank, setIsEditingBank] = useState(false);
 
     // Profile State
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -38,13 +37,6 @@ const LabourSettingsPage: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Bank Details (Local state for now as it's not in the requested APIs)
-    const [bankDetails, setBankDetails] = useState({
-        accountNumber: '•••• •••• 5678',
-        bankName: 'HDFC Bank',
-        ifscCode: 'HDFC0001234',
-        upiId: 'labour@upi'
-    });
 
     useEffect(() => {
         fetchData();
@@ -233,14 +225,6 @@ const LabourSettingsPage: React.FC = () => {
         }
     };
 
-    const handleSaveBank = () => {
-        setIsSaving(true);
-        setTimeout(() => {
-            setIsSaving(false);
-            setIsEditingBank(false);
-            toast.success("Bank details updated successfully");
-        }, 800);
-    };
 
     return (
         <>
@@ -444,102 +428,7 @@ const LabourSettingsPage: React.FC = () => {
                         {/* Lower Cards Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-                            {/* Bank Details Card */}
-                            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">
-                                <div className="flex items-center justify-between border-b border-slate-50 pb-6">
-                                    <div className="flex items-center gap-3 text-slate-400">
-                                        <Landmark className="w-4 h-4" />
-                                        <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">BANK DETAILS</h2>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full">
-                                        <ShieldCheck className="w-3 h-3" />
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Verified</span>
-                                    </div>
-                                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACCOUNT NUMBER</label>
-                                        <input
-                                            type="text"
-                                            value={bankDetails.accountNumber}
-                                            disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                                            className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all font-mono ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">BANK NAME</label>
-                                        <input
-                                            type="text"
-                                            value={bankDetails.bankName}
-                                            disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                                            className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">IFSC CODE</label>
-                                        <input
-                                            type="text"
-                                            value={bankDetails.ifscCode}
-                                            disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({ ...bankDetails, ifscCode: e.target.value })}
-                                            className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all uppercase ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UPI ID</label>
-                                        <input
-                                            type="text"
-                                            value={bankDetails.upiId}
-                                            disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({ ...bankDetails, upiId: e.target.value })}
-                                            className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center shrink-0">
-                                        <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest">SECURITY VERIFIED</p>
-                                        </div>
-                                        <p className="text-[10px] font-bold text-indigo-600/70 leading-relaxed mt-1">Your payment details are encrypted and stored securely. Only authorized payroll personnel can view this information.</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end gap-4">
-                                    {!isEditingBank ? (
-                                        <button
-                                            onClick={() => setIsEditingBank(true)}
-                                            className="px-8 py-3.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-100 transition-all shadow-sm"
-                                        >
-                                            <Edit2 className="w-3.5 h-3.5" /> Edit Bank Details
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={() => setIsEditingBank(false)}
-                                                className="px-8 py-3.5 text-slate-400 font-black text-[10px] uppercase tracking-widest"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                onClick={handleSaveBank}
-                                                disabled={isSaving}
-                                                className="px-8 py-3.5 bg-[#0062ff] text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-blue-100"
-                                            >
-                                                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                                Save Bank Details
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
 
                             {/* Project Selection Card */}
                             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">

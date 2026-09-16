@@ -407,15 +407,7 @@ const ClientNotificationsPage = () => {
                           <p className="text-[10px] font-bold text-slate-400 mt-0.5">{formatTableTime(timestampVal)}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleDirectNavigate(notif)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
-                              title="Go to related page"
-                            >
-                              <span>Open</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </button>
+                          <div className="flex items-center justify-end">
                             <button
                               onClick={() => handleViewDetails(notif)}
                               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer"
@@ -490,7 +482,7 @@ const ClientNotificationsPage = () => {
                 <p className="text-sm text-slate-700 font-medium leading-relaxed">{viewingNotif.message || "No message content."}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <div className={`bg-slate-50 rounded-xl p-3 border border-slate-100 ${!viewingNotif.entity_type && !viewingNotif.reference_id ? "col-span-2" : ""}`}>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Received At</p>
                   <p className="text-xs font-bold text-slate-700">{formatDateTime(viewingNotif.created_at)}</p>
                 </div>
@@ -506,10 +498,6 @@ const ClientNotificationsPage = () => {
                     <p className="text-xs font-bold text-slate-700">#{viewingNotif.reference_id}</p>
                   </div>
                 )}
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Notification ID</p>
-                  <p className="text-xs font-bold text-slate-700">#{viewingNotif.id}</p>
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button

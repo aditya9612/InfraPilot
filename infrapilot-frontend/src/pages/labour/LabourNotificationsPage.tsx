@@ -684,7 +684,7 @@ const LabourNotificationsPage = () => {
                 </button>
                 <button
                   onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                  className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
+                  className="py-3 bg-primary hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
                 >
                   Dismiss
                 </button>
