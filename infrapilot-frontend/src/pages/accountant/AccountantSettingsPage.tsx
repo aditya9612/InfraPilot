@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import api from "../../services/api";
 import { projectService } from "../../services/projectService";
 import { 
-  User, Bell, Ruler, Folder, Building, DollarSign, Receipt, BookOpen, Search 
+  User, Bell, Ruler, Folder, Building, DollarSign, Receipt, BookOpen, Search, Lock 
 } from "lucide-react";
 
 type TabKey = "profile" | "notifications" | "units" | "default_project" | "general" | "financial" | "billing" | "ledger";
@@ -176,7 +176,7 @@ const DefaultProjectForm = ({ data, onChange }: { data: any, onChange: (d: any) 
   );
 };
 
-const GeneralCompanyForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => {
+const GeneralCompanyForm = ({ data, onChange, canEdit = true }: { data: any, onChange: (d: any) => void, canEdit?: boolean }) => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,28 +206,29 @@ const GeneralCompanyForm = ({ data, onChange }: { data: any, onChange: (d: any) 
       {/* Company Information */}
       <div className="mb-6">
         <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Company Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Company Name <span className="text-rose-500">*</span></label><input type="text" value={data.company_name || ""} onChange={(e) => onChange({...data, company_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+          {canEdit === false && <div className="absolute inset-0 z-10 rounded-xl bg-transparent" title="You do not have permission to edit General settings"></div>}
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Company Name <span className="text-rose-500">*</span></label><input type="text" value={data.company_name || ""} onChange={(e) => onChange({...data, company_name: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Company Logo</label>
             <div className="flex gap-2 items-center">
-              <input type="file" onChange={handleLogoUpload} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+              <input type="file" onChange={handleLogoUpload} disabled={!canEdit} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
               {uploadingLogo && <div className="px-4 py-2 text-sm text-slate-500 flex items-center">Uploading...</div>}
               {data.company_logo_url && <img src={data.company_logo_url} alt="Logo" className="w-10 h-10 object-contain border border-slate-200 rounded bg-white" />}
             </div>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">CIN Number</label><input type="text" value={data.cin_number || ""} onChange={(e) => onChange({...data, cin_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Website</label><input type="text" value={data.website || ""} onChange={(e) => onChange({...data, website: e.target.value})} placeholder="e.g. www.example.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Website</label><input type="text" value={data.website || ""} onChange={(e) => onChange({...data, website: e.target.value})} placeholder="e.g. www.example.com" disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
         </div>
       </div>
 
       {/* Contact Information */}
-      <div>
+      <div className="relative">
+        {canEdit === false && <div className="absolute inset-0 z-10 rounded-xl bg-transparent"></div>}
         <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Contact Information</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contact Number</label><input type="text" value={data.contact_number || ""} onChange={(e) => onChange({...data, contact_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contact Email</label><input type="email" value={data.contact_email || ""} onChange={(e) => onChange({...data, contact_email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Registered Address</label><textarea rows={3} value={data.registered_address || ""} onChange={(e) => onChange({...data, registered_address: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contact Number</label><input type="text" value={data.contact_number || ""} onChange={(e) => onChange({...data, contact_number: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Contact Email</label><input type="email" value={data.contact_email || ""} onChange={(e) => onChange({...data, contact_email: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Address</label><textarea rows={3} value={data.registered_address || ""} onChange={(e) => onChange({...data, registered_address: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}></textarea></div>
         </div>
       </div>
 
@@ -235,27 +236,20 @@ const GeneralCompanyForm = ({ data, onChange }: { data: any, onChange: (d: any) 
   );
 };
 
-const FinancialForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
-  <div className="space-y-6">
+const FinancialForm = ({ data, onChange, canEdit = true }: { data: any, onChange: (d: any) => void, canEdit?: boolean }) => (
+  <div className="space-y-6 relative">
+    {canEdit === false && <div className="absolute inset-0 z-10 rounded-xl bg-transparent" title="You do not have permission to edit Financial settings"></div>}
     <h3 className="text-lg font-black text-slate-800 mb-6">Financial Settings</h3>
     
     <div className="mb-6">
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Currency & Precision</h4>
+      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Currency</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Base Currency</label>
-          <select value={data.currency || "INR"} onChange={(e) => onChange({...data, currency: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Currency</label>
+          <select value={data.currency || "INR"} onChange={(e) => onChange({...data, currency: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}>
             <option value="INR">INR (₹)</option>
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Decimal Precision</label>
-          <select value={data.decimal_precision || 2} onChange={(e) => onChange({...data, decimal_precision: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            <option value={0}>0 Decimal Places</option>
-            <option value={2}>2 Decimal Places</option>
-            <option value={3}>3 Decimal Places</option>
           </select>
         </div>
       </div>
@@ -265,24 +259,18 @@ const FinancialForm = ({ data, onChange }: { data: any, onChange: (d: any) => vo
       <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Financial Year</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Financial Year Name</label>
-          <input type="text" value={data.financial_year || ""} onChange={(e) => onChange({...data, financial_year: e.target.value})} placeholder="e.g. 2026-2027" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Financial Year</label>
+          <input type="text" value={data.financial_year || ""} onChange={(e) => onChange({...data, financial_year: e.target.value})} placeholder="e.g. 2026-2027" disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
         </div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Start Date</label><input type="date" value={data.financial_year_start || ""} onChange={(e) => onChange({...data, financial_year_start: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">End Date</label><input type="date" value={data.financial_year_end || ""} onChange={(e) => onChange({...data, financial_year_end: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
       </div>
     </div>
 
     <div className="mb-6">
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Tax / GST Details</h4>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Default GST Rate (%)</label><input type="number" value={data.default_gst_rate || ""} onChange={(e) => onChange({...data, default_gst_rate: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Tax Settings</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Tax Setup</label>
-          <select value={data.tax_setup || "Inclusive"} onChange={(e) => onChange({...data, tax_setup: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            <option value="Inclusive">Inclusive (Tax included in price)</option>
-            <option value="Exclusive">Exclusive (Tax added on top)</option>
-          </select>
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Tax Settings</label>
+          <input type="text" value={data.tax_settings || ""} onChange={(e) => onChange({...data, tax_settings: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
         </div>
       </div>
     </div>
@@ -290,99 +278,82 @@ const FinancialForm = ({ data, onChange }: { data: any, onChange: (d: any) => vo
     <div className="mb-6">
       <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Invoice Format</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Prefix</label><input type="text" value={data.invoice_prefix || ""} onChange={(e) => onChange({...data, invoice_prefix: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Starting Number</label><input type="text" value={data.invoice_starting_number || ""} onChange={(e) => onChange({...data, invoice_starting_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">RA Bill Prefix</label><input type="text" value={data.ra_bill_prefix || ""} onChange={(e) => onChange({...data, ra_bill_prefix: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">RA Bill Starting Number</label><input type="text" value={data.ra_bill_starting_number || ""} onChange={(e) => onChange({...data, ra_bill_starting_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Format</label>
+          <input type="text" value={data.invoice_format || ""} onChange={(e) => onChange({...data, invoice_format: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
+        </div>
       </div>
     </div>
     
     <div>
       <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Payment Terms</h4>
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Default Payment Terms</label>
-          <select value={data.default_payment_terms || "Net 30"} onChange={(e) => onChange({...data, default_payment_terms: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            <option value="Due on Receipt">Due on Receipt</option>
-            <option value="Net 15">Net 15 Days</option>
-            <option value="Net 30">Net 30 Days</option>
-            <option value="Net 45">Net 45 Days</option>
-            <option value="Net 60">Net 60 Days</option>
-          </select>
+          <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Terms</label>
+          <input type="text" value={data.payment_terms || ""} onChange={(e) => onChange({...data, payment_terms: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
         </div>
       </div>
     </div>
   </div>
 );
 
-const BillingForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
-  <div className="space-y-6">
+const BillingForm = ({ data, onChange, canEdit = true }: { data: any, onChange: (d: any) => void, canEdit?: boolean }) => (
+  <div className="space-y-6 relative">
+    {canEdit === false && <div className="absolute inset-0 z-10 rounded-xl bg-transparent" title="You do not have permission to edit Billing settings"></div>}
     <h3 className="text-lg font-black text-slate-800 mb-6">Billing & Invoicing</h3>
     
-    <div className="mb-6">
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Tax Identification</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Number (GSTIN) <span className="text-rose-500">*</span></label><input type="text" value={data.gstin || ""} onChange={(e) => onChange({...data, gstin: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">PAN Number <span className="text-rose-500">*</span></label><input type="text" value={data.pan_number || ""} onChange={(e) => onChange({...data, pan_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-      </div>
-    </div>
-
-    <div className="mb-6">
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Bank Details</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Name</label><input type="text" value={data.bank_name || ""} onChange={(e) => onChange({...data, bank_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Name</label><input type="text" value={data.account_name || ""} onChange={(e) => onChange({...data, account_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Number</label><input type="text" value={data.account_number || ""} onChange={(e) => onChange({...data, account_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">IFSC Code</label><input type="text" value={data.ifsc_code || ""} onChange={(e) => onChange({...data, ifsc_code: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Branch Name</label><input type="text" value={data.branch_name || ""} onChange={(e) => onChange({...data, branch_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div>
-      </div>
-    </div>
-
-    <div className="mb-6">
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">UPI Payments</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">UPI ID / VPA</label><input type="text" value={data.upi_id || ""} onChange={(e) => onChange({...data, upi_id: e.target.value})} placeholder="e.g. merchant@bank" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono" /></div>
-      </div>
-    </div>
-
-    <div>
-      <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Terms & Conditions</h4>
-      <div className="grid grid-cols-1 gap-6">
-        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Default Terms & Conditions (Footer)</label><textarea rows={4} value={data.terms_conditions || data.footer_notes || ""} onChange={(e) => onChange({...data, terms_conditions: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></textarea></div>
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Number</label><input type="text" value={data.gstin || ""} onChange={(e) => onChange({...data, gstin: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Name</label><input type="text" value={data.bank_name || ""} onChange={(e) => onChange({...data, bank_name: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Number</label><input type="password" value={data.account_number || ""} onChange={(e) => onChange({...data, account_number: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">IFSC Code</label><input type="text" value={data.ifsc_code || ""} onChange={(e) => onChange({...data, ifsc_code: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">UPI</label><input type="text" value={data.upi_id || ""} onChange={(e) => onChange({...data, upi_id: e.target.value})} placeholder="e.g. merchant@bank" disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} /></div>
+      <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Terms & Conditions</label><textarea rows={4} value={data.terms_conditions || data.footer_notes || ""} onChange={(e) => onChange({...data, terms_conditions: e.target.value})} disabled={!canEdit} className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${!canEdit ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}></textarea></div>
     </div>
   </div>
 );
 
-const LedgerForm = ({ data, onChange }: { data: any, onChange: (d: any) => void }) => (
+const LedgerForm = ({ data, onChange, canEdit = true }: { data: any, onChange: (d: any) => void, canEdit?: boolean }) => (
   <div className="space-y-6">
-    <h3 className="text-lg font-black text-slate-800 mb-6">Ledger Account Mappings</h3>
-    <p className="text-xs text-slate-500 mb-6">Map default ledger accounts for automated journal entries.</p>
+    <div className="flex justify-between items-center mb-6">
+      <div>
+        <h3 className="text-lg font-black text-slate-800">Ledger Account Mappings</h3>
+        <p className="text-xs text-slate-500 mt-1">Map default ledger accounts for automated journal entries.</p>
+      </div>
+      {canEdit === false && (
+        <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold uppercase tracking-wider">
+          <Lock className="w-3 h-3" /> View Only
+        </span>
+      )}
+    </div>
     
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+      {canEdit === false && (
+        <div className="absolute inset-0 z-10 rounded-xl bg-transparent" title="You do not have permission to edit Ledger settings"></div>
+      )}
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Primary Cash Account</label>
-        <input type="text" value={data.primary_cash_account || ""} onChange={(e) => onChange({...data, primary_cash_account: e.target.value})} placeholder="e.g. Petty Cash HQ" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.primary_cash_account || ""} onChange={(e) => onChange({...data, primary_cash_account: e.target.value})} disabled={canEdit === false} placeholder="e.g. Petty Cash HQ" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Payable Account</label>
-        <input type="text" value={data.tds_payable_account || ""} onChange={(e) => onChange({...data, tds_payable_account: e.target.value})} placeholder="e.g. TDS on Contractor" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.tds_payable_account || ""} onChange={(e) => onChange({...data, tds_payable_account: e.target.value})} disabled={canEdit === false} placeholder="e.g. TDS on Contractor" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Wages Account</label>
-        <input type="text" value={data.wages_account || ""} onChange={(e) => onChange({...data, wages_account: e.target.value})} placeholder="e.g. Labour Wages Payable" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.wages_account || ""} onChange={(e) => onChange({...data, wages_account: e.target.value})} disabled={canEdit === false} placeholder="e.g. Labour Wages Payable" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Petty Cash Account</label>
-        <input type="text" value={data.petty_cash_account || ""} onChange={(e) => onChange({...data, petty_cash_account: e.target.value})} placeholder="e.g. Site Petty Cash" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.petty_cash_account || ""} onChange={(e) => onChange({...data, petty_cash_account: e.target.value})} disabled={canEdit === false} placeholder="e.g. Site Petty Cash" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Retention Payable Account</label>
-        <input type="text" value={data.retention_payable_account || ""} onChange={(e) => onChange({...data, retention_payable_account: e.target.value})} placeholder="e.g. Contractor Retention" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.retention_payable_account || ""} onChange={(e) => onChange({...data, retention_payable_account: e.target.value})} disabled={canEdit === false} placeholder="e.g. Contractor Retention" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Other Ledger Mappings</label>
-        <input type="text" value={data.other_ledger_mappings || ""} onChange={(e) => onChange({...data, other_ledger_mappings: e.target.value})} placeholder="e.g. Suspense A/C" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <input type="text" value={data.other_ledger_mappings || ""} onChange={(e) => onChange({...data, other_ledger_mappings: e.target.value})} disabled={canEdit === false} placeholder="e.g. Suspense A/C" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm ${canEdit === false ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`} />
       </div>
     </div>
   </div>
@@ -401,6 +372,26 @@ export default function AccountantSettingsPage() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- PERMISSIONS ABSTRACTION ---
+  // In the future, this should be derived from the user's role or a permission context.
+  const permissions = {
+    canEditGeneral: true,
+    canEditFinancial: true,
+    canEditBilling: true,
+    canViewLedger: true,
+    canEditLedger: false, // Accountant default restricted
+  };
+
+  const isEditable = () => {
+    switch (activeTab) {
+      case "general": return permissions.canEditGeneral;
+      case "financial": return permissions.canEditFinancial;
+      case "billing": return permissions.canEditBilling;
+      case "ledger": return permissions.canEditLedger;
+      default: return true;
+    }
+  };
 
   useEffect(() => {
     const tabFromUrl = searchParams.get("tab") as TabKey;
@@ -468,10 +459,10 @@ export default function AccountantSettingsPage() {
       case "notifications": return <NotificationsForm data={appSettingsData} onChange={setAppSettingsData} />;
       case "units": return <UnitsForm data={appSettingsData} onChange={setAppSettingsData} />;
       case "default_project": return <DefaultProjectForm data={appSettingsData} onChange={setAppSettingsData} />;
-      case "general": return <GeneralCompanyForm data={companyData} onChange={setCompanyData} />;
-      case "financial": return <FinancialForm data={companyData} onChange={setCompanyData} />;
-      case "billing": return <BillingForm data={companyData} onChange={setCompanyData} />;
-      case "ledger": return <LedgerForm data={companyData} onChange={setCompanyData} />;
+      case "general": return <GeneralCompanyForm data={companyData} onChange={setCompanyData} canEdit={permissions.canEditGeneral} />;
+      case "financial": return <FinancialForm data={companyData} onChange={setCompanyData} canEdit={permissions.canEditFinancial} />;
+      case "billing": return <BillingForm data={companyData} onChange={setCompanyData} canEdit={permissions.canEditBilling} />;
+      case "ledger": return <LedgerForm data={companyData} onChange={setCompanyData} canEdit={permissions.canEditLedger} />;
       default: return <ProfileForm data={profileData} onChange={setProfileData} />;
     }
   };
@@ -540,13 +531,15 @@ export default function AccountantSettingsPage() {
               
               {/* Bottom Actions */}
               <div className="p-6 border-t border-slate-100 flex items-center justify-end bg-slate-50/50 rounded-b-2xl">
-                <button 
-                  onClick={handleSave}
-                  disabled={isSaving || isLoading}
-                  className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? "Saving..." : "Save Configuration"}
-                </button>
+                {isEditable() && (
+                  <button 
+                    onClick={handleSave}
+                    disabled={isSaving || isLoading}
+                    className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? "Saving..." : "Save Configuration"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

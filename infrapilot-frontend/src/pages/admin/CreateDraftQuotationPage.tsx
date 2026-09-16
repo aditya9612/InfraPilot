@@ -14,11 +14,11 @@ import {
   Save,
   MessageCircle,
   PlusCircle,
-  Building,
   CheckCircle,
   XCircle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -550,7 +550,7 @@ const CreateDraftQuotationPage = () => {
       setIsConvertingInvoice(true);
       await financeService.convertQuotationToInvoice(Number(id));
       toast.success("Converted to invoice successfully!");
-      navigate("/admin/finance/invoices");
+      navigate(location.pathname.includes('/accountant') ? "/accountant/receivables" : "/admin/finance/invoices");
     } catch (err: any) {
       toast.error(err.message || "Failed to convert to invoice");
     } finally {
@@ -875,6 +875,13 @@ const CreateDraftQuotationPage = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
                 {id ? "Draft Quotation Intelligence" : "Draft Quotation Details"}
                 {status === "approved" && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">

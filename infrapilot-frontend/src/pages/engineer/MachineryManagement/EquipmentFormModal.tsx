@@ -145,10 +145,19 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             </select>
                         </div>
 
-                        <div>
-                            <label className={labelClasses}>Rental Cost (₹) <span className="text-red-600">*</span></label>
-                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
-                        </div>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className={labelClasses}>Rental Cost (₹) <span className="text-red-600">*</span></label>
+                                    <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
+                                </div>
+                                <div className="w-[140px]">
+                                    <label className={labelClasses}>Unit</label>
+                                    <select value={formData.cost_unit || 'PER_MONTH'} onChange={(e) => setFormData({ ...formData, cost_unit: e.target.value })} className={inputClasses}>
+                                        <option value="PER_MONTH">Per Month</option>
+                                        <option value="PER_DAY">Per Day</option>
+                                    </select>
+                                </div>
+                            </div>
                         <div>
                             <label className={labelClasses}>Maintenance Date <span className="text-red-600">*</span></label>
                             <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={inputClasses} />

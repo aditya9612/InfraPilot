@@ -157,6 +157,7 @@ import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
 import ApprovalCenterPage from "../pages/accountant/ApprovalCenterPage";
+import AccountantCreateInvoice from "../pages/accountant/AccountantCreateInvoice";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import LabourDashboard from "../pages/labour/LabourDashboard";
 import MyTasksPage from "../pages/labour/MyTasksPage";
@@ -686,6 +687,11 @@ function AppRoutes() {
                   path="/accountant/approvals/:category"
                   element={<ApprovalCenterPage />}
                 />
+                <Route path="/accountant/invoices/create" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/invoices/view/:id" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/quotations/view/:id" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/quotations/draft/new" element={<CreateDraftQuotationPage />} />
+                <Route path="/accountant/quotations/draft/:id" element={<CreateDraftQuotationPage />} />
               </Route>
             </Route>
           </Route>

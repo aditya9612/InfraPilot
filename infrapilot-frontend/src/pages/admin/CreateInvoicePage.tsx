@@ -17,11 +17,11 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Building,
   CheckCircle,
   XCircle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -67,7 +67,7 @@ const CreateInvoicePage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewLoading] = useState(false);
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
@@ -908,32 +908,6 @@ const CreateInvoicePage = () => {
   };
 
   // Implement Professional Direct Download
-  // Helper to convert number to Indian currency words
-  const toWords = (num: number) => {
-    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-    const inWords = (n: any): string => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n_arr) return '';
-      let str = '';
-      str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
-      str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
-      str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
-      str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
-      str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
-      return str;
-    };
-
-    const amount = Math.floor(num);
-    const paisa = Math.round((num - amount) * 100);
-    let res = inWords(amount) + "Rupees Only";
-    if (paisa > 0) {
-      res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
-    }
-    return res;
-  };
 
   // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
@@ -1394,6 +1368,13 @@ const CreateInvoicePage = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
                 {id ? "Quotation Intelligence" : "Quotation Details"}
                 {status === "approved" && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">

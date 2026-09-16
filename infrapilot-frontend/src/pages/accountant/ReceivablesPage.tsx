@@ -1,20 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-
-import AccountantCreateInvoice from "./AccountantCreateInvoice";
 import { quotationService } from "../../services/quotationService";
 import api from "../../services/api";
 import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
 import { financeService } from "../../services/financeService";
 import { ownerService } from "../../services/ownerService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle, Plus, ChevronDown } from "lucide-react";
-import QuotationViewModal from "./QuotationViewModal";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X, User, Briefcase, AlertCircle, Plus, ChevronDown, Search, Layers, Clock, Trash2 } from "lucide-react";
+import SortDropdown from "../../components/common/SortDropdown";
+import StatCard from "../../components/common/StatCard";
+import RejectReasonModal from "../../components/common/RejectReasonModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
 import CreateManualReceivableModal from "../../components/forms/CreateManualReceivableModal";
@@ -129,481 +129,515 @@ const statusBadge = (s: any) => {
 
 
 
-const InvoicesSection = ({
-  initialSubTab,
-}: {
-  initialSubTab?: string;
-}) => {
-  const [activeSubTab, setActiveSubTab] = useState<"quotation_list" | "create" | "approval" | "invoice_list">(
-    (initialSubTab as any) || "quotation_list"
-  );
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProject, setSelectedProject] = useState("All");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [editingInvoice, setEditingInvoice] = useState<any>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
-  const [viewQuotationId, setViewQuotationId] = useState<number | null>(null);
+const QuotationsSection = () => {
+    const navigate = useNavigate();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [activeTab, setActiveTab] = useState<"quotations" | "dummy_quotations">("quotations");
+    const [quotations, setQuotations] = useState<any[]>([]);
+    const [dummyQuotations, setDummyQuotations] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [recordsPerPage, setRecordsPerPage] = useState(10);
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
-  const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
-  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+    // Modal state
+    const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState<number | null>(null);
+    const [isRejecting, setIsRejecting] = useState(false);
+    const [isFetchingPreview, setIsFetchingPreview] = useState(false);
+    const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
 
-  const handleExportReceivables = async () => {
-    try {
-      toast.loading("Exporting receivables...", { id: "export-rec" });
-      const blob = await financeService.exportReceivables();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Receivables_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Receivables Exported!", { id: "export-rec" });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to export receivables", { id: "export-rec" });
-    }
-  };
-
-  const handleImportReceivables = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      toast.loading("Importing receivables...", { id: "import-rec" });
-      const formData = new FormData();
-      formData.append("file", file);
-      await financeService.importReceivables(formData);
-      toast.success("Receivables imported successfully!", { id: "import-rec" });
-      // Optionally trigger a refresh
-      const data = await quotationService.getQuotations();
-      setInvoices(data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to import receivables", { id: "import-rec" });
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  useEffect(() => {
     const fetchQuotations = async () => {
-      try {
-        const data = await quotationService.getQuotations();
-        setInvoices(data);
-      } catch (err) {
-        console.error("Failed to fetch quotations:", err);
-      }
+        try {
+            setIsLoading(true);
+            const [data, dummyData] = await Promise.all([
+                quotationService.getQuotations(),
+                quotationService.getDummyQuotations()
+            ]);
+            setQuotations(data);
+            setDummyQuotations(dummyData);
+        } catch (error) {
+            toast.error("Failed to fetch quotations");
+        } finally {
+            setIsLoading(false);
+        }
     };
-    const fetchProjects = async () => {
-      try {
-        const data = await projectService.getProjects();
-        setProjects(Array.isArray(data) ? data : data.items || []);
-      } catch (err) {
-        console.error("Failed to fetch projects:", err);
-      }
-    };
-    fetchQuotations();
-    fetchProjects();
-  }, []);
 
-  const handleApprove = async (id: number) => {
-    // Optimistic update to hide immediately
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: true, status: "approved", payment_status: "Paid" } : inv));
-    try {
-      await quotationService.approveQuotation(id, "Quotation approved");
-      toast.success("Quotation approved!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to approve quotation");
-      // Revert on error
-      const data = await quotationService.getQuotations();
-      setInvoices(data);
-    }
-  };
+    useEffect(() => {
+        fetchQuotations();
+    }, []);
 
-  const handleReject = async (id: number) => {
-    // Optimistic update to hide immediately
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: false, status: "rejected", payment_status: "Overdue" } : inv));
-    try {
-      await quotationService.rejectQuotation(id, "Rejected");
-      toast.success("Quotation rejected!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reject quotation");
-      // Revert on error
-      const data = await quotationService.getQuotations();
-      setInvoices(data);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteModalId) return;
-    try {
-      setIsDeleting(true);
-      await quotationService.deleteQuotation(deleteModalId);
-
-      // Refetch from server as requested
-      const data = await quotationService.getQuotations();
-      setInvoices(data);
-
-      toast.success("Quotation deleted successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete quotation");
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalId(null);
-    }
-  };
-
-  const handleConvertToInvoice = async (inv: any) => {
-    try {
-      toast.loading("Converting to invoice...", { id: "convert-invoice" });
-      const res = await api.post(`/invoices/from-quotation/${inv.id}`);
-      const newInvoice = res.data;
-
-      setInvoices(prev => {
-        const updated = prev.map(p => p.id === inv.id ? { ...p, status: "converted" } : p);
-        return [newInvoice, ...updated];
-      });
-
-      toast.success("Converted to invoice successfully!", { id: "convert-invoice" });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to convert to invoice", { id: "convert-invoice" });
-    }
-  };
-
-  const handleDownloadPDF = async (inv: any) => {
-    try {
-      toast.loading("Generating PDF...", { id: `pdf-${inv.id}` });
-      const blob = await quotationService.downloadQuotationPDF(inv.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Quotation_${inv.quotation_no || inv.invoice_number || inv.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("PDF Downloaded!", { id: `pdf-${inv.id}` });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to download PDF", { id: `pdf-${inv.id}` });
-    }
-  };
-
-  useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab as any);
-  }, [initialSubTab]);
-
-  const subTabs = [
-    { key: "quotation_list", label: "Quotation List" },
-    { key: "invoice_list", label: "Invoice List" },
-  ] as const;
-
-  const isConverted = (inv: any) => inv.status?.toLowerCase() === "converted" || inv.status?.toLowerCase() === "invoice";
-  const isApprovedOrRejected = (inv: any) => inv.is_approved || inv.status?.toLowerCase() === "approved" || inv.status?.toLowerCase() === "rejected";
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedProject, selectedStatus, activeSubTab]);
-
-  const filtered = [...invoices].filter(inv => {
-    const matchSearch = (inv.quotation_no || inv.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
-      (inv.client_name || "").toLowerCase().includes(search.toLowerCase());
-    const matchProject = selectedProject === "All" || inv.project_name === selectedProject;
-    const matchStatus = selectedStatus === "All" || (inv.status || inv.payment_status || "draft").toLowerCase() === selectedStatus.toLowerCase();
-
-    if (!matchSearch || !matchProject || !matchStatus) return false;
-
-    if (activeSubTab === "quotation_list") return !isConverted(inv);
-    if (activeSubTab === "invoice_list") return isConverted(inv);
-    return true; // For "create"
-  }).sort((a, b) => {
-    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-    if (dateA !== dateB) return dateB - dateA;
-    return (b.id || 0) - (a.id || 0);
-  });
-
-  const totalPages = Math.ceil(filtered.length / recordsPerPage);
-  const paginatedInvoices = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
-
-  // Stat calculations
-  const allQuotations = invoices.filter(inv => !isConverted(inv));
-  const activeQuotations = allQuotations.filter(inv => inv.status?.toLowerCase() !== "rejected" && inv.status?.toLowerCase() !== "declined");
-  const totalPipelineValue = activeQuotations.reduce((sum, inv) => sum + (Number(inv.grand_total) || Number(inv.total_with_gst) || 0), 0);
-
-  const approvedQuotationsCount = allQuotations.filter(inv => inv.status?.toLowerCase() === "approved" || inv.is_approved).length;
-  const winRate = allQuotations.length > 0 ? Math.round((approvedQuotationsCount / allQuotations.length) * 100) : 0;
-
-  const pendingDraftsCount = allQuotations.filter(inv => !inv.status || inv.status?.toLowerCase() === "draft").length;
-  const sentQuotationsCount = allQuotations.filter(inv => inv.status?.toLowerCase() === "sent").length;
-
-  return (
-    <div className="space-y-5">
-      {activeSubTab === "quotation_list" && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Total Pipeline Value</p>
-            <p className="text-2xl font-bold text-blue-600">{fmt(totalPipelineValue)}</p>
-            <p className="text-xs text-slate-400 mt-2">{activeQuotations.length} Active Quotations</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Win / Approval Rate</p>
-            <p className="text-2xl font-bold text-emerald-500">{winRate}%</p>
-            <p className="text-xs text-slate-400 mt-2">Based on all time</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Pending Drafts</p>
-            <p className="text-2xl font-bold text-orange-500">{pendingDraftsCount}</p>
-            <p className="text-xs text-slate-400 mt-2">Requires admin review</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-            <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Sent Quotations</p>
-            <p className="text-2xl font-bold text-indigo-500">{sentQuotationsCount}</p>
-            <p className="text-xs text-slate-400 mt-2">Awaiting client response</p>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
-          {subTabs.map(t => (
-            <button key={t.key} onClick={() => { setActiveSubTab(t.key); setEditingInvoice(null); }}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
-          {activeSubTab === "quotation_list" && (
-            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
-              <option value="All">ALL STATUS</option>
-              <option value="Draft">DRAFT</option>
-              <option value="Approved">APPROVED</option>
-              <option value="Rejected">REJECTED</option>
-            </select>
-          )}
-          <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
-            <option value="All">All Projects</option>
-            {projects.map(p => <option key={p.id} value={p.project_name || p.name}>{p.project_name || p.name}</option>)}
-          </select>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.xlsx,.xls" onChange={handleImportReceivables} />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
-            📥 Import
-          </button>
-          <button
-            onClick={handleExportReceivables}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
-            📤 Export
-          </button>
-
-          <div className="relative">
-              <button
-                  onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-              >
-                  <Plus className="w-4 h-4" /> Create New Quotation <ChevronDown className={`w-3 h-3 transition-transform ${isCreateDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isCreateDropdownOpen && (
-                  <>
-                      <div className="fixed inset-0 z-10" onClick={() => setIsCreateDropdownOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-20 py-2">
-                          <button
-                              onClick={() => {
-                                  setIsCreateDropdownOpen(false);
-                                  setActiveSubTab("create");
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
-                          >
-                              <span className="text-sm font-bold text-slate-800">Draft Quotation</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client & Items Only</span>
-                          </button>
-                          <div className="border-t border-slate-50 my-1" />
-                          <button
-                              onClick={() => {
-                                  setIsCreateDropdownOpen(false);
-                                  navigate("/accountant/quotations/create");
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
-                          >
-                              <span className="text-sm font-bold text-slate-800">Standard Quotation</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Detailed Editor</span>
-                          </button>
-                      </div>
-                  </>
-              )}
-          </div>
-        </div>
-      </div>
-
-      {(activeSubTab === "quotation_list" || activeSubTab === "invoice_list") && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto pb-3 scrollbar-thin">
-            <table className="w-full text-left min-w-max">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {paginatedInvoices.map(inv => (
-                  <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{inv.quotation_no || inv.invoice_number}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.company_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.mobile_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.site_address}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.project_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.project_type}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal ?? inv.amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total ?? inv.total_with_gst ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid ?? inv.received_amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due ?? inv.pending_amount ?? 0)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0, 10)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-row gap-3 items-center justify-start flex-nowrap">
-                        {activeSubTab === "quotation_list" && (
-                          <>
-                            {!isApprovedOrRejected(inv) && (
-                              <>
-                                <button onClick={() => handleApprove(inv.id)} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="Approve">
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleReject(inv.id)} className="text-rose-500 hover:text-rose-600 transition-colors" title="Reject">
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            {inv.status?.toLowerCase() !== "rejected" && (
-                              <button onClick={() => handleConvertToInvoice(inv)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Convert to Invoice">
-                                <Zap className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        <button onClick={() => setViewQuotationId(inv.id)} className="text-slate-400 hover:text-primary transition-colors" title="View">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {activeSubTab !== "invoice_list" && (
-                          <button onClick={() => { setEditingInvoice(inv); setActiveSubTab("create"); }} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => handleDownloadPDF(inv)} className="text-slate-400 hover:text-slate-700 transition-colors" title="Download">
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setDeleteModalId(inv.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select
-                value={recordsPerPage}
-                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
-              >
-                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <span className="text-xs text-slate-500 font-semibold">
-              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
-                {currentPage}
-              </span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSubTab === "create" && (
-        <AccountantCreateInvoice
-          editingInvoice={editingInvoice}
-          onCancel={() => { setActiveSubTab("quotation_list"); setEditingInvoice(null); }}
-          onSave={async (data) => {
-            try {
-              if (editingInvoice) {
-                const res = await quotationService.updateQuotation(editingInvoice.id, data);
-                setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? { ...inv, ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due } : inv));
-                toast.success("Invoice updated successfully!");
-              } else {
-                const res = await quotationService.createQuotation(data);
-
-                const newInv = { ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due };
-                setInvoices(prev => [newInv, ...prev]);
-                toast.success("Quotation created successfully!");
-              }
-              setActiveSubTab("quotation_list");
-              setEditingInvoice(null);
-            } catch (err: any) {
-              toast.error(err.message || "Failed to save quotation/invoice");
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setIsDeleting(true);
+        try {
+            if (activeTab === "dummy_quotations") {
+                await quotationService.deleteDummyQuotation(deleteTarget);
+            } else {
+                await quotationService.deleteQuotation(deleteTarget);
             }
-          }}
-        />
-      )}
+            toast.success("Quotation deleted");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to delete quotation");
+        } finally {
+            setIsDeleting(false);
+            setDeleteTarget(null);
+        }
+    };
 
-      {viewQuotationId && (
-        <QuotationViewModal
-          quotationId={viewQuotationId}
-          onClose={() => setViewQuotationId(null)}
-        />
-      )}
+    const filteredQuotations = useMemo(() => {
+        const sourceData = activeTab === "dummy_quotations" ? dummyQuotations : quotations;
+        const filtered = sourceData.filter(q => {
+            const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchStatus = statusFilter === "all" ||
+                q.status?.toLowerCase() === statusFilter.toLowerCase();
+            return matchSearch && matchStatus;
+        });
+        return [...filtered].sort((a, b) => {
+            const aDate = new Date(a.created_at || 0).getTime();
+            const bDate = new Date(b.created_at || 0).getTime();
+            return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
+        });
+    }, [quotations, dummyQuotations, activeTab, searchQuery, statusFilter, sortOrder]);
 
+    const displayData = filteredQuotations;
+    const totalPages = Math.ceil(displayData.length / recordsPerPage);
+    const pagedQuotations = displayData.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
-      <ConfirmModal
-        isOpen={!!deleteModalId}
-        onClose={() => setDeleteModalId(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Remove Quotation / Invoice"
-        message="Are you sure you want to delete this record?"
-        confirmText="Confirm Deletion"
-        type="danger"
-        isLoading={isDeleting}
-      />
-    </div>
-  );
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter, activeTab]);
+
+    const getStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case "approved": return "bg-emerald-100 text-emerald-600";
+            case "pending": return "bg-amber-100 text-amber-600";
+            case "draft": return "bg-slate-100 text-slate-600";
+            case "declined": case "rejected": return "bg-rose-100 text-rose-600";
+            case "converted": return "bg-blue-100 text-blue-600";
+            default: return "bg-slate-100 text-slate-500";
+        }
+    };
+
+    const getStatusIcon = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case "approved": return <CheckCircle className="w-3 h-3" />;
+            case "pending": return <Clock className="w-3 h-3" />;
+            case "draft": return <FileText className="w-3 h-3" />;
+            case "declined": case "rejected": return <XCircle className="w-3 h-3" />;
+            default: return null;
+        }
+    };
+
+    const totalValue = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
+    const approvedCount = quotations.filter(q => q.status?.toLowerCase() === "approved" || q.is_approved).length;
+    const approvalRate = quotations.length > 0 ? Math.round((approvedCount / quotations.length) * 100) : 0;
+    const pendingDrafts = quotations.filter(q => q.status?.toLowerCase() === "draft" || q.status?.toLowerCase() === "sent").length;
+
+    const handleApprove = async (id: number) => {
+        try {
+            await quotationService.approveQuotation(id);
+            toast.success("Quotation approved successfully");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to approve quotation");
+        }
+    };
+
+    const handleConvertQuotation = async (quotationId: number) => {
+        try {
+            setIsLoading(true);
+            await financeService.convertQuotationToInvoice(quotationId);
+            toast.success("Converted to invoice successfully!");
+            navigate("/accountant/receivables?tab=invoices");
+        } catch (error: any) {
+            let msg = "Failed to convert quotation";
+            if (error.response?.data?.detail) {
+                msg = typeof error.response.data.detail === 'string' ? error.response.data.detail : JSON.stringify(error.response.data.detail);
+            } else if (error.response?.data?.message) {
+                msg = error.response.data.message;
+            } else if (error.message) {
+                msg = error.message;
+            }
+            toast.error(msg);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleReject = async (reason: string) => {
+        if (!rejectTarget) return;
+        setIsRejecting(true);
+        try {
+            await quotationService.rejectQuotation(rejectTarget, reason);
+            toast.success("Quotation rejected");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to reject quotation");
+        } finally {
+            setIsRejecting(false);
+            setRejectTarget(null);
+        }
+    };
+
+    const handleSendQuotation = async (id: number) => {
+        const toastId = toast.loading("Sending quotation...");
+        try {
+            await quotationService.sendQuotation(id);
+            toast.success("Quotation sent successfully", { id: toastId });
+            fetchQuotations();
+        } catch (error: any) {
+            let msg = "Failed to send quotation";
+            if (error.response?.data?.detail) {
+                msg = typeof error.response.data.detail === 'string' ? error.response.data.detail : JSON.stringify(error.response.data.detail);
+            }
+            toast.error(msg, { id: toastId });
+        }
+    };
+
+    const handlePreviewPDF = async (id: number) => {
+        try {
+            setIsFetchingPreview(true);
+            const toastId = toast.loading("Downloading PDF...");
+
+            const isDummy = activeTab === "dummy_quotations";
+            const sourceList = isDummy ? dummyQuotations : quotations;
+            const q = sourceList.find(item => item.id === id);
+            const quotationNo = q?.quotation_no || `QTN-${id}`;
+
+            let blob;
+            if (isDummy) {
+                blob = await quotationService.downloadDummyQuotationPDF(id);
+            } else {
+                blob = await quotationService.downloadQuotationPDF(id);
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Quotation_${quotationNo}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Download complete!", { id: toastId });
+        } catch (error) {
+            toast.error("Failed to download PDF", { id: "preview-loading" });
+        } finally {
+            setIsFetchingPreview(false);
+        }
+    };
+
+    return (
+        <div className="space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Client Quotations</h1>
+                    <p className="text-slate-500 text-sm font-medium">Manage and track all project proposals and estimates.</p>
+                </div>
+                <div className="relative">
+                    <button
+                        onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                    >
+                        <Plus className="w-5 h-5" /> Create New Quotation <ChevronDown className={`w-4 h-4 transition-transform ${isCreateDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isCreateDropdownOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsCreateDropdownOpen(false)} />
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-20 py-2">
+                                <button
+                                    onClick={() => {
+                                        setIsCreateDropdownOpen(false);
+                                        navigate("/accountant/quotations/draft/new");
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                                >
+                                    <span className="text-sm font-bold text-slate-800">Draft Quotation</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client & Items Only</span>
+                                </button>
+                                <div className="border-t border-slate-50 my-1" />
+                                <button
+                                    onClick={() => {
+                                        setIsCreateDropdownOpen(false);
+                                        navigate("/accountant/invoices/create");
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                                >
+                                    <span className="text-sm font-bold text-slate-800">Standard Quotation</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Detailed Editor</span>
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* TABS */}
+            <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit mb-6">
+                <button
+                    onClick={() => { setActiveTab("quotations"); setCurrentPage(1); setSearchQuery(""); setStatusFilter("all"); }}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                        }`}
+                >
+                    <FileText className="w-4 h-4" />
+                    Quotations
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{quotations.length}</span>
+                </button>
+                <button
+                    onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(1); setSearchQuery(""); setStatusFilter("all"); }}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                        }`}
+                >
+                    <Layers className="w-4 h-4" />
+                    Draft Quotation
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "dummy_quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{dummyQuotations.length}</span>
+                </button>
+            </div>
+
+            {/* Quick Stats Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <StatCard
+                    title="Total Pipeline Value"
+                    value={fmt(totalValue)}
+                    sub={`${quotations.length} Active Quotations`}
+                    accent="text-primary"
+                />
+                <StatCard
+                    title="Win / Approval Rate"
+                    value={`${approvalRate}%`}
+                    sub="Based on all time"
+                    accent="text-emerald-500"
+                />
+                <StatCard
+                    title="Pending Drafts"
+                    value={pendingDrafts.toString()}
+                    sub="Requires admin review"
+                    accent="text-amber-500"
+                />
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search by ID, Client or Project..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="draft">Draft</option>
+                            <option value="approved">Approved</option>
+                            <option value="declined">Declined</option>
+                            <option value="converted">Converted</option>
+                        </select>
+                        <SortDropdown value={sortOrder} onChange={setSortOrder as any} />
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
+                                <th className="px-6 py-4">Quotation ID</th>
+                                <th className="px-6 py-4">Client / Project</th>
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4">Amount</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-10 text-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Quotations...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredQuotations.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-sm font-bold uppercase tracking-widest">
+                                        No quotations found
+                                    </td>
+                                </tr>
+                            ) : (
+                                pagedQuotations.map((q) => (
+                                    <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm font-bold text-slate-800">{q.quotation_no || `QTN-${q.id}`}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="space-y-0.5">
+                                                <p className="text-sm font-bold text-slate-700">{q.client_name}</p>
+                                                <p className="text-xs text-slate-400">{q.project_name}</p>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-semibold text-slate-500">
+                                                {q.created_at ? new Date(q.created_at).toLocaleDateString() : 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm font-black text-slate-700">{fmt(q.grand_total || 0)}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${getStatusColor(q.status || "draft")}`}>
+                                                {getStatusIcon(q.status || "draft")}
+                                                {q.status || "draft"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-2">
+                                                {(activeTab !== 'dummy_quotations' && (q.status === 'draft' || q.status === 'sent' || String(q.status) === 'pending' || !q.is_approved)) && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => q.id && handleApprove(q.id)}
+                                                            title="Approve Quotation"
+                                                            className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                                                        >
+                                                            <CheckCircle className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => q.id && setRejectTarget(q.id)}
+                                                            title="Reject Quotation"
+                                                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                        >
+                                                            <XCircle className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {q.status?.toLowerCase() === 'approved' && (
+                                                    <button
+                                                        onClick={() => q.id && handleConvertQuotation(q.id)}
+                                                        className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                                                        title="Convert to Invoice"
+                                                    >
+                                                        <Zap className="w-4 h-4 text-emerald-500" />
+                                                    </button>
+                                                )}
+                                                {activeTab !== 'dummy_quotations' && (
+                                                    <button
+                                                        onClick={() => q.id && handleSendQuotation(q.id)}
+                                                        className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                                                        title="Send Quotation"
+                                                    >
+                                                        <Send className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => navigate(activeTab === 'dummy_quotations' ? `/accountant/quotations/draft/${q.id}` : `/accountant/quotations/view/${q.id}`)}
+                                                    className="p-2 text-slate-400 hover:text-primary transition-colors"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => q.id && handlePreviewPDF(q.id)}
+                                                    disabled={isFetchingPreview}
+                                                    className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block disabled:opacity-50"
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => q.id && setDeleteTarget(q.id)}
+                                                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="p-4 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                        <select
+                            value={recordsPerPage}
+                            onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                            className="text-sm border-slate-200 rounded-lg focus:ring-primary focus:border-primary font-medium"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm text-slate-600 font-medium">
+                            Showing {displayData.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, displayData.length)} of {displayData.length} records
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                                {currentPage}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages || totalPages === 0}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Modals */}
+            <ConfirmModal
+                isOpen={deleteTarget !== null}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={handleDelete}
+                isLoading={isDeleting}
+                title="Delete Quotation"
+                message="Are you sure you want to permanently delete this quotation? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
+            
+            <RejectReasonModal
+                isOpen={rejectTarget !== null}
+                onClose={() => setRejectTarget(null)}
+                onConfirm={handleReject}
+                isLoading={isRejecting}
+                title="Reject Quotation"
+            />
+        </div>
+    );
 };
 
 // 2.5 Client Invoices Section
@@ -755,24 +789,26 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
   const [measurements, setMeasurements] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const inputClasses = (error?: string) => 
-    `w-full text-sm border rounded-xl px-4 py-3 outline-none transition-all ${
-        error 
-            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
-            : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20'
+  const inputClasses = (error?: string) =>
+    `w-full text-sm border rounded-xl px-4 py-3 outline-none transition-all ${error
+      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white'
+      : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20'
     }`;
 
   useEffect(() => {
     if (formData.project_id && activeSubTab === "create_measurement") {
       measurementService.getMeasurementsByProject(Number(formData.project_id))
-        .then(data => setMeasurements(data))
-        .catch(err => console.error("Failed to load measurements:", err));
+        .then(data => setMeasurements(data || []))
+        .catch(err => {
+          console.error("Failed to load measurements:", err);
+          setMeasurements([]);
+        });
     }
   }, [formData.project_id, activeSubTab]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const newErrors: Record<string, string> = {};
     if (!formData.project_id) newErrors.project_id = "Project is required";
     if (activeSubTab === "create_labour") {
@@ -1038,11 +1074,10 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
               <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                 <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1">Select Measurement <span className="text-rose-500">*</span></label>
                 <select
-                  className={`w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all ${
-                      errors.measurement_id 
-                          ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
-                          : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary'
-                  } disabled:opacity-50`}
+                  className={`w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all ${errors.measurement_id
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white'
+                      : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                    } disabled:opacity-50`}
                   value={formData.measurement_id}
                   onChange={e => {
                     setFormData({ ...formData, measurement_id: e.target.value });
@@ -1052,7 +1087,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                 >
                   <option value="">-- Choose Measurement --</option>
                   {measurements.map(m => (
-                    <option key={m.id} value={m.id}>Measurement #{m.id} - {m.status}</option>
+                    <option key={m.id} value={m.id}>{m.name || m.title || m.description || m.item_name || 'Measurement'} - {m.status}</option>
                   ))}
                 </select>
                 {errors.measurement_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.measurement_id}</p>}
@@ -1226,17 +1261,17 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
     // re-fetch measurements for the selected project
     measurementService.getMeasurementsByProject(Number(formData.project_id))
-      .then(d => { if (d.length > 0) setMeasurements(Array.isArray(d) ? d : []); })
-      .catch(() => { }); // on error keep existing full list
+      .then(d => { setMeasurements(Array.isArray(d) ? d : []); })
+      .catch(() => { setMeasurements([]); });
 
     // re-fetch work orders for the selected project
     api.get("/work-orders", { params: { project_id: formData.project_id, limit: 200 } })
       .then(res => {
         const d = res.data;
         const list = Array.isArray(d) ? d : (d?.items || []);
-        if (list.length > 0) setWorkOrders(list);
+        setWorkOrders(list);
       })
-      .catch(() => { }); // on error keep existing full list
+      .catch(() => { setWorkOrders([]); });
   }, [formData.project_id]);
 
   // ── fetch RA bills list when "list" tab is active ──
@@ -1407,7 +1442,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const newErrors: Record<string, string> = {};
     if (!formData.project_id) newErrors.project_id = "Project is required";
     if (!formData.contractor_id) newErrors.contractor_id = "Contractor is required";
@@ -1415,9 +1450,9 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     if (!formData.work_description) newErrors.work_description = "Work Description is required";
     if (formData.quantity === undefined || formData.quantity === null || formData.quantity.toString() === "") newErrors.quantity = "Quantity is required";
     if (formData.rate === undefined || formData.rate === null || formData.rate.toString() === "") newErrors.rate = "Rate is required";
-    
+
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length > 0) {
       toast.error("Please fill in all mandatory fields");
       return;
@@ -1461,11 +1496,10 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   }, [initialSubTab]);
 
   const labelClasses = "block text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1.5 ml-1";
-  const rabillInputClasses = (error?: string) => 
-    `w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
-      error 
-        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white text-slate-700' 
-        : 'border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary'
+  const rabillInputClasses = (error?: string) =>
+    `w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${error
+      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white text-slate-700'
+      : 'border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary'
     }`;
   const readOnlyClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-slate-50 text-slate-400 cursor-not-allowed";
 
@@ -2538,8 +2572,8 @@ const ReceivablesPage = () => {
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
-                  : "text-slate-500 hover:text-slate-700"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                : "text-slate-500 hover:text-slate-700"
                 }`}
             >
               {tab.label}
@@ -2559,7 +2593,7 @@ const ReceivablesPage = () => {
         </div>
 
         {/* Tab Content — key={subTab} forces remount when sidebar sub-item changes */}
-        {activeTab === "quotations" && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "quotations" && <QuotationsSection />}
         {activeTab === "invoices" && <ClientInvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "ra-bills" && <RABillsSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "collections" && <CollectionsSection />}
@@ -2618,9 +2652,9 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-xl font-bold tracking-tight">RA Bill {bill.bill_number}</h3>
                 <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${bill.status === 'Paid' ? 'bg-emerald-500/30 text-emerald-100' :
-                    bill.status === 'Approved' ? 'bg-emerald-500/30 text-emerald-100' :
-                      bill.status === 'Rejected' ? 'bg-rose-500/30 text-rose-100' :
-                        'bg-amber-500/30 text-amber-100'
+                  bill.status === 'Approved' ? 'bg-emerald-500/30 text-emerald-100' :
+                    bill.status === 'Rejected' ? 'bg-rose-500/30 text-rose-100' :
+                      'bg-amber-500/30 text-amber-100'
                   }`}>{bill.status}</span>
               </div>
               <p className="text-white/70 text-xs font-bold mb-2">Generated on {bill.bill_date || "—"}</p>
@@ -2642,7 +2676,7 @@ const ViewRABillModal = ({ bill, projects, contractors, workOrders, onClose }: a
                 <div key={step} className="flex-1 flex items-center">
                   <div className={`flex flex-col items-center flex-1 ${isPast ? "text-primary" : "text-slate-300"}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-2 transition-all ${isCurrent ? "bg-primary text-white shadow-md shadow-primary/30 ring-4 ring-primary/10" :
-                        isPast ? "bg-primary text-white" : "bg-slate-100 text-slate-400"
+                      isPast ? "bg-primary text-white" : "bg-slate-100 text-slate-400"
                       }`}>
                       {isPast && !isCurrent ? <Check size={16} /> : idx + 1}
                     </div>

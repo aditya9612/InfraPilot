@@ -11,7 +11,8 @@ export const measurementService = {
   async getMeasurementsByProject(projectId: number): Promise<Measurement[]> {
     try {
       const response = await api.get(`/measurements/project/${projectId}`);
-      return Array.isArray(response.data) ? response.data : response.data.items || [];
+      const data = Array.isArray(response.data) ? response.data : response.data.items || [];
+      return data.filter((m: Measurement) => Number(m.project_id) === Number(projectId));
     } catch (error: any) {
       console.error(`Fetch Measurements for Project ${projectId} Error:`, error.response?.data || error.message);
       throw error;

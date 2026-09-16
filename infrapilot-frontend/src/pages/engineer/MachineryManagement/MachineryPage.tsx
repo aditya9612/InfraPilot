@@ -2223,9 +2223,14 @@ const MachineryPage = () => {
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-red-600">*</span></label>
-                            <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                                <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
-                                <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
+                            <div 
+                                className={`flex items-center px-4 py-2.5 border rounded-xl transition-colors ${selectedEquipment?.project_id ? 'bg-emerald-50 border-emerald-100 cursor-pointer hover:bg-emerald-100' : 'bg-slate-50 border-slate-200'}`}
+                                onClick={() => { if (selectedEquipment?.project_id) handleDeallocate(); }}
+                            >
+                                <input type="checkbox" checked={!!selectedEquipment?.project_id} readOnly className={`w-4 h-4 rounded ${selectedEquipment?.project_id ? 'text-emerald-500 focus:ring-emerald-500 cursor-pointer' : 'text-slate-300 focus:ring-slate-300'}`} />
+                                <span className={`ml-3 text-sm font-bold ${selectedEquipment?.project_id ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                    {selectedEquipment?.project_id ? "Allocated (Click to Deallocate)" : "Available to Allocate"}
+                                </span>
                             </div>
                         </div>
 
@@ -2293,8 +2298,8 @@ const MachineryPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">DESCRIPTION</label>
-                        <input type="text" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-red-600">*</span></label>
+                        <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -2344,7 +2349,10 @@ const MachineryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-red-600">*</span></label>
+                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        </div>
+                        <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">START DATE <span className="text-red-600">*</span></label>
                             <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
@@ -2766,8 +2774,9 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Vendor Name</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Vendor Name <span className="text-red-600">*</span></label>
                             <input
+                                required
                                 type="text"
                                 value={createPurchaseForm.vendor_name || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, vendor_name: e.target.value })}
