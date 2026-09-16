@@ -80,6 +80,7 @@ import ManagerMaterialConsumptionPage from "../pages/manager/Resources/MaterialM
 import ManagerMaterialStockPage from "../pages/manager/Resources/MaterialManagement/MaterialStockPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerReportsPage from "../pages/manager/ManagerReportsPage";
+import ManagerAttendancePage from "../pages/manager/ManagerAttendancePage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -344,6 +345,7 @@ function AppRoutes() {
               {/* Manager Specific Routes */}
               <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
                 <Route index element={<ManagerDashboard />} />
+                <Route path="attendance" element={<ManagerAttendancePage />} />
                 <Route path="projects" element={<ProjectsPage />} />
                 <Route path="projects/list" element={<ProjectsPage />} />
                 <Route path="projects/:id" element={<ProjectDetailsPage />} />

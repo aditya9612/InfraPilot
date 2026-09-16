@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { rbacService } from '../../services/rbacService';
 import type { RBACRole, RBACModule, RBACPermission, UserOverride } from '../../services/rbacService';
-import { userService } from '../../services/userService';
 import Navbar from '../../components/common/Navbar';
 
 const RolesPermissionsPage = () => {
@@ -366,8 +365,8 @@ const RolesPermissionsPage = () => {
                         </div>
                     </div>
 
-                    {/* Roles Permissions Matrix wrapper */}
-                    <div className="xl:col-span-6 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden h-[600px] xl:h-full">
+                    {/* Roles Permissions Matrix / Overrides wrapper */}
+                    <div className="xl:col-span-9 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden h-[600px] xl:h-full">
                         <div className="flex border-b border-slate-50">
                             <button
                                 onClick={() => setActiveTab('matrix')}
@@ -420,7 +419,7 @@ const RolesPermissionsPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {groupedPermissions.map((groupData: any, groupIndex: number) => {
+                                                {groupedPermissions.map((groupData: any) => {
                                                     const { group, items } = groupData;
                                                     const isExpanded = !!expandedGroups[group.name];
                                                     // check if ALL items in this group have ALL permissions true
@@ -512,90 +511,78 @@ const RolesPermissionsPage = () => {
                         )}
 
                         {activeTab === 'overrides' && (
-                            <div className="flex-1 p-6 flex flex-col items-center justify-center text-slate-400 select-none">
-                                <span className="text-4xl mb-4">👤</span>
-                                <p className="font-semibold text-slate-600 mb-1">User Overrides mode active</p>
-                                <p className="text-xs text-center max-w-sm">Use the right side panel to search by user ID and manage precise overrides.</p>
+                            <div className="flex-1 p-6 flex flex-col bg-slate-50/50 overflow-y-auto">
+                                <div className="w-full bg-white border border-slate-200 shadow-sm rounded-2xl flex flex-col overflow-hidden flex-1">
+                                    <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50 shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
+                                        <h3 className="font-bold text-slate-800">User-Specific Overrides</h3>
+                                    </div>
+                                    <div className="p-6 flex-1 flex flex-col overflow-hidden">
+                                        <div className="mb-4 flex items-end gap-2 shrink-0">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Specify User ID</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="e.g. 104"
+                                                    value={selectedUser}
+                                                    onChange={(e) => setSelectedUser(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') handleFetchOverrides(); }}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-2 text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                                                />
+                                            </div>
+                                            <button onClick={handleFetchOverrides} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg shadow-sm hover:bg-primary/90 transition">Fetch</button>
+                                        </div>
+
+                                        {selectedUser ? (
+                                            <div className="flex-1 flex flex-col min-h-0">
+                                                <div className="relative mb-5 shrink-0">
+                                                    <input type="text" placeholder="Add override mapping..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = e.currentTarget.value.trim();
+                                                                if (val) {
+                                                                    toggleUserOverride(val, true);
+                                                                    e.currentTarget.value = "";
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                    <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                                </div>
+
+                                                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                                                    {userOverrides.length === 0 && (
+                                                        <div className="text-center text-xs text-slate-400 py-6">No overrides loaded. Enter in bar above to add.</div>
+                                                    )}
+                                                    {userOverrides.map(p => (
+                                                        <div key={p.permission} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-sm font-semibold text-slate-700">{p.permission}</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => toggleUserOverride(p.permission, !p.is_granted)}
+                                                                className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase transition hover:opacity-80 ${p.is_granted ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                                {p.is_granted ? 'Granted' : 'Denied'}
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <button onClick={handleSaveUserOverrides} className="w-full xl:w-auto self-end mt-4 px-8 py-3 bg-primary text-white rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition flex items-center justify-center gap-2 shrink-0">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                                    Update User Overrides
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 min-h-[150px]">
+                                                <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                                <p className="text-xs font-semibold text-slate-500">Specify a user identifier to fetch or create overrides.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
-                    </div>
-
-                    {/* Right Hand Side Tooling */}
-                    <div className="xl:col-span-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden h-[500px] xl:h-full">
-
-
-                        {/* Overrides Panel */}
-                        <div className="flex-1 flex flex-col overflow-hidden">
-                            <div className="p-4 border-b border-slate-50 flex items-center gap-3 bg-slate-50/50">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
-                                <h3 className="font-bold text-slate-800">User-Specific Overrides</h3>
-                            </div>
-                            <div className="p-4 flex-1 flex flex-col">
-                                <div className="mb-4 flex items-end gap-2">
-                                    <div className="flex-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Specify User ID</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g. 104"
-                                            value={selectedUser}
-                                            onChange={(e) => setSelectedUser(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') handleFetchOverrides(); }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-2 text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                                        />
-                                    </div>
-                                    <button onClick={handleFetchOverrides} className="px-3 py-2 bg-primary text-white text-sm font-bold rounded-lg shadow-sm hover:bg-primary/90 transition">Fetch</button>
-                                </div>
-
-                                {selectedUser ? (
-                                    <div className="flex-1 flex flex-col">
-                                        <div className="relative mb-3">
-                                            <input type="text" placeholder="Add override mapping..." className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const val = e.currentTarget.value.trim();
-                                                        if (val) {
-                                                            toggleUserOverride(val, true);
-                                                            e.currentTarget.value = "";
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                        </div>
-
-                                        <div className="flex-1 overflow-y-auto space-y-2 max-h-[150px]">
-                                            {userOverrides.length === 0 && (
-                                                <div className="text-center text-xs text-slate-400 py-4">No overrides loaded. Enter in bar above to add.</div>
-                                            )}
-                                            {userOverrides.map(p => (
-                                                <div key={p.permission} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-medium text-slate-700">{p.permission}</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => toggleUserOverride(p.permission, !p.is_granted)}
-                                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition hover:opacity-80 ${p.is_granted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                        {p.is_granted ? 'Granted' : 'Denied'}
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <button onClick={handleSaveUserOverrides} className="w-full mt-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition flex items-center justify-center gap-1.5">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                                            Update User Overrides
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50">
-                                        <svg className="w-6 h-6 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                                        <p className="text-xs font-semibold text-slate-500">Specify a user identifier to fetch or create overrides.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-
                     </div>
                 </div>
             </div>

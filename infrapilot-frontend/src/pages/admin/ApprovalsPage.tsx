@@ -130,8 +130,8 @@ const ApprovalsPage = () => {
       setIsCreateModalOpen(false);
       setCreateForm({ entity_type: "boq", entity_id: "", remarks: "" });
       fetchApprovals();
-    } catch {
-      toast.error("Failed to create approval request");
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to create approval request");
     } finally {
       setIsCreating(false);
     }
@@ -459,7 +459,7 @@ const ApprovalsPage = () => {
               disabled={isCreating}
               className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-70"
             >
-              {isCreating ? "Creating..." : "Create Request"}
+              {isCreating ? "Saving..." : "Save Request"}
             </button>
           </>
         }

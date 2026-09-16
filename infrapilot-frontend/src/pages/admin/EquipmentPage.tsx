@@ -37,6 +37,7 @@ const EquipmentPage = () => {
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCondition, setFilterCondition] = useState("All");
+    const [filterProject, setFilterProject] = useState("All");
     const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
     const [globalEquipment, setGlobalEquipment] = useState<any[]>([]);
     const [globalRentals, setGlobalRentals] = useState<any[]>([]);
@@ -332,7 +333,8 @@ const EquipmentPage = () => {
                 return equipmentList.filter(item => {
                     const matchesSearch = (item.equipment_name || "").toLowerCase().includes(term) || (item.equipment_code || "").toLowerCase().includes(term);
                     const matchesCondition = filterCondition === "All" || (item.condition || "GOOD").toUpperCase() === filterCondition.toUpperCase();
-                    return matchesSearch && matchesCondition;
+                    const matchesProject = filterProject === "All" || String(item.project_id) === filterProject || (!item.project_id && filterProject === "Unassigned");
+                    return matchesSearch && matchesCondition && matchesProject;
                 });
             case "Usage & Tracking":
                 return usageReport.filter(u => (u.equipment_code || "").toLowerCase().includes(term));
@@ -364,12 +366,12 @@ const EquipmentPage = () => {
             default:
                 return [];
         }
-    }, [activeTab, searchTerm, filterCondition, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
+    }, [activeTab, searchTerm, filterCondition, filterProject, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
 
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     // Reset page
-    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, selectedProjectId]);
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, filterProject, selectedProjectId]);
 
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this equipment?")) return;
@@ -1427,23 +1429,39 @@ const EquipmentPage = () => {
                 {/* Main Content Pane */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex w-full md:max-w-md items-center gap-3 flex-1">
+                        <div className="flex w-full lg:max-w-2xl items-center gap-3 flex-1">
                             <div className="relative flex-1 min-w-[200px]">
                                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input type="text" placeholder={`Search in ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
                             {activeTab === "Equipment List" && (
-                                <select
-                                    value={filterCondition}
-                                    onChange={(e) => setFilterCondition(e.target.value)}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm"
-                                >
-                                    <option value="All">Condition: All</option>
-                                    <option value="Good">Good</option>
-                                    <option value="Repair">Repair</option>
-                                    <option value="Damaged">Damaged</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                </select>
+                                <div className="flex gap-2 shrink-0">
+
+                                    <select
+                                        value={filterCondition}
+                                        onChange={(e) => setFilterCondition(e.target.value)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm"
+                                    >
+                                        <option value="All">Condition: All</option>
+                                        <option value="Good">Good</option>
+                                        <option value="Repair">Repair</option>
+                                        <option value="Damaged">Damaged</option>
+                                        <option value="Maintenance">Maintenance</option>
+                                    </select>
+                                    <select
+                                        value={filterProject}
+                                        onChange={(e) => setFilterProject(e.target.value)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm max-w-[200px]"
+                                    >
+                                        <option value="All">Project: All</option>
+                                        <option value="Unassigned">Unassigned</option>
+                                        {assignedProjects.map(p => (
+                                            <option key={p.id} value={String(p.id)} title={p.project_name || (p as any).name}>
+                                                {((p.project_name || (p as any).name) || "").length > 20 ? ((p.project_name || (p as any).name) || "").substring(0, 20) + "..." : (p.project_name || (p as any).name)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             )}
                         </div>
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">

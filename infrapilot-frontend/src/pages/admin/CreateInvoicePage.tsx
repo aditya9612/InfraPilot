@@ -659,27 +659,31 @@ const CreateInvoicePage = () => {
         extra_charge_items: extraChargeItems,
 
         items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
-          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+          let d = (item.description || "").toLowerCase();
+          let itemType = "road_work"; // safe default for backend validation
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
+            itemType = "soling";
             itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
+            itemType = "plum_concrete";
             itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone") || d.includes("pitching")) {
+            itemType = "stone_work";
             itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = item.item_type || "custom";
+            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
@@ -711,27 +715,31 @@ const CreateInvoicePage = () => {
             measurements
           };
         }) : items.map(item => {
-          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+          let d = (item.description || "").toLowerCase();
+          let itemType = "road_work"; // safe default for backend validation
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
+            itemType = "soling";
             itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
+            itemType = "plum_concrete";
             itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone") || d.includes("pitching")) {
+            itemType = "stone_work";
             itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = item.item_type || "custom";
+            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
