@@ -609,23 +609,29 @@ const CreateDraftQuotationPage = () => {
       notes: notes || "N/A",
       items: items.map(item => {
         let measurements: any[] = [];
-        if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+        let d = (item.description || "").toLowerCase();
+        let finalItemType = "road_work";
+        if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
+          finalItemType = "soling";
           const { l, w, h } = measurementData.soling;
           measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
-        } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+        } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
+          finalItemType = "plum_concrete";
           const { l, w, h } = measurementData.plum;
           measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
-        } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+        } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone")) {
+          finalItemType = "stone_work";
           measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
           if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
         } else {
+          finalItemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
           measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
         }
 
         return {
           title: (item as any).title || item.description.split('\n')[0] || "Draft Item",
           description: item.description || "Draft Item",
-          item_type: item.item_type || "default",
+          item_type: finalItemType,
           unit: item.unit || "unit",
           quantity: item.quantity || 0,
           rate: item.rate || 0,

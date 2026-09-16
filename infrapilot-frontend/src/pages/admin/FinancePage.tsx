@@ -17,6 +17,7 @@ import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
 import type { CompanySettings } from "../../types/settings";
 import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
+import ViewExpenseModal from "../../components/forms/ViewExpenseModal";
 import { settingsService } from "../../services/settingsService";
 import { useEffect, useCallback } from "react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
@@ -51,6 +52,7 @@ const FinancePage = () => {
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isExpenseViewModalOpen, setIsExpenseViewModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -714,8 +716,8 @@ const FinancePage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  {subPage !== "expenses" && <th className="px-6 py-4">{subPage === "profit" ? "Project" : "Invoice #"}</th>}
-                  <th className="px-6 py-4">{subPage === "profit" ? "Description" : "Project / Description"}</th>
+                  <th className="px-6 py-4">{subPage === "profit" ? "Project" : subPage === "expenses" ? "Project" : "Invoice #"}</th>
+                  <th className="px-6 py-4">{subPage === "profit" ? "Description" : subPage === "expenses" ? "Description" : "Project / Description"}</th>
                   <th className="px-6 py-4">{subPage === "expenses" ? "Category" : subPage === "profit" ? "Revenue" : "Type"}</th>
                   <th className="px-6 py-4">{subPage === "expenses" ? "Amount" : subPage === "profit" ? "Expense" : "Base Amount"}</th>
                   {subPage === "invoices" && <th className="px-6 py-4">Tax / GST</th>}
@@ -836,15 +838,15 @@ const FinancePage = () => {
                       className="hover:bg-slate-50/50 transition-colors group"
                     >
                       <td className="px-6 py-4">
-                        <div>
-                          <p className="text-xs font-bold text-slate-700 uppercase">
-                            {projects.find((p) => p.id === exp.project_id)
-                              ?.project_name || "Unknown Project"}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-medium line-clamp-1">
-                            {exp.description}
-                          </p>
-                        </div>
+                        <p className="text-xs font-bold text-slate-700 uppercase">
+                          {projects.find((p) => p.id === exp.project_id)
+                            ?.project_name || "Unknown Project"}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-[10px] text-slate-500 font-medium line-clamp-1">
+                          {exp.description}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold uppercase">
@@ -862,6 +864,19 @@ const FinancePage = () => {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setSelectedExpense(exp);
+                              setIsExpenseViewModalOpen(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                            title="View Expense Details"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedExpense(exp);
@@ -997,6 +1012,15 @@ const FinancePage = () => {
         projects={projects}
         onSubmit={handleCreateOrUpdateExpense}
         initialData={selectedExpense}
+      />
+
+      <ViewExpenseModal
+        isOpen={isExpenseViewModalOpen}
+        onClose={() => {
+          setIsExpenseViewModalOpen(false);
+          setSelectedExpense(null);
+        }}
+        expense={selectedExpense}
       />
 
       <ConfirmModal

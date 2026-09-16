@@ -271,8 +271,8 @@ const ManagerDocumentsPage = () => {
             setUploadProjectId(null);
             // Small delay to allow backend to commit before re-fetching
             setTimeout(() => fetchDocs(), 500);
-        } catch {
-            toast.error("Upload failed.");
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || error.response?.data?.message || "Upload failed.");
         } finally {
             setIsSubmitting(false);
         }
@@ -786,25 +786,24 @@ const ManagerDocumentsPage = () => {
                                         {Array.from({ length: totalPages }).map((_, i) => {
                                             const page = i + 1;
                                             if (
-                                                page === 1 || 
-                                                page === totalPages || 
+                                                page === 1 ||
+                                                page === totalPages ||
                                                 (page >= currentPage - 1 && page <= currentPage + 1)
                                             ) {
                                                 return (
                                                     <button
                                                         key={page}
                                                         onClick={() => setCurrentPage(page)}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-                                                            currentPage === page
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
                                                                 ? "bg-primary text-white shadow-sm shadow-primary/20"
                                                                 : "text-slate-500 hover:bg-slate-100"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {page}
                                                     </button>
                                                 );
                                             } else if (
-                                                page === currentPage - 2 || 
+                                                page === currentPage - 2 ||
                                                 page === currentPage + 2
                                             ) {
                                                 return <span key={page} className="text-slate-400 font-bold px-1 flex items-center justify-center">...</span>;
