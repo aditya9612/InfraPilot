@@ -3,6 +3,7 @@ import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface AddActivityModalProps {
   isOpen: boolean;
@@ -195,7 +196,10 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -382,7 +386,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>Start Date <span className="text-rose-500">*</span></label>
               <input
-                required type="date" name="start_date" className={inputClasses(errors.start_date)}
+                type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
               />
               {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
@@ -390,7 +394,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>End Date <span className="text-rose-500">*</span></label>
               <input
-                required type="date" name="end_date" className={inputClasses(errors.end_date)}
+                type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}
               />
               {errors.end_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.end_date}</p>}

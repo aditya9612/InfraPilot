@@ -137,8 +137,7 @@ const ChecklistsPage = () => {
         const newErrors: Record<string, string> = {};
         if (!newChecklistProjectId) newErrors.project_id = "Project is required";
         if (!newChecklistName.trim()) newErrors.name = "Name is required";
-        if (!newChecklistType) newErrors.type = "Category is required";
-        if (newChecklistItems.length === 0) newErrors.items = "At least one verification point is required";
+
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
@@ -331,7 +330,6 @@ const ChecklistsPage = () => {
         }
         const newErrors: Record<string, string> = {};
         if (!executeStatus) newErrors.executeStatus = "Status is required";
-        if (!executeRemarks.trim()) newErrors.executeRemarks = "Remarks are required";
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
@@ -846,7 +844,7 @@ const ChecklistsPage = () => {
             <Modal
                 isOpen={isNewModalOpen}
                 onClose={() => setIsNewModalOpen(false)}
-                title="Save Checklists"
+                title="Create Checklist"
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -856,7 +854,7 @@ const ChecklistsPage = () => {
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Save Checklists"}
+                            {isSubmitting ? "Syncing..." : "Create Checklist"}
                         </button>
                     </div>
                 }
@@ -951,7 +949,7 @@ const ChecklistsPage = () => {
                             ))}
                             {newChecklistItems.length === 0 && (
                                 <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-2xl font-inter">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added.</p>
                                 </div>
                             )}
                         </div>

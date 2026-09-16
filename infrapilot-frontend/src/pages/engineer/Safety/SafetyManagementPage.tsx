@@ -14,7 +14,8 @@ import {
     HeartPulse,
     Briefcase,
     Activity,
-    Mail
+    Mail,
+    ChevronDown
 } from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
@@ -63,6 +64,7 @@ const SafetyManagementPage = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
 
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
@@ -387,26 +389,6 @@ const SafetyManagementPage = () => {
             toast.error("Please fill mandatory field: Date", { id: 'validation' });
             return;
         }
-        if (!formData.responsible_person?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Responsible Person' });
-            toast.error("Please fill mandatory field: Responsible Person", { id: 'validation' });
-            return;
-        }
-        if (!formData.violation_type) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Violation Type' });
-            toast.error("Please fill mandatory field: Violation Type", { id: 'validation' });
-            return;
-        }
-        if (!formData.description?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Description' });
-            toast.error("Please fill mandatory field: Description", { id: 'validation' });
-            return;
-        }
-        if (!formData.action_taken?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Action Taken' });
-            toast.error("Please fill mandatory field: Action Taken", { id: 'validation' });
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -486,21 +468,6 @@ const SafetyManagementPage = () => {
         if (!formData.date) {
             setFormNotification({ type: 'error', message: 'Please fill mandatory field: Date' });
             toast.error("Please fill mandatory field: Date", { id: 'validation' });
-            return;
-        }
-        if (!formData.responsible_person?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Responsible Person' });
-            toast.error("Please fill mandatory field: Responsible Person", { id: 'validation' });
-            return;
-        }
-        if (!formData.description?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Description' });
-            toast.error("Please fill mandatory field: Description", { id: 'validation' });
-            return;
-        }
-        if (!formData.action_taken?.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Action Taken' });
-            toast.error("Please fill mandatory field: Action Taken", { id: 'validation' });
             return;
         }
 
@@ -703,12 +670,12 @@ const SafetyManagementPage = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
                                                             {item.violation_type}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
                                                             item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
                                                                 item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
                                                                     'bg-slate-100 text-slate-600'
@@ -954,22 +921,36 @@ const SafetyManagementPage = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task <span className="text-red-600">*</span></label>
-                                <select
-                                    required
-                                    name="task_id"
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
-                                    className={inputClasses}
+                            <div className="md:col-span-2 font-inter relative">
+                                <label className={labelClasses}>Task</label>
+                                <div 
+                                    className={`${inputClasses} flex justify-between items-center cursor-pointer`}
+                                    onClick={() => setIsTaskDropdownOpen(!isTaskDropdownOpen)}
                                 >
-                                    <option value="">-- Select Task --</option>
-                                    {tasks.map((t: any) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.title || `Task #${t.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <span className={formData.task_id ? "text-slate-900" : "text-slate-400"}>
+                                        {formData.task_id ? (tasks.find((t: any) => t.id === formData.task_id)?.title || `Task #${formData.task_id}`) : "-- Select Task --"}
+                                    </span>
+                                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isTaskDropdownOpen ? "rotate-180" : ""}`} />
+                                </div>
+                                {isTaskDropdownOpen && (
+                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto font-inter">
+                                        <div 
+                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-700"
+                                            onClick={() => { setFormData((prev: any) => ({...prev, task_id: 0})); setIsTaskDropdownOpen(false); }}
+                                        >
+                                            -- Select Task --
+                                        </div>
+                                        {tasks.map((t: any) => (
+                                            <div 
+                                                key={t.id}
+                                                className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm ${formData.task_id === t.id ? "bg-slate-50 text-primary font-bold" : "text-slate-700"}`}
+                                                onClick={() => { setFormData((prev: any) => ({...prev, task_id: t.id})); setIsTaskDropdownOpen(false); }}
+                                            >
+                                                {t.title || `Task #${t.id}`}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
@@ -982,7 +963,7 @@ const SafetyManagementPage = () => {
                                 />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Responsible Person <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Responsible Person {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
                                 <input
                                     name="responsible_person"
                                     value={formData.responsible_person}
@@ -1017,7 +998,7 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Violation Type <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Violation Type {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
                                 <select
                                     name="violation_type"
                                     value={formData.violation_type}
@@ -1031,7 +1012,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Description <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Description {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
@@ -1055,7 +1036,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Action Taken <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Action Taken {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
                                 <textarea
                                     name="action_taken"
                                     value={formData.action_taken}

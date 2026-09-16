@@ -213,7 +213,7 @@ const QCInspectionPage = () => {
         const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
                         formData.result === null || formData.result === undefined || formData.result === "" || 
                         formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
-                        !formData.status || !formData.engineer_name?.trim();
+                        !formData.status;
 
         if (missing) {
             toast.error("Please fill mandatory field", { id: 'validation' });
@@ -244,7 +244,7 @@ const QCInspectionPage = () => {
         const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
                         formData.result === null || formData.result === undefined || formData.result === "" || 
                         formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
-                        !formData.status || !formData.engineer_name?.trim();
+                        !formData.status;
 
         if (missing) {
             toast.error("Please fill mandatory field", { id: 'validation' });
@@ -966,7 +966,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Engineer Name <span className="text-red-600">*</span></label>
+                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Engineer Name</label>
                                 <select
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
@@ -1111,9 +1111,19 @@ const QCInspectionPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
                                     </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
+                                        {selectedQc.report_file && typeof selectedQc.report_file === 'string' ? (
+                                            <a href={selectedQc.report_file.startsWith('http') ? selectedQc.report_file : `${import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'}/${selectedQc.report_file.replace(/^\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter truncate inline-flex items-center gap-1">
+                                                <Eye className="w-3.5 h-3.5" /> View Report
+                                            </a>
+                                        ) : (
+                                            <p className="text-sm font-bold text-slate-800 font-inter truncate">N/A</p>
+                                        )}
+                                    </div>
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
-                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || 'null'}</p>
+                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks && selectedQc.remarks !== 'null' ? selectedQc.remarks : 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, DailyProgressRequest } from "../../types/workProgress";
+import toast from "react-hot-toast";
 
 interface LogProgressModalProps {
   isOpen: boolean;
@@ -46,7 +47,10 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -124,7 +128,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             <div>
               <label className={labelClasses}>Select Target Activity <span className="text-rose-500">*</span></label>
               <select
-                required name="activity_id"
+                name="activity_id"
                 className={inputClasses(errors.activity_id)}
                 value={formData.activity_id} onChange={handleChange}
               >
@@ -145,7 +149,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             <div>
               <label className={labelClasses}>Entry Date <span className="text-rose-500">*</span></label>
               <input
-                required type="date" name="entry_date"
+                type="date" name="entry_date"
                 className={inputClasses(errors.entry_date)}
                 value={formData.entry_date} onChange={handleChange}
               />
@@ -156,7 +160,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
                 Today Progress{selectedActivity ? ` (${selectedActivity.unit}) — Remaining: ${selectedActivity.remaining_quantity || 0}` : ""} <span className="text-rose-500">*</span>
               </label>
               <input
-                required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
+                type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
                 className={`${inputClasses(errors.today_progress)} ${selectedActivity && selectedActivity.remaining_quantity <= 0 ? "bg-slate-50 cursor-not-allowed opacity-60" : ""}`}
                 value={formData.today_progress} onChange={handleChange}
                 disabled={!!(selectedActivity && selectedActivity.remaining_quantity <= 0)}

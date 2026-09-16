@@ -227,9 +227,10 @@ const WorkApprovalPage = () => {
                 setApprovalData(prev => [newRecord, ...prev]);
             }
             setIsFormModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Submit Error:", error);
-            toast.error("Failed to process request", { id: toastId });
+            const errMsg = error.response?.data?.message || error.response?.data?.error || "Failed to process request";
+            toast.error(errMsg, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -785,7 +786,7 @@ const WorkApprovalPage = () => {
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
-                title="Save Approval"
+                title={isEditMode ? "Update Approval" : "Request Approval"}
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end gap-3 px-6 pb-6">
@@ -802,7 +803,7 @@ const WorkApprovalPage = () => {
                             {isSubmitting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : null}
-                            {isEditMode ? "Save Approval" : "Save Approval"}
+                            {isEditMode ? "Update Approval" : "Request Approval"}
                         </button>
                     </div>
                 }

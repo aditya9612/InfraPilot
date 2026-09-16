@@ -53,8 +53,24 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" | "CR
 const getFullUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') : 'http://127.0.0.1:8000';
-    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+    
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    try {
+        const parsed = new URL(baseUrl, window.location.origin);
+        baseUrl = parsed.origin;
+    } catch {
+        baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    }
+    if (!baseUrl) baseUrl = 'http://127.0.0.1:8000';
+
+    let cleanPath = path;
+    if (!cleanPath.startsWith('/') && !cleanPath.startsWith('uploads/') && !cleanPath.startsWith('static/')) {
+        cleanPath = `/uploads/${cleanPath}`;
+    } else if (!cleanPath.startsWith('/')) {
+        cleanPath = `/${cleanPath}`;
+    }
+
+    return `${baseUrl}${cleanPath}`;
 };
 const AudioButton = ({ audioData }: { audioData: string }) => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -224,7 +240,8 @@ const TaskManagementPage = () => {
     // Pass Task Modal State
     const [isPassModalOpen, setIsPassModalOpen] = useState(false);
     const [selectedPassTask, setSelectedPassTask] = useState<FrontendTask | null>(null);
-    const [passNewUserId, setPassNewUserId] = useState<number | "">("");
+    const [isPassUserDropdownOpen, setIsPassUserDropdownOpen] = useState(false);
+    const [passNewUserId, setPassNewUserId] = useState<number | ''>('');
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
     const [projectLabours, setProjectLabours] = useState<any[]>([]);
@@ -1812,10 +1829,25 @@ const TaskManagementPage = () => {
                                                                     </span>
                                                                 </td>
                                                                 <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
-                                                                <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
-                                                                    {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
-                                                                        <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
-                                                                    ) : '-'}
+                                                                <td className="p-4 text-xs block md:table-cell">
+                                                                    {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (() => {
+                                                                        const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                                        return (
+                                                                            <button onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                window.open(getFullUrl(req.attachment_url) || '', '_blank', 'noopener,noreferrer');
+                                                                            }} className="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors group text-left max-w-[200px]" title={fileName}>
+                                                                                <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                                                    <Paperclip className="w-4 h-4 text-indigo-500" />
+                                                                                </div>
+                                                                                <span className="truncate font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
+                                                                                    {fileName}
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    })() : (
+                                                                        <span className="text-slate-400 font-medium px-2">-</span>
+                                                                    )}
                                                                 </td>
                                                                 <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
                                                                 <td className="p-4 block md:table-cell">
@@ -2725,23 +2757,59 @@ const TaskManagementPage = () => {
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">Select New User <span className="text-rose-500">*</span></label>
                         <div className="relative">
-                            <select
-                                value={passNewUserId}
-                                onChange={(e) => setPassNewUserId(Number(e.target.value))}
-                                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                                required
+                            <button
+                                type="button"
+                                onClick={() => setIsPassUserDropdownOpen(!isPassUserDropdownOpen)}
+                                className="w-full text-left appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 flex justify-between items-center"
                             >
-                                <option value="">-- Select Team Member --</option>
-                                {projectMembers.map(m => (
-                                    <option key={`m_${m.user_id}`} value={m.user_id}>{m.full_name} ({m.role || 'Member'})</option>
-                                ))}
-                                {projectLabours.map(l => (
-                                    <option key={`l_${l.id}`} value={l.id}>{l.labour_name || l.name} (Labour)</option>
-                                ))}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                                <ChevronDown className="w-4 h-4" />
-                            </div>
+                                <span className="truncate pr-2">
+                                    {passNewUserId ? (
+                                        projectMembers.find(m => m.user_id === passNewUserId)?.full_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.labour_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.name || 
+                                        'Unknown User'
+                                    ) : '-- Select Team Member --'}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPassUserDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isPassUserDropdownOpen && (
+                                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
+                                    <div
+                                        onClick={() => { setPassNewUserId(''); setIsPassUserDropdownOpen(false); }}
+                                        className="px-4 py-2.5 text-sm text-slate-500 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    >-- Select Team Member --</div>
+                                    
+                                    {projectMembers.length > 0 && (
+                                        <>
+                                            <div className="px-4 py-1.5 bg-slate-50 border-y border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">Project Members</div>
+                                            {projectMembers.map(m => (
+                                                <div
+                                                    key={`m_${m.user_id}`}
+                                                    onClick={() => { setPassNewUserId(m.user_id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === m.user_id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {m.full_name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">({m.role || 'Member'})</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {projectLabours.length > 0 && (
+                                        <>
+                                            <div className="px-4 py-1.5 bg-slate-50 border-y border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">Labours</div>
+                                            {projectLabours.map(l => (
+                                                <div
+                                                    key={`l_${l.id}`}
+                                                    onClick={() => { setPassNewUserId(l.id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === l.id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {l.labour_name || l.name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">(Labour)</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div>

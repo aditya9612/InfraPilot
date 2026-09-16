@@ -956,14 +956,14 @@ const LaborDetailsPage = () => {
                             {/* labour_name * */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
+                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} />
                                 {errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}
                             </div>
 
                             {/* mobile_number * */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Mobile Number <span className="text-rose-500">*</span></label>
-                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
+                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} />
                                 {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
                             </div>
 

@@ -34,6 +34,7 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
     const [projects, setProjects] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,6 +113,16 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
         }
         return () => stopCamera();
     }, [isOpen, selectedProjectId]);
+
+    useEffect(() => {
+        if (projectId) {
+            projectService.getTasks(Number(projectId))
+                .then((res: any) => setTasks(Array.isArray(res) ? res : (res.items || [])))
+                .catch(() => setTasks([]));
+        } else {
+            setTasks([]);
+        }
+    }, [projectId]);
 
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = async () => {
@@ -244,8 +255,15 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
 
                         {/* task_id */}
                         <div>
-                            <label className={labelCls}>Task ID</label>
-                            <input type="number" value={taskId} onChange={(e) => setTaskId(e.target.value)} placeholder="e.g. 12" className={inputCls} />
+                            <label className={labelCls}>Task</label>
+                            <select value={taskId} onChange={(e) => setTaskId(e.target.value)} className={inputCls}>
+                                <option value="">-- Select Task (Optional) --</option>
+                                {tasks.map((t: any) => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.title || t.activity_name || `Task #${t.id}`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* task_description */}

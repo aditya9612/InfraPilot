@@ -64,6 +64,7 @@ const IssueTrackerPage = () => {
     const { selectedProjectId } = useProject();
     const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
+    const [projectMembers, setProjectMembers] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isExporting, setIsExporting] = useState(false);
@@ -108,6 +109,16 @@ const IssueTrackerPage = () => {
         setFormData(prev => ({ ...prev, project_id: projectId || 0 }));
         initializeProject();
     }, [projectId]);
+
+    useEffect(() => {
+        if (formData.project_id) {
+            projectService.getProjectMembers(formData.project_id)
+                .then((res: any) => setProjectMembers(Array.isArray(res) ? res : (res.items || [])))
+                .catch(() => setProjectMembers([]));
+        } else {
+            setProjectMembers([]);
+        }
+    }, [formData.project_id]);
 
     const openExportModal = (type: 'pdf' | 'excel') => {
         if (!projectId) {
@@ -231,8 +242,22 @@ const IssueTrackerPage = () => {
             setFormNotification(null);
             fetchIssues();
         } catch (error: any) {
-            const msg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || null;
-            const errMsg = msg ? `Error: ${msg}` : "Failed to save issue. Please try again.";
+            let msgStr = "Failed to save issue. Please try again.";
+            const detail = error?.response?.data?.detail;
+            if (detail) {
+                if (typeof detail === 'string') {
+                    msgStr = detail;
+                } else if (Array.isArray(detail)) {
+                    msgStr = detail.map((e: any) => e.msg).join(", ");
+                } else {
+                    msgStr = JSON.stringify(detail);
+                }
+            } else if (error?.response?.data?.message) {
+                msgStr = error.response.data.message;
+            } else if (error?.message) {
+                msgStr = error.message;
+            }
+            const errMsg = msgStr.startsWith("Error:") ? msgStr : `Error: ${msgStr}`;
             setFormNotification({ type: 'error', message: errMsg });
             toast.error(errMsg);
         } finally {
@@ -746,6 +771,17 @@ const IssueTrackerPage = () => {
                                 <label className={labelClasses}>Reported Date <span className="text-red-600">*</span></label>
                                 <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
                                 {errors.reported_date && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.reported_date}</p>}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Assigned To</label>
+                                <select name="assigned_to" value={formData.assigned_to || ""} onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value ? Number(e.target.value) : null }))} className={inputClasses()}>
+                                    <option value="">-- Unassigned --</option>
+                                    {projectMembers.map((member: any) => (
+                                        <option key={member.id || member.user_id} value={member.user?.id || member.user_id || member.id}>
+                                            {member.user?.full_name || member.name || member.full_name || `User #${member.user?.id || member.user_id || member.id}`}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

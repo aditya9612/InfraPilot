@@ -1060,6 +1060,10 @@ const DSRPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Created By</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.created_by_name || "N/A"}</p>
                                     </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Task ID</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.task_id ? `${selectedDsr.task_id}` : "N/A"}</p>
+                                    </div>
                                     <div className="sm:col-span-2 lg:col-span-1">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
                                         <p className="text-sm font-bold text-slate-800 mb-1">{selectedDsr.total_labour || 0}</p>

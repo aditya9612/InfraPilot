@@ -28,7 +28,7 @@ type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 
 const AttendancePage: React.FC = () => {
     const { user } = useAuth();
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, assignedProjects } = useProject();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state
@@ -571,9 +571,12 @@ const AttendancePage: React.FC = () => {
                                     {paginatedHistory.length === 0 ? (
                                         <tr><td colSpan={27} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
                                     ) : (
-                                        paginatedHistory.map((rec, idx) => (
+                                        paginatedHistory.map((rec, idx) => {
+                                            const proj = assignedProjects.find(p => p.id === Number(rec.project_id));
+                                            const mappedProjName = rec.project_name || proj?.project_name || '-';
+                                            return (
                                             <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.project_name ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{mappedProjName}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(new Date(rec.in_time)) : '-'}</span></td>
@@ -657,7 +660,7 @@ const AttendancePage: React.FC = () => {
                                                                     isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
                                                                     lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
-                                                                    projectName: rec.project_name || detailedLabour.project_name || (user ? user.project_name : null) || '-',
+                                                                    projectName: mappedProjName || detailedLabour.project_name || (user ? user.project_name : null) || '-',
                                                                     rawAttendance: attendanceData || {}
                                                                 };
 
@@ -679,7 +682,7 @@ const AttendancePage: React.FC = () => {
                                                     </button>
                                                 </td>
                                             </tr>
-                                        ))
+                                        )})
                                     )}
                                 </tbody>
                             </table>

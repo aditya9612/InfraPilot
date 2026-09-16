@@ -168,18 +168,12 @@ const NewDSREntryModal = ({
     setIsLoading(true);
     const tid = toast.loading(photoFile ? "Creating DSR with photo..." : "Creating DSR...");
     try {
-      // Create DSR first
-      const payload = { ...formData };
-      const dsr = await dsrService.createDsr(payload);
-      
-      // Upload photo if present
-      if (photoFile && dsr && dsr.id) {
-          try {
-              await dsrService.uploadDsrPhoto(dsr.id, photoFile, formData.project_id);
-          } catch (photoErr) {
-              console.error("Photo upload failed, but DSR was created", photoErr);
-          }
+      // Create DSR with photo included in payload
+      const payload: any = { ...formData };
+      if (photoFile) {
+        payload.dsr_image = photoFile;
       }
+      await dsrService.createDsr(payload);
 
       toast.success(
         photoFile ? "DSR entry created with photo!" : "DSR entry created successfully!",

@@ -619,6 +619,7 @@ const MachineryPage = () => {
                 ...createPurchaseForm,
                 total_amount: createPurchaseForm.total_amount || ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
             };
+            delete payload.purchase_date;
             if (createPurchaseForm.id) {
                 await equipmentService.updatePurchase(createPurchaseForm.id, payload);
                 toast.success("Purchase updated successfully!");
@@ -794,6 +795,7 @@ const MachineryPage = () => {
 
             const payload = {
                 ...formData,
+                client_name: formData.client_name || null,
                 start_date: formData.start_date || today.toISOString().split('T')[0],
                 end_date: formData.end_date || tomorrow.toISOString().split('T')[0]
             } as any;
@@ -817,6 +819,14 @@ const MachineryPage = () => {
                 }
             }
         } catch (error: any) {
+            if (error.response?.status === 422) {
+                const details = error.response.data?.detail;
+                if (Array.isArray(details)) {
+                    const messages = details.map((d: any) => `${d.loc?.[d.loc.length - 1] || 'Field'}: ${d.msg}`).join(', ');
+                    toast.error(`Validation failed: ${messages}`);
+                    return;
+                }
+            }
             const errorMsg = error.response?.data?.detail || "Failed to add rental";
             toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
         }
@@ -1529,6 +1539,7 @@ const MachineryPage = () => {
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Start Date</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">End Date</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Rental Cost</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Per Day Cost</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Client Name</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Notes</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Status</th>
@@ -1544,6 +1555,7 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-3 text-slate-900">{log.start_date}</td>
                                                 <td className="px-6 py-3 text-slate-900">{log.end_date}</td>
                                                 <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
+                                                <td className="px-6 py-3 font-bold text-emerald-600">{log.per_day_cost ? `₹${log.per_day_cost.toLocaleString()}` : '-'}</td>
                                                 <td className="px-6 py-3 font-bold text-slate-900">{log.client_name}</td>
                                                 <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
                                                 <td className="px-6 py-3">
@@ -2753,16 +2765,7 @@ const MachineryPage = () => {
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Date <span className="text-red-600">*</span></label>
-                            <input
-                                required
-                                type="date"
-                                value={createPurchaseForm.purchase_date || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
-                            />
-                        </div>
+
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Warranty End Date <span className="text-red-600">*</span></label>
                             <input
