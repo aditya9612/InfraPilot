@@ -30,6 +30,15 @@ const EditMilestoneModal = ({
 
   useEffect(() => {
     if (milestone) {
+      const normalizeStatus = (s: string) => {
+        if (!s) return "Planned";
+        const lower = s.toLowerCase();
+        if (lower === "in progress" || lower === "ongoing") return "In Progress";
+        if (lower === "completed") return "Completed";
+        if (lower === "delayed") return "Delayed";
+        return "Planned";
+      };
+
       setFormData({
         title: milestone.title,
         description: milestone.description,
@@ -37,7 +46,7 @@ const EditMilestoneModal = ({
         end_date: milestone.end_date,
         actual_start_date: (milestone as any).actual_start_date || "",
         actual_end_date: (milestone as any).actual_end_date || "",
-        status: milestone.status || "Planned",
+        status: normalizeStatus(milestone.status || ""),
       });
     }
   }, [milestone]);

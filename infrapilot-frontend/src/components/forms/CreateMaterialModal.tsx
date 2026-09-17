@@ -94,7 +94,7 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     if (!formData.category.trim()) newErrors.category = "Category is required.";
     if (!formData.unit_id) newErrors.unit_id = "Unit is required.";
 
-    if (Number(formData.default_rate) <= 0) newErrors.default_rate = "Default rate must be positive.";
+    if (!formData.default_rate || Number(formData.default_rate) <= 0) newErrors.default_rate = "Default rate is required and must be positive.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -223,10 +223,12 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Default Rate (₹)</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Default Rate (₹) <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="number"
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_rate ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                 value={formData.default_rate}
                 onChange={(e) => setFormData({ ...formData, default_rate: e.target.value === '' ? '' : Number(e.target.value) })}
               />

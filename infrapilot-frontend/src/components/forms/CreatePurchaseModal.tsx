@@ -41,7 +41,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            setFormData(prev => ({ ...prev, project_id: 0, boq_item_id: 0 }));
+            setFormData(prev => ({ ...prev, project_id: projectId || 0, boq_item_id: 0 }));
             setFieldErrors({});
 
             // Load all available equipment recursively to bypass 100 limit

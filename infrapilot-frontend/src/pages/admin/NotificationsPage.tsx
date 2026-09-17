@@ -170,7 +170,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
         breadcrumb={["Admin", "Notifications"]}
       />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
+      <PageTransition className="p-6 bg-slate-50 min-h-\[calc(100vh-64px)\] pb-8 font-inter">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification & Alert Center</h1>

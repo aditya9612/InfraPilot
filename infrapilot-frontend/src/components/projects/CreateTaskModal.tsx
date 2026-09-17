@@ -170,8 +170,6 @@ const CreateTaskModal = ({
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
     if (!formData.priority) newErrors.priority = "Priority is required.";
-    if (!formData.start_date) newErrors.start_date = "Start date is required.";
-    if (!formData.end_date) newErrors.end_date = "End date is required.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -189,8 +187,8 @@ const CreateTaskModal = ({
       form.append("description", formData.description);
       form.append("priority", String(formData.priority));
       form.append("status", formData.status);
-      form.append("start_date", formData.start_date);
-      form.append("end_date", formData.end_date);
+      if (formData.start_date) form.append("start_date", formData.start_date);
+      if (formData.end_date) form.append("end_date", formData.end_date);
       if (formData.assigned_user_id) {
         form.append("assigned_user_id", String(formData.assigned_user_id));
       }

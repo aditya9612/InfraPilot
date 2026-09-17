@@ -308,7 +308,6 @@ const ManagerDocumentsPage = () => {
         setDocViewerLatest(null);
         setIsDocViewerOpen(true);
 
-        const toastId = toast.loading(`Loading ${doc.title}...`);
         try {
             // Run API calls in parallel
             const [viewRes, versionsRes, latestRes, docDataRes] = await Promise.allSettled([
@@ -362,10 +361,8 @@ const ManagerDocumentsPage = () => {
                 const match = latestArr.find((l: any) => l?.drawing_name === doc.title) || latestArr[0];
                 setDocViewerLatest(match || null);
             }
-
-            toast.dismiss(toastId);
         } catch {
-            toast.error("Failed to open document.", { id: toastId });
+            toast.error("Failed to open document.");
         }
     };
 
@@ -795,8 +792,8 @@ const ManagerDocumentsPage = () => {
                                                         key={page}
                                                         onClick={() => setCurrentPage(page)}
                                                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                                ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                                : "text-slate-500 hover:bg-slate-100"
+                                                            ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                            : "text-slate-500 hover:bg-slate-100"
                                                             }`}
                                                     >
                                                         {page}
