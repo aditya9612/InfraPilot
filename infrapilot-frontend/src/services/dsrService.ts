@@ -51,7 +51,7 @@ export const dsrService = {
     // If a photo is attached: send file as FormData body + all fields as query params
     if (dsr_image instanceof File) {
       const form = new FormData();
-      form.append("dsr_image", dsr_image);
+      form.append("photos", dsr_image); // Swapped dsr_image with photos based on swagger
       // Do NOT set Content-Type — interceptor auto-sets multipart boundary
       const response = await api.post<DsrItem>("/dsr", form, { params: finalPayload });
       return response.data;

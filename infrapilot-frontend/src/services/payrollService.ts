@@ -57,7 +57,7 @@ export const payrollService = {
   },
 
   getLabourWages: async (params: any = {}) => {
-    const response = await api.get(`/accountant/payroll/labour/wages`, { params });
+    const response = await api.get(`/labour/wages`, { params });
     return response.data;
   },
 

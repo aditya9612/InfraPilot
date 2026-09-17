@@ -165,28 +165,18 @@ const DSRPage = () => {
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(apiData.length);
 
-            // The list endpoint returns photos: [] — fetch actual photos via the dedicated API
-            // If no extra photos exist, fall back to dsr_image (uploaded at creation time)
-            const itemsWithPhotos = await Promise.all(
-                apiData.map(async (item: any) => {
-                    try {
-                        const photoData = await dsrService.getDsrPhotos(item.id, item.project_id);
-                        let photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
-                            id: p.id,
-                            url: p.url || p.file_url || p.photo_url
-                        })).filter((p: any) => p.url) : [];
-                        // Fallback: if no extra photos, show the dsr_image uploaded at creation
-                        if (photos.length === 0 && item.dsr_image) {
-                            photos = [{ id: 0, url: item.dsr_image }];
-                        }
-                        return { ...item, photos };
-                    } catch {
-                        // On error, still try to show dsr_image
-                        const fallback = item.dsr_image ? [{ id: 0, url: item.dsr_image }] : [];
-                        return { ...item, photos: fallback };
-                    }
-                })
-            );
+            const itemsWithPhotos = apiData.map((item: any) => {
+                let photos: any[] = [];
+                if (item.photos && Array.isArray(item.photos)) {
+                    photos = item.photos.map((p: any) => ({
+                        id: p.id,
+                        url: p.file_url || p.url || p.photo_url
+                    })).filter((p: any) => p.url);
+                } else if (item.dsr_image) {
+                    photos = [{ id: 0, url: item.dsr_image }];
+                }
+                return { ...item, photos };
+            });
 
             setDsrList(itemsWithPhotos);
 
@@ -230,25 +220,13 @@ const DSRPage = () => {
         setLoadingId(id);
         try {
             const data = await dsrService.getDsrById(id);
-            let photos = data.photos?.map((p: any) => ({
-                id: p.id,
-                url: p.url || p.file_url || p.photo_url
-            })).filter((p: any) => p.url) || [];
-
-            try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id, data.project_id);
-                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
-                    photos = extraPhotos.map((p: any) => ({
-                        id: p.id,
-                        url: p.url || p.file_url || p.photo_url
-                    })).filter((p: any) => p.url);
-                }
-            } catch (e) {
-                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
-            }
-
-            // Fallback: if no extra photos, show the dsr_image uploaded at creation
-            if (photos.length === 0 && (data as any).dsr_image) {
+            let photos: any[] = [];
+            if (data.photos && Array.isArray(data.photos)) {
+                photos = data.photos.map((p: any) => ({
+                    id: p.id,
+                    url: p.file_url || p.url || p.photo_url
+                })).filter((p: any) => p.url);
+            } else if ((data as any).dsr_image) {
                 photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 
@@ -271,25 +249,13 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const data = await dsrService.getDsrById(id);
-            let photos = data.photos?.map((p: any) => ({
-                id: p.id,
-                url: p.url || p.file_url || p.photo_url
-            })).filter((p: any) => p.url) || [];
-
-            try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id, data.project_id);
-                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
-                    photos = extraPhotos.map((p: any) => ({
-                        id: p.id,
-                        url: p.url || p.file_url || p.photo_url
-                    })).filter((p: any) => p.url);
-                }
-            } catch (e) {
-                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
-            }
-
-            // Fallback: if no extra photos, show the dsr_image uploaded at creation
-            if (photos.length === 0 && (data as any).dsr_image) {
+            let photos: any[] = [];
+            if (data.photos && Array.isArray(data.photos)) {
+                photos = data.photos.map((p: any) => ({
+                    id: p.id,
+                    url: p.file_url || p.url || p.photo_url
+                })).filter((p: any) => p.url);
+            } else if ((data as any).dsr_image) {
                 photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 

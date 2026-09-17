@@ -510,6 +510,7 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState("Daily");
   const [wages, setWages] = useState<any[]>([]);
+  const [totalWages, setTotalWages] = useState(0);
   const [labourMap, setLabourMap] = useState<Record<number, string>>({});
   const [filters, setFilters] = useState({
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
@@ -535,9 +536,12 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
 
   const fetchWages = async () => {
     try {
+      console.log("Triggering API: GET /api/v1/labour/wages");
       const params: any = {
         start_date: filters.start_date,
         end_date: filters.end_date,
+        limit: wageRpp,
+        offset: (wagePage - 1) * wageRpp
       };
       if (filters.period_type) params.period_type = filters.period_type;
       if (filters.status) params.status = filters.status;
@@ -545,8 +549,12 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
       if (filters.project_id) params.project_id = Number(filters.project_id);
 
       const data = await payrollService.getLabourWages(params);
-      setWages(Array.isArray(data) ? data : data?.data || []);
+      console.log("Success: GET /api/v1/labour/wages returned:", data);
+      const items = Array.isArray(data) ? data : data?.items || data?.data || [];
+      setWages(items);
+      setTotalWages(data?.total || items.length);
     } catch (err) {
+      console.error("Failed to fetch wages API:", err);
       toast.error("Failed to load labour wages");
     }
   };
@@ -569,14 +577,17 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
       fetchWages();
       if (onProjectChange) onProjectChange(filters.project_id);
     }
-  }, [activeSubTab, filters.start_date, filters.end_date, filters.period_type, filters.status, filters.labour_id, filters.project_id]);
+  }, [activeSubTab, filters.start_date, filters.end_date, filters.period_type, filters.status, filters.labour_id, filters.project_id, wagePage, wageRpp]);
 
   const handlePayWage = async (id: number | string) => {
     try {
+      console.log(`Triggering API: POST /api/v1/labour/wages/${id}/pay`);
       await payrollService.payLabourWageById(id, { payment_mode: "Bank Transfer" });
       toast.success("Wage paid successfully");
+      console.log("Payment successful, refreshing list...");
       fetchWages();
     } catch (error) {
+      console.error("Failed to pay wage API:", error);
       toast.error("Failed to pay wage");
     }
   };
@@ -650,13 +661,14 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                   <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {wages.length > 0 ? wages.slice((wagePage - 1) * wageRpp, wagePage * wageRpp).map((wage, idx) => {
+                  {wages.length > 0 ? wages.map((wage, idx) => {
                     const laborName = wage.labor_name || wage.labour_name || wage.labour?.labour_name || wage.labour?.name || wage.name || (wage.labour_id ? (labourMap[wage.labour_id] || `Labour #${wage.labour_id}`) : 'Labor');
                     const laborType = wage.type || wage.labour_type || wage.skill_type || wage.skill_level || wage.category || 'Skilled';
                     const wagePeriod = wage.period || wage.period_type || 'Daily';
                     const grossWage = wage.gross_wage ?? wage.gross_amount ?? wage.gross_salary ?? wage.total_wage ?? wage.amount ?? 0;
                     const netWage = wage.net_wage ?? wage.net_amount ?? wage.net_salary ?? wage.amount ?? wage.net_pay ?? 0;
-                    const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Paid');
+                    const wageStatus = wage.status || (wage.is_paid ? 'Paid' : 'Pending');
+                    const isPaid = String(wageStatus).toLowerCase() === 'paid';
 
                     return (
                       <tr key={wage.id || idx} className="hover:bg-slate-50/50">
@@ -665,9 +677,9 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                         <td className="px-4 py-3 text-xs text-slate-500">{wagePeriod}</td>
                         <td className="px-4 py-3 text-xs text-slate-600">₹{Number(grossWage).toLocaleString('en-IN')}</td>
                         <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{Number(netWage).toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wageStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
+                        <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wageStatus}</span></td>
                         <td className="px-4 py-3 text-xs">
-                          {wageStatus === 'Pending' ? (
+                          {String(wageStatus).toLowerCase() === 'pending' ? (
                             <button onClick={() => handlePayWage(wage.id)} className="text-[10px] bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-200 transition-all">
                               PAY NOW
                             </button>
@@ -691,11 +703,11 @@ const LaborWagesWrapper = ({ initialSubTab, onProjectChange }: { initialSubTab?:
                     {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
-                <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, wages.length)} of {wages.length} records</span>
+                <span className="text-xs text-slate-500 font-semibold">Showing {totalWages === 0 ? 0 : (wagePage - 1) * wageRpp + 1} – {Math.min(wagePage * wageRpp, totalWages)} of {totalWages} records</span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setWagePage(p => Math.max(1, p - 1))} disabled={wagePage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
                   <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
-                  <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length / wageRpp), p + 1))} disabled={wagePage === Math.ceil(wages.length / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => setWagePage(p => Math.min(Math.ceil(totalWages / wageRpp), p + 1))} disabled={totalWages === 0 || wagePage === Math.ceil(totalWages / wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
@@ -1534,6 +1546,24 @@ const PayrollPage = () => {
           };
         } catch (e) {
           console.warn("paymentService.getFiscalSummary failed", e);
+        }
+
+        // 4. Fetch labour wages stats explicitly
+        try {
+          console.log("Triggering API: GET /api/v1/labour/wages/stats");
+          const wageStatsRes = await payrollService.getLabourWageStats();
+          const wageStatsData = wageStatsRes?.data || wageStatsRes || {};
+          console.log("Success: GET /api/v1/labour/wages/stats returned:", wageStatsData);
+          combinedData = {
+            ...wageStatsData,
+            ...combinedData,
+            // Prioritize wage stats if they exist
+            pending_due: wageStatsData.pending_wages ?? wageStatsData.pending_due ?? combinedData.pending_due,
+            paid_this_month: wageStatsData.paid_wages ?? wageStatsData.paid_this_month ?? combinedData.paid_this_month,
+            advance_logs: wageStatsData.advance_paid ?? wageStatsData.advance ?? combinedData.advance_logs,
+          };
+        } catch (e) {
+          console.error("Failed to fetch wages stats API:", e);
         }
 
         setSummaryData(combinedData);
