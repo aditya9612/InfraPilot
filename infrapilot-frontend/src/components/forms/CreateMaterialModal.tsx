@@ -93,8 +93,12 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     if (!formData.name.trim()) newErrors.name = "Material name is required.";
     if (!formData.category.trim()) newErrors.category = "Category is required.";
     if (!formData.unit_id) newErrors.unit_id = "Unit is required.";
+    if (!formData.brand.trim()) newErrors.brand = "Brand is required.";
+    if (!formData.specification.trim()) newErrors.specification = "Specification is required.";
+    if (!formData.hsn_code.trim()) newErrors.hsn_code = "HSN code is required.";
 
     if (!formData.default_rate || Number(formData.default_rate) <= 0) newErrors.default_rate = "Default rate is required and must be positive.";
+    if (formData.minimum_stock_level === "" || Number(formData.minimum_stock_level) < 0) newErrors.minimum_stock_level = "Min stock level is required and cannot be negative.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -104,13 +108,7 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
 
     setErrors({});
 
-    // Strip empty optional strings to prevent 422 validation errors on backend
     const submitData: any = { ...formData };
-    ["brand", "specification", "hsn_code"].forEach(key => {
-      if (submitData[key] === "") {
-        delete submitData[key];
-      }
-    });
 
     onSubmit(submitData);
   };
@@ -192,35 +190,44 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               {errors.unit_id && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unit_id}</p>}
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Brand</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Brand <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.brand ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
               />
+              {errors.brand && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.brand}</p>}
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Specification</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Specification <span className="text-rose-500">*</span>
+            </label>
             <textarea
               rows={2}
-              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+              className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.specification ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
               value={formData.specification}
               onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
             />
+            {errors.specification && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.specification}</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">HSN Code</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                HSN Code <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.hsn_code ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                 value={formData.hsn_code}
                 onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
               />
+              {errors.hsn_code && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.hsn_code}</p>}
             </div>
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -238,13 +245,16 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Min Stock Level</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Min Stock Level <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="number"
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.minimum_stock_level ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                 value={formData.minimum_stock_level}
                 onChange={(e) => setFormData({ ...formData, minimum_stock_level: e.target.value === '' ? '' : Number(e.target.value) })}
               />
+              {errors.minimum_stock_level && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.minimum_stock_level}</p>}
             </div>
             <div className="flex items-center gap-2 pt-8">
               <input

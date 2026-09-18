@@ -276,11 +276,6 @@ const TaskRequestModal = ({
                         }}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                     />
-                    {formData.attachment_url && !formData.attachment_file && (
-                        <div className="mt-2 text-[11px] font-medium text-slate-500">
-                            Current Attachment: <a href={formData.attachment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View File</a>
-                        </div>
-                    )}
                 </div>
             </form>
         </Modal>
