@@ -96,7 +96,7 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
       footer={modalFooter}
       maxWidth="max-w-md"
     >
-      <form id="update-actuals-form" onSubmit={handleSubmit} noValidate>
+      <form id="update-actuals-form" onSubmit={handleSubmit}>
         {initialData && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
@@ -131,7 +131,7 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Actual Quantity ({initialData?.unit || "Units"})
+                Actual Quantity ({initialData?.unit || "Units"}) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -152,7 +152,7 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Actual Total Cost (₹)
+                Actual Total Cost (₹) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"

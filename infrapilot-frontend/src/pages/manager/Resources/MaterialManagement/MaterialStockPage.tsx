@@ -444,12 +444,32 @@ const MaterialStockPage = () => {
                                     <p className="text-xl font-black text-orange-500">{reportSummary.total_used || 0}</p>
                                 </div>
                                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Remaining</p>
+                                    <p className="text-xl font-black text-emerald-500">{reportSummary.total_remaining || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Value</p>
                                     <p className="text-xl font-black text-slate-800">{formatINR(reportSummary.total_stock_value)}</p>
                                 </div>
                                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pay Given</p>
+                                    <p className="text-xl font-black text-emerald-500">{formatINR(reportSummary.total_payment_given)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Pay</p>
                                     <p className="text-xl font-black text-rose-500">{formatINR(reportSummary.total_payment_pending)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Stock</p>
+                                    <p className="text-xl font-black text-emerald-500">{reportSummary.in_stock_count || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Low Stock</p>
+                                    <p className="text-xl font-black text-amber-500">{reportSummary.low_stock_count || 0}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Out of Stock</p>
+                                    <p className="text-xl font-black text-rose-500">{reportSummary.out_of_stock_count || 0}</p>
                                 </div>
                             </div>
                         )}

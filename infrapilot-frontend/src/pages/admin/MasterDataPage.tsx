@@ -528,7 +528,7 @@ const MasterDataPage = () => {
         onConfirm={handleDelete}
         title="Delete Master Entity"
         message="Are you sure you want to remove this entity from master data? This may affect linked projects and reports."
-        confirmText="Remove Entity"
+        confirmText="Delete Entity"
         type="danger"
       />
 

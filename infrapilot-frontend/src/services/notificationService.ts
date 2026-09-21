@@ -75,11 +75,11 @@ export const notificationService = {
                 ...genAlerts.map((a: any) => ({
                     ...a,
                     id: a.id || a.uuid || a.alert_id || `gen-${Math.random()}`,
-                    title: "System Alert",
+                    title: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : (a.alert_type || "System Alert"),
                     description: a.message || a.description || "New general alert",
                     details: a.message || a.details || "",
                     message: a.message || a.details || a.description || "",
-                    type: "Alert" as const,
+                    type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : "Alert",
                     timestamp: normalizeTimestamp(a.created_at || a.timestamp),
                     created_at: normalizeTimestamp(a.created_at || a.timestamp),
                     read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
@@ -191,13 +191,13 @@ export const notificationService = {
             const genAlerts = extractData(genRes).map((a: any) => ({
                 ...a,
                 id: a.id || `gen-${Math.random()}`,
-                title: "System Alert",
+                title: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : (a.alert_type || "System Alert"),
                 description: a.message || a.description || "",
                 details: a.message || "",
-                type: "Alert" as const,
+                type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : "Alert",
                 timestamp: normalizeTs(a.created_at || a.timestamp),
                 created_at: normalizeTs(a.created_at || a.timestamp),
-                read: !!(a.is_read || a.read),
+                read: readIds.includes(String(a.id)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                 source: "general" as const,
                 role_target: "All" as const,
                 status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
@@ -281,7 +281,14 @@ export const notificationService = {
                     await api.put(`/notifications/${numericId}/read`);
                 }
             } else if (source === "general" && !String(id).includes('proj-') && !String(id).includes('task-') && !String(id).includes('.')) {
-                await api.put(`/alerts/${id}/read`);
+                await api.put(`/alerts/${id}/read`).catch(() => { });
+                const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+                const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+                if (!readIds.includes(String(id))) {
+                    readIds.push(String(id));
+                    if (readIds.length > 500) readIds.shift();
+                    localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
+                }
             } else {
                 const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
                 const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
@@ -314,8 +321,8 @@ export const notificationService = {
                 notificationService.markAsRead(n.id, n.source)
             ));
 
-            // Store virtual read state for project/task virtual IDs
-            const virtualUnread = unread.filter(n => n.source === 'project' || n.source === 'task');
+            // Store virtual read state for project/task/general virtual IDs
+            const virtualUnread = unread.filter(n => n.source === 'project' || n.source === 'task' || n.source === 'general');
             if (virtualUnread.length > 0) {
                 const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
                 const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
