@@ -239,14 +239,11 @@ const AdminIssuesPage = () => {
         if (
             !formData.title?.trim() ||
             !formData.category?.trim() ||
-            !formData.description?.trim() ||
             !formData.priority?.trim() ||
             !formData.status?.trim() ||
-            !formData.reported_date ||
-            !formData.resolution?.trim() ||
-            Number(formData.assigned_to) === 0
+            !formData.reported_date
         ) {
-            toast.error("All fields are mandatory.");
+            toast.error("Please fill in all mandatory fields.");
             return;
         }
 
@@ -528,55 +525,27 @@ const AdminIssuesPage = () => {
                     </div>
                     {/* Pagination Controls */}
                     {filteredIssues.length > 0 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <div className="flex gap-1">
+                        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Showing {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredIssues.length)} of {filteredIssues.length} Issues
+                            </p>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                                    </svg>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                                 </button>
-                                {Array.from({ length: totalPages }).map((_, i) => {
-                                    const page = i + 1;
-                                    if (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
-                                    ) {
-                                        return (
-                                            <button
-                                                key={page}
-                                                onClick={() => setCurrentPage(page)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                    ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                    : "text-slate-500 hover:bg-slate-100"
-                                                    }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        );
-                                    } else if (
-                                        page === currentPage - 2 ||
-                                        page === currentPage + 2
-                                    ) {
-                                        return <span key={page} className="text-slate-400 font-bold px-1 flex items-center justify-center">...</span>;
-                                    }
-                                    return null;
-                                })}
+                                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter bg-white shadow-sm shadow-slate-100">
+                                    {currentPage}
+                                </div>
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                                     disabled={currentPage >= totalPages}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                                    </svg>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -683,7 +652,7 @@ const AdminIssuesPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description <span className="text-rose-500">*</span></label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description</label>
                         <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -702,7 +671,7 @@ const AdminIssuesPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Assigned To <span className="text-rose-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Assigned To</label>
                             <select name="assigned_to" value={formData.assigned_to || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value={0}>Unassigned</option>
                                 {projectMembers.map(member => (
@@ -718,7 +687,7 @@ const AdminIssuesPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution <span className="text-rose-500">*</span></label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution</label>
                         <textarea name="resolution" value={formData.resolution || ""} onChange={handleInputChange} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" placeholder="Details of how the issue was resolved (if closed)..." />
                     </div>
                 </div>
@@ -801,7 +770,7 @@ const AdminIssuesPage = () => {
                             <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Resolution</div>
                                 <div className="text-sm font-bold text-slate-800 uppercase">
-                                    {formData.resolution || "PENDING"}
+                                    {formData.resolution !== null && formData.resolution !== undefined ? String(formData.resolution) : "null"}
                                 </div>
                             </div>
                         </div>
@@ -967,7 +936,7 @@ const AdminIssuesPage = () => {
                 onConfirm={handleDelete}
                 title="Delete Issue"
                 message="Are you sure you want to delete this issue? This action cannot be undone."
-                confirmText="Yes, Delete"
+                confirmText="Delete"
             />
         </>
     );

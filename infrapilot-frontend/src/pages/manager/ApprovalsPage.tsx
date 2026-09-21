@@ -29,7 +29,6 @@ const ApprovalsPage = () => {
     const ITEMS_PER_PAGE = 10;
 
     const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-    const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [viewingApproval, setViewingApproval] = useState<ApprovalItem | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [usersMap, setUsersMap] = useState<Record<string, string>>({});
@@ -239,37 +238,6 @@ const ApprovalsPage = () => {
         }
     };
 
-    const handleSelectAll = () => {
-        if (pendingFilteredApprovals.length === 0) return;
-        if (selectedIds.length === pendingFilteredApprovals.length) {
-            setSelectedIds([]);
-        } else {
-            setSelectedIds(pendingFilteredApprovals.map(a => a.id));
-        }
-    };
-
-    const toggleSelect = (id: number) => {
-        setSelectedIds(prev =>
-            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-        );
-    };
-
-    const handleBulkApprove = async () => {
-        if (selectedIds.length === 0) return;
-
-        const pendingCount = selectedIds.length;
-        const toastId = toast.loading(`Authorizing ${pendingCount} site requests...`);
-
-        try {
-            await Promise.all(selectedIds.map(id => approvalService.approve(id, "Bulk approved by PM")));
-            toast.success(`${pendingCount} site requests approved.`, { id: toastId });
-            setSelectedIds([]);
-            fetchApprovals();
-        } catch (err) {
-            toast.error("Bulk authorization encountered issues.", { id: toastId });
-        }
-    };
-
     const handleCreateApproval = async () => {
         if (!createForm.entity_id.trim()) { toast.error("Entity ID is required"); return; }
         setIsCreating(true);
@@ -331,16 +299,6 @@ const ApprovalsPage = () => {
                         >
                             <Plus className="w-4 h-4" /> Create Approval
                         </button>
-                        <button
-                            onClick={handleBulkApprove}
-                            disabled={selectedIds.length === 0}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${selectedIds.length > 0
-                                ? "bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600"
-                                : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
-                                }`}
-                        >
-                            Approve Selected {selectedIds.length > 0 && `(${selectedIds.length})`}
-                        </button>
                     </div>
                 </div>
 
@@ -373,7 +331,7 @@ const ApprovalsPage = () => {
                                 {(["Pending", "Approved", "Rejected"] as const).map(tab => (
                                     <button
                                         key={tab}
-                                        onClick={() => { setActiveTab(tab); setSelectedIds([]); }}
+                                        onClick={() => { setActiveTab(tab); }}
                                         className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
                                             ? "bg-white text-primary shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
@@ -414,15 +372,6 @@ const ApprovalsPage = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                    <th className="px-6 py-4 w-12">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-slate-300 text-primary focus:ring-primary disabled:opacity-50"
-                                            checked={pendingFilteredApprovals.length > 0 && selectedIds.length === pendingFilteredApprovals.length}
-                                            onChange={handleSelectAll}
-                                            disabled={pendingFilteredApprovals.length === 0}
-                                        />
-                                    </th>
                                     <th className="px-6 py-4">Entity Type</th>
                                     <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Summary Detail</th>
@@ -433,24 +382,14 @@ const ApprovalsPage = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center">
+                                        <td colSpan={5} className="px-6 py-20 text-center">
                                             <div className="inline-block w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin mb-2"></div>
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronizing Registry...</p>
                                         </td>
                                     </tr>
                                 ) : filteredApprovals.length > 0 ? (
                                     filteredApprovals.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE).map((item) => (
-                                        <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(item.id) ? "bg-primary/[0.02]" : ""}`}>
-                                            <td className="px-6 py-4">
-                                                {item.status === "Pending" && (
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-slate-300 text-primary focus:ring-primary"
-                                                        checked={selectedIds.includes(item.id)}
-                                                        onChange={() => toggleSelect(item.id)}
-                                                    />
-                                                )}
-                                            </td>
+                                        <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group`}>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
@@ -504,7 +443,7 @@ const ApprovalsPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center">
+                                        <td colSpan={5} className="px-6 py-20 text-center">
                                             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {activeTab} records found</p>
                                         </td>
                                     </tr>

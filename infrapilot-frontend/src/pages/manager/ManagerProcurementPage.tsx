@@ -57,7 +57,7 @@ const ManagerProcurementPage = () => {
     const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
     const [requestType, setRequestType] = useState<CreateSiteRequest["request_type"]>("Material");
     const [requestDescription, setRequestDescription] = useState("");
-    const [requestQuantity, setRequestQuantity] = useState(1);
+    const [requestQuantity, setRequestQuantity] = useState<number | "">("");
     const [isCreatingRequest, setIsCreatingRequest] = useState(false);
 
     // ── DATA FETCH ────────────────────────────────────────────────
@@ -194,11 +194,11 @@ const ManagerProcurementPage = () => {
             toast.error("Please select a project before creating a request.");
             return;
         }
-        if (!requestDescription.trim()) {
+        if (requestDescription.trim() === "") {
             toast.error("Please enter a description for the request.");
             return;
         }
-        if (requestQuantity <= 0) {
+        if (requestQuantity === "" || requestQuantity <= 0) {
             toast.error("Quantity must be greater than zero.");
             return;
         }
@@ -209,7 +209,7 @@ const ManagerProcurementPage = () => {
                 project_id: selectedProjectId,
                 request_type: requestType,
                 description: requestDescription.trim(),
-                quantity: requestQuantity
+                quantity: Number(requestQuantity)
             };
             const created = await siteRequestService.createRequest(payload);
             setMaterialRequests(prev => [created, ...prev]);
@@ -217,7 +217,7 @@ const ManagerProcurementPage = () => {
             setIsCreateModalOpen(false);
             setRequestType("Material");
             setRequestDescription("");
-            setRequestQuantity(1);
+            setRequestQuantity("");
             fetchData();
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to create request.");
@@ -667,7 +667,7 @@ const ManagerProcurementPage = () => {
 
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity <span className="text-rose-500">*</span></label>
-                            <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(Number(e.target.value))}
+                            <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(e.target.value === "" ? "" : Number(e.target.value))}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>
                     </div>

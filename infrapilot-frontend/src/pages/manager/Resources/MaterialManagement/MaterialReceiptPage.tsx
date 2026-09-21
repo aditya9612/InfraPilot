@@ -266,9 +266,8 @@ const MaterialReceiptPage = () => {
         }
         const contactVal = (supplierForm.contact || "").trim();
         const isPhone = /^[0-9]{10}$/.test(contactVal);
-        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactVal);
-        if (!isPhone && !isEmail) {
-            return toast.error("Please enter a valid 10-digit phone number or email address.");
+        if (!isPhone) {
+            return toast.error("Please enter a valid 10-digit phone number.");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(supplierForm.gst || "")) {
@@ -523,7 +522,7 @@ const MaterialReceiptPage = () => {
                                         {activeTab === "Suppliers" && (
                                             <tr>
                                                 <th className="px-6 py-4">Supplier Name</th><th className="px-6 py-4">Contact Person</th>
-                                                <th className="px-6 py-4">Phone/Email</th><th className="px-6 py-4">GST Number</th><th className="px-6 py-4">Address</th><th className="px-6 py-4 text-right">Actions</th>
+                                                <th className="px-6 py-4">Phone</th><th className="px-6 py-4">GST Number</th><th className="px-6 py-4">Address</th><th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
                                         )}
                                         {activeTab === "Purchase Orders" && (
@@ -763,14 +762,14 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal G & H: Add/Edit Supplier */}
-            <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Supplier"}</button></>}>
+            <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Update Supplier" : "Save Supplier")}</button></>}>
                 <form id="supplier-form" onSubmit={handleSupplierSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
                             <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="E.g. 9876543210 or example@gmail.com" /></div>
+                            <div><label className={labelClasses}>Phone Number <span className="text-rose-500">*</span></label><input required type="text" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} className={inputClasses} placeholder="E.g. 9876543210" /></div>
                             <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
@@ -793,7 +792,7 @@ const MaterialReceiptPage = () => {
                             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Contact Information</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Person</p><p className="font-bold text-slate-700">{selectedSupplier.contactPerson || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone / Email</p><p className="font-bold text-slate-700">{selectedSupplier.contact || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone Number</p><p className="font-bold text-slate-700">{selectedSupplier.contact || '-'}</p></div>
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Address</p><p className="font-bold text-slate-700">{selectedSupplier.address || '-'}</p></div>
                             </div>
                         </div>
