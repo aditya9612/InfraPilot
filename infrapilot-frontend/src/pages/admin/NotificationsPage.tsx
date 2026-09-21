@@ -541,7 +541,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
               <button
                 onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                className="w-full py-4 bg-primary hover:bg-blue-600 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-xs shadow-xl shadow-primary/20 active:scale-[0.98]"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-xs shadow-xl shadow-blue-600/20 active:scale-[0.98]"
               >
                 Dismiss
               </button>
