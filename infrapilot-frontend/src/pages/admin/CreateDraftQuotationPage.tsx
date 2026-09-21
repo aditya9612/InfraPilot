@@ -196,7 +196,8 @@ const CreateDraftQuotationPage = () => {
 
   const [materialItems, setMaterialItems] = useState<MaterialItem[]>([]);
 
-  const [extraChargeItems, setExtraChargeItems] = useState<ExtraChargeItem[]>([]);
+  const [transportCharge, setTransportCharge] = useState(0);
+  const [otherCharge, setOtherCharge] = useState(0);
 
   const [gstRates, setGstRates] = useState({
     gst: 18,
@@ -371,7 +372,8 @@ const CreateDraftQuotationPage = () => {
 
           setLabourItems(q.labour_items || []);
           setMaterialItems(q.material_items || []);
-          setExtraChargeItems(q.extra_charge_items || []);
+          setTransportCharge(q.transport || 0);
+          setOtherCharge(q.other || 0);
 
           if (q.items && q.items.length > 0) {
             const mappedItems = q.items.map(item => ({
@@ -438,9 +440,8 @@ const CreateDraftQuotationPage = () => {
     const workTotal = items.reduce((sum, item) => sum + item.amount, 0);
     const labourTotal = labourItems.reduce((sum, item) => sum + (item.amount || 0), 0);
     const materialTotal = materialItems.reduce((sum, item) => sum + (item.estimated_amount || (item.estimated_quantity * item.estimated_rate) || 0), 0);
-    const extraTotal = extraChargeItems.reduce((sum, item) => sum + (item.amount || (item.quantity * item.rate) || 0), 0);
-    return Number((workTotal + labourTotal + materialTotal + extraTotal).toFixed(2));
-  }, [items, labourItems, materialItems, extraChargeItems]);
+    return Number((workTotal + labourTotal + materialTotal + transportCharge + otherCharge).toFixed(2));
+  }, [items, labourItems, materialItems, transportCharge, otherCharge]);
 
   const cgst = useMemo(() => Number((subTotal * (gstRates.cgst / 100)).toFixed(2)), [subTotal, gstRates.cgst]);
   const sgst = useMemo(() => Number((subTotal * (gstRates.sgst / 100)).toFixed(2)), [subTotal, gstRates.sgst]);
@@ -605,6 +606,8 @@ const CreateDraftQuotationPage = () => {
       sgst_percent: gstRates.sgst || 0,
       cgst_amount: cgst || 0,
       sgst_amount: sgst || 0,
+      transport: transportCharge || 0,
+      other: otherCharge || 0,
       grand_total: grandTotal || 0,
       notes: notes || "N/A",
       items: items.map(item => {
@@ -817,7 +820,8 @@ const CreateDraftQuotationPage = () => {
     // 6. Map Other Items
     setLabourItems(q.labour_items || []);
     setMaterialItems(q.material_items || []);
-    setExtraChargeItems(q.extra_charge_items || []);
+    setTransportCharge(q.transport || 0);
+    setOtherCharge(q.other || 0);
 
     setNotes(q.notes || "");
     setTerms(q.terms_conditions || "");
@@ -1221,8 +1225,51 @@ const CreateDraftQuotationPage = () => {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Sub Total</span>
-                  <span className="font-black text-slate-800">₹ {subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="font-bold text-slate-500">Work/Items Total</span>
+                  <span className="font-black text-slate-800">₹ {(subTotal - transportCharge - otherCharge).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-500">Transport Charges</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-black text-slate-800">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={transportCharge === 0 ? "" : transportCharge}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        if (val >= 0) setTransportCharge(val);
+                      }}
+                      disabled={isReadOnly}
+                      className={`w-24 px-2 py-1 text-right bg-white border border-slate-300 rounded-lg text-sm font-black focus:ring-2 focus:ring-indigo-200 transition-all hover:border-slate-400 outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70 border-transparent bg-transparent' : ''}`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm mb-4">
+                  <span className="font-bold text-slate-500">Other Charges</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-black text-slate-800">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={otherCharge === 0 ? "" : otherCharge}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        if (val >= 0) setOtherCharge(val);
+                      }}
+                      disabled={isReadOnly}
+                      className={`w-24 px-2 py-1 text-right bg-white border border-slate-300 rounded-lg text-sm font-black focus:ring-2 focus:ring-indigo-200 transition-all hover:border-slate-400 outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70 border-transparent bg-transparent' : ''}`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm pt-4 border-t border-slate-100">
+                  <span className="font-bold text-slate-800">Sub Total</span>
+                  <span className="font-black text-slate-900">₹ {subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
@@ -1427,6 +1474,8 @@ const CreateDraftQuotationPage = () => {
           items: items,
           labourItems: labourItems,
           materialItems: materialItems,
+          transportCharge: transportCharge,
+          otherCharge: otherCharge,
           subTotal: subTotal,
           cgstRate: gstRates.cgst,
           sgstRate: gstRates.sgst,
