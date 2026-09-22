@@ -660,31 +660,14 @@ const LabourNotificationsPage = () => {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Message</p>
                 <p className="text-sm text-slate-700 font-medium leading-relaxed">{viewingNotif.description || "No message content."}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Received At</p>
-                  <p className="text-xs font-bold text-slate-700">{formatLongDate(viewingNotif.created_at)}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Notification ID</p>
-                  <p className="text-xs font-bold text-slate-700">#{viewingNotif.id}</p>
-                </div>
+              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Received At</p>
+                <p className="text-xs font-bold text-slate-700">{formatLongDate(viewingNotif.created_at)}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    const notif = viewingNotif;
-                    setIsViewModalOpen(false);
-                    setViewingNotif(null);
-                    handleNotificationClick(notif, navigate, "Labour");
-                  }}
-                  className="py-3 bg-primary hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  Open Page <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+              <div className="pt-2">
                 <button
                   onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                  className="py-3 bg-primary hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
+                  className="w-full py-3 bg-primary hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
                 >
                   Dismiss
                 </button>
