@@ -9,7 +9,7 @@ import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import type { ChartAccount, AccountType } from "../../types/accounting";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, BookOpen, Pencil, Trash2 } from "lucide-react";
 
 
 
@@ -295,7 +295,7 @@ const ChartOfAccountsPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Chart of Accounts</h1>
             <p className="text-slate-500 text-sm mt-1">Manage hierarchical general ledger accounts for the organization.</p>
@@ -326,7 +326,7 @@ const ChartOfAccountsPage = () => {
               onClick={() => { setEditingAccount(null); setIsModalOpen(true); }}
               className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
             >
-              <span className="text-base leading-none">+</span> Add Account
+              Add Account
             </button>
           </div>
         </div>
@@ -371,7 +371,7 @@ const ChartOfAccountsPage = () => {
             
             {/* Pagination Controls for Hierarchy */}
             {totalHierarchyItems > 0 && (
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   {Math.min((hierarchyPage - 1) * hierarchyItemsPerPage + 1, totalHierarchyItems)}–{Math.min(hierarchyPage * hierarchyItemsPerPage, totalHierarchyItems)} of {totalHierarchyItems}
                 </span>
@@ -458,10 +458,18 @@ const ChartOfAccountsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">👁</button>
-                            <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">📒</button>
-                            <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">✏️</button>
-                            <button onClick={() => confirmDelete(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">🗑</button>
+                            <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">
+                              <BookOpen className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => confirmDelete(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -479,7 +487,7 @@ const ChartOfAccountsPage = () => {
 
             {/* Pagination Controls for Table */}
             {totalTableItems > 0 && (
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
                 <div className="text-[11px] font-bold text-slate-500">
                   Showing {Math.min((tablePage - 1) * tableItemsPerPage + 1, totalTableItems)} to {Math.min(tablePage * tableItemsPerPage, totalTableItems)} of {totalTableItems} entries
                 </div>

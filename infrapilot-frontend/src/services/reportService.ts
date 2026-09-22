@@ -109,6 +109,32 @@ export const reportService = {
         return response.data;
     },
 
+    getProcurementEfficiency: async (projectId: number, filters?: any) => {
+        const response = await api.get(`/reports/procurement-efficiency`, {
+            params: { project_id: projectId, ...filters },
+            headers: { 'Accept': 'application/json' }
+        });
+        return response.data;
+    },
+
+    exportProcurementEfficiencyPdf: async (projectId: number, filters?: any) => {
+        const response = await api.get(`/reports/procurement-efficiency`, {
+            params: { project_id: projectId, format: 'pdf', ...filters },
+            responseType: 'blob',
+            headers: { 'Accept': 'application/pdf, application/octet-stream' }
+        });
+        return response.data;
+    },
+
+    exportProcurementEfficiencyExcel: async (projectId: number, filters?: any) => {
+        const response = await api.get(`/reports/procurement-efficiency`, {
+            params: { project_id: projectId, format: 'csv', ...filters },
+            responseType: 'blob',
+            headers: { 'Accept': 'text/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream' }
+        });
+        return response.data;
+    },
+
     shareDailyEmail: async (data: any) => {
         const response = await api.post(`/reports/daily/share/email`, data);
         return response.data;

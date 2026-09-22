@@ -13,12 +13,16 @@ interface QuotationPreviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     data: any;
+    forceLocal?: boolean;
+    onDownloadSave?: () => Promise<string | number | null | undefined>;
 }
 
 const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     isOpen,
     onClose,
     data,
+    forceLocal = false,
+    onDownloadSave,
 }) => {
     const [companyInfo, setCompanyInfo] = useState<CompanySettings | null>(null);
 
@@ -136,17 +140,32 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
             return (pdfDoc as any).lastAutoTable.finalY + 8;
         };
 
+        const checkPageBreak = (neededSpace: number = 30) => {
+            if (curY + neededSpace > pageHeight - 40) {
+                doc.addPage();
+                drawHeader(doc);
+                curY = 40;
+            } else {
+                curY += 5; // slight spacing between sections
+            }
+        };
+
         // --- Page 1 ---
         drawHeader(doc, true);
         let curY = 65;
-        curY = drawTable(doc, "", [['Field', 'Value']], [
-            ['Quotation No', data.invoiceNo || 'N/A'],
+        const topTableData = [
+            ['Quotation No', data.invoiceNo || 'Draft'],
             ['Date', data.date || 'N/A'],
-            ['Project', data.projectName || 'N/A'],
-            ['Project Type', data.projectType || 'Residential'],
-            ['Engineer', data.engineerName || 'Er. Tejas Dhande'],
-            ['Work Order', data.workOrderNo || 'N/A']
-        ], curY);
+        ];
+        if (!data.isDraft) {
+            topTableData.push(
+                ['Project', data.projectName || 'N/A'],
+                ['Project Type', data.projectType || 'Residential'],
+                ['Engineer', data.engineerName || 'Er. Tejas Dhande'],
+                ['Work Order', data.workOrderNo || 'N/A']
+            );
+        }
+        curY = drawTable(doc, "", [['Field', 'Value']], topTableData, curY);
 
         curY = drawTable(doc, "Client Details", [['Field', 'Value']], [
             ['Client Name', data.clientName || 'N/A'],
@@ -161,10 +180,8 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
             curY
         );
 
-        // --- Page 2 (Labour, Material, Financials) ---
-        doc.addPage();
-        drawHeader(doc);
-        curY = 40;
+        // --- Labour, Material, Financials ---
+        checkPageBreak(40);
         if (data.labourItems?.length > 0) {
             curY = drawTable(doc, "Labour Details", [['Skill', 'Count', 'Days', 'Wage', 'Amount']],
                 data.labourItems.map((it: any) => [it.skill_type, it.labour_count, it.labour_days, it.daily_wage, it.amount?.toFixed(2)]), curY
@@ -189,10 +206,8 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
         doc.setFont("helvetica", "bold");
         doc.text(`Amount in Words: ${numberToWords(data.grandTotal)}`, 15, curY);
 
-        // --- Page 3 (Terms & Signature) ---
-        doc.addPage();
-        drawHeader(doc);
-        curY = 40;
+        // --- Terms & Signature ---
+        checkPageBreak(50);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.text("Terms & Conditions", 15, curY);
@@ -228,72 +243,82 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     };
 
     const handleDownloadPDF = async () => {
-        if (!data.id && !data.invoiceNo?.includes('QTN')) {
-            const doc = buildQuotationPDF();
-            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
-            return;
-        }
-
         const toastId = toast.loading("Downloading PDF from backend...");
         try {
-            const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
+            let qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
 
-            if (!qId || isNaN(Number(qId))) {
-                const doc = buildQuotationPDF();
-                doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
-                toast.dismiss(toastId);
-                return;
+            // Attempt to auto-save to get an ID if we don't have one and a save callback is provided
+            if ((!qId || isNaN(Number(qId))) && onDownloadSave) {
+                const savedId = await onDownloadSave();
+                if (savedId) {
+                    qId = savedId;
+                }
             }
 
-            const blob = await quotationService.downloadQuotationPDF(Number(qId));
+            let blob: Blob;
+
+            if (!qId || isNaN(Number(qId))) {
+                toast.error("No Quotation ID found to download from server.", { id: toastId });
+                return;
+            } else {
+                blob = data.isDraft
+                    ? await quotationService.downloadDummyQuotationPDF(Number(qId), true)
+                    : await quotationService.downloadQuotationPDF(Number(qId));
+            }
+
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Quotation_${data.invoiceNo}.pdf`);
+            link.setAttribute('download', `Quotation_${data.invoiceNo || 'Draft'}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Downloaded from Server", { id: toastId });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Backend Download Error:", error);
-            toast.error("Falling back to local generation", { id: toastId });
-            const doc = buildQuotationPDF();
-            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
+            toast.error(error.message || "Failed to download PDF from server", { id: toastId });
         }
     };
 
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+    const [isLoadingPdf, setIsLoadingPdf] = useState(true);
 
     useEffect(() => {
         if (!isOpen) {
             setPdfUrl(null);
+            setIsLoadingPdf(true); // reset for next open
             return;
         }
 
         const loadPdf = async () => {
             setIsLoadingPdf(true);
             try {
-                const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
-                if (qId && !isNaN(Number(qId))) {
-                    const blob = await quotationService.downloadQuotationPDF(Number(qId));
-                    const url = window.URL.createObjectURL(blob);
-                    setPdfUrl(url);
-                    setIsLoadingPdf(false);
-                    return;
+                if (!forceLocal) {
+                    const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
+                    if (qId && !isNaN(Number(qId))) {
+                        const blob = data.isDraft
+                            ? await quotationService.downloadDummyQuotationPDF(Number(qId), false)
+                            : await quotationService.downloadQuotationPDF(Number(qId));
+                        const url = window.URL.createObjectURL(blob);
+                        setPdfUrl(url);
+                        setIsLoadingPdf(false);
+                        return;
+                    }
                 }
+
+                // Fallback / Local Generation
+                const doc = buildQuotationPDF();
+                const pdfBlob = doc.output('blob');
+                setPdfUrl(URL.createObjectURL(pdfBlob));
             } catch (err) {
-                console.error("Failed to load PDF from backend", err);
+                console.error("Failed to construct PDF", err);
+                setPdfUrl(null);
+            } finally {
+                setIsLoadingPdf(false);
             }
-            
-            // Fallback
-            const doc = buildQuotationPDF();
-            const pdfBlob = doc.output('blob');
-            setPdfUrl(URL.createObjectURL(pdfBlob));
-            setIsLoadingPdf(false);
         };
-        
+
         // Slight delay to let companyInfo load if needed
         const timer = setTimeout(() => {
             loadPdf();

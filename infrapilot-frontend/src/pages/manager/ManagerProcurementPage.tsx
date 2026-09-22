@@ -57,7 +57,7 @@ const ManagerProcurementPage = () => {
     const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
     const [requestType, setRequestType] = useState<CreateSiteRequest["request_type"]>("Material");
     const [requestDescription, setRequestDescription] = useState("");
-    const [requestQuantity, setRequestQuantity] = useState(1);
+    const [requestQuantity, setRequestQuantity] = useState<number | "">("");
     const [isCreatingRequest, setIsCreatingRequest] = useState(false);
 
     // ── DATA FETCH ────────────────────────────────────────────────
@@ -194,11 +194,11 @@ const ManagerProcurementPage = () => {
             toast.error("Please select a project before creating a request.");
             return;
         }
-        if (!requestDescription.trim()) {
+        if (requestDescription.trim() === "") {
             toast.error("Please enter a description for the request.");
             return;
         }
-        if (requestQuantity <= 0) {
+        if (requestQuantity === "" || requestQuantity <= 0) {
             toast.error("Quantity must be greater than zero.");
             return;
         }
@@ -209,7 +209,7 @@ const ManagerProcurementPage = () => {
                 project_id: selectedProjectId,
                 request_type: requestType,
                 description: requestDescription.trim(),
-                quantity: requestQuantity
+                quantity: Number(requestQuantity)
             };
             const created = await siteRequestService.createRequest(payload);
             setMaterialRequests(prev => [created, ...prev]);
@@ -217,7 +217,7 @@ const ManagerProcurementPage = () => {
             setIsCreateModalOpen(false);
             setRequestType("Material");
             setRequestDescription("");
-            setRequestQuantity(1);
+            setRequestQuantity("");
             fetchData();
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to create request.");
@@ -643,13 +643,13 @@ const ManagerProcurementPage = () => {
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Site Request" maxWidth="max-w-lg">
                 <div className="p-6 space-y-6">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Project</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Project <span className="text-rose-500">*</span></p>
                         <p className="text-sm font-bold text-slate-900 mt-1">{selectedProject?.project_name || "No project selected"}</p>
                     </div>
 
                     <div className="grid gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type</label>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type <span className="text-rose-500">*</span></label>
                             <select value={requestType} onChange={e => setRequestType(e.target.value)}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
                                 <option value="Material">Material</option>
@@ -666,8 +666,8 @@ const ManagerProcurementPage = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity</label>
-                            <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(Number(e.target.value))}
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity <span className="text-rose-500">*</span></label>
+                            <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(e.target.value === "" ? "" : Number(e.target.value))}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>
                     </div>
@@ -679,7 +679,7 @@ const ManagerProcurementPage = () => {
                         </button>
                         <button type="button" onClick={handleCreateRequest} disabled={isCreatingRequest}
                             className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50">
-                            {isCreatingRequest ? "Creating..." : "Create Request"}
+                            {isCreatingRequest ? "Saving..." : "Save Request"}
                         </button>
                     </div>
                 </div>

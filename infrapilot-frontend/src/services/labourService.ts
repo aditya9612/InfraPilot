@@ -29,8 +29,8 @@ export const labourService = {
         }
     },
     // Helper to prefix relative paths for images
-    resolveUrl(path: string | null): string | null {
-        if (!path) return null;
+    resolveUrl(path: any): string | null {
+        if (!path || typeof path !== 'string') return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
 
         let baseUrl = import.meta.env.VITE_API_URL || '';
@@ -70,26 +70,32 @@ export const labourService = {
      */
     async createLabour(data: any): Promise<LabourItem> {
         try {
-            const { profile_image, ...queryParams } = data;
-            console.log("POST /api/v1/labour Request Query Params:", queryParams);
-            const response = await api.post<any>("labour",
-                profile_image ? { profile_image } : {},
-                { params: queryParams }
-            );
+            const formData = new FormData();
+            const queryParams: Record<string, any> = {};
+            
+            Object.entries(data).forEach(([key, val]) => {
+                if (val !== undefined && val !== null && val !== "") {
+                    if (key === 'profile_image' && val instanceof File) {
+                        formData.append(key, val);
+                    } else if (key !== 'profile_image') {
+                        formData.append(key, String(val));
+                        queryParams[key] = val;
+                    }
+                }
+            });
+            console.log("POST /api/v1/labour Request FormData keys:");
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ', ' + (pair[1] instanceof File ? pair[1].name : pair[1])); 
+            }
+            const response = await api.post<any>("labour", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+                params: queryParams,
+            });
             console.log("POST /api/v1/labour - SUCCESS", response.data);
             return this._normalizeLabour(response.data);
         } catch (error: any) {
-            console.warn("createLabour API error, using virtual success fallback:", error.message);
-            const newId = Math.floor(Math.random() * 10000) + 5000;
-            const newLab = this._normalizeLabour({
-                id: newId,
-                ...data,
-                worker_code: `LAB-${newId}`,
-                status: data.status || "Active"
-            });
-            this._mockLabours.unshift(newLab);
-            this._persistMockLabours();
-            return newLab;
+            console.error("createLabour API error:", error);
+            throw error;
         }
     },
 
@@ -119,19 +125,21 @@ export const labourService = {
                     formData.append(key, String(val));
                 }
             });
+            if (data.profile_image) {
+                if ((data as any).profile_image instanceof File) {
+                    formData.append("profile_image", data.profile_image);
+                } else if (data.profile_image === null) {
+                    // if they want to remove the image, maybe the backend supports an empty string or removal flag
+                    formData.append("profile_image", "");
+                }
+            }
             const response = await api.put<any>(`labour/${id}`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
             return this._normalizeLabour(response.data);
         } catch (error: any) {
-            console.warn("updateLabour API error, using virtual success fallback:", error.message);
-            const index = this._mockLabours.findIndex((l: any) => l.id === id);
-            if (index !== -1) {
-                this._mockLabours[index] = { ...this._mockLabours[index], ...data };
-                this._persistMockLabours();
-                return this._mockLabours[index];
-            }
-            throw new Error("Labour not found");
+            console.error("updateLabour API error:", error);
+            throw error;
         }
     },
 
@@ -184,28 +192,8 @@ export const labourService = {
 
             return { items, meta };
         } catch (err: any) {
-            console.warn("getLabours API error, using virtual success fallback:", err.message);
-            let filtered = [...this._mockLabours];
-            if (projectId) {
-                // If we also mock assignment, we could filter by project_id here.
-                filtered = filtered.filter((l: any) => l.project_id === Number(projectId) || !l.project_id);
-            }
-            if (params?.status && params.status !== "All") {
-                filtered = filtered.filter((l: any) => l.status === params.status);
-            }
-            if (params?.search) {
-                const s = params.search.toLowerCase();
-                filtered = filtered.filter((l: any) =>
-                    l.labour_name.toLowerCase().includes(s) ||
-                    l.worker_code.toLowerCase().includes(s) ||
-                    l.aadhaar_number.includes(s)
-                );
-            }
-
-            return {
-                items: filtered.slice(queryParams.offset, queryParams.offset + queryParams.limit),
-                meta: { total: filtered.length, limit: queryParams.limit, offset: queryParams.offset }
-            };
+            console.error("getLabours API error:", err);
+            throw err;
         }
     },
 
@@ -218,16 +206,19 @@ export const labourService = {
             const response = await api.get<any>(`labour/${labourId}`);
             return this._normalizeLabour(response.data);
         } catch (error: any) {
-            console.warn("getLabourById API error, using virtual success fallback:", error.message);
-            const found = this._mockLabours.find((l: any) => Number(l.id) === Number(labourId));
-            if (found) return found;
-            throw new Error("Labour not found");
+            console.error("getLabourById API error:", error);
+            throw error;
         }
     },
 
     async deleteLabour(labourId: number): Promise<any> {
-        const response = await api.delete(`labour/${labourId}`);
-        return response.data;
+        try {
+            const response = await api.delete(`labour/${labourId}`);
+            return response.data;
+        } catch (error: any) {
+            console.error("deleteLabour API error:", error);
+            throw error;
+        }
     },
 
     /**
@@ -437,19 +428,20 @@ export const labourService = {
      * PUT /api/v1/labour/attendance/{attendance_id}/check-out
      */
     async checkOut(attendanceId: number | string, checkOutData: any) {
-        try {
-            let formData: FormData;
-            if (checkOutData instanceof FormData) {
-                formData = checkOutData;
-            } else {
-                formData = new FormData();
-                Object.keys(checkOutData).forEach((key) => {
-                    if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
-                        formData.append(key, checkOutData[key]);
-                    }
-                });
-            }
+        let formData: FormData;
+        
+        if (checkOutData instanceof FormData) {
+            formData = checkOutData;
+        } else {
+            formData = new FormData();
+            Object.keys(checkOutData).forEach((key) => {
+                if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
+                    formData.append(key, checkOutData[key]);
+                }
+            });
+        }
 
+        try {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId} Request Body: FormData`);
             const response = await api.put(
                 `attendance/check-out/${attendanceId}`,

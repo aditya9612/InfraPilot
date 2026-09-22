@@ -206,6 +206,11 @@ const ManagerReportsPage = () => {
                         ? await reportService.exportProjectReportPDF({ project_id: pid, type: "monthly" })
                         : await reportService.exportProjectReportExcel({ project_id: pid, type: "monthly" });
                     break;
+                case "procurement":
+                    blob = format === "PDF"
+                        ? await reportService.exportProcurementEfficiencyPdf(pid)
+                        : await reportService.exportProcurementEfficiencyExcel(pid);
+                    break;
                 case "profit-loss":
                     blob = format === "PDF"
                         ? await reportService.exportProfitLossPdf(pid)
@@ -327,11 +332,26 @@ const ManagerReportsPage = () => {
                 case "labour": data = await reportService.getLabourReport(pid); break;
                 case "material": data = await reportService.getMaterialReport(pid); break;
                 case "procurement": {
-                    const [transactions, summary] = await Promise.all([
-                        materialService.getProjectTransactions(pid).catch(() => []),
-                        materialService.getMaterialSummary(pid).catch(() => null)
-                    ]);
-                    data = { transactions, summary };
+                    const rawData = await reportService.getProcurementEfficiency(pid);
+                    if (rawData) {
+                        const cleanData = (obj: any): any => {
+                            if (Array.isArray(obj)) {
+                                return obj.map(cleanData);
+                            } else if (obj !== null && typeof obj === 'object') {
+                                const newObj = { ...obj };
+                                delete newObj.project_id;
+                                delete newObj.supplier_id;
+                                for (const key in newObj) {
+                                    newObj[key] = cleanData(newObj[key]);
+                                }
+                                return newObj;
+                            }
+                            return obj;
+                        };
+                        data = cleanData(rawData);
+                    } else {
+                        data = rawData;
+                    }
                     break;
                 }
                 case "profit-loss": {

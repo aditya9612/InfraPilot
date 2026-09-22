@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, X } from "lucide-react";
@@ -23,6 +24,20 @@ const ConfirmationModal = ({
     confirmClass = "bg-rose-500 hover:bg-rose-600 shadow-rose-200",
     isLoading = false,
 }: ConfirmationModalProps) => {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "unset";
+            document.documentElement.style.overflow = "unset";
+        }
+        return () => {
+            document.body.style.overflow = "unset";
+            document.documentElement.style.overflow = "unset";
+        };
+    }, [isOpen]);
+
     const content = (
         <AnimatePresence>
             {isOpen && (

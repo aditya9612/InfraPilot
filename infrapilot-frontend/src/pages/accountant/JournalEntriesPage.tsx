@@ -24,6 +24,15 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
   useEffect(() => {
     if (isOpen) {
       accountingService.getAccounts({ limit: 100 }).then(res => {
@@ -34,12 +43,18 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) {
+      setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+    }
   };
 
   const handleLineChange = (index: number, field: string, value: number) => {
     const newLines = [...formData.lines];
     newLines[index] = { ...newLines[index], [field]: value };
     setFormData({ ...formData, lines: newLines });
+    if (errors[`lines_${index}_${field}`]) {
+      setErrors(prev => ({ ...prev, [`lines_${index}_${field}`]: "" }));
+    }
   };
 
   const addLine = () => {
@@ -48,8 +63,13 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.entry_date || !formData.description) {
-      toast.error("Please fill required fields");
+    const newErrors: Record<string, string> = {};
+    if (!formData.entry_date) newErrors.entry_date = "Entry Date is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
       return;
     }
 
@@ -106,7 +126,7 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       footer={
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Entry"}</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Save Journal Entry"}</button>
         </>
       }
     >
@@ -117,8 +137,16 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             Entry Information
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Entry Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className={inputClasses(errors.entry_date)} />
+              {errors.entry_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.entry_date}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label>
+              <input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className={inputClasses(errors.description)} />
+              {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
+            </div>
           </div>
         </div>
 
@@ -131,8 +159,8 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest w-1/3">Account <span className="text-rose-500">*</span></th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Debit (₹)</th>
                   <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
               </thead>
@@ -234,6 +262,15 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
   useEffect(() => {
     if (isOpen) {
       accountingService.getAccounts({ limit: 100 }).then(res => {
@@ -244,12 +281,18 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) {
+      setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+    }
   };
 
   const handleLineChange = (index: number, field: string, value: number) => {
     const newLines = [...formData.lines];
     newLines[index] = { ...newLines[index], [field]: value };
     setFormData({ ...formData, lines: newLines });
+    if (errors[`lines_${index}_${field}`]) {
+      setErrors(prev => ({ ...prev, [`lines_${index}_${field}`]: "" }));
+    }
   };
 
   const addLine = () => {
@@ -258,8 +301,13 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.entry_date || !formData.description) {
-      toast.error("Please fill required fields");
+    const newErrors: Record<string, string> = {};
+    if (!formData.entry_date) newErrors.entry_date = "Entry Date is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
       return;
     }
 
@@ -310,7 +358,7 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
     <Modal isOpen={isOpen} onClose={onClose} title="Create Adjustment Journal" maxWidth="max-w-5xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Adjustment"}</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Save Adjustment Journal"}</button>
       </>
     }>
       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -320,8 +368,16 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             Entry Information
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Entry Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className={inputClasses(errors.entry_date)} />
+              {errors.entry_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.entry_date}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label>
+              <input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className={inputClasses(errors.description)} />
+              {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
+            </div>
           </div>
         </div>
 
@@ -334,9 +390,9 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest w-1/3">Account <span className="text-rose-500">*</span></th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -435,7 +491,7 @@ const ManualEntriesWrapper = () => {
           </table>
         </div>
         {journals.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -506,7 +562,7 @@ const AdjustmentRegisterSection = () => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       {/* Toolbar */}
-      <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50">
+      <div className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 w-full">
         <span className="text-sm font-bold text-slate-700 whitespace-nowrap">All Adjustment Registers</span>
         <div className="flex flex-col md:flex-row items-center gap-3 w-full justify-end">
           <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" />
@@ -560,7 +616,7 @@ const AdjustmentRegisterSection = () => {
         </table>
       </div>
       {journals.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={adjRpp} onChange={(e) => { setAdjRpp(Number(e.target.value)); setAdjPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -641,7 +697,7 @@ const RecurringJournalsSection = () => {
           </table>
         </div>
         {journals.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={recurRpp} onChange={(e) => { setRecurRpp(Number(e.target.value)); setRecurPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -670,14 +726,34 @@ const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: 
   });
   const [loading, setLoading] = useState(false);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    if (errors[e.target.name]) {
+      setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.template_name || !formData.frequency || !formData.next_run_date || !formData.template_data) {
-      toast.error("Please fill all fields");
+    const newErrors: Record<string, string> = {};
+    if (!formData.template_name) newErrors.template_name = "Template Name is required";
+    if (!formData.frequency) newErrors.frequency = "Frequency is required";
+    if (!formData.next_run_date) newErrors.next_run_date = "Next Run Date is required";
+    if (!formData.template_data) newErrors.template_data = "Template Data is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
       return;
     }
     setLoading(true);
@@ -696,26 +772,30 @@ const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: 
     <Modal isOpen={isOpen} onClose={onClose} title="New Recurring Journal" maxWidth="max-w-2xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Template"}</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Recurring Journal"}</button>
       </>
     }>
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Name</label>
-            <input type="text" name="template_name" value={formData.template_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Template Name <span className="text-rose-500">*</span></label>
+            <input type="text" name="template_name" value={formData.template_name} onChange={handleChange} className={inputClasses(errors.template_name)} />
+            {errors.template_name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.template_name}</p>}
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Frequency</label>
-            <input type="text" name="frequency" value={formData.frequency} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Frequency <span className="text-rose-500">*</span></label>
+            <input type="text" name="frequency" value={formData.frequency} onChange={handleChange} className={inputClasses(errors.frequency)} />
+            {errors.frequency && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.frequency}</p>}
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Run Date</label>
-            <input type="date" name="next_run_date" value={formData.next_run_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Next Run Date <span className="text-rose-500">*</span></label>
+            <input type="date" name="next_run_date" value={formData.next_run_date} onChange={handleChange} className={inputClasses(errors.next_run_date)} />
+            {errors.next_run_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.next_run_date}</p>}
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Data</label>
-            <textarea name="template_data" value={formData.template_data} onChange={handleChange} rows={4} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"></textarea>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest block mb-1">Template Data <span className="text-rose-500">*</span></label>
+            <textarea name="template_data" value={formData.template_data} onChange={handleChange} rows={4} className={inputClasses(errors.template_data)}></textarea>
+            {errors.template_data && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.template_data}</p>}
           </div>
         </div>
       </form>
@@ -879,7 +959,7 @@ const JournalEntriesPage = () => {
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            <span className="text-base leading-none">+</span> New Entry
+            Journal Entry
           </button>
         </div>
       ),
@@ -939,7 +1019,7 @@ const JournalEntriesPage = () => {
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
         {/* ── Section Header ─────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>

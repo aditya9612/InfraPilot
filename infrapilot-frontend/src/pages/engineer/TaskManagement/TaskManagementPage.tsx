@@ -3,7 +3,7 @@ import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import toast from 'react-hot-toast';
 import {
-    Filter, Search, Plus, Eye, Calendar, User,
+    Filter, Search, Eye, Calendar, User,
     CheckCircle, Clock, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
@@ -53,8 +53,24 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" | "CR
 const getFullUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') : 'http://127.0.0.1:8000';
-    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+    
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    try {
+        const parsed = new URL(baseUrl, window.location.origin);
+        baseUrl = parsed.origin;
+    } catch {
+        baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    }
+    if (!baseUrl) baseUrl = 'http://127.0.0.1:8000';
+
+    let cleanPath = path;
+    if (!cleanPath.startsWith('/') && !cleanPath.startsWith('uploads/') && !cleanPath.startsWith('static/')) {
+        cleanPath = `/uploads/${cleanPath}`;
+    } else if (!cleanPath.startsWith('/')) {
+        cleanPath = `/${cleanPath}`;
+    }
+
+    return `${baseUrl}${cleanPath}`;
 };
 const AudioButton = ({ audioData }: { audioData: string }) => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -156,9 +172,10 @@ const TaskManagementPage = () => {
                 boqService.getBoqsByProject(projectId).catch(() => []),
                 projectService.getMilestones(projectId).catch(() => [])
             ]).then(([boqs, milestones]) => {
-                setAvailableBoqs(boqs);
-                if (boqs.length > 0) {
-                    setGenerateBoqId(Number(boqs[0].id));
+                const approvedBoqs = boqs.filter((boq: any) => boq.approval_status && boq.approval_status.toUpperCase() === 'APPROVED');
+                setAvailableBoqs(approvedBoqs);
+                if (approvedBoqs.length > 0) {
+                    setGenerateBoqId(Number(approvedBoqs[0].id));
                 }
                 const milestonesList = Array.isArray(milestones) ? milestones : ((milestones as any).items || []);
                 setProjectMilestones(milestonesList);
@@ -223,9 +240,11 @@ const TaskManagementPage = () => {
     // Pass Task Modal State
     const [isPassModalOpen, setIsPassModalOpen] = useState(false);
     const [selectedPassTask, setSelectedPassTask] = useState<FrontendTask | null>(null);
-    const [passNewUserId, setPassNewUserId] = useState<number | "">("");
+    const [isPassUserDropdownOpen, setIsPassUserDropdownOpen] = useState(false);
+    const [passNewUserId, setPassNewUserId] = useState<number | ''>('');
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+    const [projectLabours, setProjectLabours] = useState<any[]>([]);
 
     // Image Modal State
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -234,6 +253,9 @@ const TaskManagementPage = () => {
         if (projectId) {
             projectService.getProjectMembers(projectId).then(res => {
                 setProjectMembers(Array.isArray(res) ? res : (res.items || res.data || []));
+            }).catch(() => { });
+            labourService.getLabours(projectId, { limit: 100 }).then((res: any) => {
+                setProjectLabours(Array.isArray(res) ? res : (res.items || res.data || []));
             }).catch(() => { });
         }
     }, [projectId]);
@@ -292,10 +314,10 @@ const TaskManagementPage = () => {
                 labourService.getLabours(projectId, { limit: 100 }).catch(() => [])
             ]);
 
-            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
-            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
-            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
-            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || fetchedMembers.members || []);
+            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || (fetchedMilestones as any).milestones || []);
+            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || (fetchedBoqs as any).boqs || (fetchedBoqs as any).boq_items || []);
+            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || (fetchedActivities as any).activities || []);
             const projectsList = fetchedProjects ? (Array.isArray(fetchedProjects) ? fetchedProjects : (fetchedProjects.items || fetchedProjects.data || [])) : [];
             const laboursList = fetchedLabours ? (Array.isArray(fetchedLabours) ? fetchedLabours : ((fetchedLabours as any).items || (fetchedLabours as any).data || [])) : [];
 
@@ -355,11 +377,11 @@ const TaskManagementPage = () => {
                     }
                 }
 
-                const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
-                const milestoneName = milestone ? milestone.name : "None";
+                const milestone = milestonesList.find((m: any) => String(m.id || m.milestone_id) === String((t as any).milestone_id));
+                const milestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : "None";
 
-                const boq = boqsList.find((b: any) => b.id === (t as any).boq_id);
-                const boqName = boq ? boq.name : "None";
+                const boq = boqsList.find((b: any) => String(b.id || b.boq_id) === String((t as any).boq_id));
+                const boqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : "None";
 
                 return {
                     ...t,
@@ -634,9 +656,43 @@ const TaskManagementPage = () => {
         if (!projectId) return;
         try {
             const fetchedTask = await projectService.getTask(projectId, task.id);
+
+            const mId = fetchedTask.milestone_id || (task as any).milestone_id;
+            const bId = fetchedTask.boq_id || (task as any).boq_id;
+
+            const milestone = mId && projectMilestones ? projectMilestones.find((m: any) => String(m.id || m.milestone_id) === String(mId)) : null;
+            let updatedMilestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : null;
+            if (!updatedMilestoneName) {
+                if (mId) {
+                    try {
+                        const mData = await projectService.getMilestone(projectId, mId);
+                        updatedMilestoneName = mData ? (mData.name || mData.title || mData.milestone_name) : null;
+                    } catch (e) { }
+                }
+                if (!updatedMilestoneName) {
+                    updatedMilestoneName = (task.milestoneName && task.milestoneName !== "None") ? task.milestoneName : (mId ? `Milestone #${mId}` : "None");
+                }
+            }
+
+            const boq = bId && projectBoqs ? projectBoqs.find((b: any) => String(b.id || b.boq_id) === String(bId)) : null;
+            let updatedBoqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : null;
+            if (!updatedBoqName) {
+                if (bId) {
+                    try {
+                        const bData = await boqService.getBoqById(bId);
+                        updatedBoqName = bData ? (bData.item_name || (bData as any).name || bData.description || (bData as any).item_description) : null;
+                    } catch (e) { }
+                }
+                if (!updatedBoqName) {
+                    updatedBoqName = (task.boqName && task.boqName !== "None") ? task.boqName : (bId ? `BOQ #${bId}` : "None");
+                }
+            }
+
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
+                milestoneName: updatedMilestoneName,
+                boqName: updatedBoqName,
                 priority: task.priority
             });
             setModalTab("Details");
@@ -704,7 +760,12 @@ const TaskManagementPage = () => {
 
     const handlePassTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPassTask || !projectId || !passNewUserId) return;
+        if (!selectedPassTask || !projectId) return;
+
+        if (!passNewUserId) {
+            toast.error("Please select a team member to pass the task to.");
+            return;
+        }
 
         try {
             await projectService.passTask(projectId, selectedPassTask.id, {
@@ -714,8 +775,12 @@ const TaskManagementPage = () => {
             toast.success("Task passed successfully!");
             setIsPassModalOpen(false);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to pass task.");
+        } catch (error: any) {
+            if (error?.response?.status === 422) {
+                toast.error(error.response?.data?.detail || error.response?.data?.message || "Validation failed.");
+            } else {
+                toast.error("Failed to pass task.");
+            }
         }
     };
 
@@ -826,7 +891,7 @@ const TaskManagementPage = () => {
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Task Management
@@ -849,7 +914,6 @@ const TaskManagementPage = () => {
                                     onClick={() => setIsCreateDrawerOpen(true)}
                                     className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                                 >
-                                    <Plus className="w-4 h-4" />
                                     Create Task
                                 </button>
                             </>
@@ -859,7 +923,6 @@ const TaskManagementPage = () => {
                                 onClick={() => setIsCreateTaskRequestModalOpen(true)}
                                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                             >
-                                <Plus className="w-4 h-4" />
                                 Create Task Request
                             </button>
                         )}
@@ -1041,7 +1104,7 @@ const TaskManagementPage = () => {
                     {activeTab === "All Tasks" ? (
                         <>
                             {/* All Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1244,7 +1307,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Start / End</th>
+
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
@@ -1299,12 +1362,7 @@ const TaskManagementPage = () => {
                                                                 <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'NA'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
-                                                            </div>
-                                                        </td>
+
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'NA'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
@@ -1376,7 +1434,7 @@ const TaskManagementPage = () => {
 
                             {/* Pagination Block */}
                             {filteredTasks.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                         <select
@@ -1445,7 +1503,7 @@ const TaskManagementPage = () => {
                     ) : activeTab === "Project Tasks" ? (
                         <>
                             {/* Project Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1691,7 +1749,7 @@ const TaskManagementPage = () => {
                     ) : (
                         <>
                             {/* Task Requests Content */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
                                         <AlertCircle className="w-4 h-4" />
@@ -1757,53 +1815,68 @@ const TaskManagementPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="block md:table-row-group">
-                                            {(() => {
-                                                const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
-                                                const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
-                                                const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
-                                                return paginatedRequests.map((req, idx) => {
-                                                    const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
-                                                    const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
+                                                {(() => {
+                                                    const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
+                                                    const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
+                                                    const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
+                                                    return paginatedRequests.map((req, idx) => {
+                                                        const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
+                                                        const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
 
-                                                    return (
-                                                        <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
-                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
-                                                            <td className="p-4 block md:table-cell">
-                                                                <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
-                                                                    {req.priority || 'NORMAL'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
-                                                            <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
-                                                                {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
-                                                                    <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
-                                                                ) : '-'}
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
-                                                            <td className="p-4 block md:table-cell">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                    {req.status || 'PENDING'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
-                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
-                                                            <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
-                                                            <td className="p-4 block md:table-cell text-center">
-                                                                <div className="flex items-center justify-center gap-2">
-                                                                    <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
-                                                                        <Edit2 className="w-4 h-4" />
-                                                                    </button>
-                                                                    <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                });
-                                            })()}
+                                                        return (
+                                                            <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
+                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
+                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
+                                                                <td className="p-4 block md:table-cell">
+                                                                    <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
+                                                                        {req.priority || 'NORMAL'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
+                                                                <td className="p-4 text-xs block md:table-cell">
+                                                                    {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (() => {
+                                                                        const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                                        return (
+                                                                            <button onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                window.open(getFullUrl(req.attachment_url) || '', '_blank', 'noopener,noreferrer');
+                                                                            }} className="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors group text-left max-w-[200px]" title={fileName}>
+                                                                                <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                                                    <Paperclip className="w-4 h-4 text-indigo-500" />
+                                                                                </div>
+                                                                                <span className="truncate font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
+                                                                                    {fileName}
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    })() : (
+                                                                        <span className="text-slate-400 font-medium px-2">-</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
+                                                                <td className="p-4 block md:table-cell">
+                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                        {req.status || 'PENDING'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
+                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
+                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
+                                                                <td className="p-4 block md:table-cell text-center">
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
+                                                                            <Edit2 className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    });
+                                                })()}
                                             </tbody>
                                         </table>
                                         {taskRequests.length > 0 && (
@@ -2040,14 +2113,7 @@ const TaskManagementPage = () => {
 
                                     <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Execution & Delays</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
+
                                         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                             <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
                                             <p className="text-sm font-bold text-slate-800">{(selectedTask as any).execution_duration || 0} days</p>
@@ -2265,20 +2331,21 @@ const TaskManagementPage = () => {
                             type="submit"
                             className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"
                         >
-                            Update Task
+                            Edit task
                         </button>
                     </>
                 }
             >
                 <form id="edit-task-form" onSubmit={handleEditFormSubmit} className="space-y-6 font-inter">
+                    {/* Basic Information */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
                             Basic Information
                         </h3>
 
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Project <span className="text-rose-500">*</span>
                                 </label>
                                 <select
@@ -2296,106 +2363,7 @@ const TaskManagementPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Voice Note
-                                </label>
-                                <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
-                                        <button
-                                            type="button"
-                                            onClick={startEditRecording}
-                                            className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors"
-                                        >
-                                            <Mic className="w-5 h-5" />
-                                        </button>
-                                    )}
-
-                                    {editIsRecording && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={stopEditRecording}
-                                                className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse"
-                                            >
-                                                <Square className="w-5 h-5 fill-current" />
-                                            </button>
-                                            <div className="flex items-center gap-2 text-rose-500 font-medium">
-                                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                                                {formatTime(editRecordingTime)}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {editAudioBlob && !editIsRecording && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={toggleEditPlay}
-                                                className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                                            >
-                                                {editIsPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
-                                            </button>
-                                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                <div className="h-full bg-blue-500 w-full opacity-30"></div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={deleteEditRecording}
-                                                className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                            <audio ref={editAudioRef} className="hidden" />
-                                        </>
-                                    )}
-
-                                    {!editIsRecording && !editAudioBlob && selectedEditTask?.audio_data && (
-                                        <div className="flex items-center gap-3 w-full">
-                                            <AudioButton audioData={selectedEditTask.audio_data} />
-                                            <span className="text-sm text-slate-600 font-medium">Existing Audio</span>
-                                            <div className="ml-auto flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    name="remove_audio"
-                                                    id="remove_audio_inline"
-                                                    value="true"
-                                                    className="w-4 h-4 text-primary rounded border-slate-300"
-                                                />
-                                                <label htmlFor="remove_audio_inline" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
-                                                    Remove
-                                                </label>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
-                                        <span className="text-sm text-slate-400">Click to record a new voice note</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Instruction Image
-                                </label>
-                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
-                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
-                                        <div className="flex-1">
-                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
-                                        </div>
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    name="instruction_image"
-                                    accept="image/*"
-                                    className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Task Title <span className="text-rose-500">*</span>
                                 </label>
                                 <input
@@ -2407,166 +2375,270 @@ const TaskManagementPage = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
                                     Description
                                 </label>
                                 <textarea
                                     name="description"
-                                    rows={4}
+                                    rows={3}
                                     defaultValue={selectedEditTask?.description}
                                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
                                 />
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Priority
-                                    </label>
-                                    <select
-                                        name="priority"
-                                        defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value={4}>Critical</option>
-                                        <option value={1}>High</option>
-                                        <option value={2}>Medium</option>
-                                        <option value={3}>Low</option>
-                                    </select>
-                                </div>
+                    {/* Media Attachments */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Media Attachments
+                        </h3>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="start_date"
-                                        defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
-                                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Voice Note
+                                </label>
+                                <div className="flex flex-col gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        {!editIsRecording && !editAudioBlob && (
+                                            <button
+                                                type="button"
+                                                onClick={startEditRecording}
+                                                className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors shrink-0"
+                                            >
+                                                <Mic className="w-5 h-5" />
+                                            </button>
+                                        )}
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="end_date"
-                                        defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
-                                </div>
+                                        {editIsRecording && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={stopEditRecording}
+                                                    className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse shrink-0"
+                                                >
+                                                    <Square className="w-5 h-5 fill-current" />
+                                                </button>
+                                                <div className="flex items-center gap-2 text-rose-500 font-medium">
+                                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                                                    {formatTime(editRecordingTime)}
+                                                </div>
+                                            </>
+                                        )}
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Status
-                                    </label>
-                                    <select
-                                        name="status"
-                                        defaultValue={selectedEditTask?.status}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="Planned">Planned</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Cancelled">Cancelled</option>
-                                    </select>
-                                </div>
+                                        {editAudioBlob && !editIsRecording && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleEditPlay}
+                                                    className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                >
+                                                    {editIsPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                                                </button>
+                                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500 w-full opacity-30"></div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={deleteEditRecording}
+                                                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <audio ref={editAudioRef} className="hidden" />
+                                            </>
+                                        )}
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Assigned User
-                                    </label>
-                                    <select
-                                        name="assigned_user_ids"
-                                        defaultValue={selectedEditTask?.assigned_user_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Select User</option>
-                                        {editLabours.map((l: any) => (
-                                            <option key={l.id} value={l.id}>
-                                                {l.labour_name || l.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                        {!editIsRecording && !editAudioBlob && selectedEditTask?.audio_data && (
+                                            <div className="flex items-center gap-3 w-full">
+                                                <AudioButton audioData={selectedEditTask.audio_data} />
+                                                <span className="text-sm text-slate-600 font-medium">Existing Audio</span>
+                                                <div className="ml-auto flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="remove_audio"
+                                                        id="remove_audio_inline"
+                                                        value="true"
+                                                        className="w-4 h-4 text-primary rounded border-slate-300"
+                                                    />
+                                                    <label htmlFor="remove_audio_inline" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
+                                                        Remove
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        )}
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Activity Type ID
-                                    </label>
-                                    <select
-                                        name="activity_type_id"
-                                        defaultValue={selectedEditTask?.activity_type_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectActivities.map((a: any) => (
-                                            <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
-                                        ))}
-                                    </select>
+                                        {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
+                                            <span className="text-sm text-slate-400">Click to record a new voice note</span>
+                                        )}
+                                    </div>
                                 </div>
+                            </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Milestone ID
-                                    </label>
-                                    <select
-                                        name="milestone_id"
-                                        defaultValue={selectedEditTask?.milestone_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectMilestones.map((m: any) => (
-                                            <option key={m.id} value={m.id}>{m.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Instruction Image
+                                </label>
+                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
+                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
+                                        </div>
+                                        <div className="ml-auto flex items-center gap-2 pr-2">
+                                            <input
+                                                type="checkbox"
+                                                name="remove_image"
+                                                id="remove_image"
+                                                value="true"
+                                                className="w-4 h-4 text-primary rounded border-slate-300"
+                                            />
+                                            <label htmlFor="remove_image" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
+                                                Remove
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    name="instruction_image"
+                                    accept="image/*"
+                                    className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        BOQ ID
-                                    </label>
-                                    <select
-                                        name="boq_id"
-                                        defaultValue={selectedEditTask?.boq_id || ""}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">None</option>
-                                        {projectBoqs.map((b: any) => (
-                                            <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                    {/* Additional Details */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Additional Details
+                        </h3>
 
-                                <div className="flex items-center gap-2 mt-2 py-2">
-                                    <input
-                                        type="checkbox"
-                                        name="remove_audio"
-                                        id="remove_audio"
-                                        value="true"
-                                        className="w-4 h-4 text-primary rounded border-slate-300"
-                                    />
-                                    <label htmlFor="remove_audio" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                        Remove Audio
-                                    </label>
-                                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Priority <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    name="priority"
+                                    required
+                                    defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value={4}>Critical</option>
+                                    <option value={1}>High</option>
+                                    <option value={2}>Medium</option>
+                                    <option value={3}>Low</option>
+                                </select>
+                            </div>
 
-                                <div className="flex items-center gap-2 mt-2 py-2">
-                                    <input
-                                        type="checkbox"
-                                        name="remove_image"
-                                        id="remove_image"
-                                        value="true"
-                                        className="w-4 h-4 text-primary rounded border-slate-300"
-                                    />
-                                    <label htmlFor="remove_image" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                        Remove Image
-                                    </label>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    name="start_date"
+                                    defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    name="end_date"
+                                    defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Status
+                                </label>
+                                <select
+                                    name="status"
+                                    defaultValue={selectedEditTask?.status}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="Planned">Planned</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Assigned User
+                                </label>
+                                <select
+                                    name="assigned_user_ids"
+                                    defaultValue={selectedEditTask?.assigned_user_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">Select User</option>
+                                    {editLabours.map((l: any) => (
+                                        <option key={`l_${l.id}`} value={l.id}>
+                                            {l.labour_name || l.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Activity Type ID
+                                </label>
+                                <select
+                                    name="activity_type_id"
+                                    defaultValue={selectedEditTask?.activity_type_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectActivities.map((a: any) => (
+                                        <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Milestone ID
+                                </label>
+                                <select
+                                    name="milestone_id"
+                                    defaultValue={selectedEditTask?.milestone_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectMilestones.map((m: any) => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    BOQ ID
+                                </label>
+                                <select
+                                    name="boq_id"
+                                    defaultValue={selectedEditTask?.boq_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {projectBoqs.map((b: any) => (
+                                        <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -2590,7 +2662,7 @@ const TaskManagementPage = () => {
                 onConfirm={executeDeleteTask}
                 title="Discard Task Entry"
                 message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history."
-                confirmText="Archive Record"
+                confirmText="Delete"
                 type="danger"
                 isLoading={isSubmitting}
             /> */}
@@ -2618,7 +2690,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handleUpdateProgress}
-                            disabled={!progressRemark.trim()}
+                            
                             className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                         >
                             Save Progress
@@ -2678,8 +2750,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handlePassTask}
-                            disabled={!passNewUserId || !passRemark.trim()}
-                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all disabled:opacity-50"
+                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all"
                         >
                             Pass Task
                         </button>
@@ -2690,20 +2761,59 @@ const TaskManagementPage = () => {
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">Select New User <span className="text-rose-500">*</span></label>
                         <div className="relative">
-                            <select
-                                value={passNewUserId}
-                                onChange={(e) => setPassNewUserId(Number(e.target.value))}
-                                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                                required
+                            <button
+                                type="button"
+                                onClick={() => setIsPassUserDropdownOpen(!isPassUserDropdownOpen)}
+                                className="w-full text-left appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 flex justify-between items-center"
                             >
-                                <option value="">-- Select Team Member --</option>
-                                {projectMembers.map(m => (
-                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
-                                ))}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                                <ChevronDown className="w-4 h-4" />
-                            </div>
+                                <span className="truncate pr-2">
+                                    {passNewUserId ? (
+                                        projectMembers.find(m => m.user_id === passNewUserId)?.full_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.labour_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.name || 
+                                        'Unknown User'
+                                    ) : '-- Select Team Member --'}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPassUserDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isPassUserDropdownOpen && (
+                                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
+                                    <div
+                                        onClick={() => { setPassNewUserId(''); setIsPassUserDropdownOpen(false); }}
+                                        className="px-4 py-2.5 text-sm text-slate-500 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    >-- Select Team Member --</div>
+                                    
+                                    {projectMembers.length > 0 && (
+                                        <>
+                                            <div className="px-4 py-1.5 bg-slate-50 border-y border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">Project Members</div>
+                                            {projectMembers.map(m => (
+                                                <div
+                                                    key={`m_${m.user_id}`}
+                                                    onClick={() => { setPassNewUserId(m.user_id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === m.user_id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {m.full_name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">({m.role || 'Member'})</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {projectLabours.length > 0 && (
+                                        <>
+                                            <div className="px-4 py-1.5 bg-slate-50 border-y border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">Labours</div>
+                                            {projectLabours.map(l => (
+                                                <div
+                                                    key={`l_${l.id}`}
+                                                    onClick={() => { setPassNewUserId(l.id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === l.id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {l.labour_name || l.name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">(Labour)</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div>
@@ -2714,7 +2824,7 @@ const TaskManagementPage = () => {
                             placeholder="e.g. passed to user 2 due to shift end"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            required
+                            
                         />
                     </div>
                 </div>
@@ -2748,7 +2858,7 @@ const TaskManagementPage = () => {
             >
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">BOQ ID <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Select a BOQ <span className="text-rose-500">*</span></label>
                         <div className="relative">
                             <select
                                 value={generateBoqId}
@@ -2760,7 +2870,7 @@ const TaskManagementPage = () => {
                                 <option value="" disabled>{isFetchingBoqs ? "Loading..." : (availableBoqs.length === 0 ? "No BOQs available" : "Select a BOQ")}</option>
                                 {availableBoqs.map((boq) => (
                                     <option key={boq.id || boq.boq_id} value={boq.id || boq.boq_id}>
-                                        {boq.name || boq.boq_name || boq.title || `BOQ #${boq.id || boq.boq_id}`}
+                                        {boq.item_name || boq.name || boq.boq_name || boq.title || boq.item_description || `BOQ #${boq.id || boq.boq_id}`}
                                     </option>
                                 ))}
                             </select>

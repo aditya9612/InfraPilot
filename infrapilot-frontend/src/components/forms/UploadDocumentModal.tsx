@@ -174,7 +174,6 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                 <input
                                     type="text"
                                     required
-                                    placeholder={formData.document_type === "Drawing" ? "e.g. Architectural Plan" : "e.g. Structural Design"}
                                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
                                     value={formData.title}
                                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
@@ -190,7 +189,6 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                         <input
                                             type="text"
                                             required
-                                            placeholder="e.g. v1.0"
                                             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
                                             value={formData.version}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
@@ -239,7 +237,6 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 1"
                                         className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
                                         value={formData.parent_id || ""}
                                         onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}
@@ -256,7 +253,6 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 1"
                                         className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
                                         value={formData.parent_id || ""}
                                         onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}

@@ -7,13 +7,14 @@ import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import { projectService } from "../../../services/projectService";
 import { boqService } from "../../../services/boqService";
+import { userService } from "../../../services/userService";
 import type {
     Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport,
     UtilizationReport, AvailabilityReport, UsageItem, MaintenanceItem, RentalItem, AuditLog
 } from "../../../services/equipmentService";
 
 import {
-    Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
+    Search, Edit2, Trash2, Eye, FileText, Wrench, Activity,
     AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw, RotateCcw, QrCode
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
@@ -52,14 +53,14 @@ const Pagination = ({
     if (totalItems === 0) return null;
 
     return (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
             {/* Left: Items per page */}
             <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                 <select
                     value={itemsPerPage}
                     onChange={(e) => { onItemsPerPageChange(Number(e.target.value)); onPageChange(1); }}
-                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-900 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                 >
                     <option value={10}>10</option>
                     <option value={20}>20</option>
@@ -169,6 +170,8 @@ const MachineryPage = () => {
     const [rentalItemsPerPage, setRentalItemsPerPage] = useState(10);
 
     const [transferHistory, setTransferHistory] = useState<any[]>([]);
+    // Users map: id → name (for Transferred By column)
+    const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
@@ -418,6 +421,13 @@ const MachineryPage = () => {
                 setEquipmentList(eqList);
                 setTransferHistory(history);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+                // Fetch all users for Transferred By name resolution
+                userService.getAllUsers(100, 0).then((res: any) => {
+                    const items: any[] = Array.isArray(res) ? res : (res?.items || res?.users || []);
+                    const map: Record<number, string> = {};
+                    items.forEach((u: any) => { if (u.id) map[u.id] = u.full_name || u.name || u.username || `User #${u.id}`; });
+                    setUsersMap(map);
+                }).catch(() => {});
             }
             else if (activeTab === "Reports") {
                 const [avail, util, eqRes, costRes, usageRes] = await Promise.all([
@@ -503,9 +513,9 @@ const MachineryPage = () => {
                 toast.success("Equipment updated successfully!");
             } else {
                 const payload = { ...submittedData };
-                // Backend requires project_id — use selectedProjectId or first available project as fallback
+                // If no project selected, remove it from payload
                 if (!payload.project_id) {
-                    payload.project_id = selectedProjectId || projects[0]?.id || 1;
+                    delete payload.project_id;
                 }
                 await equipmentService.createEquipment(payload);
 
@@ -546,9 +556,23 @@ const MachineryPage = () => {
 
     const handleAllocate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
         if (!selectedEquipment) return;
         try {
-            await equipmentService.allocateEquipment(selectedEquipment.id, formData.project_id || selectedProjectId);
+            const result = await equipmentService.allocateEquipment(selectedEquipment.id, formData.project_id || selectedProjectId);
+
+            // The API returns a batch response — check if allocation actually succeeded
+            if (result.success_count === 0 || (result.failed && result.failed.length > 0)) {
+                const reason = result.failed?.[0]?.reason || "Equipment could not be allocated";
+                toast.error(`Allocation failed: ${reason}`);
+                return;
+            }
+
             toast.success("Equipment allocated successfully!");
             setIsAllocateModalOpen(false);
             // Refetch equipment list so UI reflects the new allocation status immediately
@@ -582,6 +606,12 @@ const MachineryPage = () => {
 
     const handleTransfer = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
         if (!formData.equipment_id || !formData.project_id) return;
         try {
             await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
@@ -596,12 +626,22 @@ const MachineryPage = () => {
 
     const handleSavePurchase = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
         try {
+            const payload = {
+                ...createPurchaseForm,
+                total_amount: createPurchaseForm.total_amount || ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
+            };
             if (createPurchaseForm.id) {
-                await equipmentService.updatePurchase(createPurchaseForm.id, createPurchaseForm);
+                await equipmentService.updatePurchase(createPurchaseForm.id, payload);
                 toast.success("Purchase updated successfully!");
             } else {
-                await equipmentService.createPurchase(createPurchaseForm);
+                await equipmentService.createPurchase(payload);
                 toast.success("Purchase created successfully!");
             }
             setIsCreatePurchaseModalOpen(false);
@@ -626,6 +666,12 @@ const MachineryPage = () => {
 
     const handleSaveUsage = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
         try {
             if (formData.usage_id) {
                 await equipmentService.updateUsage(formData.usage_id, {
@@ -677,10 +723,29 @@ const MachineryPage = () => {
         }
     };
 
-    const handleDeleteMaintenanceConfirm = async () => {
+    const handleCompleteMaintenance = async (maint_id: number, equipment_id: number) => {
+        if (!confirm("Are you sure you want to mark this maintenance as complete?")) return;
+        try {
+            await equipmentService.completeMaintenance(equipment_id, maint_id);
+            toast.success("Maintenance marked as complete");
+            if (activeTab === "Maintenance") {
+                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
+                setMaintenanceAlerts(alerts);
+                const eq = equipmentList.find(e => e.id === equipment_id);
+                if (eq) {
+                    const logs = await equipmentService.listMaintenance(eq.id);
+                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to complete maintenance");
+        }
+    };
+
+    const handleDeleteMaintenance = async () => {
         if (!maintenanceToDelete) return;
         try {
-            await equipmentService.deleteMaintenance(maintenanceToDelete.id);
+            await equipmentService.deleteMaintenance(maintenanceToDelete.equipment_id, maintenanceToDelete.id);
             toast.success("Maintenance record deleted");
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
@@ -699,45 +764,54 @@ const MachineryPage = () => {
         }
     };
 
-    const handleCompleteMaintenance = async (maintenance_id: number, equipment_id: number) => {
-        try {
-            await equipmentService.completeMaintenance(maintenance_id);
-            toast.success("Maintenance marked as completed!");
-            if (activeTab === "Maintenance") {
-                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
-                setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === equipment_id);
-                if (eq) {
-                    const logs = await equipmentService.listMaintenance(eq.id);
-                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
-                }
-            }
-        } catch (error) {
-            toast.error("Failed to complete maintenance");
-        }
-    };
-
     const handleSaveMaintenance = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
+
+        // Normalize dates: strip time part if stored as ISO datetime (e.g. "2026-09-22T00:00:00" → "2026-09-22")
+        // Also handles DD-MM-YYYY → converts to YYYY-MM-DD for the backend
+        const normalizeDate = (val: string | undefined): string | undefined => {
+            if (!val) return undefined;
+            // Already ISO date YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+            // ISO datetime — strip time
+            if (/^\d{4}-\d{2}-\d{2}T/.test(val)) return val.split('T')[0];
+            // DD-MM-YYYY format (localized display value)
+            const ddmmyyyy = val.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
+            // Fallback: try parsing and re-formatting
+            const parsed = new Date(val);
+            if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+            return val;
+        };
+
+        const today = new Date().toISOString().split('T')[0];
+
+        const sanitizedFormData = {
+            ...formData,
+            maintenance_date: normalizeDate(formData.maintenance_date || today),
+            next_maintenance_date: normalizeDate(formData.next_maintenance_date),
+        };
+
         try {
-            if (formData.id) {
-                await equipmentService.updateMaintenance(formData.id, {
-                    ...formData,
-                    maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0]
-                } as any);
-                toast.success("Maintenance updated!");
+            if (sanitizedFormData.id || sanitizedFormData.maintenance_id) {
+                const mid = sanitizedFormData.id || sanitizedFormData.maintenance_id;
+                await equipmentService.updateMaintenance(Number(sanitizedFormData.equipment_id), mid, sanitizedFormData as any);
+                toast.success("Maintenance updated successfully");
             } else {
-                await equipmentService.createMaintenance(formData.equipment_id, {
-                    ...formData,
-                    maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0]
-                } as any);
-                toast.success("Maintenance scheduled!");
+                await equipmentService.createMaintenance(Number(sanitizedFormData.equipment_id), sanitizedFormData as any);
+                toast.success("Maintenance scheduled successfully");
             }
             setIsMaintenanceModalOpen(false);
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
                 setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === formData.equipment_id);
+                const eq = equipmentList.find(e => e.id === sanitizedFormData.equipment_id);
                 if (eq) {
                     setSelectedEquipment(eq);
                     const logs = await equipmentService.listMaintenance(eq.id);
@@ -751,6 +825,12 @@ const MachineryPage = () => {
 
     const handleSaveRental = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const form = e.target as HTMLFormElement;
+        if (!form.checkValidity()) {
+            toast.error("Please fill mandatory field", { id: 'validation' });
+            return;
+        }
         try {
             const today = new Date();
             const tomorrow = new Date(today);
@@ -758,6 +838,7 @@ const MachineryPage = () => {
 
             const payload = {
                 ...formData,
+                client_name: formData.client_name || null,
                 start_date: formData.start_date || today.toISOString().split('T')[0],
                 end_date: formData.end_date || tomorrow.toISOString().split('T')[0]
             } as any;
@@ -781,6 +862,14 @@ const MachineryPage = () => {
                 }
             }
         } catch (error: any) {
+            if (error.response?.status === 422) {
+                const details = error.response.data?.detail;
+                if (Array.isArray(details)) {
+                    const messages = details.map((d: any) => `${d.loc?.[d.loc.length - 1] || 'Field'}: ${d.msg}`).join(', ');
+                    toast.error(`Validation failed: ${messages}`);
+                    return;
+                }
+            }
             const errorMsg = error.response?.data?.detail || "Failed to add rental";
             toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
         }
@@ -964,11 +1053,11 @@ const MachineryPage = () => {
                         { title: "Available", value: dashStats.avail.toString(), sub: "Ready for deploy", accent: "text-emerald-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); } },
                         { title: "Allocated", value: dashStats.alloc.toString(), sub: "Currently in use", accent: "text-blue-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); } },
                         { title: "Maintenance Due", value: dashStats.maint.toString(), sub: "Upcoming/Overdue", accent: "text-amber-500", action: () => setActiveTab("Maintenance") },
-                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-rose-500", action: () => setActiveTab("Alerts") },
+                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-red-600", action: () => setActiveTab("Alerts") },
                         { title: "Total Rental/Mo", value: `₹${dashStats.totalRental.toLocaleString()}`, sub: "Estimated cost", accent: "text-purple-500", action: () => { setActiveTab("Rental"); setSelectedEquipment(null); } }
                     ].map((s) => (
                         <div key={s.title} onClick={s.action} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">{s.title}</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">{s.title}</p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
                         </div>
@@ -1004,7 +1093,7 @@ const MachineryPage = () => {
                     {/* Equipment Alerts */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-rose-500" /> Equipment Alerts
+                            <AlertTriangle className="w-4 h-4 text-red-600" /> Equipment Alerts
                         </h3>
                         <div className="space-y-3">
                             {equipmentAlerts.length > 0 ? equipmentAlerts.map((alert, i) => (
@@ -1019,7 +1108,7 @@ const MachineryPage = () => {
                                             </li>
                                         ))}
                                     </ul>
-                                    <p className="text-xs font-medium text-slate-700 bg-white p-2 rounded border border-slate-200">Recommendation: {alert.recommendation}</p>
+                                    <p className="text-xs font-medium text-slate-900 bg-white p-2 rounded border border-slate-200">Recommendation: {alert.recommendation}</p>
                                 </div>
                             )) : (
                                 <div className="p-8 text-center text-slate-400 text-sm">No equipment alerts</div>
@@ -1035,7 +1124,7 @@ const MachineryPage = () => {
         <div className="space-y-4 h-full flex flex-col">
             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Register</h2>
             <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
-                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1060,7 +1149,7 @@ const MachineryPage = () => {
                             <RotateCcw className="w-4 h-4" /> Refresh
                         </button>
                         <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
-                            <Plus className="w-4 h-4" /> Add Equipment
+                            Add Equipment
                         </button>
                     </div>
                 </div>
@@ -1099,17 +1188,17 @@ const MachineryPage = () => {
                                     </td>
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${item.condition === 'RENTED' ? 'bg-purple-100 text-purple-700' :
-                                                item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
-                                                    item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
-                                                        item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
-                                                            item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
-                                                                'bg-slate-100 text-slate-600'
+                                            item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
+                                                item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
+                                                    item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
+                                                        item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
+                                                            'bg-slate-100 text-slate-600'
                                             }`}>
                                             {item.condition || 'N/A'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">
+                                    <td className="px-6 py-3 text-sm text-slate-900">{item.operator_name}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-900">
                                         N/A
                                     </td>
                                     <td className="px-6 py-3">
@@ -1117,7 +1206,7 @@ const MachineryPage = () => {
                                             {conditionDisplay[item.condition] || item.condition}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-3 text-sm text-slate-700">{item.maintenance_date}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-900">{item.maintenance_date}</td>
                                     <td className="px-6 py-3 text-right">
                                         <div className="flex justify-end gap-1">
                                             {item.is_deleted ? (
@@ -1132,9 +1221,9 @@ const MachineryPage = () => {
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
                                                     <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
                                         </div>
@@ -1171,11 +1260,11 @@ const MachineryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    <button onClick={() => setSelectedEquipment(null)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${!selectedEquipment ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <button onClick={() => setSelectedEquipment(null)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${!selectedEquipment ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-900'}`}>
                         All Equipment
                     </button>
                     {equipmentList.map(eq => (
-                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
+                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-900'}`}>
                             {eq.equipment_name} <span className="text-xs text-slate-400 block truncate">{eq.equipment_code}</span>
                         </button>
                     ))}
@@ -1202,10 +1291,9 @@ const MachineryPage = () => {
                                                 <td className="p-4 font-bold text-slate-800">{t.equipment_name || t.equipment?.equipment_name || selectedEquipment?.equipment_name || '-'}</td>
                                                 <td className="p-4 text-slate-600">{t.from_project_name || t.from_project?.project_name || t.from_project?.name || 'Central Yard'}</td>
                                                 <td className="p-4 text-indigo-600 font-medium">{t.to_project_name || t.to_project?.project_name || t.to_project?.name || 'Central Yard'}</td>
-                                                <td className="p-4 text-slate-600">{t.transferred_by_name || '-'}</td>
+                                                <td className="p-4 text-slate-600">{t.transferred_by_name || usersMap[t.transferred_by] || '-'}</td>
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="text-slate-500">{t.transferred_at ? new Date(t.transferred_at).toLocaleString() : (t.transfer_date ? new Date(t.transfer_date).toLocaleDateString() : 'N/A')}</div>
-                                                    {t.ip_address && <div className="text-slate-400 text-[10px] mt-0.5 font-mono">IP: {t.ip_address}</div>}
                                                 </td>
                                             </tr>
                                         ))}
@@ -1239,7 +1327,7 @@ const MachineryPage = () => {
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-bold text-slate-800">Usage Analytics</h2>
                     <button onClick={() => { setFormData({}); setIsUsageModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
-                        <Plus className="w-4 h-4" /> Log Usage
+                        Log Usage
                     </button>
                 </div>
 
@@ -1250,7 +1338,7 @@ const MachineryPage = () => {
                         { title: "Usage Entries", value: totalCount.toString(), sub: "Total logs recorded", accent: "text-emerald-500" }
                     ].map((s) => (
                         <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
                         </div>
@@ -1318,7 +1406,7 @@ const MachineryPage = () => {
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-800">Maintenance & Servicing</h2>
                 <button onClick={() => { setFormData({}); setIsMaintenanceModalOpen(true); }} className="px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">
-                    <Plus className="w-4 h-4" /> Schedule Maintenance
+                    Schedule Maintenance
                 </button>
             </div>
 
@@ -1343,9 +1431,9 @@ const MachineryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
                     <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    {modalEquipmentList.filter(eq => maintenanceAlerts.some(a => a.equipment_id === eq.id)).map(eq => (
-                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
-                            {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
+                    {equipmentList.map(eq => (
+                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-900'}`}>
+                            {eq.equipment_name} <span className="text-xs text-slate-400 block truncate">{eq.equipment_code}</span>
                         </button>
                     ))}
                 </div>
@@ -1394,7 +1482,7 @@ const MachineryPage = () => {
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-1">
                                                     <button onClick={async () => {
-                                                        const item = await equipmentService.getMaintenance(log.id);
+                                                        const item = await equipmentService.getMaintenance(log.equipment_id || selectedEquipment?.id || 0, log.id);
                                                         setViewMaintenanceItem(item);
                                                         setIsViewMaintenanceModalOpen(true);
                                                     }} className="p-1.5 text-slate-400 hover:text-indigo-500 rounded hover:bg-slate-50 transition-colors" title="View Details">
@@ -1437,7 +1525,7 @@ const MachineryPage = () => {
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-bold text-slate-800">Rental & Cost Tracking</h2>
                     <button onClick={() => { setFormData({}); setIsRentalModalOpen(true); }} className="px-5 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20">
-                        <Plus className="w-4 h-4" /> Add Rental
+                        Add Rental
                     </button>
                 </div>
 
@@ -1449,7 +1537,7 @@ const MachineryPage = () => {
                         { title: "Avg Rev/Day", value: `₹${tDays > 0 ? Math.round(tCost / tDays).toLocaleString() : 0}`, sub: "Across fleet", accent: "text-amber-500" }
                     ].map((s) => (
                         <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
                         </div>
@@ -1493,6 +1581,7 @@ const MachineryPage = () => {
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Start Date</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">End Date</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Rental Cost</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Per Day Cost</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Client Name</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Notes</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Status</th>
@@ -1505,10 +1594,11 @@ const MachineryPage = () => {
                                         return (
                                             <tr key={`${log.equipment_id}-${log.id}`} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-3 font-bold text-slate-800">{(log as any).equipment_name || (log as any).equipment?.equipment_name || eq?.equipment_name || eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
-                                                <td className="px-6 py-3 text-slate-700">{log.start_date}</td>
-                                                <td className="px-6 py-3 text-slate-700">{log.end_date}</td>
+                                                <td className="px-6 py-3 text-slate-900">{log.start_date}</td>
+                                                <td className="px-6 py-3 text-slate-900">{log.end_date}</td>
                                                 <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
-                                                <td className="px-6 py-3 font-bold text-slate-700">{log.client_name}</td>
+                                                <td className="px-6 py-3 font-bold text-emerald-600">{log.per_day_cost ? `₹${log.per_day_cost.toLocaleString()}` : '-'}</td>
+                                                <td className="px-6 py-3 font-bold text-slate-900">{log.client_name}</td>
                                                 <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
                                                 <td className="px-6 py-3">
                                                     <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
@@ -1544,13 +1634,13 @@ const MachineryPage = () => {
                         </div>
                         {/* Pagination for All Rentals */}
                         {allRentals.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                     <select
                                         value={rentalItemsPerPage}
                                         onChange={(e) => { setRentalItemsPerPage(Number(e.target.value)); setRentalCurrentPage(1); }}
-                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-900 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                     >
                                         <option value={10}>10</option>
                                         <option value={20}>20</option>
@@ -1625,10 +1715,10 @@ const MachineryPage = () => {
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
                     <div className="flex gap-3">
-                        <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch (e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
-                            <FileText className="w-4 h-4 text-rose-500" /> Export PDF
+                        <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch (e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                            <FileText className="w-4 h-4 text-red-600" /> Export PDF
                         </button>
-                        <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch (e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                        <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch (e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
                             <Download className="w-4 h-4 text-emerald-500" /> Export Excel
                         </button>
                     </div>
@@ -1653,7 +1743,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
                                     <tr key={r.equipment_id} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
+                                        <td className="p-4 font-bold text-slate-900">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
                                         <td className="p-4">{r.total_hours} hrs</td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-2">
@@ -1700,7 +1790,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
                                     <tr key={c.equipment_id} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                        <td className="p-4 font-bold text-slate-900">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
                                         <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
                                         <td className="p-4">{c.rental_count}</td>
                                         <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
@@ -1744,7 +1834,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
                                     <tr key={u.equipment_id} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                        <td className="p-4 font-bold text-slate-900">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
                                         <td className="p-4">{u.total_hours}</td>
                                         <td className="p-4">{u.total_fuel}</td>
                                         <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
@@ -1805,7 +1895,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => (
                                     <tr key={i} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{p.asset_name}</td>
+                                        <td className="p-4 font-bold text-slate-900">{p.asset_name}</td>
                                         <td className="p-4">{p.purchase_count}</td>
                                         <td className="p-4 text-center">{p.total_quantity}</td>
                                         <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
@@ -1848,7 +1938,7 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedAvailability.length > 0 ? paginatedAvailability.map((a: any, i) => (
                                     <tr key={i} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-700">{a.equipment_name || a.equipment_code}</td>
+                                        <td className="p-4 font-bold text-slate-900">{a.equipment_name || a.equipment_code}</td>
                                         <td className="p-4">
                                             <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                                                 {a.is_available ? "true" : "false"}
@@ -1890,7 +1980,7 @@ const MachineryPage = () => {
                 <div className="flex justify-between items-center">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Purchase Tracker</h2>
                     <button onClick={() => { setCreatePurchaseForm({}); setIsCreatePurchaseModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
-                        <Plus className="w-4 h-4" /> Create Purchase
+                        Create Purchase
                     </button>
                 </div>
                 <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
@@ -1939,16 +2029,16 @@ const MachineryPage = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedPurchase.map(item => (
                                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-3 text-sm text-slate-700">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-700">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
-                                        <td className="px-6 py-3 text-xs font-bold text-slate-700">{item.purchase_type}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-900">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-900">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
+                                        <td className="px-6 py-3 text-xs font-bold text-slate-900">{item.purchase_type}</td>
                                         <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.asset_name}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500">{item.purchase_date}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-700">{item.vendor_name}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-900">{item.vendor_name}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500">{String(item.invoice_number)}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-700">{item.quantity}</td>
-                                        <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.unit_price?.toLocaleString()}</td>
-                                        <td className="px-6 py-3 text-sm font-bold text-slate-700">₹{item.total_amount?.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-900">{item.quantity}</td>
+                                        <td className="px-6 py-3 text-sm font-bold text-slate-900">₹{item.unit_price?.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-sm font-bold text-slate-900">₹{item.total_amount?.toLocaleString()}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500">{item.warranty_end_date}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500 max-w-[150px] truncate" title={item.notes}>{item.notes}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500 whitespace-nowrap">{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</td>
@@ -2039,7 +2129,7 @@ const MachineryPage = () => {
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ─── Main Header ─── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Machinery & Equipment
@@ -2131,16 +2221,16 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
                                 {selectedEquipment.project_id ? (projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.name || `PRJ-${selectedEquipment.project_id}`) : 'Not Allocated'}
                             </p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()} <span className="text-xs text-slate-500 font-normal">{selectedEquipment.cost_unit === 'PER_DAY' ? '/ Day' : selectedEquipment.cost_unit === 'PER_MONTH' ? '/ Month' : ''}</span></p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : 'N/A'}</p></div>
                         </div>
 
                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-6">
@@ -2156,7 +2246,7 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setIsViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest">Close</button>
+                            <button onClick={() => setIsViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest">Close</button>
                             <button onClick={() => { setIsViewModalOpen(false); setFormData(selectedEquipment); setIsEquipmentModalOpen(true); }} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest">Edit Details</button>
                         </div>
                     </div>
@@ -2166,13 +2256,13 @@ const MachineryPage = () => {
             {/* 4. Allocate Equipment */}
             <Modal isOpen={isAllocateModalOpen} onClose={() => setIsAllocateModalOpen(false)} title="Allocate Equipment" maxWidth="max-w-md">
                 <div className="p-6 font-inter">
-                    <form onSubmit={handleAllocate} className="space-y-5">
+                    <form onSubmit={handleAllocate} noValidate className="space-y-5">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">EQUIPMENT NAME *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-red-600">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
                             <select
                                 required
                                 value={formData.project_id || ''}
@@ -2186,16 +2276,21 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">ALLOCATION STATUS *</label>
-                            <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                                <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
-                                <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-red-600">*</span></label>
+                            <div 
+                                className={`flex items-center px-4 py-2.5 border rounded-xl transition-colors ${selectedEquipment?.project_id ? 'bg-emerald-50 border-emerald-100 cursor-pointer hover:bg-emerald-100' : 'bg-slate-50 border-slate-200'}`}
+                                onClick={() => { if (selectedEquipment?.project_id) handleDeallocate(); }}
+                            >
+                                <input type="checkbox" checked={!!selectedEquipment?.project_id} readOnly className={`w-4 h-4 rounded ${selectedEquipment?.project_id ? 'text-emerald-500 focus:ring-emerald-500 cursor-pointer' : 'text-slate-300 focus:ring-slate-300'}`} />
+                                <span className={`ml-3 text-sm font-bold ${selectedEquipment?.project_id ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                    {selectedEquipment?.project_id ? "Allocated (Click to Deallocate)" : "Available to Allocate"}
+                                </span>
                             </div>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-8">
                             {allocationStatus.allocated && (
-                                <button type="button" onClick={handleDeallocate} className="px-6 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">Deallocate</button>
+                                <button type="button" onClick={handleDeallocate} className="px-6 py-2.5 text-sm font-bold text-red-600 hover:bg-rose-50 rounded-xl transition-colors">Deallocate</button>
                             )}
                             <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                             <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
@@ -2205,10 +2300,10 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 5. Log Usage */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
-                <form onSubmit={handleSaveUsage} className="p-6 font-inter space-y-4">
+            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
+                <form onSubmit={handleSaveUsage} noValidate className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
@@ -2216,73 +2311,73 @@ const MachineryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Working Hours *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours <span className="text-red-600">*</span></label>
                             <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Fuel Used (L) *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-red-600">*</span></label>
                             <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Usage Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Usage Date <span className="text-red-600">*</span></label>
                         <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">BOQ Item (Optional)</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item (Optional)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">Save Usage</button>
+                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">{formData.usage_id ? "Edit Usage" : "Save Usage"}</button>
                     </div>
                 </form>
             </Modal>
 
             {/* 6. Schedule Maintenance */}
-            <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
-                <form onSubmit={handleSaveMaintenance} className="p-6 font-inter space-y-4">
+            <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title={formData.id ? "Edit Schedule" : "Schedule Maintenance"} maxWidth="max-w-md">
+                <form onSubmit={handleSaveMaintenance} noValidate className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {modalEquipmentList.filter(eq => eq.project_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DESCRIPTION *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-red-600">*</span></label>
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAINTENANCE DATE *</label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-red-600">*</span></label>
+                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} onFocus={(e) => { if (!formData.maintenance_date) setFormData((prev: any) => ({ ...prev, maintenance_date: e.target.value })); }} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">COST (₹) *</label>
-                            <input type="number" min="0" required value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">COST (₹)</label>
+                            <input type="number" min="0" value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NEXT MAINTENANCE DATE</label>
-                        <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE <span className="text-red-600">*</span></label>
+                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT <span className="text-red-600">*</span></label>
                         <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
@@ -2290,61 +2385,61 @@ const MachineryPage = () => {
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20">Schedule</button>
+                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="submit" className="px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20">{formData.id ? "Edit Schedule" : "Save Schedule"}</button>
                     </div>
                 </form>
             </Modal>
 
             {/* 7. Add Rental */}
-            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title="Add Rental Record" maxWidth="max-w-md">
-                <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
+            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title={formData.id ? "Edit Rental" : "Add Rental Record"} maxWidth="max-w-md">
+                <form onSubmit={handleSaveRental} noValidate className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
-                            {equipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                            {equipmentList.filter(eq => (!eq.project_id && (eq as any).status?.toUpperCase() !== 'MAINTENANCE') || eq.id === formData.equipment_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">START DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-red-600">*</span></label>
+                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">START DATE <span className="text-red-600">*</span></label>
                             <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">END DATE *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">END DATE <span className="text-red-600">*</span></label>
                             <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RENTAL COST (₹) *</label>
-                        <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">CLIENT NAME</label>
+                        <input type="text" value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CLIENT NAME *</label>
-                        <input type="text" required value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ item --</option>
                             {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NOTES</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">NOTES</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Add Rental</button>
+                        <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">{formData.id ? "Edit Rental" : "Save Rental"}</button>
                     </div>
                 </form>
             </Modal>
@@ -2396,7 +2491,7 @@ const MachineryPage = () => {
                                             <div className="flex items-center gap-3 flex-wrap">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-400 uppercase font-bold">From</span>
-                                                    <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                                    <span className="text-sm font-bold text-slate-600">{getProjectName(ov?.project_id)}</span>
                                                 </div>
                                                 <span className="text-slate-400 text-lg">→</span>
                                                 <div className="flex flex-col">
@@ -2412,7 +2507,7 @@ const MachineryPage = () => {
                                             <div className="flex items-center gap-3 flex-wrap">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-400 uppercase font-bold">Released From</span>
-                                                    <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                                    <span className="text-sm font-bold text-slate-600">{getProjectName(ov?.project_id)}</span>
                                                 </div>
                                                 <span className="text-slate-400 text-lg">→</span>
                                                 <div className="flex flex-col">
@@ -2427,12 +2522,12 @@ const MachineryPage = () => {
                                         const vals = nv || {};
                                         return (
                                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                                {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-semibold text-slate-700">{vals.equipment_name}</span></div>}
-                                                {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-semibold text-slate-700">{vals.equipment_code}</span></div>}
-                                                {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-semibold text-slate-700">{vals.operator_name}</span></div>}
-                                                {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-semibold text-slate-700">{vals.condition}</span></div>}
-                                                {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-semibold text-slate-700">{getProjectName(vals.project_id)}</span></div>}
-                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
+                                                {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-bold text-slate-900">{vals.equipment_name}</span></div>}
+                                                {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-bold text-slate-900">{vals.equipment_code}</span></div>}
+                                                {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-bold text-slate-900">{vals.operator_name}</span></div>}
+                                                {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-bold text-slate-900">{vals.condition}</span></div>}
+                                                {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-bold text-slate-900">{getProjectName(vals.project_id)}</span></div>}
+                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-bold text-slate-900">₹{vals.rental_cost} <span className="font-normal text-slate-500 text-[10px]">{vals.cost_unit === 'PER_DAY' ? '/ Day' : vals.cost_unit === 'PER_MONTH' ? '/ Month' : ''}</span></span></div>}
                                             </div>
                                         );
                                     }
@@ -2441,10 +2536,10 @@ const MachineryPage = () => {
                                         const vals = nv || {};
                                         return (
                                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                                {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-semibold text-slate-700">{vals.client_name}</span></div>}
-                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
-                                                {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-semibold text-slate-700">{vals.start_date}</span></div>}
-                                                {vals.end_date && <div><span className="text-slate-400 text-xs">End: </span><span className="font-semibold text-slate-700">{vals.end_date}</span></div>}
+                                                {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-bold text-slate-900">{vals.client_name}</span></div>}
+                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-bold text-slate-900">₹{vals.rental_cost}</span></div>}
+                                                {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-bold text-slate-900">{vals.start_date}</span></div>}
+                                                {vals.end_date && <div><span className="text-slate-400 text-xs">End: </span><span className="font-bold text-slate-900">{vals.end_date}</span></div>}
                                             </div>
                                         );
                                     }
@@ -2453,9 +2548,9 @@ const MachineryPage = () => {
                                         const vals = nv || {};
                                         return (
                                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                                {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-semibold text-slate-700">{vals.description}</span></div>}
-                                                {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.maintenance_date}</span></div>}
-                                                {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.cost}</span></div>}
+                                                {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-bold text-slate-900">{vals.description}</span></div>}
+                                                {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-bold text-slate-900">{vals.maintenance_date}</span></div>}
+                                                {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-bold text-slate-900">₹{vals.cost}</span></div>}
                                             </div>
                                         );
                                     }
@@ -2464,10 +2559,10 @@ const MachineryPage = () => {
                                         const vals = nv || {};
                                         return (
                                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                                {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-semibold text-slate-700">{vals.working_hours} hrs</span></div>}
-                                                {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-semibold text-slate-700">{vals.fuel_used} L</span></div>}
-                                                {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.usage_date}</span></div>}
-                                                {vals.notes && <div className="col-span-2"><span className="text-slate-400 text-xs">Notes: </span><span className="font-semibold text-slate-700">{vals.notes}</span></div>}
+                                                {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-bold text-slate-900">{vals.working_hours} hrs</span></div>}
+                                                {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-bold text-slate-900">{vals.fuel_used} L</span></div>}
+                                                {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-bold text-slate-900">{vals.usage_date}</span></div>}
+                                                {vals.notes && <div className="col-span-2"><span className="text-slate-400 text-xs">Notes: </span><span className="font-bold text-slate-900">{vals.notes}</span></div>}
                                             </div>
                                         );
                                     }
@@ -2484,7 +2579,7 @@ const MachineryPage = () => {
                                                         <span className="text-slate-500 text-xs capitalize">{k.replace(/_/g, ' ')}:</span>
                                                         <span className="text-slate-500 line-through text-xs">{k === 'project_id' ? getProjectName((ov || {})[k]) : String((ov || {})[k] ?? '—')}</span>
                                                         <span className="text-slate-400">→</span>
-                                                        <span className="font-semibold text-slate-700 text-xs">{k === 'project_id' ? getProjectName((nv || {})[k]) : String((nv || {})[k] ?? '—')}</span>
+                                                        <span className="font-bold text-slate-900 text-xs">{k === 'project_id' ? getProjectName((nv || {})[k]) : String((nv || {})[k] ?? '—')}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -2516,7 +2611,7 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setIsLogsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                            <button onClick={() => setIsLogsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                         </div>
                     </div>
                 )}
@@ -2535,7 +2630,7 @@ const MachineryPage = () => {
             <ConfirmModal
                 isOpen={isMaintenanceDeleteModalOpen}
                 onClose={() => setIsMaintenanceDeleteModalOpen(false)}
-                onConfirm={handleDeleteMaintenanceConfirm}
+                onConfirm={handleDeleteMaintenance}
                 title="Remove Maintenance Entry"
                 message="Are you sure you want to delete this maintenance record?"
                 confirmText="Confirm Deletion"
@@ -2569,22 +2664,22 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()} <span className="text-xs text-slate-500 font-normal">/ Day</span></p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
                             <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p>
-                                <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{rentalToView.notes || 'No notes provided.'}</p>
+                                <p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p>
+                                <p className="text-sm font-medium text-slate-900 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{rentalToView.notes || 'No notes provided.'}</p>
                             </div>
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setIsRentalViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                            <button onClick={() => setIsRentalViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                             <button onClick={() => { setIsRentalViewModalOpen(false); setFormData({ ...rentalToView, equipment_id: rentalToView.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-500/20">Edit Details</button>
                         </div>
                     </div>
@@ -2593,9 +2688,9 @@ const MachineryPage = () => {
 
             {/* Transfer Modal */}
             <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment" maxWidth="max-w-md">
-                <form onSubmit={handleTransfer} className="p-6 font-inter space-y-5">
+                <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
                         <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Choose equipment --</option>
                             {equipmentList.filter(eq => eq.project_id).map(eq => (
@@ -2604,7 +2699,7 @@ const MachineryPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
                         <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="" disabled>-- Select target project --</option>
                             {projects.map(p => (
@@ -2629,19 +2724,19 @@ const MachineryPage = () => {
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                                 {(Array.isArray(purchaseHistoryData) ? purchaseHistoryData : [purchaseHistoryData]).map((hist: any, index: number) => (
                                     <div key={index} className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
-                                        <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
-                                        <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
+                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
+                                        <div className="col-span-2"><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
                                     </div>
                                 ))}
                             </div>
@@ -2650,17 +2745,17 @@ const MachineryPage = () => {
                         )}
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                        <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                     </div>
                 </div>
             </Modal>
 
             {/* Create Purchase Modal */}
             <Modal isOpen={isCreatePurchaseModalOpen} onClose={() => setIsCreatePurchaseModalOpen(false)} title={createPurchaseForm.id ? "Edit Purchase" : "Create Purchase"} maxWidth="max-w-2xl">
-                <form onSubmit={handleSavePurchase} className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
+                <form onSubmit={handleSavePurchase} noValidate className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Type *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Type <span className="text-red-600">*</span></label>
                             <select
                                 required
                                 value={createPurchaseForm.purchase_type || ""}
@@ -2673,9 +2768,8 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Equipment (Asset) *</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Equipment (Asset)</label>
                             <select
-                                required
                                 value={createPurchaseForm.asset_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, asset_id: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2687,8 +2781,9 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Project</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Project <span className="text-red-600">*</span></label>
                             <select
+                                required
                                 value={createPurchaseForm.project_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
@@ -2700,7 +2795,7 @@ const MachineryPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">BOQ Item</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">BOQ Item</label>
                             <select
                                 value={createPurchaseForm.boq_item_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: parseInt(e.target.value) })}
@@ -2712,18 +2807,11 @@ const MachineryPage = () => {
                                 ))}
                             </select>
                         </div>
+
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase Date</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Warranty End Date <span className="text-red-600">*</span></label>
                             <input
-                                type="date"
-                                value={createPurchaseForm.purchase_date || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Warranty End Date</label>
-                            <input
+                                required
                                 type="date"
                                 value={createPurchaseForm.warranty_end_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, warranty_end_date: e.target.value })}
@@ -2731,8 +2819,19 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Vendor Name</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Date <span className="text-red-600">*</span></label>
                             <input
+                                required
+                                type="date"
+                                value={createPurchaseForm.purchase_date || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Vendor Name <span className="text-red-600">*</span></label>
+                            <input
+                                required
                                 type="text"
                                 value={createPurchaseForm.vendor_name || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, vendor_name: e.target.value })}
@@ -2740,8 +2839,9 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Invoice Number</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Invoice Number <span className="text-red-600">*</span></label>
                             <input
+                                required
                                 type="text"
                                 value={createPurchaseForm.invoice_number || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
@@ -2749,29 +2849,40 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quantity</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Quantity <span className="text-red-600">*</span></label>
                             <input
+                                required
                                 type="number"
                                 min="1"
                                 value={createPurchaseForm.quantity || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value) })}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value), total_amount: parseInt(e.target.value) * (createPurchaseForm.unit_price || 0) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Unit Price</label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Unit Price <span className="text-red-600">*</span></label>
                             <input
+                                required
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 value={createPurchaseForm.unit_price || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value) })}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value), total_amount: (createPurchaseForm.quantity || 0) * parseFloat(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Total Amount</label>
+                            <input
+                                readOnly
+                                type="number"
+                                value={createPurchaseForm.total_amount || ""}
+                                className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm outline-none font-medium text-slate-500 cursor-not-allowed"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Notes</label>
                         <textarea
                             value={createPurchaseForm.notes || ""}
                             onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, notes: e.target.value })}
@@ -2780,7 +2891,7 @@ const MachineryPage = () => {
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                         <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-3 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Cancel</button>
-                        <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">Save Purchase</button>
+                        <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">{createPurchaseForm.id ? "Edit Purchase" : "Save Purchase"}</button>
                     </div>
                 </form>
             </Modal>
@@ -2792,12 +2903,11 @@ const MachineryPage = () => {
                         {viewUsageItem ? (
                             <>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Date</span><span className="font-bold text-slate-800">{viewUsageItem.usage_date}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Project</span><span className="font-bold text-slate-800">{projects.find(p => p.id === viewUsageItem.project_id)?.project_name || projects.find(p => p.id === viewUsageItem.project_id)?.name || viewUsageItem.project_name || '-'}</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">BOQ Item</span><span className="font-bold text-slate-800">{boqsList.find(b => b.id === viewUsageItem.boq_item_id)?.item_name || viewUsageItem.boq_item_name || '-'}</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Equipment</span><span className="font-bold text-slate-800">{equipmentList.find(e => e.id === viewUsageItem.equipment_id)?.equipment_name || viewUsageItem.equipment_name || `ID: ${viewUsageItem.equipment_id}`}</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Working Hours</span><span className="font-bold text-emerald-600">{viewUsageItem.working_hours} hrs</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Fuel Used</span><span className="font-bold text-orange-600">{viewUsageItem.fuel_used} L</span></div>
-                                <div><span className="text-slate-500 font-medium block mb-2">Notes</span><p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-xs">{viewUsageItem.notes || 'No notes provided.'}</p></div>
+                                <div><span className="text-slate-500 font-medium block mb-2">Notes</span><p className="text-slate-900 bg-slate-50 p-3 rounded-lg text-xs">{viewUsageItem.notes || 'No notes provided.'}</p></div>
                                 <div className="text-xs text-slate-400 mt-5 text-center">
                                     <p>Created: {viewUsageItem.created_at ? new Date(viewUsageItem.created_at).toLocaleString() : 'N/A'}</p>
                                     <p>Updated: {viewUsageItem.updated_at ? new Date(viewUsageItem.updated_at).toLocaleString() : 'N/A'}</p>
@@ -2807,7 +2917,7 @@ const MachineryPage = () => {
                             <div className="text-center text-slate-400 py-4">Loading details...</div>
                         )}
                     </div>
-                    <button onClick={() => setIsViewUsageModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                    <button onClick={() => setIsViewUsageModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                 </div>
             </Modal>
 
@@ -2824,7 +2934,7 @@ const MachineryPage = () => {
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Maintenance Date</span><span className="font-bold text-slate-800">{viewMaintenanceItem.maintenance_date}</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Cost</span><span className="font-bold text-indigo-600">₹{viewMaintenanceItem.cost?.toLocaleString() || '0'}</span></div>
                                 <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Next Maintenance</span><span className="font-bold text-slate-800">{viewMaintenanceItem.next_maintenance_date || 'Not set'}</span></div>
-                                <div><span className="text-slate-500 font-medium block mb-2">Description</span><p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-xs">{viewMaintenanceItem.description || 'No description provided.'}</p></div>
+                                <div><span className="text-slate-500 font-medium block mb-2">Description</span><p className="text-slate-900 bg-slate-50 p-3 rounded-lg text-xs">{viewMaintenanceItem.description || 'No description provided.'}</p></div>
                                 <div className="text-xs text-slate-400 mt-5 text-center">
                                     <p>Created: {viewMaintenanceItem.created_at ? new Date(viewMaintenanceItem.created_at).toLocaleString() : 'N/A'}</p>
                                     <p>Completed: {viewMaintenanceItem.completed_at ? new Date(viewMaintenanceItem.completed_at).toLocaleString() : 'N/A'}</p>
@@ -2834,7 +2944,7 @@ const MachineryPage = () => {
                             <div className="text-center text-slate-400 py-4">Loading details...</div>
                         )}
                     </div>
-                    <button onClick={() => setIsViewMaintenanceModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                    <button onClick={() => setIsViewMaintenanceModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                 </div>
             </Modal>
 
@@ -2846,7 +2956,7 @@ const MachineryPage = () => {
                         <span className="text-sm font-bold text-slate-800 tracking-widest">{qrEquipmentCode}</span>
                     </div>
                     <div className="flex gap-3 w-full">
-                        <button onClick={() => setIsQrModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                        <button onClick={() => setIsQrModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                         <a href={qrCodeUrl} download={`QR_${qrEquipmentCode}.png`} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center text-center">
                             Download
                         </a>
@@ -2860,26 +2970,26 @@ const MachineryPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
                         {viewPurchaseData ? (
                             <div className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
-                                <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
+                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
+                                <div className="col-span-2"><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
                             </div>
                         ) : (
                             <div className="py-8 text-center text-slate-400 text-sm">No details available</div>
                         )}
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setIsViewPurchaseModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                        <button onClick={() => setIsViewPurchaseModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                     </div>
                 </div>
             </Modal>

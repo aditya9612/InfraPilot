@@ -169,9 +169,7 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
                     {onDelete && (
                       <button
                         onClick={() => {
-                          if (confirm("Are you sure you want to delete this task?")) {
-                            onDelete(task.id);
-                          }
+                          if (onDelete) onDelete(task.id);
                         }}
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                         title="Delete"

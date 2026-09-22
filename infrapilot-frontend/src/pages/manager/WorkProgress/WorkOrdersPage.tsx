@@ -373,16 +373,16 @@ const WorkOrdersPage = () => {
 
       {/* CREATE MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 font-outfit">Create Work Order</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
-                <select name="project_id" value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
+                <select name="project_id" required value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -394,16 +394,16 @@ const WorkOrdersPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Work Description</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Work Description <span className="text-rose-500">*</span></label>
                 <textarea name="work_description" required value={formData.work_description} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" rows={3} placeholder="Describe the scope of work..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty <span className="text-rose-500">*</span></label>
                   <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹) <span className="text-rose-500">*</span></label>
                   <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
               </div>
@@ -418,8 +418,8 @@ const WorkOrdersPage = () => {
 
       {/* EDIT MODAL */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 font-outfit">Update Work Order</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
@@ -433,22 +433,22 @@ const WorkOrdersPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">work_description</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">work_description <span className="text-rose-500">*</span></label>
                 <textarea name="work_description" required value={formData.work_description} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">total_quantity</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">total_quantity <span className="text-rose-500">*</span></label>
                   <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">completed_quantity</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">completed_quantity <span className="text-rose-500">*</span></label>
                   <input type="number" name="completed_quantity" required value={formData.completed_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">rate</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">rate <span className="text-rose-500">*</span></label>
                   <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div>
@@ -483,8 +483,8 @@ const WorkOrdersPage = () => {
 
       {/* VIEW MODAL */}
       {isViewModalOpen && selectedViewOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsViewModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col font-inter" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 font-outfit">Work Order Details</h3>
               <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
@@ -541,7 +541,7 @@ const WorkOrdersPage = () => {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
-              <button onClick={() => setIsViewModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors">Close</button>
+              <button onClick={() => setIsViewModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm shadow-blue-200">Close</button>
             </div>
           </div>
         </div>

@@ -20,7 +20,6 @@ const ApprovalsPage = () => {
   const [entityCategory, setEntityCategory] = useState<string>("all");
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [viewingApproval, setViewingApproval] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -131,8 +130,8 @@ const ApprovalsPage = () => {
       setIsCreateModalOpen(false);
       setCreateForm({ entity_type: "boq", entity_id: "", remarks: "" });
       fetchApprovals();
-    } catch {
-      toast.error("Failed to create approval request");
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to create approval request");
     } finally {
       setIsCreating(false);
     }
@@ -212,46 +211,9 @@ const ApprovalsPage = () => {
     try {
       await approvalService.reject(id, "Rejected via Admin Dashboard");
       setApprovals(prev => prev.map(a => a.id === id ? { ...a, status: "Rejected" } : a));
-      setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
       toast.error("Request rejected.");
     } catch (error) {
       toast.error("Failed to reject request");
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.length === filteredApprovals.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredApprovals.map(a => a.id));
-    }
-  };
-
-  const toggleSelect = (id: number) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleBulkApprove = async () => {
-    if (selectedIds.length === 0) return;
-
-    setIsLoading(true);
-    try {
-      await Promise.all(selectedIds.map(id =>
-        approvalService.approve(id, "Bulk approved via Admin Dashboard")
-      ));
-
-      setApprovals(prev => prev.map(a =>
-        selectedIds.includes(a.id) ? { ...a, status: "Approved" } : a
-      ));
-
-      setSelectedIds([]);
-      toast.success(`Successfully approved ${selectedIds.length} requests!`);
-    } catch (error) {
-      toast.error("Failed to approve some requests");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -290,16 +252,6 @@ const ApprovalsPage = () => {
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" /> Create Approval
-            </button>
-            <button
-              onClick={handleBulkApprove}
-              disabled={selectedIds.length === 0}
-              className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${selectedIds.length > 0
-                ? "bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
-                }`}
-            >
-              Approve Multiple {selectedIds.length > 0 && `(${selectedIds.length})`}
             </button>
           </div>
         </div>
@@ -379,14 +331,6 @@ const ApprovalsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4 w-12">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={filteredApprovals.length > 0 && selectedIds.length === filteredApprovals.length}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
                   <th className="px-6 py-4">Entity Type</th>
                   <th className="px-6 py-4">Requested By</th>
                   <th className="px-6 py-4">Remarks / Details</th>
@@ -397,15 +341,7 @@ const ApprovalsPage = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {pagedApprovals.map((item) => (
-                  <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(item.id) ? "bg-primary/[0.02]" : ""}`}>
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 text-primary focus:ring-primary"
-                        checked={selectedIds.includes(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                      />
-                    </td>
+                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
@@ -523,7 +459,7 @@ const ApprovalsPage = () => {
               disabled={isCreating}
               className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-70"
             >
-              {isCreating ? "Creating..." : "Create Request"}
+              {isCreating ? "Saving..." : "Save Request"}
             </button>
           </>
         }
@@ -556,14 +492,28 @@ const ApprovalsPage = () => {
                 onChange={e => setCreateForm(p => ({ ...p, entity_id: e.target.value }))}
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
               >
-                <option value="">
-                  {entityItems.length === 0
-                    ? `No ${createForm.entity_type} items found`
-                    : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`}
-                </option>
-                {entityItems.map(item => (
-                  <option key={item.id} value={item.id}>{item.label}</option>
-                ))}
+                {(() => {
+                  const filteredItems = entityItems.filter(item => {
+                    const isApproved = approvals.some(a =>
+                      String(a.entity_type).toLowerCase() === String(createForm.entity_type).toLowerCase() &&
+                      Number(a.entity_id) === Number(item.id) &&
+                      (a.status || "").toLowerCase() === "approved"
+                    );
+                    return !isApproved;
+                  });
+                  return (
+                    <>
+                      <option value="">
+                        {filteredItems.length === 0
+                          ? `No pending/unapproved ${createForm.entity_type} items found`
+                          : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`}
+                      </option>
+                      {filteredItems.map(item => (
+                        <option key={item.id} value={item.id}>{item.label}</option>
+                      ))}
+                    </>
+                  );
+                })()}
               </select>
             )}
           </div>

@@ -20,7 +20,20 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+        try {
+            const pid = localStorage.getItem("infrapilot_selected_project_id");
+            if (pid && pid !== "null") return Number(pid);
+            
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const pId = parsed.default_project_id || parsed.project_id;
+                return pId ? Number(pId) : null;
+            }
+        } catch (e) {}
+        return null;
+    });
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -49,6 +62,7 @@ const MaterialStockPage = () => {
         const newProjectId = id === 0 ? null : id;
         setSelectedProjectId(newProjectId);
         if (newProjectId) {
+            localStorage.setItem("infrapilot_selected_project_id", String(newProjectId));
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
@@ -154,9 +168,17 @@ const MaterialStockPage = () => {
 
     const filteredReports = useMemo(() => {
         let list = reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
-        if (alertFilter === 'OUT_OF_STOCK') list = list.filter(r => r.remaining_stock === 0);
-        else if (alertFilter === 'LOW_STOCK') list = list.filter(r => r.remaining_stock > 0 && r.remaining_stock < 10);
-        else if (alertFilter === 'IN_STOCK') list = list.filter(r => r.remaining_stock >= 10);
+        if (alertFilter === 'OUT_OF_STOCK') {
+            list = list.filter(r => r.alert_type === 'OUT_OF_STOCK' || r.alert_type === 'OUT OF STOCK' || (r.remaining_stock === 0 && !r.alert_type));
+        } else if (alertFilter === 'LOW_STOCK') {
+            list = list.filter(r => r.alert_type === 'LOW_STOCK' || r.alert_type === 'LOW STOCK');
+        } else if (alertFilter === 'IN_STOCK') {
+            list = list.filter(r => {
+                const isOutOfStock = r.alert_type === 'OUT_OF_STOCK' || r.alert_type === 'OUT OF STOCK' || (r.remaining_stock === 0 && !r.alert_type);
+                const isLowStock = r.alert_type === 'LOW_STOCK' || r.alert_type === 'LOW STOCK';
+                return !isOutOfStock && !isLowStock;
+            });
+        }
         return list;
     }, [reports, searchTerm, alertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
@@ -181,12 +203,13 @@ const MaterialStockPage = () => {
 
     const handleAdjustmentSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSubmitting(true);
+        const toastId = toast.loading("Processing adjustment...");
         try {
-            await materialService.adjustInventory(adjustmentForm);
-            toast.success("Inventory adjusted!");
+            const res = await materialService.adjustInventory(adjustmentForm);
+            toast.success((res as any)?.message || "Inventory adjusted!", { id: toastId });
             setIsAdjustmentModalOpen(false);
             fetchAdjustments(); fetchStock();
-        } catch (e) { toast.error("Failed to adjust inventory"); }
+        } catch (e: any) { toast.error(e.response?.data?.message || "Failed to adjust inventory", { id: toastId }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -203,7 +226,7 @@ const MaterialStockPage = () => {
         }
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky bottom-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -237,7 +260,7 @@ const MaterialStockPage = () => {
             <Navbar title="Material Stock" breadcrumb={["Engineer", "Material Management", "Stock & Inventory"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Stock & Inventory Management
@@ -264,7 +287,7 @@ const MaterialStockPage = () => {
                 </div>
 
                 {/* Tabs & Project Filter */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
                     <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit overflow-x-auto max-w-full scrollbar-none">
                         {(["Stock Overview", "Global Inventory", "Reports", "Inventory Adjustment"] as TabType[]).map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
@@ -276,8 +299,8 @@ const MaterialStockPage = () => {
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
+                        <select value={projectId || ""} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value="" disabled>Select Project</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>
@@ -337,13 +360,14 @@ const MaterialStockPage = () => {
                                 <div className="flex-1 overflow-auto scrollbar-thin">
                                     <table className="w-full text-left whitespace-nowrap">
                                         <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-center">Unit</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
                                                 <tr key={i.material_id} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 text-center uppercase">{(i as any).unit_name || i.unit || '—'}</td>
                                                     <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 </tr>
@@ -550,7 +574,7 @@ const MaterialStockPage = () => {
                                                         globalInventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
                                                         `Material #${a.material_id || ''}`}
                                                 </td>
-                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
+                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{String(a.type).toUpperCase() === String(a.issue_type).toUpperCase() ? a.type : `${a.type} / ${a.issue_type}`}</span></td>
                                                 <td className="px-6 py-4 text-sm font-bold text-center">
                                                     <span className={`${((a as any).difference ?? a.quantity) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                                         {((a as any).difference ?? a.quantity) >= 0 ? '+' : ''}{(a as any).difference ?? a.quantity}
@@ -571,13 +595,13 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Audit Adjustment"}</button></>}>
                 <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Material *</label>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Material <span className="text-rose-500">*</span></label>
                                 <select required value={adjustmentForm.material_id || ""} onChange={e => {
                                     const val = Number(e.target.value);
                                     setAdjustmentForm({ ...adjustmentForm, material_id: val });
@@ -594,12 +618,12 @@ const MaterialStockPage = () => {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">new_stock *</label>
-                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" placeholder="e.g. 500" />
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">New Stock <span className="text-rose-500">*</span></label>
+                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">reason *</label>
-                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} placeholder="e.g. Physical count discrepancy found during month-end audit." />
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Reason <span className="text-rose-500">*</span></label>
+                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} />
                             </div>
                         </div>
                     </div>

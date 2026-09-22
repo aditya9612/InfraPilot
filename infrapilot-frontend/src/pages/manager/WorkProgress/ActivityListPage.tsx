@@ -174,7 +174,7 @@ const ActivityListPage = () => {
       setIsLogModalOpen(false);
       loadActivities();
     } catch (err) {
-      toast.error("Failed to log progress");
+      toast.error((err as any)?.response?.data?.detail || "Failed to log progress");
     }
   };
 
@@ -568,7 +568,7 @@ const ActivityListPage = () => {
         onConfirm={handleDelete}
         title="Discard Activity Entry"
         message="Are you sure you want to delete this activity record? This action will permanently remove the entry and all its progress history from the project ledger."
-        confirmText="Archive Record"
+        confirmText="Delete"
         type="danger"
         isLoading={isSubmitting}
       />

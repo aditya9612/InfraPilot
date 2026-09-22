@@ -1,17 +1,19 @@
 import React from "react";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2, Eye } from "lucide-react";
 import type { Supplier } from "../../../types/material";
 
 interface SupplierTableProps {
   suppliers: Supplier[];
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: number) => void;
+  onView: (id: number) => void;
 }
 
 const SupplierTable: React.FC<SupplierTableProps> = ({
   suppliers,
   onEdit,
   onDelete,
+  onView,
 }) => {
   return (
     <div className="overflow-x-auto min-h-[300px]">
@@ -22,6 +24,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
             <th className="px-6 py-4">Contact Person</th>
             <th className="px-6 py-4">Phone / Email</th>
             <th className="px-6 py-4">Address</th>
+            <th className="px-6 py-4">GST Number</th>
             <th className="px-6 py-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -48,8 +51,18 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
               <td className="px-6 py-4 text-sm font-semibold text-slate-600 max-w-[200px] truncate">
                 {sup.address || "N/A"}
               </td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-700">
+                {sup.gst || "N/A"}
+              </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => onView(sup.id)}
+                    className="p-1.5 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                    title="View Supplier"
+                  >
+                    <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                  </button>
                   <button
                     onClick={() => onEdit(sup)}
                     className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
@@ -70,7 +83,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-12 text-center text-slate-400">
+              <td colSpan={6} className="py-12 text-center text-slate-400">
                 No suppliers found.
               </td>
             </tr>

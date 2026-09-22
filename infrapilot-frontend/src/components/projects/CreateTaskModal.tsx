@@ -27,7 +27,7 @@ const CreateTaskModal = ({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    priority: 4,
+    priority: "" as number | string,
     status: "Planned" as TaskStatus,
     start_date: "",
     end_date: "",
@@ -169,8 +169,9 @@ const CreateTaskModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.start_date) newErrors.start_date = "Start date is required.";
-    if (!formData.end_date) newErrors.end_date = "End date is required.";
+    if (!formData.priority) newErrors.priority = "Priority is required.";
+    if (!formData.start_date) newErrors.start_date = "Start Date is required.";
+    if (!formData.end_date) newErrors.end_date = "End Date is required.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -188,8 +189,8 @@ const CreateTaskModal = ({
       form.append("description", formData.description);
       form.append("priority", String(formData.priority));
       form.append("status", formData.status);
-      form.append("start_date", formData.start_date);
-      form.append("end_date", formData.end_date);
+      if (formData.start_date) form.append("start_date", formData.start_date);
+      if (formData.end_date) form.append("end_date", formData.end_date);
       if (formData.assigned_user_id) {
         form.append("assigned_user_id", String(formData.assigned_user_id));
       }
@@ -226,13 +227,12 @@ const CreateTaskModal = ({
         await onSubmit(form);
       }
 
-      toast.success(`Task "${formData.title}" created successfully!`);
       onClose();
       // Reset form
       setFormData({
         title: "",
         description: "",
-        priority: 4,
+        priority: "",
         status: "Planned",
         start_date: "",
         end_date: "",
@@ -335,16 +335,18 @@ const CreateTaskModal = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Priority</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Priority <span className="text-red-500">*</span></label>
                     <select
                       name="priority" value={formData.priority} onChange={handleChange}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium appearance-none"
+                      className={`w-full px-4 py-2.5 bg-white border ${errors.priority ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium appearance-none`}
                     >
+                      <option value="">Select</option>
                       <option value={4}>Low</option>
                       <option value={3}>Medium</option>
                       <option value={2}>High</option>
                       <option value={1}>Critical</option>
                     </select>
+                    {errors.priority && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.priority}</p>}
                   </div>
                 </div>
 
@@ -508,18 +510,20 @@ const CreateTaskModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Start Date</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Start Date <span className="text-red-500">*</span></label>
                     <input
                       type="date" name="start_date" value={formData.start_date} onChange={handleChange}
                       className={`w-full px-4 py-2.5 bg-white border ${errors.start_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium`}
                     />
+                    {errors.start_date && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.start_date}</p>}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">End Date</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">End Date <span className="text-red-500">*</span></label>
                     <input
                       type="date" name="end_date" value={formData.end_date} onChange={handleChange}
                       className={`w-full px-4 py-2.5 bg-white border ${errors.end_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium`}
                     />
+                    {errors.end_date && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.end_date}</p>}
                   </div>
                 </div>
               </div>

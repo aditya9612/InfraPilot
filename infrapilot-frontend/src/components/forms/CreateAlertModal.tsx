@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Send, Building2, Users } from "lucide-react";
+import { Send, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import { projectService } from "../../services/projectService";
@@ -19,8 +19,6 @@ const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
   const [formData, setFormData] = useState({
     type: "Safety",
     message: "",
-    target: "Project Manager",
-    status: "Normal",
     project_id: "",
   });
 
@@ -63,8 +61,6 @@ const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
     setFormData({
       type: "Safety",
       message: "",
-      target: "Project Manager",
-      status: "Normal",
       project_id: projects.length > 0 ? projects[0].id.toString() : "",
     });
   };
@@ -130,7 +126,7 @@ const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
             {errors.project_id && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.project_id}</p>}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Alert type <span className="text-rose-500">*</span>
@@ -144,42 +140,6 @@ const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
                 <option value="Delay">Project Delay</option>
                 <option value="Budget">Budget Alert</option>
                 <option value="System">System Notification</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Priority <span className="text-rose-500">*</span>
-              </label>
-              <select
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium appearance-none cursor-pointer"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="Normal">Normal</option>
-                <option value="Warning">Warning</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1">
-            <label className="block text-sm font-medium text-gray-600 mb-1">
-              User target <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <Users size={16} />
-              </span>
-              <select
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium appearance-none cursor-pointer"
-                value={formData.target}
-                onChange={(e) => setFormData({ ...formData, target: e.target.value })}
-              >
-                <option value="All">All Users</option>
-                <option value="Project Manager">Project Managers</option>
-                <option value="Site Engineer">Site Engineers</option>
-                <option value="Accountant">Accountants</option>
-                <option value="Client">Clients</option>
               </select>
             </div>
           </div>

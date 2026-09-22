@@ -5,7 +5,7 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-    Plus,
+
     Trash2,
     CheckCircle2,
     ClipboardList,
@@ -62,7 +62,7 @@ const ChecklistsPage = () => {
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
-    const [newChecklistType, setNewChecklistType] = useState("Daily Checklist");
+    const [newChecklistType, setNewChecklistType] = useState("");
     const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
     const [editChecklistName, setEditChecklistName] = useState("");
     const [editChecklistDescription, setEditChecklistDescription] = useState("");
@@ -74,12 +74,13 @@ const ChecklistsPage = () => {
     const [addItemText, setAddItemText] = useState("");
     const [executeStatus, setExecuteStatus] = useState<"Done" | "Pending">("Done");
     const [executeRemarks, setExecuteRemarks] = useState("");
-    const [executeError, setExecuteError] = useState(false);
+
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [currentChecklistItems, setCurrentChecklistItems] = useState<ChecklistItemEntry[]>([]);
     const [isFetchingItems, setIsFetchingItems] = useState(false);
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
     const [editItemText, setEditItemText] = useState("");
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
@@ -133,12 +134,14 @@ const ChecklistsPage = () => {
 
     const handleCreateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newChecklistProjectId) {
-            toast.error("Project is required");
-            return;
-        }
-        if (!newChecklistName.trim()) {
-            toast.error("Name is required");
+        const newErrors: Record<string, string> = {};
+        if (!newChecklistProjectId) newErrors.project_id = "Project is required";
+        if (!newChecklistName.trim()) newErrors.name = "Name is required";
+
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            toast.error("Please fill in all mandatory fields");
             return;
         }
 
@@ -322,12 +325,17 @@ const ChecklistsPage = () => {
 
     const handleExecuteChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!executeRemarks.trim() || !selectedChecklist) {
-            setExecuteError(true);
-            toast.error("Remarks are required");
+        if (!selectedChecklist) {
             return;
         }
-        setExecuteError(false);
+        const newErrors: Record<string, string> = {};
+        if (!executeStatus) newErrors.executeStatus = "Status is required";
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            toast.error("Please fill in all mandatory fields");
+            return;
+        }
         setIsSubmitting(true);
         try {
             await checklistService.executeChecklist({
@@ -340,7 +348,6 @@ const ChecklistsPage = () => {
             await fetchData();
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");
-            setExecuteError(false);
         } catch (err) {
             toast.error("Failed to execute checklist");
         } finally {
@@ -471,7 +478,7 @@ const ChecklistsPage = () => {
         }
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
@@ -494,7 +501,6 @@ const ChecklistsPage = () => {
                             onClick={() => setIsNewModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             New Checklist
                         </button>
                     </div>
@@ -604,7 +610,7 @@ const ChecklistsPage = () => {
                                             <span className="text-[10px] font-bold uppercase tracking-widest">Manage Items</span>
                                         </button>
                                         <button
-                                            onClick={() => { setSelectedChecklist(cl); setExecuteError(false); setIsExecuteModalOpen(true); }}
+                                            onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
                                             className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
                                             title="Execute Audit"
                                         >
@@ -633,8 +639,8 @@ const ChecklistsPage = () => {
 
                     {/* â”€â”€ Execution Intelligence Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
-                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                            <div className="relative flex-1 max-w-md font-inter">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                            <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                     <Search className="w-4 h-4" />
                                 </span>
@@ -751,7 +757,7 @@ const ChecklistsPage = () => {
 
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {filteredChecklists.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -838,7 +844,7 @@ const ChecklistsPage = () => {
             <Modal
                 isOpen={isNewModalOpen}
                 onClose={() => setIsNewModalOpen(false)}
-                title="Initiate Technical Protocol"
+                title="Create Checklist"
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -848,7 +854,7 @@ const ChecklistsPage = () => {
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Commit Protocol"}
+                            {isSubmitting ? "Syncing..." : "Save Checklist"}
                         </button>
                     </div>
                 }
@@ -874,6 +880,7 @@ const ChecklistsPage = () => {
                                         </option>
                                     ))}
                                 </select>
+                                {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
@@ -881,20 +888,23 @@ const ChecklistsPage = () => {
                                     type="text"
                                     value={newChecklistName}
                                     onChange={(e) => setNewChecklistName(e.target.value)}
-                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    placeholder=""
                                     className={inputClasses}
                                 />
+                                {errors.name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.name}</p>}
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Domain Category <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Domain Category</label>
                                 <select
                                     value={newChecklistType}
                                     onChange={(e) => setNewChecklistType(e.target.value)}
                                     className={inputClasses}
                                 >
+                                    <option value="">Select Category</option>
                                     <option value="Daily Checklist">Daily Checklist</option>
                                     <option value="Activity Checklist">Activity Checklist</option>
                                 </select>
+                                {errors.type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.type}</p>}
                             </div>
                         </div>
                     </div>
@@ -904,12 +914,13 @@ const ChecklistsPage = () => {
                             <CheckCircle2 className="w-4 h-4 text-primary" />
                             Verification Points Matrix
                         </h3>
+                        {errors.items && <p className="mb-4 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.items}</p>}
                         <div className="flex gap-3 mb-6 font-inter">
                             <input
                                 type="text"
                                 value={tempItemText}
                                 onChange={(e) => setTempItemText(e.target.value)}
-                                placeholder="Enter technical verification point..."
+                                placeholder=""
                                 className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                             />
                             <button
@@ -938,7 +949,7 @@ const ChecklistsPage = () => {
                             ))}
                             {newChecklistItems.length === 0 && (
                                 <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-2xl font-inter">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added.</p>
                                 </div>
                             )}
                         </div>
@@ -993,7 +1004,7 @@ const ChecklistsPage = () => {
                                     type="text"
                                     value={editChecklistName}
                                     onChange={(e) => setEditChecklistName(e.target.value)}
-                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    placeholder=""
                                     className={inputClasses}
                                 />
                             </div>
@@ -1003,7 +1014,7 @@ const ChecklistsPage = () => {
                                     rows={3}
                                     value={editChecklistDescription}
                                     onChange={(e) => setEditChecklistDescription(e.target.value)}
-                                    placeholder="e.g. Verification steps for the foundation..."
+                                    placeholder=""
                                     className={inputClasses + " resize-none"}
                                 />
                             </div>
@@ -1042,7 +1053,7 @@ const ChecklistsPage = () => {
                             type="text"
                             value={addItemText}
                             onChange={(e) => setAddItemText(e.target.value)}
-                            placeholder="Add new verification point..."
+                            placeholder=""
                             className={inputClasses}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleAddItem(e as any);
@@ -1150,7 +1161,7 @@ const ChecklistsPage = () => {
             <Modal
                 isOpen={isExecuteModalOpen}
                 onClose={() => setIsExecuteModalOpen(false)}
-                title="Execute Field Audit"
+                title="Edit Execute"
                 maxWidth="max-w-lg"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -1160,7 +1171,7 @@ const ChecklistsPage = () => {
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Commit Field Audit"}
+                            {isSubmitting ? "Syncing..." : "Edit Execute"}
                         </button>
                     </div>
                 }
@@ -1169,7 +1180,7 @@ const ChecklistsPage = () => {
                     <div className="p-6 bg-primary rounded-2xl border border-primary/20 text-white shadow-2xl relative overflow-hidden font-inter">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
                         <div className="relative z-10 font-inter">
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
+                            <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
                             <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
                         </div>
                     </div>
@@ -1195,19 +1206,17 @@ const ChecklistsPage = () => {
 
                     <div className="font-inter">
                         <label className={labelClasses}>
-                            Field Audit Intelligence Remarks <span className="text-rose-500">*</span>
+                            Field Audit Intelligence Remarks
                         </label>
                         <textarea
                             rows={4}
                             value={executeRemarks}
                             onChange={(e) => {
                                 setExecuteRemarks(e.target.value);
-                                if (e.target.value.trim()) setExecuteError(false);
                             }}
-                            placeholder="Describe technical observations, deviations, or site confirmations..."
-                            className={`${inputClasses} resize-none font-bold ${executeError ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : ''}`}
+                            placeholder=""
+                            className={`${inputClasses} resize-none font-bold`}
                         />
-                        {executeError && <p className="text-xs text-rose-500 mt-1.5 font-bold font-inter">Remarks are required to commit the audit.</p>}
                     </div>
                 </div>
             </Modal>

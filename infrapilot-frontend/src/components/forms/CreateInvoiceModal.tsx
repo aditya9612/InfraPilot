@@ -5,6 +5,7 @@ import type { Invoice, InvoiceType, InvoiceStatus } from "../../types/invoice";
 import type { Project } from "../../types/project";
 import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
+import { financeService } from "../../services/financeService";
 
 interface CreateInvoiceModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   });
 
   const [measurements, setMeasurements] = useState<any[]>([]);
+  const [invoicedProjectIds, setInvoicedProjectIds] = useState<Set<number>>(new Set());
 
   const [calculated, setCalculated] = useState({
     base_total: 0,
@@ -64,7 +66,11 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         // Labour invoice now only requires project/dates, no owners needed here.
       }
       if (initialType === "measurement") {
-        // Measurement invoice requires picking a measurement for the selected project
+        // Fetch already-invoiced project IDs to filter out from dropdown
+        financeService.getInvoicesByType("measurement").then((invoices: any[]) => {
+          const ids = new Set<number>(invoices.map((inv: any) => inv.project_id).filter(Boolean));
+          setInvoicedProjectIds(ids);
+        }).catch(() => setInvoicedProjectIds(new Set()));
       }
       // Fetch projects internally if not provided via props
       if (!projects || projects.length === 0) {
@@ -270,10 +276,17 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 onChange={e => setFormData({ ...formData, project_id: e.target.value })}
               >
                 <option value="">Select Project</option>
-                {resolvedProjects.map(p => (
-                  <option key={p.id} value={p.id}>{p.project_name}</option>
-                ))}
+                {resolvedProjects
+                  .filter(p => formData.type !== "measurement" || !invoicedProjectIds.has(p.id))
+                  .map(p => (
+                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                  ))}
               </select>
+              {formData.type === "measurement" && invoicedProjectIds.size > 0 && (
+                <p className="text-[10px] text-amber-600 font-bold mt-1">
+                  {invoicedProjectIds.size} project(s) hidden — measurement invoice already created
+                </p>
+              )}
             </div>
 
             {isLabour && (

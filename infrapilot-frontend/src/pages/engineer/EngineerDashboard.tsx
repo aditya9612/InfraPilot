@@ -257,7 +257,7 @@ const EngineerDashboard = () => {
         }
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -267,10 +267,10 @@ const EngineerDashboard = () => {
                         <option value={50}>50</option>
                     </select>
                 </div>
-                <div className="text-[11px] font-medium text-slate-500">
+                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
                     Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap justify-center items-center gap-1.5">
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
                     {pages.map(page => (
                         <button
@@ -292,7 +292,7 @@ const EngineerDashboard = () => {
         const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-4 rounded-b-2xl -mx-6 -mb-6">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 mt-4 rounded-b-2xl -mx-6 -mb-6">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={timelineItemsPerPage} onChange={(e) => { setTimelineItemsPerPage(Number(e.target.value)); setTimelinePage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -301,10 +301,10 @@ const EngineerDashboard = () => {
                         <option value={20}>20</option>
                     </select>
                 </div>
-                <div className="text-[11px] font-medium text-slate-500">
+                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
                     Showing {total === 0 ? 0 : (timelinePage - 1) * timelineItemsPerPage + 1} - {Math.min(timelinePage * timelineItemsPerPage, total)} of {total} records
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap justify-center items-center gap-1.5">
                     <button onClick={() => setTimelinePage(p => Math.max(1, p - 1))} disabled={timelinePage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
                     {pages.map(page => (
                         <button

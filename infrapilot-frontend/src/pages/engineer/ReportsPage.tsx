@@ -199,6 +199,36 @@ const ReportsPage = () => {
     const [quarterlyExportFilters, setQuarterlyExportFilters] = useState({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
     const [isQuarterlyExporting, setIsQuarterlyExporting] = useState(false);
 
+    useEffect(() => {
+        const isAnyModalOpen = isExportModalOpen || isLabourExportModalOpen || isIssueExportModalOpen || isQuarterlyExportModalOpen;
+        
+        const preventScroll = (e: Event) => {
+            const target = e.target as HTMLElement;
+            // If we are scrolling inside the modal itself, allow it
+            if (target && target.closest && (target.closest('.overflow-y-auto') || target.closest('.custom-scrollbar'))) {
+                return; 
+            }
+            e.preventDefault();
+        };
+
+        if (isAnyModalOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+            document.addEventListener('wheel', preventScroll, { passive: false });
+            document.addEventListener('touchmove', preventScroll, { passive: false });
+        } else {
+            document.body.style.overflow = "";
+            document.documentElement.style.overflow = "";
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        }
+        return () => {
+            document.body.style.overflow = "";
+            document.documentElement.style.overflow = "";
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        };
+    }, [isExportModalOpen, isLabourExportModalOpen, isIssueExportModalOpen, isQuarterlyExportModalOpen]);
 
 
     const fetchReports = useCallback(async () => {
@@ -1051,6 +1081,8 @@ const ReportsPage = () => {
         return { total, generatedToday, openIssues, avgSize };
     }, [dynamicReports]);
 
+    const isAnyModalOpen = isExportModalOpen || isLabourExportModalOpen || isIssueExportModalOpen || isQuarterlyExportModalOpen;
+
     return (
         <>
             <Navbar
@@ -1140,7 +1172,7 @@ const ReportsPage = () => {
 
                 {/* ── Filter Tabs + Report Cards ───────────────────────────── */}
                 {/* ── Filter Bar (DSR Style) ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4 font-inter">
 
                     {/* Left: Blue Icon + Title */}
                     <div className="flex items-center gap-3 shrink-0">
@@ -1155,7 +1187,7 @@ const ReportsPage = () => {
                     <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0" />
 
                     {/* Search */}
-                    <div className="flex flex-col gap-0.5 min-w-[200px]">
+                    <div className="flex flex-col gap-0.5 w-full lg:w-auto min-w-[200px]">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Search</label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -1174,8 +1206,8 @@ const ReportsPage = () => {
                     </div>
 
                     {/* Date Pickers */}
-                    <div className="flex gap-4 min-w-[250px]">
-                        <div className="flex flex-col gap-0.5 w-1/2">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto min-w-[250px]">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-1/2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Date</label>
                             <div className="relative">
                                 <input
@@ -1186,7 +1218,7 @@ const ReportsPage = () => {
                                 />
                             </div>
                         </div>
-                        <div className="flex flex-col gap-0.5 w-1/2">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-1/2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Date</label>
                             <div className="relative">
                                 <input
@@ -1200,7 +1232,7 @@ const ReportsPage = () => {
                     </div>
 
                     {/* Filter Dropdown */}
-                    <div className="flex flex-col gap-0.5 min-w-[150px]">
+                    <div className="flex flex-col gap-0.5 w-full lg:w-auto min-w-[150px]">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Frequency</label>
                         <div className="relative">
                             <select
@@ -1228,7 +1260,7 @@ const ReportsPage = () => {
                     )}
 
                     {/* Export Buttons */}
-                    <div className="ml-auto flex items-end pb-0.5 gap-2">
+                    <div className="lg:ml-auto flex items-end gap-2 w-full lg:w-auto pb-0.5 justify-end">
                         <button
                             onClick={handleExportPDF}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
@@ -1251,7 +1283,7 @@ const ReportsPage = () => {
                 </div>
 
                 {/* ── Report Cards Grid ───────────────────────────── */}
-                <div className="flex-1 overflow-auto custom-scrollbar pr-2">
+                <div className={`flex-1 custom-scrollbar pr-2 ${isAnyModalOpen ? 'overflow-hidden' : 'overflow-auto'}`}>
 
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

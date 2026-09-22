@@ -18,8 +18,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
     const [formData, setFormData] = useState({
         name: "",
         category: "",
-        type: "Unit",
-        is_active: true
+        type: "Unit"
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -27,16 +26,15 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
     useEffect(() => {
         if (initialData) {
             setFormData({
+                name: "",
                 ...initialData,
-                is_active: initialData.is_active ?? true,
                 type: "Unit"
             });
         } else {
             setFormData({
                 name: "",
                 category: "",
-                type: "Unit",
-                is_active: true
+                type: "Unit"
             });
         }
         setErrors({});
@@ -44,6 +42,15 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const newErrors: Record<string, string> = {};
+        if (!formData.name?.trim()) newErrors.name = "Unit Name cannot be empty";
+        if (!formData.category?.trim()) newErrors.category = "Category cannot be empty";
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         setErrors({});
         onSubmit(formData);
     };
@@ -62,7 +69,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                 type="submit"
                 className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-                {initialData ? "Save changes" : "Create unit"}
+                {initialData ? "Save changes" : "Save Unit"}
             </button>
         </div>
     );
@@ -78,7 +85,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                 <div className="space-y-4">
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                            Unit Name
+                            Unit Name <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -92,7 +99,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
 
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                            Category
+                            Category <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -102,17 +109,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                         />
                         {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2">
-                        <input
-                            type="checkbox"
-                            id="unit-active"
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                            checked={formData.is_active}
-                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                        />
-                        <label htmlFor="unit-active" className="text-sm font-medium text-gray-600">Is Active</label>
                     </div>
                 </div>
             </form>

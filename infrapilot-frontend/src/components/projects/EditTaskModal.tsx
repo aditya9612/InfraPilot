@@ -201,8 +201,6 @@ const EditTaskModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title || !formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.start_date) newErrors.start_date = "Start date is required.";
-    if (!formData.end_date) newErrors.end_date = "End date is required.";
     if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
 
     setErrors(newErrors);
@@ -229,8 +227,8 @@ const EditTaskModal = ({
         form.append("description", formData.description);
         form.append("priority", String(sanitizePriority(formData.priority)));
         form.append("status", formData.status);
-        form.append("start_date", formData.start_date);
-        form.append("end_date", formData.end_date);
+        if (formData.start_date) form.append("start_date", formData.start_date);
+        if (formData.end_date) form.append("end_date", formData.end_date);
         form.append("assigned_user_id", String(formData.assigned_user_id));
         form.append("completion_percentage", String(formData.completion_percentage));
         form.append("percentage", String(formData.completion_percentage));
@@ -260,8 +258,8 @@ const EditTaskModal = ({
           description: formData.description,
           priority: sanitizePriority(formData.priority),
           status: formData.status,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
+          ...(formData.start_date ? { start_date: formData.start_date } : {}),
+          ...(formData.end_date ? { end_date: formData.end_date } : {}),
           assigned_user_id: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
           completion_percentage: Number(formData.completion_percentage),
           percentage: Number(formData.completion_percentage),
@@ -280,8 +278,6 @@ const EditTaskModal = ({
       if (onSubmit) {
         await onSubmit(submitData);
       }
-
-      toast.success("Task updated successfully!");
       onClose();
     } catch (error) {
       toast.error("Failed to update task");

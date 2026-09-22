@@ -4,7 +4,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-  Plus,
+
   Search,
   Eye,
   Edit2,
@@ -30,9 +30,9 @@ import ActivityDetailModal from "../../../components/WorkProgress/ActivityDetail
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
 
 const statusBadge: Record<string, string> = {
-  "ON_TRACK": "bg-emerald-100 text-emerald-600",
+  "ON_TRACK": "bg-blue-100 text-blue-600",
   "DELAY": "bg-red-100 text-red-600",
-  "COMPLETED": "bg-blue-100 text-blue-600",
+  "COMPLETED": "bg-emerald-100 text-emerald-600",
   "NOT_STARTED": "bg-slate-100 text-slate-500"
 };
 
@@ -103,7 +103,7 @@ const ActivityListPage = () => {
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [workOrdersList, setWorkOrdersList] = useState<any[]>([]);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<number | "">("");
-  const [workOrderSummary, setWorkOrderSummary] = useState<any>(null);
+  const [, setWorkOrderSummary] = useState<any>(null);
 
   useEffect(() => {
     projectService.getProjects(100, 0).then((data: any) => {
@@ -221,7 +221,7 @@ const ActivityListPage = () => {
       (selectedWorkOrder === "" || a.work_order_id === Number(selectedWorkOrder))
     );
     return [...filtered].sort((a, b) => b.id - a.id);
-  }, [activities, searchTerm, filterStatus, activeStatFilter]);
+  }, [activities, searchTerm, filterStatus, activeStatFilter, selectedWorkOrder]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -236,8 +236,9 @@ const ActivityListPage = () => {
       toast.success("Activity created successfully!");
       setIsAddModalOpen(false);
       loadActivities();
-    } catch (err) {
-      toast.error("Failed to create activity");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to create activity";
+      toast.error(detail);
     }
   };
 
@@ -252,8 +253,9 @@ const ActivityListPage = () => {
         setSelectedActivity(fresh);
       } catch (_) { }
       loadActivities();
-    } catch (err) {
-      toast.error("Failed to update activity");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to update activity";
+      toast.error(detail);
     }
   };
 
@@ -263,8 +265,9 @@ const ActivityListPage = () => {
       toast.success("Progress logged successfully!");
       setIsLogModalOpen(false);
       loadActivities();
-    } catch (err) {
-      toast.error("Failed to log progress");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to log progress";
+      toast.error(detail);
     }
   };
 
@@ -276,8 +279,9 @@ const ActivityListPage = () => {
       toast.success("Activity deleted successfully!");
       setIsDeleteModalOpen(false);
       loadActivities();
-    } catch (err) {
-      toast.error("Failed to delete activity");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to delete activity";
+      toast.error(detail);
     } finally {
       setIsSubmitting(false);
     }
@@ -338,8 +342,7 @@ const ActivityListPage = () => {
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              Add Activity
+              Add activity
             </button>
           </div>
         </div>
@@ -392,49 +395,13 @@ const ActivityListPage = () => {
           ))}
         </div>
 
-        {/* ─── Work Order Summary Card ───────────────────────────────────────────── */}
-        {selectedWorkOrder && workOrderSummary && (
-          <div className="bg-primary rounded-2xl p-6 mb-6 text-white shadow-xl relative overflow-hidden font-inter">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary-200 mb-1">Work Order Progress</p>
-                <h3 className="text-xl font-bold tracking-tight">Work Order #{selectedWorkOrder} Overview</h3>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-primary-200 mb-1">Total Budget</p>
-                  <p className="text-lg font-bold">₹{workOrderSummary.total_budget?.toLocaleString("en-IN") || 0}</p>
-                </div>
-                <div className="w-px h-8 bg-white/20 mx-2"></div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-1">Amount Certified</p>
-                  <p className="text-lg font-bold">₹{workOrderSummary.amount_certified?.toLocaleString("en-IN") || 0}</p>
-                </div>
-                <div className="w-px h-8 bg-white/20 mx-2"></div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1">Pending Value</p>
-                  <p className="text-lg font-bold">₹{workOrderSummary.pending_value?.toLocaleString("en-IN") || 0}</p>
-                </div>
-              </div>
-            </div>
-            {/* Progress Bar */}
-            <div className="mt-5">
-              <div className="flex justify-between items-center text-xs font-bold mb-1.5">
-                <span className="text-primary-100">Overall Completion</span>
-                <span>{workOrderSummary.progress_percentage || 0}%</span>
-              </div>
-              <div className="h-2 bg-black/20 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${workOrderSummary.progress_percentage || 0}%` }}></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Work Order Summary Card has been removed per request */}
 
         {/* ─── Filter Bar & Registry Container ───────────────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           {/* Integrated Filter Bar */}
-          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-            <div className="relative flex-1 max-w-md font-inter">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+            <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search className="w-4 h-4" />
               </span>
@@ -467,7 +434,7 @@ const ActivityListPage = () => {
               <select
                 value={selectedWorkOrder}
                 onChange={(e) => setSelectedWorkOrder(e.target.value ? Number(e.target.value) : "")}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter max-w-[200px]"
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter min-w-[200px] max-w-[350px] truncate"
               >
                 <option value="">ALL WORK ORDERS</option>
                 {workOrdersList.map(w => (
@@ -589,7 +556,7 @@ const ActivityListPage = () => {
 
           {/* ── Pagination Controls ── */}
           {!loading && filteredActivities.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
               {/* Left: Items per page */}
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -611,7 +578,7 @@ const ActivityListPage = () => {
               </div>
 
               {/* Right: Pagination */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap justify-center items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
@@ -706,7 +673,7 @@ const ActivityListPage = () => {
         onConfirm={handleDelete}
         title="Discard Activity Entry"
         message="Are you sure you want to delete this activity record? This action will permanently remove the entry and all its progress history from the project ledger."
-        confirmText="Archive Record"
+        confirmText="Delete"
         type="danger"
         isLoading={isSubmitting}
       />

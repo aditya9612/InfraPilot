@@ -160,3 +160,9 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+/* Global Scroll Lock for Modals */
+/* Reliable scroll lock relying exclusively on modal-open class */
+body.modal-open,
+body.modal-open main {
+  overflow: hidden !important;
+}

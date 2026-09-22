@@ -9,10 +9,12 @@ import type { WorkOrder } from "../../../services/workOrderService";
 import { useProject } from "../../../context/ProjectContext";
 
 const statusBadge: Record<string, string> = {
-  "PENDING": "bg-amber-100 text-amber-600",
-  "IN_PROGRESS": "bg-blue-100 text-blue-600",
-  "COMPLETED": "bg-emerald-100 text-emerald-600",
-  "CANCELLED": "bg-rose-100 text-rose-600",
+  "PENDING": "bg-amber-100 text-amber-700",
+  "ASSIGNED": "bg-amber-100 text-amber-700",
+  "IN_PROGRESS": "bg-blue-100 text-blue-700",
+  "IN PROGRESS": "bg-blue-100 text-blue-700",
+  "COMPLETED": "bg-emerald-100 text-emerald-700",
+  "CANCELLED": "bg-rose-100 text-rose-700",
 };
 
 const WorkOrdersPage = () => {
@@ -63,6 +65,19 @@ const WorkOrdersPage = () => {
   useEffect(() => {
     fetchWorkOrders();
   }, [selectedProjectId]);
+
+  const availableStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    workOrders.forEach(w => {
+      const st = w.status;
+      if (st) {
+        // Capitalize each word nicely for display, but here we just store the exact string
+        // Actually it's better to store uppercase in Set to deduplicate, and format for display
+        statuses.add(st.toUpperCase());
+      }
+    });
+    return Array.from(statuses);
+  }, [workOrders]);
 
   const filteredOrders = useMemo(() => {
     let list = workOrders;
@@ -182,13 +197,13 @@ const WorkOrdersPage = () => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by WO# or description..."
+                placeholder="Search by Work Order Name or description..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-slate-400 text-ellipsis"
               />
             </div>
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -201,10 +216,11 @@ const WorkOrdersPage = () => {
                 className="w-full md:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-primary transition-all font-medium text-slate-600"
               >
                 <option value="ALL">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
+                {availableStatuses.map(status => (
+                  <option key={status} value={status}>
+                    {status.replace(/_/g, " ")}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

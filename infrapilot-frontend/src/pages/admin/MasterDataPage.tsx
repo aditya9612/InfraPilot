@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -209,8 +209,17 @@ const MasterDataPage = () => {
       fetchMasterData();
       setIsModalOpen(false);
       setEditingItem(null);
-    } catch (error) {
-      toast.error("Failed to save master entity");
+    } catch (error: any) {
+      let errMsg = "Failed to save master entity";
+      if (error?.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        if (Array.isArray(detail)) {
+          errMsg = detail[0].msg || errMsg;
+        } else if (typeof detail === "string") {
+          errMsg = detail;
+        }
+      }
+      toast.error(errMsg);
     }
   };
 
@@ -286,7 +295,7 @@ const MasterDataPage = () => {
               }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
-              + New Entry
+              {activeTab === 'All' ? '+ New Entry' : `+ Create ${activeTab}`}
             </button>
           </div>
         </div>
@@ -519,7 +528,7 @@ const MasterDataPage = () => {
         onConfirm={handleDelete}
         title="Delete Master Entity"
         message="Are you sure you want to remove this entity from master data? This may affect linked projects and reports."
-        confirmText="Remove Entity"
+        confirmText="Delete Entity"
         type="danger"
       />
 
@@ -537,3 +546,4 @@ const MasterDataPage = () => {
 };
 
 export default MasterDataPage;
+

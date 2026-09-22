@@ -31,6 +31,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -45,6 +46,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             });
             setSelectedFile(null);
             setErrors({});
+            setFormNotification(null);
         } else {
             if (projectId) {
                 setFormData(prev => ({ ...prev, project_id: String(projectId) }));
@@ -111,7 +113,12 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         if (!selectedFile) errs.photo = "Required";
         if (!formData.project_id) errs.project_id = "Required";
         setErrors(errs);
-        return Object.keys(errs).length === 0;
+        if (Object.keys(errs).length > 0) {
+            setFormNotification({ type: 'error', message: 'Please fill in all mandatory fields correctly.' });
+            return false;
+        }
+        setFormNotification(null);
+        return true;
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
@@ -138,16 +145,20 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
             console.log("Submitting Photo Upload with Project:", projectId);
             await onSubmit(data);
-            onClose();
+            setFormNotification({ type: 'success', message: 'Site photo saved successfully!' });
+            setTimeout(() => {
+                onClose();
+            }, 1500);
         } catch (error) {
             console.error("Upload Form Error:", error);
+            setFormNotification({ type: 'error', message: 'Upload failed. Please try again.' });
             toast.error("Upload failed. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-white border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -171,12 +182,32 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         disabled={isSubmitting}
                         className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
                     >
-                        {isSubmitting ? "Uploading..." : "Upload Evidence"}
+                        {isSubmitting ? "Saving..." : "Save Site Photo"}
                     </button>
                 </>
             }
         >
             <form id="site-photo-form" onSubmit={handleFormSubmit} className="space-y-6">
+                {formNotification && (
+                    <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                        <div className="mt-0.5">
+                            {formNotification.type === 'error' ? (
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            ) : (
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            )}
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                            <p className="text-xs mt-1">{formNotification.message}</p>
+                        </div>
+                    </div>
+                )}
+                
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact <span className="text-rose-500">*</span></h3>
                     <div
@@ -203,7 +234,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Contextual Metadata</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label className={labelClasses}>Project Context *</label>
+                            <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
                             <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                                 <option value="">Select Project</option>
                                 {projects.map(p => (
@@ -263,7 +294,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Observation Narrative</h3>
                     <div>
                         <label className={labelClasses}>Narrative Insight</label>
-                        <textarea name="description" rows={4} value={formData.description} onChange={handleChange} placeholder="Capture milestones or quality observations..." className={`${inputClasses(errors.description)} resize-none`} />
+                        <textarea name="description" rows={4} value={formData.description} onChange={handleChange} className={`${inputClasses(errors.description)} resize-none`} />
                     </div>
                 </div>
             </form>

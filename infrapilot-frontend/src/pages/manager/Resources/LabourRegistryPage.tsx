@@ -34,7 +34,7 @@ const initialFormData = {
     aadhaar_number: "", labour_name: "", mobile_number: "", email: "",
     pan_number: "", address: "", labour_type_id: 1, custom_daily_wage_rate: "",
     custom_ot_rate_per_hour: "", contractor_id: "" as string | number,
-    status: "Active", notes: "", profile_image: "",
+    status: "Active", notes: "", profile_image: "", profile_image_file: null as File | null,
 };
 
 export const calculateTotalHours = (inTime?: string | null, outTime?: string | null) => {
@@ -439,7 +439,7 @@ const LabourRegistryPage = () => {
 
     const handleEditClick = (labor: any) => {
         setFormMode("edit"); setEditId(labor.id);
-        setFormData({ aadhaar_number: labor.aadhaar_number || "", labour_name: labor.labour_name || "", mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id || 1, custom_daily_wage_rate: labor.custom_daily_wage_rate || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour || "", contractor_id: labor.contractor_id || "", status: labor.status || "Active", notes: labor.notes || "", profile_image: "" });
+        setFormData({ aadhaar_number: labor.aadhaar_number || "", labour_name: labor.labour_name || "", mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id || 1, custom_daily_wage_rate: labor.custom_daily_wage_rate || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour || "", contractor_id: labor.contractor_id || "", status: labor.status || "Active", notes: labor.notes || "", profile_image: labor.profile_image || "", profile_image_file: null });
         setErrors({}); setIsFormModalOpen(true);
     };
 
@@ -449,7 +449,7 @@ const LabourRegistryPage = () => {
         setIsSubmitting(true);
         try {
             if (formMode === "edit" && editId) {
-                const payload = { aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number || undefined, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined, status: formData.status, notes: formData.notes };
+                const payload = { aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number || undefined, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined, status: formData.status, notes: formData.notes, profile_image: formData.profile_image_file || undefined };
                 const updated = await labourService.updateLabour(editId, payload as any);
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
@@ -468,7 +468,7 @@ const LabourRegistryPage = () => {
                     contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
                     status: formData.status || "Active",
                     notes: formData.notes || null,
-                    profile_image: formData.profile_image || null
+                    profile_image: formData.profile_image_file || null
                 };
                 await labourService.createLabour(payload);
                 toast.success("Personnel registered successfully! You can now assign them to a project.");
@@ -803,7 +803,7 @@ const LabourRegistryPage = () => {
                                     <UserPlus className="w-4 h-4 text-primary" /> Assign Labour
                                 </button>
                                 <button onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                                    <Plus className="w-4 h-4" /> Register Labour
+                                    New Register Labour
                                 </button>
                             </div>
                         )}
@@ -1085,7 +1085,7 @@ const LabourRegistryPage = () => {
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}
             <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Labour"} maxWidth="max-w-2xl"
-                footer={<div className="flex justify-end gap-3"><button onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button><button form="personnel-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">{isSubmitting ? "Saving..." : formMode === "edit" ? "Save Changes" : "Register"}</button></div>}>
+                footer={<div className="flex justify-end gap-3"><button onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button><button form="personnel-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">{isSubmitting ? "Saving..." : formMode === "edit" ? "Edit labour" : "Save labour"}</button></div>}>
                 <form id="personnel-form" onSubmit={handleSubmit}>
                     <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -1093,11 +1093,11 @@ const LabourRegistryPage = () => {
                             <p className="text-sm font-bold text-slate-800">{getProjectName()}</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelCls}>Aadhaar Number</label><input value={formData.aadhaar_number} onChange={e => setFormData(p => ({ ...p, aadhaar_number: formatAadhaar(e.target.value) }))} placeholder="2345-6789-0123" className={`${inputCls} ${errors.aadhaar_number ? "border-rose-300" : ""}`} />{errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}</div>
+                            <div><label className={labelCls}>Aadhaar Number</label><input value={formData.aadhaar_number} onChange={e => setFormData(p => ({ ...p, aadhaar_number: formatAadhaar(e.target.value) }))} className={`${inputCls} ${errors.aadhaar_number ? "border-rose-300" : ""}`} />{errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}</div>
                             <div><label className={labelCls}>Labour Name <span className="text-rose-500">*</span></label><input value={formData.labour_name} onChange={e => setFormData(p => ({ ...p, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, "") }))} placeholder="Ramesh Shinde" className={`${inputCls} ${errors.labour_name ? "border-rose-300" : ""}`} />{errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}</div>
-                            <div><label className={labelCls}>Mobile Number <span className="text-rose-500">*</span></label><input type="tel" value={formData.mobile_number} onChange={e => setFormData(p => ({ ...p, mobile_number: e.target.value.replace(/\D/g, "").slice(0, 10) }))} placeholder="9696969696" className={`${inputCls} ${errors.mobile_number ? "border-rose-300" : ""}`} />{errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}</div>
-                            <div><label className={labelCls}>Email</label><input type="email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} placeholder="ramesh@gmail.com" className={inputCls} /></div>
-                            <div><label className={labelCls}>PAN Number</label><input value={formData.pan_number} onChange={e => setFormData(p => ({ ...p, pan_number: e.target.value.toUpperCase().slice(0, 10) }))} placeholder="HHLM5621L" className={inputCls} /></div>
+                            <div><label className={labelCls}>Mobile Number <span className="text-rose-500">*</span></label><input type="tel" value={formData.mobile_number} onChange={e => setFormData(p => ({ ...p, mobile_number: e.target.value.replace(/\D/g, "").slice(0, 10) }))} className={`${inputCls} ${errors.mobile_number ? "border-rose-300" : ""}`} />{errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}</div>
+                            <div><label className={labelCls}>Email</label><input type="email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} className={inputCls} /></div>
+                            <div><label className={labelCls}>PAN Number</label><input value={formData.pan_number} onChange={e => setFormData(p => ({ ...p, pan_number: e.target.value.toUpperCase().slice(0, 10) }))} className={inputCls} /></div>
                             <div><label className={labelCls}>Address</label><input value={formData.address} onChange={e => setFormData(p => ({ ...p, address: e.target.value }))} placeholder="Pune, Maharashtra" className={inputCls} /></div>
                             <div><label className={labelCls}>Labour Type <span className="text-rose-500">*</span></label>
                                 <select value={formData.labour_type_id || ""} onChange={e => setFormData(p => ({ ...p, labour_type_id: Number(e.target.value) }))} className={`${inputCls} ${errors.labour_type_id ? "border-rose-300" : ""}`}>
@@ -1106,8 +1106,8 @@ const LabourRegistryPage = () => {
                                 </select>
                                 {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
                             </div>
-                            <div><label className={labelCls}>Custom Daily Wage (₹)</label><input type="number" value={formData.custom_daily_wage_rate} onChange={e => setFormData(p => ({ ...p, custom_daily_wage_rate: e.target.value }))} placeholder="900" min={0} className={inputCls} /></div>
-                            <div><label className={labelCls}>Custom OT Rate / Hour (₹)</label><input type="number" value={formData.custom_ot_rate_per_hour} onChange={e => setFormData(p => ({ ...p, custom_ot_rate_per_hour: e.target.value }))} placeholder="120" min={0} className={inputCls} /></div>
+                            <div><label className={labelCls}>Custom Daily Wage (₹)</label><input type="number" value={formData.custom_daily_wage_rate} onChange={e => setFormData(p => ({ ...p, custom_daily_wage_rate: e.target.value }))} min={0} className={inputCls} /></div>
+                            <div><label className={labelCls}>Custom OT Rate / Hour (₹)</label><input type="number" value={formData.custom_ot_rate_per_hour} onChange={e => setFormData(p => ({ ...p, custom_ot_rate_per_hour: e.target.value }))} min={0} className={inputCls} /></div>
 
                             <div><label className={labelCls}>Status</label>
                                 <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls}>
@@ -1116,7 +1116,7 @@ const LabourRegistryPage = () => {
                             </div>
                             <div className="md:col-span-2"><label className={labelCls}>Notes</label><textarea value={formData.notes} onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="notes" className={inputCls + " resize-none"} /></div>
                             <div className="md:col-span-2"><label className={labelCls}>Profile Image</label>
-                                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => setFormData(p => ({ ...p, profile_image: r.result as string })); r.readAsDataURL(f); } }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
+                                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => setFormData(p => ({ ...p, profile_image: r.result as string, profile_image_file: f })); r.readAsDataURL(f); } }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
                             </div>
                         </div>
                     </div>

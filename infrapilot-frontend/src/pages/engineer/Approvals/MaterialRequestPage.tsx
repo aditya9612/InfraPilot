@@ -5,7 +5,6 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
     Search,
-    Plus,
     Eye,
     Loader2,
     Check,
@@ -15,9 +14,7 @@ import {
     Box
     ,
     ChevronLeft,
-    ChevronRight,
-    Clock,
-    ChevronDown
+    ChevronRight
 } from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
 import { projectService } from "../../../services/projectService";
@@ -49,6 +46,7 @@ const MaterialRequestPage = () => {
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string, missingFields?: string[] } | null>(null);
 
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
     const [resourceTypeFilter, setResourceTypeFilter] = useState<"All" | "Material" | "Equipment" | "Labour">("All");
@@ -113,17 +111,41 @@ const MaterialRequestPage = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+        if (formNotification) setFormNotification(null);
     };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.project_id) newErrors.project_id = "Project ID is required";
-        if (!formData.request_type) newErrors.request_type = "Request type is required";
-        if (!formData.description.trim()) newErrors.description = "Technical narrative is required";
-        if (!formData.quantity || Number(formData.quantity) <= 0) newErrors.quantity = "Valid numeric quantity is required";
+        const missingFields: string[] = [];
+
+        if (!formData.project_id) {
+            newErrors.project_id = "Project ID is required";
+            missingFields.push("Project");
+        }
+        if (!formData.request_type) {
+            newErrors.request_type = "Request type is required";
+            missingFields.push("Resource Classification");
+        }
+        if (!formData.description.trim()) {
+            newErrors.description = "Technical narrative is required";
+            missingFields.push("Descriptive Narrative");
+        }
+        if (!formData.quantity || Number(formData.quantity) <= 0) {
+            newErrors.quantity = "Valid numeric quantity is required";
+            missingFields.push("Required Quantum (Units)");
+        }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        
+        if (missingFields.length > 0) {
+            const errorMsg = `Please fill all mandatory fields: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg, missingFields });
+            toast.error(errorMsg);
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -249,7 +271,7 @@ const MaterialRequestPage = () => {
         fulfillment: Math.round((baseFilteredRequests.filter(r => r.status === "Approved").length / (baseFilteredRequests.length || 1)) * 100) || 0
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -301,7 +323,6 @@ const MaterialRequestPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             New Entry
                         </button>
                     </div>
@@ -359,7 +380,7 @@ const MaterialRequestPage = () => {
 
                 {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -398,22 +419,14 @@ const MaterialRequestPage = () => {
                             </select>
 
                             {/* Sort Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="latest">Latest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
                     </div>
 
@@ -506,7 +519,7 @@ const MaterialRequestPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && filteredRequests.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -528,7 +541,7 @@ const MaterialRequestPage = () => {
                             </div>
 
                             {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap justify-center items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
@@ -646,26 +659,49 @@ const MaterialRequestPage = () => {
                 )}
             </Modal>
 
-            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Form Modal ────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
-                title="Initiate Resource Requisition"
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                    setFormNotification(null);
+                }}
+                title="Save Resources Request"
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button onClick={() => {
+                            setIsFormModalOpen(false);
+                            setFormNotification(null);
+                        }} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
                         <button
                             onClick={handleSubmit}
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Commit Requisition"}
+                            {isSubmitting ? "Syncing..." : "Save Resources Request"}
                         </button>
                     </div>
                 }
             >
                 <form id="request-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'} font-inter`}>
+                            <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    {formNotification.type === 'error' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-bold ${formNotification.type === 'error' ? 'text-rose-800' : 'text-emerald-800'}`}>
+                                        {formNotification.type === 'error' ? 'Validation Error' : 'Success'}
+                                    </h4>
+                                    <p className={`text-xs mt-1 ${formNotification.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {formNotification.message}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Box className="w-4 h-4 text-primary" />
@@ -720,7 +756,7 @@ const MaterialRequestPage = () => {
                                     rows={4}
                                     value={formData.description}
                                     onChange={handleInputChange}
-                                    placeholder="Detail exact technical specifications or site requirement justification..."
+                                    placeholder=""
                                     className={`${inputClasses(errors.description)} resize-none font-bold shadow-inner`}
                                 />
                                 {errors.description && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.description}</p>}
@@ -733,7 +769,7 @@ const MaterialRequestPage = () => {
                                     min="0"
                                     value={formData.quantity}
                                     onChange={handleInputChange}
-                                    placeholder="e.g. 150"
+                                    placeholder=""
                                     className={inputClasses(errors.quantity)}
                                 />
                                 {errors.quantity && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.quantity}</p>}

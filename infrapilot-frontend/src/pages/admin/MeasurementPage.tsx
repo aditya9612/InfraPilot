@@ -493,7 +493,7 @@ const MeasurementPage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-6 bg-primary rounded-full" />
-              <h3 className="font-semibold text-gray-700">Target Project Node</h3>
+              <h3 className="font-semibold text-gray-700">Target Project Node <span className="text-rose-500">*</span></h3>
             </div>
             <select
               value={formData.project_id}
@@ -515,7 +515,7 @@ const MeasurementPage = () => {
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Target Task</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Target Task <span className="text-rose-500">*</span></label>
                   <select
                     value={formData.task_id}
                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value })}
@@ -528,7 +528,7 @@ const MeasurementPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">BOQ Item</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">BOQ Item <span className="text-rose-500">*</span></label>
                   <select
                     value={formData.boq_item_id}
                     onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value })}
@@ -550,7 +550,7 @@ const MeasurementPage = () => {
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Retention Amount</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Retention Amount <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     step="0.01"
@@ -561,7 +561,7 @@ const MeasurementPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Current Status</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Current Status <span className="text-rose-500">*</span></label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -588,7 +588,7 @@ const MeasurementPage = () => {
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Final Area</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Final Area <span className="text-rose-500">*</span></label>
                     <input
                       type="number"
                       step="0.01"
@@ -599,7 +599,7 @@ const MeasurementPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Apprv. Rate</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Apprv. Rate <span className="text-rose-500">*</span></label>
                     <input
                       type="number"
                       step="0.01"
@@ -621,7 +621,7 @@ const MeasurementPage = () => {
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area <span className="text-rose-500">*</span></label>
                     <input
                       type="number"
                       step="0.01"
@@ -632,7 +632,7 @@ const MeasurementPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate <span className="text-rose-500">*</span></label>
                     <input
                       type="number"
                       step="0.01"
@@ -654,7 +654,7 @@ const MeasurementPage = () => {
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Measured Qty</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Measured Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
@@ -665,7 +665,7 @@ const MeasurementPage = () => {
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Certified Qty</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Certified Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
@@ -676,7 +676,7 @@ const MeasurementPage = () => {
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Rejected Qty</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Rejected Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"

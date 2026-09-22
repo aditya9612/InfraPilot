@@ -42,7 +42,7 @@ export default function ViewMaterialModal({ isOpen, onClose, material, projectsL
                         <div className="grid grid-cols-2 gap-4">
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700">{material.quantity_purchased}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Used</p><p className="font-bold text-slate-700">{material.quantity_used || 0}</p></div>
-                            <div className="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center"><p className="text-xs font-bold text-blue-800 uppercase tracking-widest">Remaining</p><p className="font-black text-lg text-blue-700">{material.remaining_stock} {material.unit}</p></div>
+                            <div className="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center"><p className="text-xs font-bold text-blue-800 uppercase tracking-widest">Remaining</p><p className="font-black text-lg text-blue-700">{material.remaining_stock} {material.unit_name || material.unit}</p></div>
                         </div>
                     </div>
                 </div>

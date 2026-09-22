@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { reportService } from "../../services/reportService";
@@ -96,6 +96,16 @@ const ReportsPage = () => {
       setActiveCategory("Operations");
     }
   }, [location.pathname]);
+  const [searchParams] = useSearchParams();
+
+  // Auto-select project from URL query param (e.g. from Profit Tracking "View" button)
+  useEffect(() => {
+    const pid = searchParams.get("project_id");
+    if (pid) {
+      setSelectedProjectId(pid);
+    }
+  }, [searchParams]);
+
   const [searchQuery, setSearchQuery] = useState("");
 
   // Preview modal state

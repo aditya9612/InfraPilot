@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../services/api";
  * it prepends the API_BASE_URL.
  */
 export const getFullImageUrl = (url: string | null | undefined): string => {
-  if (!url) return "";
+  if (!url || typeof url !== 'string') return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
     return url;
   }

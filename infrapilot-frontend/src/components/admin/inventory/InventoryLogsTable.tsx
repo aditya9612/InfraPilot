@@ -24,7 +24,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
       <table className="w-full text-left">
         <thead>
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-            <th className="px-6 py-4">Transaction ID & Date</th>
+            <th className="px-6 py-4">Date</th>
             <th className="px-6 py-4">Action Type</th>
             <th className="px-6 py-4">Project Site</th>
             <th className="px-6 py-4">Quantity</th>
@@ -39,8 +39,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
           {logs.map((log) => (
             <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
-                <p className="font-bold text-slate-800">TXN-{log.id.toString().padStart(6, '0')}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                <p className="font-bold text-slate-800">
                   {new Date(log.created_at).toLocaleString()}
                 </p>
               </td>

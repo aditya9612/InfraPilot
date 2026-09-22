@@ -53,10 +53,10 @@ const AdminIssuesPage = () => {
     const [formData, setFormData] = useState<CreateIssueRequest & UpdateIssueRequest>({
         project_id: selectedProjectId || 0,
         title: "",
-        category: "Material",
+        category: "",
         description: "",
         reported_date: new Date().toISOString().split("T")[0],
-        priority: "Medium",
+        priority: "",
         status: "Open",
         assigned_to: 0,
         resolution: ""
@@ -142,8 +142,8 @@ const AdminIssuesPage = () => {
     };
 
     const handleCreate = async () => {
-        if (!formData.title || !formData.description) {
-            toast.error("Please fill in the title and description.");
+        if (!formData.title || !formData.description || !formData.category || !formData.priority || !formData.project_id) {
+            toast.error("Please fill in all mandatory fields.");
             return;
         }
         setIsSubmitting(true);
@@ -161,17 +161,17 @@ const AdminIssuesPage = () => {
             setFormData({
                 project_id: selectedProjectId || 0,
                 title: "",
-                category: "Material",
+                category: "",
                 description: "",
                 reported_date: new Date().toISOString().split("T")[0],
-                priority: "Medium",
+                priority: "",
                 status: "Open",
                 assigned_to: 0,
                 resolution: ""
             });
             fetchIssues();
-        } catch (error) {
-            toast.error("Failed to report issue");
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to report issue");
         } finally {
             setIsSubmitting(false);
         }
@@ -236,8 +236,14 @@ const AdminIssuesPage = () => {
     const handleUpdate = async () => {
         if (!selectedIssue) return;
 
-        if (formData.status === "Closed" && (!formData.resolution || formData.resolution.trim() === "")) {
-            toast.error("Resolution is required to close the issue.");
+        if (
+            !formData.title?.trim() ||
+            !formData.category?.trim() ||
+            !formData.priority?.trim() ||
+            !formData.status?.trim() ||
+            !formData.reported_date
+        ) {
+            toast.error("Please fill in all mandatory fields.");
             return;
         }
 
@@ -256,8 +262,8 @@ const AdminIssuesPage = () => {
             setIsEditModalOpen(false);
             setSelectedIssue(null);
             fetchIssues();
-        } catch (error) {
-            toast.error("Failed to update issue");
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to update issue");
         } finally {
             setIsSubmitting(false);
         }
@@ -272,8 +278,8 @@ const AdminIssuesPage = () => {
             setIsDeleteModalOpen(false);
             setDeleteTargetId(null);
             fetchIssues();
-        } catch (error) {
-            toast.error("Failed to remove issue");
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to remove issue");
         } finally {
             setIsSubmitting(false);
         }
@@ -519,55 +525,27 @@ const AdminIssuesPage = () => {
                     </div>
                     {/* Pagination Controls */}
                     {filteredIssues.length > 0 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <div className="flex gap-1">
+                        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Showing {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredIssues.length)} of {filteredIssues.length} Issues
+                            </p>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                                    </svg>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                                 </button>
-                                {Array.from({ length: totalPages }).map((_, i) => {
-                                    const page = i + 1;
-                                    if (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
-                                    ) {
-                                        return (
-                                            <button
-                                                key={page}
-                                                onClick={() => setCurrentPage(page)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                    ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                    : "text-slate-500 hover:bg-slate-100"
-                                                    }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        );
-                                    } else if (
-                                        page === currentPage - 2 ||
-                                        page === currentPage + 2
-                                    ) {
-                                        return <span key={page} className="text-slate-400 font-bold px-1 flex items-center justify-center">...</span>;
-                                    }
-                                    return null;
-                                })}
+                                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter bg-white shadow-sm shadow-slate-100">
+                                    {currentPage}
+                                </div>
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                                     disabled={currentPage >= totalPages}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                                    </svg>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -604,8 +582,8 @@ const AdminIssuesPage = () => {
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Project</label>
-                            <select name="project_id" value={formData.project_id} onChange={handleInputChange} disabled={!!selectedProjectId} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-slate-100 disabled:text-slate-500">
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Project <span className="text-rose-500">*</span></label>
+                            <select required name="project_id" value={formData.project_id} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value={0}>Select Project</option>
                                 {assignedProjects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name || (p as any).name || `Project ${p.id}`}</option>
@@ -613,29 +591,31 @@ const AdminIssuesPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title *</label>
-                            <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title <span className="text-rose-500">*</span></label>
+                            <input required type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category</label>
-                            <select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category <span className="text-rose-500">*</span></label>
+                            <select required name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="" disabled>Select Category</option>
                                 <option value="Material">Material</option><option value="Safety">Safety</option><option value="Delay">Delay</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date</label>
-                            <input type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date <span className="text-rose-500">*</span></label>
+                            <input required type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description *</label>
-                        <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description <span className="text-rose-500">*</span></label>
+                        <textarea required name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority</label>
-                        <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority <span className="text-rose-500">*</span></label>
+                        <select required name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="" disabled>Select Priority</option>
                             <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
                         </select>
                     </div>
@@ -661,29 +641,29 @@ const AdminIssuesPage = () => {
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title *</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title <span className="text-rose-500">*</span></label>
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category <span className="text-rose-500">*</span></label>
                             <select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Material">Material</option><option value="Safety">Safety</option><option value="Delay">Delay</option>
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description *</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description</label>
                         <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority <span className="text-rose-500">*</span></label>
                             <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Status</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Status <span className="text-rose-500">*</span></label>
                             <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Open">Open</option><option value="Closed">Closed</option>
                             </select>
@@ -702,7 +682,7 @@ const AdminIssuesPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date <span className="text-rose-500">*</span></label>
                             <input type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
@@ -790,7 +770,7 @@ const AdminIssuesPage = () => {
                             <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Resolution</div>
                                 <div className="text-sm font-bold text-slate-800 uppercase">
-                                    {formData.resolution || "PENDING"}
+                                    {formData.resolution !== null && formData.resolution !== undefined ? String(formData.resolution) : "null"}
                                 </div>
                             </div>
                         </div>
@@ -956,7 +936,7 @@ const AdminIssuesPage = () => {
                 onConfirm={handleDelete}
                 title="Delete Issue"
                 message="Are you sure you want to delete this issue? This action cannot be undone."
-                confirmText="Yes, Delete"
+                confirmText="Delete"
             />
         </>
     );

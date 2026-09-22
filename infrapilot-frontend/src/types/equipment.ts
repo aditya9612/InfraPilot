@@ -11,6 +11,7 @@ export interface EquipmentItem {
   condition: EquipmentCondition | string;
   status?: string;
   rental_cost: number;
+  cost_unit?: string;
   maintenance_date: string;
   is_deleted: boolean;
   created_at: string;
@@ -26,6 +27,7 @@ export interface CreateEquipmentRequest {
   fuel_used: number;
   condition: EquipmentCondition | string;
   rental_cost: number;
+  cost_unit?: string;
   maintenance_date: string;
 }
 

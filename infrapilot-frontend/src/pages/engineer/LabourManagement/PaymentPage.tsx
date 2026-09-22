@@ -170,7 +170,7 @@ const PaymentPage: React.FC = () => {
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 font-inter w-full">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Workforce Disbursement Terminal</h1>
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
@@ -258,7 +258,7 @@ const PaymentPage: React.FC = () => {
                 {/* ───────────────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center flex-wrap gap-4 bg-white font-inter w-full">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                                 <Search className="w-4 h-4 font-inter" />
@@ -334,12 +334,9 @@ const PaymentPage: React.FC = () => {
                                         )}
                                         {activeTab === 'weekly' && (
                                             <>
-                                                <th className="px-6 py-4 font-inter">Interval Velocity</th>
-                                                <th className="px-6 py-4 text-center font-inter">Duty Days</th>
-                                                <th className="px-6 py-4 text-center font-inter">Verified Presence</th>
-                                                <th className="px-6 py-4 text-center font-inter">Operational Hrs</th>
-                                                <th className="px-6 py-4 text-center font-inter text-amber-500">OT Efficiency</th>
-                                                <th className="px-6 py-4 text-right font-inter">Gross Disbursement</th>
+                                                <th className="px-6 py-4 font-inter">Week Number</th>
+                                                <th className="px-6 py-4 text-center font-inter">Attendance Count</th>
+                                                <th className="px-6 py-4 text-right font-inter">Total Wage</th>
                                             </>
                                         )}
                                     </tr>
@@ -471,16 +468,7 @@ const PaymentPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 font-inter">-</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
                                                 <span className="text-sm font-bold text-emerald-600 font-inter">{r.attendance_count || 0} Verified</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-700 font-inter">-</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-amber-500 font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString() || 0}</span>
@@ -493,7 +481,7 @@ const PaymentPage: React.FC = () => {
 
                         {/* ── Pagination Controls ───────────────────────── */}
                         {!isLoading && currentDataLength > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>

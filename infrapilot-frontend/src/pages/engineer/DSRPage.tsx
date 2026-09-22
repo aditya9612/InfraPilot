@@ -10,7 +10,7 @@ import {
     FileText,
     Activity,
     Search,
-    Plus,
+
     Edit2,
     Eye,
     MapPin,
@@ -31,6 +31,7 @@ import { dsrService } from "../../services/dsrService";
 import { reportService } from "../../services/reportService";
 import { useProject } from "../../context/ProjectContext";
 import { sitePhotoService } from "../../services/sitePhotoService";
+import { projectService } from "../../services/projectService";
 import type { DsrItem, LabourTrend, ContractorAnalytics, IssueAnalytics } from "../../types/dsr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ const DSRPage = () => {
     const [labourTrend, setLabourTrend] = useState<LabourTrend[]>([]);
     const [contractorAnalytics, setContractorAnalytics] = useState<ContractorAnalytics[]>([]);
     const [issueAnalytics, setIssueAnalytics] = useState<IssueAnalytics | null>(null);
+
+    // Tasks lookup map: task_id → task title
+    const [tasksMap, setTasksMap] = useState<Record<number, string>>({});
 
     // ─── Export Filter State ───────────────────────────────────────────────────
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -134,7 +138,24 @@ const DSRPage = () => {
             setIsPdfExporting(false);
         }
     };
-    // ──────────────────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const preventScroll = (e: Event) => {
+            e.preventDefault();
+        };
+
+        if (isExportModalOpen || isPdfExportModalOpen) {
+            document.addEventListener('wheel', preventScroll, { passive: false });
+            document.addEventListener('touchmove', preventScroll, { passive: false });
+        } else {
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        }
+
+        return () => {
+            document.removeEventListener('wheel', preventScroll);
+            document.removeEventListener('touchmove', preventScroll);
+        };
+    }, [isExportModalOpen, isPdfExportModalOpen]);
 
     const fetchDsr = useCallback(async () => {
         if (!projectId) return;
@@ -148,28 +169,18 @@ const DSRPage = () => {
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(apiData.length);
 
-            // The list endpoint returns photos: [] — fetch actual photos via the dedicated API
-            // If no extra photos exist, fall back to dsr_image (uploaded at creation time)
-            const itemsWithPhotos = await Promise.all(
-                apiData.map(async (item: any) => {
-                    try {
-                        const photoData = await dsrService.getDsrPhotos(item.id);
-                        let photos = Array.isArray(photoData) ? photoData.map((p: any) => ({
-                            id: p.id,
-                            url: p.url || p.file_url || p.photo_url
-                        })).filter((p: any) => p.url) : [];
-                        // Fallback: if no extra photos, show the dsr_image uploaded at creation
-                        if (photos.length === 0 && item.dsr_image) {
-                            photos = [{ id: 0, url: item.dsr_image }];
-                        }
-                        return { ...item, photos };
-                    } catch {
-                        // On error, still try to show dsr_image
-                        const fallback = item.dsr_image ? [{ id: 0, url: item.dsr_image }] : [];
-                        return { ...item, photos: fallback };
-                    }
-                })
-            );
+            const itemsWithPhotos = apiData.map((item: any) => {
+                let photos: any[] = [];
+                if (item.photos && Array.isArray(item.photos)) {
+                    photos = item.photos.map((p: any) => ({
+                        id: p.id,
+                        url: p.file_url || p.url || p.photo_url
+                    })).filter((p: any) => p.url);
+                } else if (item.dsr_image) {
+                    photos = [{ id: 0, url: item.dsr_image }];
+                }
+                return { ...item, photos };
+            });
 
             setDsrList(itemsWithPhotos);
 
@@ -209,29 +220,28 @@ const DSRPage = () => {
         fetchAnalytics();
     }, [fetchAnalytics]);
 
+    // Fetch tasks and build id→title lookup map
+    useEffect(() => {
+        if (!projectId) return;
+        projectService.getTasks(projectId, { limit: 100 }).then((res: any) => {
+            const items: any[] = Array.isArray(res) ? res : (res?.items || []);
+            const map: Record<number, string> = {};
+            items.forEach((t: any) => { if (t.id && t.title) map[t.id] = t.title; });
+            setTasksMap(map);
+        }).catch(() => { /* non-critical */ });
+    }, [projectId]);
+
     const handleView = async (id: number) => {
         setLoadingId(id);
         try {
             const data = await dsrService.getDsrById(id);
-            let photos = data.photos?.map((p: any) => ({
-                id: p.id,
-                url: p.url || p.file_url || p.photo_url
-            })).filter((p: any) => p.url) || [];
-
-            try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
-                    photos = extraPhotos.map((p: any) => ({
-                        id: p.id,
-                        url: p.url || p.file_url || p.photo_url
-                    })).filter((p: any) => p.url);
-                }
-            } catch (e) {
-                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
-            }
-
-            // Fallback: if no extra photos, show the dsr_image uploaded at creation
-            if (photos.length === 0 && (data as any).dsr_image) {
+            let photos: any[] = [];
+            if (data.photos && Array.isArray(data.photos)) {
+                photos = data.photos.map((p: any) => ({
+                    id: p.id,
+                    url: p.file_url || p.url || p.photo_url
+                })).filter((p: any) => p.url);
+            } else if ((data as any).dsr_image) {
                 photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 
@@ -254,25 +264,13 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const data = await dsrService.getDsrById(id);
-            let photos = data.photos?.map((p: any) => ({
-                id: p.id,
-                url: p.url || p.file_url || p.photo_url
-            })).filter((p: any) => p.url) || [];
-
-            try {
-                const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
-                    photos = extraPhotos.map((p: any) => ({
-                        id: p.id,
-                        url: p.url || p.file_url || p.photo_url
-                    })).filter((p: any) => p.url);
-                }
-            } catch (e) {
-                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
-            }
-
-            // Fallback: if no extra photos, show the dsr_image uploaded at creation
-            if (photos.length === 0 && (data as any).dsr_image) {
+            let photos: any[] = [];
+            if (data.photos && Array.isArray(data.photos)) {
+                photos = data.photos.map((p: any) => ({
+                    id: p.id,
+                    url: p.file_url || p.url || p.photo_url
+                })).filter((p: any) => p.url);
+            } else if ((data as any).dsr_image) {
                 photos = [{ id: 0, url: (data as any).dsr_image }];
             }
 
@@ -425,8 +423,7 @@ const DSRPage = () => {
                             onClick={() => setIsCreateOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
-                            <Plus className="w-4 h-4" />
-                            New Entry
+                            New DSR Entry
                         </button>
                     </div>
                 </div>
@@ -603,8 +600,8 @@ const DSRPage = () => {
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">DSR Ledger</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex flex-col">
                             {/* Integrated Filter Bar */}
-                            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                                <div className="relative flex-1 max-w-md font-inter">
+                            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                                <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                         <Search className="w-4 h-4" />
                                     </span>
@@ -669,6 +666,11 @@ const DSRPage = () => {
                                                             <div className="flex flex-col font-inter">
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
                                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
+                                                                {dsr.task_id && (
+                                                                    <span className="text-[10px] text-primary font-bold mt-0.5 truncate max-w-[160px] font-inter">
+                                                                        📌 {tasksMap[dsr.task_id] || `Task #${dsr.task_id}`}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
@@ -837,7 +839,7 @@ const DSRPage = () => {
 
                             {/* ── Pagination Controls ──────────────────────────── */}
                             {!isLoading && dsrList.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                     {/* Left: Items per page */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -859,7 +861,7 @@ const DSRPage = () => {
                                     </div>
 
                                     {/* Right: Pagination */}
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-wrap justify-center items-center gap-1.5">
                                         <button
                                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                             disabled={currentPage === 1}
@@ -1043,6 +1045,14 @@ const DSRPage = () => {
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Created By</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.created_by_name || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Marked Task</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {selectedDsr.task_id
+                                                ? (tasksMap[selectedDsr.task_id] || `Task #${selectedDsr.task_id}`)
+                                                : "N/A"}
+                                        </p>
                                     </div>
                                     <div className="sm:col-span-2 lg:col-span-1">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>

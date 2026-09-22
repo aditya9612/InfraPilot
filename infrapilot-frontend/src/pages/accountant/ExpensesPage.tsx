@@ -94,7 +94,7 @@ const ExpenseEntrySection = () => {
                 } relative overflow-hidden cursor-pointer transition-colors`}
             >
               {isActive && <div className="absolute bottom-0 left-0 w-full h-1 bg-rose-500" />}
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{k.label}</p>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">{k.label}</p>
               {loading ? (
                 <div className="h-6 w-20 bg-slate-100 rounded animate-pulse" />
               ) : (
@@ -108,7 +108,7 @@ const ExpenseEntrySection = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trend Chart */}
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Expense Trend</h3>
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Expense Trend</h3>
           <div className="h-[200px]">
             {trendData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-slate-300 text-sm font-semibold">
@@ -135,7 +135,7 @@ const ExpenseEntrySection = () => {
 
         {/* Category-wise Panel */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5">Category-wise</h3>
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-5">Category-wise</h3>
 
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
@@ -174,7 +174,7 @@ const ExpenseEntrySection = () => {
                   {topCategory && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-lg font-black text-slate-800">{topCategory.percentage.toFixed(1)}%</span>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight text-center px-1">{topCategory.name}</span>
+                      <span className="text-[9px] font-bold text-slate-800 uppercase tracking-widest leading-tight text-center px-1">{topCategory.name}</span>
                     </div>
                   )}
                 </div>
@@ -333,12 +333,12 @@ const ViewExpenseModal = ({ isOpen, onClose, expense, projects }: any) => {
               { label: 'BOQ Item', value: boqItemName || '—' },
             ].map(({ label, value, highlight }: any) => (
               <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <p className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-1">{label}</p>
                 <p className={`text-sm font-bold truncate ${highlight ? 'text-rose-500' : 'text-slate-800'}`}>{String(value)}</p>
               </div>
             ))}
             <div className="col-span-full bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+              <p className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-1">Description</p>
               <p className="text-sm font-bold text-slate-800">{data.description || '—'}</p>
             </div>
           </div>
@@ -352,6 +352,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
   const [formData, setFormData] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>(propProjects || []);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (expense) setFormData({ ...expense });
@@ -375,8 +376,42 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.expense_date) newErrors.expense_date = "Date is required";
+    if (!formData.payment_mode) newErrors.payment_mode = "Payment Mode is required";
+    if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     const { project_id, ...putData } = formData;
     onSubmit(putData);
+  };
+
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 bg-white border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    let parsedValue: any = value;
+    if (type === 'number' || name.endsWith('_id')) {
+      parsedValue = value === "" ? (name === 'boq_item_id' ? null : "") : Number(value);
+    }
+    setFormData((prev: any) => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors((prev: any) => ({ ...prev, [name]: "" }));
+    }
   };
 
   return (
@@ -384,40 +419,46 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
       <form onSubmit={handleSubmit} className="p-6 space-y-4 font-inter h-full overflow-y-auto">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
-            <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
+            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
               {projects.map(p => (
-                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
-              ))}
-              {projects.length === 0 && <option value={formData.project_id}>{formData.project_id}</option>}
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project ${p.id || p.project_id}`}</option>
+                ))}
+                {!projects.find(p => String(p.id || p.project_id) === String(formData.project_id)) && (
+                  <option value={formData.project_id}>{expense?.project?.project_name || expense?.project?.name || expense?.project_name || `Project ${formData.project_id}`}</option>
+                )}
             </select>
+            {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
-            <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Category <span className="text-rose-500">*</span></label>
+            <select name="category" value={formData.category} onChange={handleChange} className={inputClasses(errors.category)}>
               <option value="Construction">Construction</option>
               <option value="Maintenance">Maintenance</option>
               <option value="Fuel">Fuel</option>
               <option value="Travel">Travel</option>
               <option value="Material">Material</option>
             </select>
+            {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Date</label>
-            <input type="date" value={formData.expense_date} onChange={e => setFormData({ ...formData, expense_date: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Date <span className="text-rose-500">*</span></label>
+            <input type="date" name="expense_date" value={formData.expense_date} onChange={handleChange} className={inputClasses(errors.expense_date)} />
+            {errors.expense_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.expense_date}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Payment Mode</label>
-            <select value={formData.payment_mode} onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Payment Mode <span className="text-rose-500">*</span></label>
+            <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className={inputClasses(errors.payment_mode)}>
               <option value="Cash">Cash</option>
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
               <option value="auto">Auto Payment</option>
             </select>
+            {errors.payment_mode && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_mode}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">BOQ Item</label>
-            <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">BOQ Item</label>
+            <select name="boq_item_id" value={formData.boq_item_id || ""} onChange={handleChange} className={inputClasses()}>
               <option value="">None</option>
               {boqItems.map((b: any) => (
                 <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
@@ -431,17 +472,19 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Amount</label>
-            <input type="number" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Amount <span className="text-rose-500">*</span></label>
+            <input type="number" name="amount" step="0.01" value={formData.amount} onChange={handleChange} className={inputClasses(errors.amount)} />
+            {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description</label>
-            <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" rows={2} required />
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Description <span className="text-rose-500">*</span></label>
+            <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} />
+            {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
           </div>
         </div>
         <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="px-5 py-2.5 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
-          <button type="submit" className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-colors">Save Changes</button>
+          <button type="submit" className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-colors">Edit Expenses</button>
         </div>
       </form>
     </Modal>
@@ -452,6 +495,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
   const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: undefined, amount: 0, description: "" });
   const [projects, setProjects] = useState<any[]>([]);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -471,6 +515,21 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.expense_date) newErrors.expense_date = "Date is required";
+    if (!formData.payment_mode) newErrors.payment_mode = "Payment Mode is required";
+    if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     try {
       await expenseService.createExpense(formData);
       toast.success("Expense created successfully!");
@@ -478,6 +537,25 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
       onClose();
     } catch (err) {
       toast.error("Failed to create expense");
+    }
+  };
+
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 bg-white border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    let parsedValue: any = value;
+    if (type === 'number' || name.endsWith('_id')) {
+      parsedValue = value === "" ? (name === 'boq_item_id' ? undefined : "") : Number(value);
+    }
+    setFormData((prev: any) => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors((prev: any) => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -491,39 +569,43 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Project *</label>
-              <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 {projects.map(p => (
-                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project ${p.id || p.project_id}`}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Category *</label>
-              <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Category <span className="text-rose-500">*</span></label>
+              <select name="category" value={formData.category} onChange={handleChange} className={inputClasses(errors.category)}>
                 <option value="Construction">Construction</option>
                 <option value="Maintenance">Maintenance</option>
                 <option value="Fuel">Fuel</option>
                 <option value="Travel">Travel</option>
                 <option value="Material">Material</option>
               </select>
+              {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Date *</label>
-              <input type="date" onChange={e => setFormData({ ...formData, expense_date: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary text-slate-600" required />
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="expense_date" value={formData.expense_date} onChange={handleChange} className={inputClasses(errors.expense_date)} />
+              {errors.expense_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.expense_date}</p>}
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Mode *</label>
-              <select onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} value={formData.payment_mode} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Payment Mode <span className="text-rose-500">*</span></label>
+              <select name="payment_mode" onChange={handleChange} value={formData.payment_mode} className={inputClasses(errors.payment_mode)}>
                 <option value="Cash">Cash</option>
                 <option value="Online">Online</option>
                 <option value="Cheque">Cheque</option>
                 <option value="auto">Auto Payment</option>
               </select>
+              {errors.payment_mode && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_mode}</p>}
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">BOQ Item</label>
-              <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">BOQ Item</label>
+              <select name="boq_item_id" value={formData.boq_item_id || ""} onChange={handleChange} className={inputClasses()}>
                 <option value="">None</option>
                 {boqItems.map(b => (
                   <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
@@ -537,18 +619,20 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Amount *</label>
-              <input type="number" step="0.01" onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="amount" step="0.01" value={formData.amount} onChange={handleChange} className={inputClasses(errors.amount)} />
+              {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div className="col-span-2">
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Description *</label>
-              <textarea onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" rows={2} required />
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Description <span className="text-rose-500">*</span></label>
+              <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} />
+              {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
             </div>
           </div>
         </div>
         <div className="flex justify-end gap-4 items-center px-2">
           <button type="button" onClick={onClose} className="text-slate-500 text-sm font-bold hover:text-slate-800 transition-colors">Cancel</button>
-          <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm">Create Expense</button>
+          <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm">Save Expenses</button>
         </div>
       </form>
     </Modal>
@@ -760,7 +844,7 @@ const ExpenseListSection = () => {
             <select onChange={e => handleProjectChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
               <option value="">All Projects</option>
               {projects.map(p => (
-                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name || p.id}</option>
+                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project ${p.id || p.project_id}`}</option>
               ))}
             </select>
             <select onChange={e => handleCategoryDropdownChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
@@ -787,7 +871,7 @@ const ExpenseListSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Expense No", "Date", "Category", "Project", "Description", "Amount", "Payment Mode", "BOQ Item", "Actions"].map(h => (
-                  <th key={h} className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-5 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -834,7 +918,7 @@ const ExpenseListSection = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select
@@ -979,7 +1063,7 @@ const ProjectCostAllocationSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Project Name", "Expense Category", "Amount", "Allocated Date", "Cost Center"].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1001,7 +1085,7 @@ const ProjectCostAllocationSection = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select
@@ -1082,7 +1166,7 @@ const ExpenseLedgerSection = () => {
     <div className="space-y-6 mt-4">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
+          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Expenses</p>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight uppercase">Expense Ledger</h2>
         </div>
       </div>
@@ -1108,7 +1192,7 @@ const ExpenseLedgerSection = () => {
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
                   {["Date", "Particular", "Debit", "Credit", "Running Balance"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1132,7 +1216,7 @@ const ExpenseLedgerSection = () => {
           )}
         </div>
         {!loading && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -1251,14 +1335,14 @@ const BOQComparisonSection = () => {
 
   return (
     <div className="space-y-6 mt-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
+          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Expenses</p>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight uppercase">BOQ Comparison</h2>
         </div>
         {/* Project Selector */}
         <div className="flex items-center gap-3">
-          <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Select Project:</label>
+          <label className="text-xs font-bold text-slate-800 whitespace-nowrap">Select Project:</label>
           {loadingProjects ? (
             <div className="text-xs text-slate-400 font-semibold">Loading projects...</div>
           ) : (
@@ -1282,14 +1366,14 @@ const BOQComparisonSection = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
           <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Project Expense</p>
+              <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Total Project Expense</p>
               <p className="text-xl font-black text-rose-500">{fmt(expenseSummary.total_expense || 0)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-lg">💰</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Allocated BOQ</p>
+              <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Total Allocated BOQ</p>
               <p className="text-xl font-black text-blue-600">
                 {fmt(boqItems.reduce((sum, item) => sum + (item.estimated ?? item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0)), 0))}
               </p>
@@ -1318,7 +1402,7 @@ const BOQComparisonSection = () => {
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
                   {["BOQ Item", "Estimated Amount", "Actual Amount", "Variance"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1349,7 +1433,7 @@ const BOQComparisonSection = () => {
           )}
         </div>
         {!loadingBoq && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -1524,7 +1608,7 @@ const ExpensesPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Expenses</h1>
             <p className="text-slate-500 text-sm mt-1">Manage and track your expense records, ledgers, and BOQ comparisons.</p>

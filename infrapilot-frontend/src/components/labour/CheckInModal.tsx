@@ -24,6 +24,7 @@ interface CheckInModalProps {
 const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: CheckInModalProps) => {
     const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(false);
     const [attendanceDate, setAttendanceDate] = useState(getISTDateString());
     const [inTime, setInTime] = useState(getLocalDateTimeString());
@@ -78,6 +79,16 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
         }
         return () => stopCamera();
     }, [isOpen, projectId]);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            projectService.getTasks(Number(selectedProjectId))
+                .then((res: any) => setTasks(Array.isArray(res) ? res : (res.items || [])))
+                .catch(() => setTasks([]));
+        } else {
+            setTasks([]);
+        }
+    }, [selectedProjectId]);
 
     const startCamera = async () => {
         try {
@@ -351,15 +362,20 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                                    TASK ID
+                                    TASK
                                 </label>
-                                <input
-                                    type="text"
+                                <select
                                     value={taskId}
                                     onChange={e => setTaskId(e.target.value)}
-                                    placeholder="e.g. TSK-001"
                                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder:text-slate-300"
-                                />
+                                >
+                                    <option value="">-- Select Task (Optional) --</option>
+                                    {tasks.map((t: any) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title || t.activity_name || `Task #${t.id}`}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">

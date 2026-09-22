@@ -6,11 +6,9 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
     Search,
-    Plus,
     Eye,
     Activity,
     Filter,
-    Mail,
     RotateCcw,
     Briefcase,
     ChevronLeft,
@@ -65,6 +63,7 @@ const IssueTrackerPage = () => {
     const { selectedProjectId } = useProject();
     const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
+    const [projectMembers, setProjectMembers] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isExporting, setIsExporting] = useState(false);
@@ -83,14 +82,14 @@ const IssueTrackerPage = () => {
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.title.trim()) newErrors.title = "Required";
-        if (!formData.category) newErrors.category = "Required";
-        if (!formData.priority) newErrors.priority = "Required";
-        if (!formData.reported_date) newErrors.reported_date = "Required";
-
+        if (!formData.title.trim()) newErrors.title = "Title is required";
+        if (!formData.category) newErrors.category = "Category is required";
+        if (!formData.priority) newErrors.priority = "Priority is required";
+        if (!formData.reported_date) newErrors.reported_date = "Reported Date is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -109,6 +108,17 @@ const IssueTrackerPage = () => {
         setFormData(prev => ({ ...prev, project_id: projectId || 0 }));
         initializeProject();
     }, [projectId]);
+
+    useEffect(() => {
+        const projectIdToFetch = selectedIssue?.project_id || formData.project_id;
+        if (projectIdToFetch) {
+            projectService.getProjectMembers(projectIdToFetch)
+                .then((res: any) => setProjectMembers(Array.isArray(res) ? res : (res.items || [])))
+                .catch(() => setProjectMembers([]));
+        } else {
+            setProjectMembers([]);
+        }
+    }, [formData.project_id, selectedIssue?.project_id]);
 
     const openExportModal = (type: 'pdf' | 'excel') => {
         if (!projectId) {
@@ -189,26 +199,67 @@ const IssueTrackerPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormNotification(null);
 
         if (!projectId || !formData.project_id) {
-            toast.error("Critical Error: Active project not detected.");
+            setFormNotification({ type: 'error', message: 'Please select a Project first.' });
+            toast.error("Please select a Project first.", { id: 'validation' });
             return;
         }
 
-        if (!validate()) {
-            toast.error("Please correct the errors in the form");
+        if (!formData.title.trim()) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Title' });
+            toast.error("Please fill mandatory field: Title", { id: 'validation' });
             return;
         }
+        if (!formData.category) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Category' });
+            toast.error("Please fill mandatory field: Category", { id: 'validation' });
+            return;
+        }
+        if (!formData.priority) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Priority' });
+            toast.error("Please fill mandatory field: Priority", { id: 'validation' });
+            return;
+        }
+        if (!formData.reported_date) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Reported Date' });
+            toast.error("Please fill mandatory field: Reported Date", { id: 'validation' });
+            return;
+        }
+
+        // Also set inline field errors for visual feedback
+        validate();
+
         setIsSubmitting(true);
         try {
             if (formMode === "create") {
                 await issueService.createIssue(formData as any);
-                toast.success("Issue lodged successfully!");
+                setFormNotification({ type: 'success', message: 'Issue logged successfully!' });
+                toast.success("Issue logged successfully!");
             }
             setIsFormModalOpen(false);
+            setFormNotification(null);
             fetchIssues();
         } catch (error: any) {
-            toast.error("Failed to save issue");
+            let msgStr = "Failed to save issue. Please try again.";
+            const detail = error?.response?.data?.detail;
+            if (detail) {
+                if (typeof detail === 'string') {
+                    msgStr = detail;
+                } else if (Array.isArray(detail)) {
+                    msgStr = detail.map((e: any) => e.msg).join(", ");
+                } else {
+                    msgStr = JSON.stringify(detail);
+                }
+            } else if (error?.response?.data?.message) {
+                msgStr = error.response.data.message;
+            } else if (error?.message) {
+                msgStr = error.message;
+            }
+            const errMsg = msgStr.startsWith("Error:") ? msgStr : `Error: ${msgStr}`;
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -249,7 +300,7 @@ const IssueTrackerPage = () => {
         closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -287,7 +338,6 @@ const IssueTrackerPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             Log Issue
                         </button>
                     </div>
@@ -344,8 +394,8 @@ const IssueTrackerPage = () => {
 
                 {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                        <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
@@ -357,7 +407,7 @@ const IssueTrackerPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full lg:w-auto font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <Filter className="w-4 h-4 text-slate-400" />
                                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
@@ -466,7 +516,7 @@ const IssueTrackerPage = () => {
 
                     {/* Pagination */}
                     {!isLoading && filteredIssues.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -571,10 +621,6 @@ const IssueTrackerPage = () => {
                                             {selectedIssue.status}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">issue.ref-#{selectedIssue.id}</span>
-                                    </div>
                                     <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
                                         <span className="text-[9px] font-bold uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
                                     </div>
@@ -608,7 +654,7 @@ const IssueTrackerPage = () => {
                                     <div className="col-span-1 sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
                                         <div>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned To</p>
-                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.assigned_to ? `ID: ${selectedIssue.assigned_to}` : "Unassigned"}</p>
+                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.assigned_to ? (projectMembers.find(m => Number(m.user_id) === Number(selectedIssue.assigned_to) || Number(m.id) === Number(selectedIssue.assigned_to))?.full_name || projectMembers.find(m => Number(m.user_id) === Number(selectedIssue.assigned_to) || Number(m.id) === Number(selectedIssue.assigned_to))?.name || `ID: ${selectedIssue.assigned_to}`) : "Unassigned"}</p>
                                         </div>
                                         <div>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Resolution</p>
@@ -624,7 +670,6 @@ const IssueTrackerPage = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reported</p><p className="text-sm font-bold text-slate-800">{selectedIssue.reported_date}</p></div>
-                                    <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reference</p><p className="text-sm font-bold text-slate-800">ISS-#{selectedIssue.id}</p></div>
                                 </div>
                             </div>
                         </div>
@@ -638,26 +683,44 @@ const IssueTrackerPage = () => {
             {/* ─── Form Modal (DSR Style) ────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
+                onClose={() => { setIsFormModalOpen(false); setFormNotification(null); }}
                 title={formMode === 'create' ? "Log Issue" : "Edit Issue"}
                 maxWidth="max-w-4xl"
                 footer={
                     <>
-                        <button type="button" onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">
+                        <button type="button" onClick={() => { setIsFormModalOpen(false); setFormNotification(null); }} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">
                             Cancel
                         </button>
                         <button form="issue-form" type="submit" disabled={isSubmitting} className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}>
-                            {isSubmitting ? "Saving..." : formMode === 'create' ? "Log Issue" : "Update Issue"}
+                            {isSubmitting ? "Saving..." : formMode === 'create' ? "Save Issue" : "Update Issue"}
                         </button>
                     </>
                 }
             >
                 <form id="issue-form" onSubmit={handleSubmit} noValidate className="space-y-5">
+                    {/* Inline Notification Banner */}
+                    {formNotification && (
+                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter ${
+                            formNotification.type === 'error'
+                                ? 'bg-red-50 border-red-200 text-red-700'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        }`}>
+                            <span className="text-lg leading-none mt-0.5">
+                                {formNotification.type === 'error' ? '⚠️' : '✅'}
+                            </span>
+                            <span>{formNotification.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => setFormNotification(null)}
+                                className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
+                            >×</button>
+                        </div>
+                    )}
                     {/* Project */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Project</h3>
                         <div>
-                            <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
                             <select name="project_id" value={formData.project_id} onChange={(e) => setFormData(prev => ({ ...prev, project_id: Number(e.target.value) }))} className={inputClasses(errors.project_id)}>
                                 <option value="">-- Select Project --</option>
                                 {projects.map((p: any) => (
@@ -666,7 +729,7 @@ const IssueTrackerPage = () => {
                                     </option>
                                 ))}
                             </select>
-                            {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
+                            {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
                         </div>
                     </div>
 
@@ -675,34 +738,45 @@ const IssueTrackerPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Issue Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
-                                <label className={labelClasses}>Title <span className="text-rose-500">*</span></label>
-                                <input name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Sand delivery delay" className={inputClasses(errors.title)} />
-                                {errors.title && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.title}</p>}
+                                <label className={labelClasses}>Title <span className="text-red-600">*</span></label>
+                                <input name="title" value={formData.title} onChange={handleInputChange} className={inputClasses(errors.title)} />
+                                {errors.title && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.title}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Category <span className="text-red-600">*</span></label>
                                 <select name="category" value={formData.category} onChange={handleInputChange} className={inputClasses(errors.category)}>
                                     <option value="Material">Material</option>
                                     <option value="Safety">Safety</option>
                                     <option value="Delay">Delay</option>
 
                                 </select>
-                                {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
+                                {errors.category && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.category}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Priority <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Priority <span className="text-red-600">*</span></label>
                                 <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses(errors.priority)}>
                                     <option value="Low">Low</option>
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
                                     <option value="Critical">Critical</option>
                                 </select>
-                                {errors.priority && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.priority}</p>}
+                                {errors.priority && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.priority}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Reported Date <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Reported Date <span className="text-red-600">*</span></label>
                                 <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
-                                {errors.reported_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.reported_date}</p>}
+                                {errors.reported_date && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.reported_date}</p>}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Assigned To</label>
+                                <select name="assigned_to" value={formData.assigned_to || ""} onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value ? Number(e.target.value) : null }))} className={inputClasses()}>
+                                    <option value="">-- Unassigned --</option>
+                                    {projectMembers.map((member: any) => (
+                                        <option key={member.id || member.user_id} value={member.user?.id || member.user_id || member.id}>
+                                            {member.user?.full_name || member.name || member.full_name || `User #${member.user?.id || member.user_id || member.id}`}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -712,8 +786,8 @@ const IssueTrackerPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Description</h3>
                         <div>
                             <label className={labelClasses}>Description</label>
-                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Describe the issue in detail..." className={`${inputClasses(errors.description)} resize-none`} />
-                            {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
+                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} className={`${inputClasses(errors.description)} resize-none`} />
+                            {errors.description && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.description}</p>}
                         </div>
                     </div>
                 </form>

@@ -503,12 +503,11 @@ export default function OwnersListPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field
-                    label="Full Legal Name"
+                    label="Full Name"
                     id="name"
                     value={form.name}
                     onChange={handleChange("name")}
                     error={errors.name}
-                    placeholder="e.g. Vikramaditya Singh"
                   />
                   <Field
                     label="Contact Mobile"
@@ -516,7 +515,6 @@ export default function OwnersListPage() {
                     value={form.mobile}
                     onChange={handleChange("mobile")}
                     error={errors.mobile}
-                    placeholder="10-digit primary sequence"
                   />
 
                   <div className="sm:col-span-2">
@@ -527,7 +525,6 @@ export default function OwnersListPage() {
                       value={form.email}
                       onChange={handleChange("email")}
                       error={errors.email}
-                      placeholder="e.g. v.singh@corporate.in"
                     />
                   </div>
 
@@ -554,7 +551,6 @@ export default function OwnersListPage() {
                       value={form.address}
                       onChange={(e) => handleChange("address")(e.target.value)}
                       rows={3}
-                      placeholder="Complete physical or business address..."
                       className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all resize-none ${errors.address
                         ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
                         : "border-gray-200 focus:ring-primary/10 focus:border-primary"

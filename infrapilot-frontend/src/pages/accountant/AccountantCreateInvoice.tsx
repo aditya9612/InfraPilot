@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
-
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   User,
   Briefcase,
@@ -18,27 +17,28 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Building,
   CheckCircle,
   XCircle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from "lucide-react";
-
+import Navbar from "../../components/common/Navbar";
+import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
 import { quotationService } from "../../services/quotationService";
 import { userService } from "../../services/userService";
+import { financeService } from "../../services/financeService";
 import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
-import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
-import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import SelectContractorModal from "../../components/forms/SelectContractorModal";
+import PDFPreviewModal from "../../components/common/PDFPreviewModal";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import EditInvoiceItemModal from "../../components/forms/EditInvoiceItemModal";
 import ImportEstimateModal from "../../components/forms/ImportEstimateModal";
-import logo from "../../assets/logo.png";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
@@ -57,9 +57,10 @@ interface AccountantCreateInvoiceProps {
   editingInvoice?: any;
 }
 
-const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCancel, onSave, editingInvoice }) => {
-  const id = editingInvoice?.id;
-  const location = { search: "" };
+const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCancel }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Extract clientId from query params
   const queryParams = new URLSearchParams(location.search);
@@ -72,9 +73,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewLoading] = useState(false);
+  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
   const isReadOnly = status === "approved";
 
@@ -85,54 +86,35 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
   // Conversion states
+  const [isConvertingBill, setIsConvertingBill] = useState(false);
+  const [isConvertingInvoice, setIsConvertingInvoice] = useState(false);
   const [isConvertingWorkOrder, setIsConvertingWorkOrder] = useState(false);
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
-  const [pendingConversionType, setPendingConversionType] = useState<"workOrder" | null>(null);
+  const [pendingConversionType, setPendingConversionType] = useState<"bill" | "workOrder" | null>(null);
 
   const handlePreviewModalOpen = async () => {
-    if (id) {
-      setIsPreviewLoading(true);
-      try {
-        const data = await quotationService.getQuotationPreview(Number(id));
-        setPreviewData({
-          clientName: data.client_name,
-          clientAddress: data.billing_address || data.site_address,
-          clientGst: data.gst_number,
-          clientMobile: data.mobile_number,
-          invoiceNo: data.quotation_no,
-          date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-          projectName: data.project_name || projectDetails.name,
-          terms: data.terms_conditions,
-          items: (data.items || []) as any[],
-          labourItems: (data.labour_items || []) as any[],
-          materialItems: (data.material_items || []) as any[],
-          extraChargeItems: (data.extra_charge_items || []) as any[],
-          subTotal: data.subtotal,
-          grandTotal: data.grand_total,
-          cgstRate: data.cgst_percent,
-          sgstRate: data.sgst_percent,
-          discount: data.discount_amount,
-          advancePaid: data.advance_paid,
-          balanceDue: data.balance_due,
-        });
-      } catch (err) {
-        setPreviewData(null);
-      } finally {
-        setIsPreviewLoading(false);
-        setIsPreviewOpen(true);
-      }
-    } else {
-      setPreviewData(null);
-      setIsPreviewOpen(true);
-    }
+    setIsPreviewModalOpen(true);
+  };
+
+  const handleDownloadFromPreview = async () => {
+    if (!id || !pdfUrl) return;
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InvoiceItem | null>(null);
+  const [activeHeaderSection, setActiveHeaderSection] = useState<"client" | "project" | "quotation" | null>("client");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
-    client_user_id: null as number | null,
+    clientId: null as number | null,
     name: "",
     company: "",
     mobile: "",
@@ -156,11 +138,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     dueDate: ""
   });
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: "1", description: "Soling", unit: "Brass", quantity: 0, rate: 0, amount: 0 },
-    { id: "2", description: "Plum Concrete", unit: "Cum", quantity: 0, rate: 0, amount: 0 },
-    { id: "3", description: "Stone Work", unit: "Brass", quantity: 0, rate: 0, amount: 0 }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
 
   const [discount, setDiscount] = useState(0);
   const [advancePaid, setAdvancePaid] = useState(0);
@@ -229,25 +207,26 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         ...prev,
         plum: { ...prev.plum, cuft, m3 }
       }));
-      // Find plum item by item_type or fall back to id="2"
-      setItems(prev => prev.map(item =>
-        (item.item_type === "plum_concrete" || item.id === "2")
-          ? { ...item, quantity: m3, amount: Number((m3 * item.rate).toFixed(2)) }
-          : item
-      ));
+      setItems(prev => prev.map(item => {
+        if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          const qty = item.unit === "Brass" ? Number((cuft / 100).toFixed(2)) : item.unit === "Sqft" ? Number((measurementData.plum.l * measurementData.plum.w).toFixed(2)) : item.unit === "Nos" ? 1 : m3;
+          return { ...item, quantity: qty, amount: Number((qty * item.rate).toFixed(2)) };
+        }
+        return item;
+      }));
     }
   }, [measurementData.plum.l, measurementData.plum.w, measurementData.plum.h]);
 
   // Calculate Stone Work
   useEffect(() => {
     const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
-    const brass = Number((totalCuft / 100).toFixed(2));
-    // Find stone item by item_type or fall back to id="3"
-    setItems(prev => prev.map(item =>
-      (item.item_type === "stone_work" || item.id === "3")
-        ? { ...item, quantity: brass, amount: Number((brass * item.rate).toFixed(2)) }
-        : item
-    ));
+    setItems(prev => prev.map(item => {
+      if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+        const qty = (item.unit === "Cum" || item.unit === "m3") ? Number((totalCuft * 0.0283168).toFixed(2)) : item.unit === "Sqft" ? Number((measurementData.stone.reduce((sum, s) => sum + (s.l * s.w), 0)).toFixed(2)) : item.unit === "Nos" ? measurementData.stone.length : Number((totalCuft / 100).toFixed(2));
+        return { ...item, quantity: qty, amount: Number((qty * item.rate).toFixed(2)) };
+      }
+      return item;
+    }));
   }, [measurementData.stone]);
 
   useEffect(() => {
@@ -257,11 +236,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
         setProjectDetails({
-          name: (selectedProject as any).project_name || (selectedProject as any).name || (selectedProject as any).title || "",
-          type: selectedProject.type || (selectedProject as any).project_type || "",
+          name: selectedProject.project_name || "",
+          type: (selectedProject as any).project_type || selectedProject.type || "Commercial",
           siteAddress: selectedProject.site_address || (selectedProject as any).site_location || "",
-          workOrderNo: (selectedProject as any).boq_no || "",
-          engineer: (selectedProject as any).engineer_name || ""
+          workOrderNo: (selectedProject as any).boq_no || (selectedProject as any).work_order_no || "",
+          engineer: (selectedProject as any).engineer_name || "Er. Tejas Dhande"
         });
 
         // Also update project dates if available
@@ -272,35 +251,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
           });
         }
 
-        // Auto-populate client details if the project has an owner/client
-        if (selectedProject.owner_id && !clientIdFromUrl) {
-          const fetchClient = async () => {
-            try {
-              const u = await userService.getUserById(selectedProject.owner_id);
-              if (u) {
-                setClientDetails(prev => ({
-                  ...prev,
-                  client_user_id: selectedProject.owner_id || null,
-                  name: u.full_name || "",
-                  company: u.designation || "",
-                  mobile: u.mobile_number || "",
-                  email: u.email || "",
-                  address: u.address || "",
-                  gst: ""
-                }));
-              }
-            } catch (error: any) {
-              // Silently ignore 404 — owner user may not exist in users endpoint
-              if (error?.response?.status !== 404) {
-                console.error("Failed to auto-populate client details from project owner", error);
-              }
-            }
-          };
-          fetchClient();
-        }
+        // Client details will NOT be auto-populated from project owner.
+        // User requested to type client details manually without them being overwritten by project selection.
       }
     }
-  }, [selectedProjectId, projects, id, clientIdFromUrl]);
+  }, [selectedProjectId, projects, id]);
 
   // Pre-populate project from URL if provided
   useEffect(() => {
@@ -314,23 +269,28 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   // Fetch Projects and Clients
   useEffect(() => {
-    const fetchProjectsAndClients = async () => {
+    const fetchProjects = async () => {
       try {
-        const [projRes, clientRes] = await Promise.all([
-          projectService.getProjects(100, 0),
-          userService.getAllUsers(100, 0)
-        ]);
-        const projList = Array.isArray(projRes) ? projRes : (projRes.items || projRes.data || []);
-        setProjects(projList);
-
-        const usersList = Array.isArray(clientRes) ? clientRes : (clientRes.items || clientRes.data || []);
-        const clientList = usersList.filter((u: any) => u.role?.toLowerCase() === 'client');
-        setClients(clientList);
+        const res = await projectService.getProjects(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjects(list);
       } catch (error) {
-        console.error("Failed to fetch projects or clients", error);
+        console.error("Failed to fetch projects", error);
       }
     };
-    fetchProjectsAndClients();
+    fetchProjects();
+
+    const fetchClients = async () => {
+      try {
+        const res = await userService.getAllUsers(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        // Match the exact Titlecase 'Client' from the backend UserRole type
+        setClients(list.filter((u: any) => u.role === "Client" || u.role === "client"));
+      } catch (error) {
+        console.error("Failed to fetch clients", error);
+      }
+    };
+    fetchClients();
   }, []);
 
   // Pre-populate client details if clientId is provided in URL
@@ -340,16 +300,15 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         try {
           const u = await userService.getUserById(Number(clientIdFromUrl));
           if (u) {
-            setClientDetails(prev => ({
-              ...prev,
-              client_user_id: Number(clientIdFromUrl) || null,
+            setClientDetails({
+              clientId: u.id,
               name: u.full_name || "",
               company: u.designation || "", // Using designation as company placeholder
               mobile: u.mobile_number || "",
               email: u.email || "",
               address: u.address || "",
-              gst: "" // Using manual GST instead of PAN card fallback
-            }));
+              gst: "" // Keep manual for client selection
+            });
           }
         } catch (error) {
           console.error("Failed to pre-populate client details", error);
@@ -369,16 +328,15 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         if (q) {
           setStatus(q.status || "draft");
           // Map basic details
-          setClientDetails(prev => ({
-            ...prev,
-            client_user_id: q.client_user_id || null,
+          setClientDetails({
+            clientId: q.client_user_id || (clientIdFromUrl ? Number(clientIdFromUrl) : null),
             name: q.client_name || "",
             company: q.company_name || "",
             mobile: q.mobile_number || "",
             email: q.email || "",
             address: q.billing_address || "",
             gst: q.gst_number || ""
-          }));
+          });
 
           setProjectDetails({
             name: q.project_name || "",
@@ -402,10 +360,18 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             payment_mode: q.payment_mode || "UPI",
             upi_id: q.upi_id || "",
             bank_name: q.bank_name || "",
-            account_holder_name: q.account_holder_name || "",
+            account_holder_name: q.account_holder_name || "", // Ensure field name match
             account_number: q.account_number || "",
             ifsc_code: q.ifsc_code || "",
             due_date: q.due_date || ""
+          });
+
+          // Restore Notes, Terms and Timeline
+          setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
+          setTerms(q.terms_conditions || (q as any).terms || "");
+          setProjectStartEnd({
+            start: q.project_start_date || "",
+            end: q.project_end_date || ""
           });
 
           // Sync due_date into invoiceDetails (the Invoice Details card reads this field)
@@ -413,7 +379,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             setInvoiceDetails(prev => ({ ...prev, dueDate: q.due_date || "" }));
           }
 
-          // Set project dropdown to the project this quotation belongs to
+          // Store raw fetched project ID just in case
           if (q.project_id) {
             setSelectedProjectId(q.project_id);
           }
@@ -421,10 +387,6 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
           setLabourItems(q.labour_items || []);
           setMaterialItems(q.material_items || []);
           setExtraChargeItems(q.extra_charge_items || []);
-
-          // Restore Notes and Terms
-          setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
-          setTerms(q.terms_conditions || (q as any).terms || "");
 
           if (q.items && q.items.length > 0) {
             const mappedItems = q.items.map(item => ({
@@ -462,7 +424,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 w: s.width || 0,
                 h: s.height || 0,
                 v: s.quantity || 0
-              })) : [{ l: 500, w: 0, h: 0, v: 0 }]
+              })) : [{ l: 0, w: 0, h: 0, v: 0 }] // Use 0 instead of 500 for initial state if empty
             });
           }
         }
@@ -473,6 +435,16 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     };
     fetchQuotation();
   }, [id]);
+
+  // Fallback: If viewing an existing quote but the backend GET omitted project_id, try to match by name
+  useEffect(() => {
+    if (id && selectedProjectId === 0 && projectDetails.name && projects.length > 0) {
+      const matched = projects.find(p => p.project_name?.trim() === projectDetails.name?.trim());
+      if (matched && matched.id) {
+        setSelectedProjectId(matched.id);
+      }
+    }
+  }, [id, selectedProjectId, projectDetails.name, projects]);
 
   // Calculations
   // Calculations with robust rounding to 2 decimal places
@@ -492,16 +464,56 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
   const grandTotal = Number((subTotal + cgst + sgst - discount - tdsAmount).toFixed(2));
   const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
 
-  const handleAddItem = () => {
-    const newItem: InvoiceItem = {
-      id: "new_" + Date.now().toString(),
-      description: "",
-      unit: "",
-      quantity: 0,
-      rate: 0,
-      amount: 0
-    };
-    setItems([...items, newItem]);
+  
+  // NEW: Save item to backend on blur
+  const saveItemToBackend = async (item: InvoiceItem) => {
+    if (!id || String(item.id).startsWith("new_")) return;
+    if (!item.description || !item.unit || !item.quantity || !item.rate) return;
+    try {
+      const payload = {
+        item_type: item.item_type || "custom",
+        description: item.description,
+        unit: item.unit,
+        quantity: Number(item.quantity) || 0,
+        rate: Number(item.rate) || 0,
+        amount: (Number(item.quantity) || 0) * (Number(item.rate) || 0)
+      };
+      await quotationService.updateQuotationItem(Number(item.id), payload);
+    } catch (err) {
+      console.error("Failed to update item:", err);
+    }
+  };
+
+
+
+
+
+
+
+  const handleAddItem = async () => {
+    if (items.length > 0) {
+      const last = items[items.length - 1];
+      if (!last.description?.trim() || !last.unit?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current item row before adding a new one.");
+        return;
+      }
+    }
+    if (id) {
+      try {
+        const res = await quotationService.addQuotationItem(Number(id), {
+          item_type: "custom",
+          description: "New Item",
+          unit: "Nos",
+          quantity: 1,
+          rate: 0,
+          amount: 0
+        });
+        setItems([...items, { id: String(res.id || res.data?.id || Date.now()), description: "New Item", unit: "Nos", quantity: 1, rate: 0, amount: 0 }]);
+        toast.success("Item added");
+      } catch (err) {}
+      return;
+    }
+    setItems([...items, { id: "new_" + Date.now().toString(), description: "", unit: "", quantity: 0, rate: 0, amount: 0 }]);
   };
 
   const handleWhatsAppShare = () => {
@@ -515,11 +527,18 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const handleRemoveItem = async (itemId: string) => {
-    if (items.length <= 1) {
-      toast.error("At least one item is required");
-      return;
+  const handleSendQuotation = async () => {
+    if (!id) return;
+    const toastId = toast.loading("Sending quotation...");
+    try {
+      await quotationService.sendQuotation(Number(id));
+      toast.success("Quotation sent successfully", { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send quotation", { id: toastId });
     }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
     setItemDeleteTarget(itemId);
   };
 
@@ -530,8 +549,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
       try {
         await quotationService.deleteQuotationItem(Number(itemDeleteTarget));
         toast.success("Item deleted from quotation");
-      } catch (error) {
-        toast.error("Failed to delete item from database");
+      } catch (error: any) {
+        toast.error(error.response?.data?.detail || "Failed to delete item from database");
         setIsDeletingItem(false);
         setItemDeleteTarget(null);
         return;
@@ -565,6 +584,30 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     }
   };
 
+  const handleConvertToBill = async () => {
+    if (!id) return;
+    if (!selectedProjectId) {
+      toast.error("Please select a project first");
+      return;
+    }
+    setPendingConversionType("bill");
+    setIsContractorModalOpen(true);
+  };
+
+  const handleConvertToInvoice = async () => {
+    if (!id) return;
+    try {
+      setIsConvertingInvoice(true);
+      await financeService.convertQuotationToInvoice(Number(id));
+      toast.success("Converted to invoice successfully!");
+      navigate(location.pathname.includes('/accountant') ? "/accountant/receivables?tab=invoices" : "/admin/finance/invoices");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to convert to invoice");
+    } finally {
+      setIsConvertingInvoice(false);
+    }
+  };
+
   const handleConvertToWorkOrder = async () => {
     if (!id) return;
     if (!selectedProjectId) {
@@ -579,12 +622,19 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     if (!id || !selectedProjectId || !pendingConversionType) return;
 
     try {
-      setIsConvertingWorkOrder(true);
-      await quotationService.convertToWorkOrder(Number(id), selectedProjectId, contractorId);
-      toast.success("Converted to work order successfully!");
+      if (pendingConversionType === "bill") {
+        setIsConvertingBill(true);
+        await quotationService.convertToBill(Number(id), selectedProjectId, contractorId);
+        toast.success("Converted to bill successfully!");
+      } else {
+        setIsConvertingWorkOrder(true);
+        await quotationService.convertToWorkOrder(Number(id), selectedProjectId, contractorId);
+        toast.success("Converted to work order successfully!");
+      }
     } catch (err: any) {
       toast.error(err.message || `Failed to convert to ${pendingConversionType}`);
     } finally {
+      setIsConvertingBill(false);
       setIsConvertingWorkOrder(false);
       setPendingConversionType(null);
     }
@@ -592,19 +642,49 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   // Implement Save
   const handleSaveQuotation = async () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!clientDetails.clientId && (!clientDetails.name || clientDetails.name.trim() === "")) {
+      newErrors.clientName = "Client Name is required";
+    }
+    if (!clientDetails.clientId && (!clientDetails.mobile || clientDetails.mobile.trim().length !== 10)) {
+      newErrors.clientMobile = "Mobile number must be exactly 10 digits";
+    }
+    if (!clientDetails.clientId && (!clientDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientDetails.email.trim()))) {
+      newErrors.clientEmail = "A valid email address is required";
+    }
+
+    if (!projectDetails.name || projectDetails.name.trim() === "") {
+      newErrors.projectName = "Project Name is required";
+    }
+    if (!projectDetails.type || projectDetails.type.trim() === "") {
+      newErrors.projectType = "Project Type is required";
+    }
+    if (!projectDetails.siteAddress || projectDetails.siteAddress.trim() === "") {
+      newErrors.siteAddress = "Site Address is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Focus client section if client errors exist, else project section
+      const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
+      setActiveHeaderSection(hasClientErrors ? "client" : "project");
+      return;
+    }
+
     try {
       setIsSaving(true);
 
       const payload: any = {
+        client_user_id: clientDetails.clientId || 1,
         client_name: clientDetails.name,
-        client_user_id: clientDetails.client_user_id || 1,
         company_name: clientDetails.company || "Patil Construction Pvt Ltd",
         mobile_number: clientDetails.mobile,
         email: clientDetails.email || "rahul.patil@example.com",
         billing_address: clientDetails.address,
         site_address: projectDetails.siteAddress,
         gst_number: clientDetails.gst,
-        project_id: selectedProjectId === 0 ? null : selectedProjectId,
+        project_id: selectedProjectId,
 
         project_name: projectDetails.name,
         project_type: projectDetails.type,
@@ -613,20 +693,26 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         engineer_name: projectDetails.engineer || "Er. Tejas Dhande",
         work_order_no: projectDetails.workOrderNo,
 
-        labour_items: labourItems.map((li: any) => ({ ...li, amount: li.amount || (li.labour_count * li.daily_wage * li.labour_days) })),
-        material_items: materialItems.map((mi: any) => ({ ...mi, estimated_amount: mi.estimated_amount || (mi.estimated_quantity * mi.estimated_rate) })),
-        extra_charge_items: extraChargeItems.map((ei: any) => ({ ...ei, amount: ei.amount || (ei.quantity * ei.rate) })),
+        labour_items: labourItems,
+        material_items: materialItems,
+        extra_charge_items: extraChargeItems,
 
-        items: (id ? items.filter(i => !String(i.id).startsWith("new_")) : items).map(item => {
+        items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
+          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          let itemType = "custom";
-          if (String(item.id) === "1" || String(item.id).includes("soling")) {
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
             itemType = "soling";
-            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
-          } else if (String(item.id) === "2" || String(item.id).includes("plum")) {
+            const { l, w, h } = measurementData.soling;
+            if (l > 0 || w > 0 || h > 0) {
+              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
+            }
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
             itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
-          } else if (String(item.id) === "3" || String(item.id).includes("stone")) {
+            const { l, w, h } = measurementData.plum;
+            if (l > 0 || w > 0 || h > 0) {
+              measurements = [{ length: l, width: w, height: h, unit: "m" }];
+            }
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
             itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
@@ -660,9 +746,59 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
-            quantity: item.quantity,
             rate: item.rate,
-            amount: item.amount,
+            measurements
+          };
+        }) : items.map(item => {
+          let itemType = item.item_type || "custom";
+          let measurements: any[] = [];
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+            itemType = "soling";
+            const { l, w, h } = measurementData.soling;
+            if (l > 0 || w > 0 || h > 0) {
+              measurements = [{ length: l, width: w, height: h, unit: "ft" }];
+            }
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+            itemType = "plum_concrete";
+            const { l, w, h } = measurementData.plum;
+            if (l > 0 || w > 0 || h > 0) {
+              measurements = [{ length: l, width: w, height: h, unit: "m" }];
+            }
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+            itemType = "stone_work";
+            measurements = measurementData.stone
+              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
+              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = item.item_type || "custom";
+            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
+          }
+
+          if (measurements.length === 0) {
+            let dummyLength = item.quantity || 1;
+            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
+          return {
+            item_type: itemType,
+            title: item.description.split('\n')[0],
+            description: item.description,
+            unit: item.unit,
+            rate: item.rate,
             measurements
           };
         }),
@@ -691,9 +827,117 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
       console.log(`${id ? "Updating" : "Creating"} Quotation Payload:`, JSON.stringify(payload, null, 2));
 
-      if (onSave) {
-        onSave(payload);
-        return;
+      if (id) {
+        await quotationService.updateQuotation(Number(id), payload);
+
+        // POST new items
+        const newItemsLocal = items.filter(i => String(i.id).startsWith("new_"));
+        for (const newItem of newItemsLocal) {
+          let measurements: any[] = [];
+          let itemType = newItem.item_type || "custom";
+          if (newItem.item_type === "soling" || String(newItem.id) === "1" || String(newItem.id).includes("soling")) {
+            itemType = "soling";
+            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
+          } else if (newItem.item_type === "plum_concrete" || String(newItem.id) === "2" || String(newItem.id).includes("plum")) {
+            itemType = "plum_concrete";
+            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
+          } else if (newItem.item_type === "stone_work" || String(newItem.id) === "3" || String(newItem.id).includes("stone")) {
+            itemType = "stone_work";
+            measurements = measurementData.stone
+              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
+              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = newItem.item_type || "custom";
+            measurements = [{ length: newItem.quantity || 1, width: 1, height: 1, unit: newItem.unit || "unit" }];
+          }
+
+          if (measurements.length === 0) {
+            let dummyLength = newItem.quantity || 1;
+            if (itemType === "plum_concrete" && (newItem.unit === "Cum" || newItem.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && newItem.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
+          const itemPayload = {
+            item_type: itemType,
+            title: newItem.description.split('\n')[0] || "New Work",
+            description: newItem.description,
+            unit: newItem.unit,
+            rate: newItem.rate,
+            measurements: measurements
+          };
+          await quotationService.addQuotationItem(Number(id), itemPayload);
+        }
+
+        // UPDATE existing items
+        const existingItemsLocal = items.filter(i => !String(i.id).startsWith("new_"));
+        for (const existingItem of existingItemsLocal) {
+          let measurements: any[] = [];
+          let itemType = existingItem.item_type || "custom";
+          if (existingItem.item_type === "soling" || String(existingItem.id) === "1" || String(existingItem.id).includes("soling")) {
+            itemType = "soling";
+            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
+          } else if (existingItem.item_type === "plum_concrete" || String(existingItem.id) === "2" || String(existingItem.id).includes("plum")) {
+            itemType = "plum_concrete";
+            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
+          } else if (existingItem.item_type === "stone_work" || String(existingItem.id) === "3" || String(existingItem.id).includes("stone")) {
+            itemType = "stone_work";
+            measurements = measurementData.stone
+              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
+              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = existingItem.item_type || "custom";
+            measurements = [{ length: existingItem.quantity || 1, width: 1, height: 1, unit: existingItem.unit || "unit" }];
+          }
+
+          if (measurements.length === 0) {
+            let dummyLength = existingItem.quantity || 1;
+            if (itemType === "plum_concrete" && (existingItem.unit === "Cum" || existingItem.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && existingItem.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
+          const itemPayload = {
+            item_type: itemType,
+            title: existingItem.description.split('\n')[0] || "Existing Work",
+            description: existingItem.description,
+            unit: existingItem.unit,
+            rate: existingItem.rate,
+            measurements: measurements
+          };
+          await quotationService.updateQuotationItem(Number(existingItem.id), itemPayload);
+        }
+
+        toast.success("Quotation Updated Successfully!");
+
+      } else {
+        await quotationService.createQuotation(payload);
+        toast.success("Quotation Saved Successfully!");
+        navigate(location.pathname.includes('/accountant') ? "/accountant/receivables" : "/admin/invoices/all");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to save quotation");
@@ -701,35 +945,6 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
       setIsSaving(false);
     }
   };
-
-  // Implement Professional Direct Download
-  // Helper to convert number to Indian currency words
-  const toWords = (num: number) => {
-    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-    const inWords = (n: any): string => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n_arr) return '';
-      let str = '';
-      str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
-      str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
-      str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
-      str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
-      str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
-      return str;
-    };
-
-    const amount = Math.floor(num);
-    const paisa = Math.round((num - amount) * 100);
-    let res = inWords(amount) + "Rupees Only";
-    if (paisa > 0) {
-      res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
-    }
-    return res;
-  };
-
   // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
     if (!id) {
@@ -774,16 +989,15 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   const handleImportQuotation = (q: Quotation) => {
     // 1. Map Client Details
-    setClientDetails(prev => ({
-      ...prev,
-      client_user_id: q.client_user_id || null,
+    setClientDetails({
+      clientId: q.client_user_id || null,
       name: q.client_name || "",
       company: q.company_name || "",
       mobile: q.mobile_number || "",
       email: q.email || "",
       address: q.billing_address || "",
       gst: q.gst_number || ""
-    }));
+    });
 
     // 2. Map Project Details
     setProjectDetails({
@@ -870,8 +1084,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
       due_date: q.due_date || ""
     });
 
-    setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
-    setTerms(q.terms_conditions || (q as any).terms || "");
+    setNotes(q.notes || "");
+    setTerms(q.terms_conditions || "");
 
     setIsImportModalOpen(false);
     toast.success("Estimate imported successfully!");
@@ -957,6 +1171,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   const handleAddLabourRow = async () => {
     if (isReadOnly) return;
+    if (labourItems.length > 0) {
+      const last = labourItems[labourItems.length - 1];
+      if (!last.skill_type?.trim() || !last.labour_count || !last.daily_wage) {
+        toast.error("Please fill all fields in the current labour row before adding a new one.");
+        return;
+      }
+    }
     const newItem: LabourItem = {
       skill_type: "General Labourer",
       labour_count: 1,
@@ -1000,7 +1221,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         toast.success("Labour item removed");
       } catch (err: any) {
         console.error("Failed to delete labour item:", err);
-        toast.error("Failed to remove labour item from server");
+        toast.error(err.response?.data?.detail || "Failed to remove labour item from server");
       }
     }
   };
@@ -1032,6 +1253,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   const handleAddMaterialRow = async () => {
     if (isReadOnly) return;
+    if (materialItems.length > 0) {
+      const last = materialItems[materialItems.length - 1];
+      if (!last.material_name?.trim() || !last.category?.trim() || !last.unit?.trim() || !last.estimated_quantity || !last.estimated_rate) {
+        toast.error("Please fill all fields in the current material row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       material_name: "",
       category: "",
@@ -1073,7 +1301,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         toast.success("Material removed");
       } catch (err: any) {
         console.error("Failed to delete material item:", err);
-        toast.error("Failed to remove material from server");
+        toast.error(err.response?.data?.detail || "Failed to remove material from server");
       }
     }
   };
@@ -1111,6 +1339,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   const handleAddExtraChargeRow = async () => {
     if (isReadOnly) return;
+    if (extraChargeItems.length > 0) {
+      const last = extraChargeItems[extraChargeItems.length - 1];
+      if (!last.description?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current extra charge row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       expense_type: "misc",
       description: "",
@@ -1152,18 +1387,30 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         toast.success("Extra charge removed");
       } catch (err: any) {
         console.error("Failed to delete extra charge:", err);
-        toast.error("Failed to remove extra charge from server");
+        toast.error(err.response?.data?.detail || "Failed to remove extra charge from server");
       }
     }
   };
 
   return (
     <>
-      <div className="bg-white min-h-screen">
+      <Navbar
+        title={id ? "View/Edit Quotation" : "Create Invoice / Estimate"}
+        breadcrumb={["Dashboard", "Invoices", id ? "View Quotation" : "Create Invoice"]}
+      />
+
+      <PageTransition className="p-4 lg:p-6 bg-[#f8fafc] min-h-screen">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
                 {id ? "Quotation Intelligence" : "Quotation Details"}
                 {status === "approved" && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
@@ -1179,6 +1426,24 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
               <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create and customize professional invoices / estimates."}</p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  if (id) {
+                    const tid = toast.loading("Fetching preview...");
+                    try {
+                      await quotationService.getQuotationPreview(Number(id));
+                      toast.success("Preview loaded", { id: tid });
+                    } catch(err) {
+                      toast.error("Preview load failed", { id: tid });
+                    }
+                  }
+                  setIsPreviewModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              >
+                <Eye className="w-4 h-4 text-emerald-600" />
+                Preview Document
+              </button>
               <button
                 onClick={() => setIsImportModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -1198,238 +1463,293 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+          {/* TOP LAYOUT: 2 COLUMNS */}
+          <div className="flex flex-col xl:flex-row gap-6 w-full">
 
           {/* LEFT COLUMN: FORM */}
-          <div className="flex flex-col gap-6 xl:contents">
+          <div className="flex-1 space-y-6">
 
             {/* TOP GRID: DETAILS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 xl:col-start-1">
+            <div className="flex flex-col gap-4">
 
               {/* CLIENT DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                    <User className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "client" ? null : "client")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "client" ? "bg-indigo-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Client Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Client Details</h3>
-                  <button className="ml-auto text-slate-400 hover:text-indigo-600 transition-colors">
-                    <Building className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Name <span className="text-rose-500">*</span></label>
-                    <input
-                      list="clients-list"
-                      value={clientDetails.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const selected = clients.find(c => (c.full_name || c.username || `Client #${c.id}`) === val);
-                        if (selected) {
-                          setClientDetails(prev => ({
-                            ...prev,
-                            client_user_id: selected.id,
-                            name: selected.full_name || selected.username || "",
-                            company: selected.designation || "",
-                            mobile: selected.mobile_number || "",
-                            email: selected.email || "",
-                            address: selected.address || "",
-                            gst: ""
-                          }));
-                        } else {
-                          setClientDetails(prev => ({ ...prev, client_user_id: null, name: val }));
-                        }
-                      }}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 pr-10 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                      placeholder="Type or select a Client..."
-                    />
-                    <datalist id="clients-list">
-                      {clients.map(c => (
-                        <option key={c.id} value={c.full_name || c.username || `Client #${c.id}`} />
-                      ))}
-                    </datalist>
+                  <div className="flex items-center gap-3">
+                    <div className="text-slate-400">
+                      <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'client' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                </button>
+                {activeHeaderSection === "client" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
+                      <select
+                        value={clientDetails.clientId || 0}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (val === 0) {
+                            setClientDetails({ clientId: null, name: "", company: "", mobile: "", email: "", address: "", gst: "" });
+                          } else {
+                            const c = clients.find(x => (x.id || x.user_id) === val);
+                            if (c) {
+                              setClientDetails({
+                                clientId: c.id || c.user_id,
+                                name: c.full_name || "",
+                                company: clientDetails.company, // Preserve whatever user manually typed
+                                mobile: c.mobile_number || "",
+                                email: c.email || "",
+                                address: c.address || "",
+                                gst: ""
+                              });
+                            }
+                          }
+                        }}
+                        disabled={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      >
+                        <option value={0}>Walk-in / Manual Client</option>
+                        {clients.map(c => (
+                          <option key={c.id || c.user_id} value={c.id || c.user_id}>{c.full_name}</option>
+                        ))}
+                      </select>
+                      {!clientDetails.clientId && (
+                        <>
+                          <input
+                            type="text"
+                            value={clientDetails.name}
+                            onChange={(e) => {
+                              setClientDetails({ ...clientDetails, name: e.target.value });
+                              if (errors.clientName) setErrors(prev => ({ ...prev, clientName: "" }));
+                            }}
+                            readOnly={isReadOnly}
+                            placeholder="Type Manual Client Name..."
+                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          />
+                          {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Mobile Number {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <input
+                          type="text"
+                          value={clientDetails.mobile}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setClientDetails({ ...clientDetails, mobile: v });
+                            if (errors.clientMobile) setErrors(prev => ({ ...prev, clientMobile: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientMobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
+                        />
+                        {errors.clientMobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientMobile}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Email Address {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <input
+                          type="email"
+                          value={clientDetails.email}
+                          onChange={(e) => {
+                            setClientDetails({ ...clientDetails, email: e.target.value });
+                            if (errors.clientEmail) setErrors(prev => ({ ...prev, clientEmail: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientEmail ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
+                          placeholder="client@example.com"
+                        />
+                        {errors.clientEmail && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientEmail}</p>}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name</label>
                       <input
                         type="text"
-                        value={clientDetails.mobile}
-                        onChange={(e) => setClientDetails({ ...clientDetails, mobile: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        value={clientDetails.company}
+                        onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        placeholder="e.g. Patil Construction Pvt Ltd"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Billing Address</label>
+                      <textarea
+                        rows={1}
+                        value={clientDetails.address}
+                        onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
                       <input
-                        type="email"
-                        value={clientDetails.email}
-                        onChange={(e) => setClientDetails({ ...clientDetails, email: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                        placeholder="client@example.com"
+                        type="text"
+                        value={clientDetails.gst}
+                        onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name</label>
-                    <input
-                      type="text"
-                      value={clientDetails.company}
-                      onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      placeholder="e.g. Patil Construction Pvt Ltd"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Billing Address</label>
-                    <textarea
-                      rows={1}
-                      value={clientDetails.address}
-                      onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
-                    <input
-                      type="text"
-                      value={clientDetails.gst}
-                      onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all uppercase"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* PROJECT DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                    <Briefcase className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "project" ? null : "project")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "project" ? "bg-blue-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Project Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Project Details</h3>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
-                    <select
-                      value={projectDetails.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const selected = projects.find(p => ((p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`) === val);
-                        setProjectDetails(prev => ({ ...prev, name: val }));
-                        if (selected) {
-                          setSelectedProjectId(selected.id);
-                        } else {
-                          setSelectedProjectId(0);
-                        }
-                      }}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 pr-10 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option value="">Select Project...</option>
-                      {projects.map(p => {
-                        const label = (p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`;
-                        return <option key={p.id} value={label}>{label}</option>
-                      })}
-                    </select>
+                  <div className="text-slate-400">
+                    <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'project' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
-                    <input
-                      type="text"
-                      list="project-types-list"
-                      value={projectDetails.type}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
-                      readOnly={isReadOnly}
-                      placeholder="e.g. Residential, Infrastructure"
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                    <datalist id="project-types-list">
-                      <option value="Residential" />
-                      <option value="Commercial" />
-                      <option value="Industrial" />
-                      <option value="Infrastructure" />
-                      <option value="Institutional" />
-                      <option value="Government" />
-                    </datalist>
+                </button>
+                {activeHeaderSection === "project" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        value={projectDetails.name}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, name: e.target.value });
+                          if (errors.projectName) setErrors(prev => ({ ...prev, projectName: "" }));
+                        }}
+                        placeholder="Type Manual Project Name..."
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.projectName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectName}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        list="project-types-list"
+                        value={projectDetails.type}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, type: e.target.value });
+                          if (errors.projectType) setErrors(prev => ({ ...prev, projectType: "" }));
+                        }}
+                        readOnly={isReadOnly}
+                        placeholder="e.g. Residential, Infrastructure"
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectType ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.projectType && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectType}</p>}
+                      <datalist id="project-types-list">
+                        <option value="Residential" />
+                        <option value="Commercial" />
+                        <option value="Industrial" />
+                        <option value="Infrastructure" />
+                        <option value="Institutional" />
+                        <option value="Government" />
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
+                      <input
+                        type="text"
+                        value={projectDetails.engineer}
+                        onChange={(e) => setProjectDetails({ ...projectDetails, engineer: e.target.value })}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        placeholder="e.g. Er. Tejas Dhande"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        value={projectDetails.siteAddress}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, siteAddress: e.target.value });
+                          if (errors.siteAddress) setErrors(prev => ({ ...prev, siteAddress: "" }));
+                        }}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.siteAddress ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.siteAddress && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.siteAddress}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Work Order No.</label>
+                      <input
+                        type="text"
+                        value={projectDetails.workOrderNo}
+                        onChange={(e) => setProjectDetails({ ...projectDetails, workOrderNo: e.target.value })}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
-                    <input
-                      type="text"
-                      value={projectDetails.engineer}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, engineer: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                      placeholder="e.g. Er. Tejas Dhande"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address</label>
-                    <input
-                      type="text"
-                      value={projectDetails.siteAddress}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, siteAddress: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Order No.</label>
-                    <input
-                      type="text"
-                      value={projectDetails.workOrderNo}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, workOrderNo: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* INVOICE DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                    <FileText className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "quotation" ? null : "quotation")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "quotation" ? "bg-emerald-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
-                </div>
-                <div className="space-y-4">
-
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={invoiceDetails.date}
-                        onChange={(e) => setInvoiceDetails({ ...invoiceDetails, date: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-                      />
+                  <div className="text-slate-400">
+                    <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'quotation' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </button>
+                {activeHeaderSection === "quotation" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Quotation Date</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={invoiceDetails.date}
+                          onChange={(e) => setInvoiceDetails({ ...invoiceDetails, date: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={invoiceDetails.dueDate}
+                          onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={invoiceDetails.dueDate}
-                        onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>
 
             {/* MIDDLE SECTION: ITEMS TABLE */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden xl:col-start-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="p-4 border-b border-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
@@ -1451,23 +1771,24 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <tr className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
                       <th className="px-6 py-4 w-12">#</th>
                       <th className="px-6 py-4">Item / Work Description</th>
-                      <th className="px-6 py-4 w-28">Unit</th>
-                      <th className="px-6 py-4 w-32">Quantity</th>
+                      <th className="px-6 py-4 w-40">Unit</th>
+                      <th className="px-6 py-4 w-36">Quantity</th>
                       <th className="px-6 py-4 w-40">Rate (₹)</th>
                       <th className="px-6 py-4 w-40">Amount (₹)</th>
-                      <th className="px-6 py-4 w-32 text-center">Action</th>
+                      <th className="px-6 py-4 w-28 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {items.map((item, index) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors" onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) saveItemToBackend(item); }}>
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">{index + 1}</td>
                         <td className="px-6 py-4">
-                          <textarea
+                          <input
+                            type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none resize-none"
-                            rows={2}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="Enter item description..."
                           />
                         </td>
                         <td className="px-6 py-4">
@@ -1475,7 +1796,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                             disabled={isReadOnly}
-                            className={`w-full bg-transparent border-none text-sm font-semibold text-slate-600 outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className={`w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 cursor-pointer transition-all ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                           >
                             <option value="">Select Unit</option>
                             {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
@@ -1486,17 +1807,47 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         <td className="px-6 py-4">
                           <input
                             type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={9999999}
+                            step="any"
+                            value={item.quantity === 0 ? "" : item.quantity}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "quantity", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 9999999) return;
+                                  updateItem(item.id, "quantity", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">
                           <input
                             type="number"
-                            value={item.rate}
-                            onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={99999999}
+                            step="any"
+                            value={item.rate === 0 ? "" : item.rate}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "rate", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 99999999) return;
+                                  updateItem(item.id, "rate", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-black text-indigo-600">
@@ -1534,9 +1885,255 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
               </div>
             </div>
 
+
+          </div>
+
+          {/* RIGHT COLUMN: SUMMARY & PREVIEW */}
+          <div className="w-full xl:w-[400px] space-y-6">
+
+            {/* INVOICE SUMMARY */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Invoice Summary</h3>
+                </div>
+                {id && (
+                  <div className="flex gap-2">
+                    {status === "approved" && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
+                        <CheckCircle className="w-3 h-3" /> Approved
+                      </span>
+                    )}
+                    {status === "declined" && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-rose-200">
+                        <XCircle className="w-3 h-3" /> Declined
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-500">Sub Total</span>
+                  <span className="font-black text-slate-800">₹ {subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-500">CGST</span>
+                    <input
+                      type="number"
+                      value={gstRates.cgst === 0 ? "" : gstRates.cgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => {
+                        const val = parseFloat(e.target.value) || 0;
+                        return { ...prev, cgst: val, gst: val + prev.sgst };
+                      })}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
+                  </div>
+                  <span className="font-black text-slate-800">₹ {cgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-500">SGST</span>
+                    <input
+                      type="number"
+                      value={gstRates.sgst === 0 ? "" : gstRates.sgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => {
+                        const val = parseFloat(e.target.value) || 0;
+                        return { ...prev, sgst: val, gst: val + prev.cgst };
+                      })}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
+                  </div>
+                  <span className="font-black text-slate-800">₹ {sgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-500">Discount</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 text-xs">₹</span>
+                    <input
+                      type="number"
+                      value={discount === 0 ? "" : discount}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      readOnly={isReadOnly}
+                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-500">TDS</span>
+                    <input
+                      type="number"
+                      value={gstRates.tds === 0 ? "" : gstRates.tds}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
+                  </div>
+                  <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="py-4 border-y border-slate-100 my-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Grand Total</span>
+                    <span className="text-xl font-black text-indigo-600">₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-500">Advance Paid</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 text-xs">₹</span>
+                    <input
+                      type="number"
+                      value={advancePaid === 0 ? "" : advancePaid}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
+                      readOnly={isReadOnly}
+                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-emerald-50 rounded-2xl flex items-center justify-between mt-6">
+                  <span className="text-xs font-black text-emerald-800 uppercase tracking-widest">Balance Due</span>
+                  <span className="text-lg font-black text-emerald-600">₹ {balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="flex flex-col mx-auto max-w-[280px] w-full space-y-2">
+              <button
+                onClick={handlePreviewModalOpen}
+                disabled={isPreviewLoading}
+                className="w-full py-2 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-indigo-200 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-wait"
+              >
+                {isPreviewLoading ? (
+                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Eye className="w-3 h-3 group-hover:animate-pulse" />
+                )}
+                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
+              </button>
+              <button
+                onClick={handleSaveQuotation}
+                disabled={isSaving || isReadOnly}
+                className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
+              >
+                <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
+              </button>
+
+              {id && !isReadOnly && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleApproveQuotation}
+                    className="w-full py-1.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle className="w-3 h-3" /> Approve
+                  </button>
+                  <button
+                    onClick={() => setIsRejectModalOpen(true)}
+                    className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <XCircle className="w-3 h-3" /> Reject
+                  </button>
+                </div>
+              )}
+
+              {id && (
+                <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-center gap-2 mb-0.5">
+                    <Zap className="w-3 h-3 text-indigo-500" />
+                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Conversion Actions</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleConvertToBill}
+                      disabled={isConvertingBill}
+                      className="py-1.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isConvertingBill ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Bill
+                    </button>
+                    <button
+                      onClick={handleConvertToInvoice}
+                      disabled={isConvertingInvoice}
+                      className="py-1.5 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isConvertingInvoice ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />} Invoice
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleConvertToWorkOrder}
+                    disabled={isConvertingWorkOrder}
+                    className="w-full py-1.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isConvertingWorkOrder ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Briefcase className="w-3 h-3" />} Convert To Work Order
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3 h-3 text-indigo-600" /> Download PDF
+                </button>
+                {id && (
+                  <button
+                    onClick={handleSendQuotation}
+                    className="w-full py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3 h-3 text-indigo-600" /> Send Quotation
+                  </button>
+                )}
+                <button
+                  onClick={handleWhatsAppShare}
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <MessageCircle className="w-3 h-3 text-emerald-500" /> Send on WhatsApp
+                </button>
+                <button
+                  onClick={handleEmailShare}
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Send className="w-3 h-3 text-blue-500" /> Send Email
+                </button>
+              </div>
+
+              <button onClick={() => onCancel ? onCancel() : navigate(-1)} className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-1.5">
+                <X className="w-3 h-3" /> Cancel
+              </button>
+            </div>
+
+            {/* VERSION INFO */}
+            <div className="text-center pt-4 opacity-30">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Infrapilot v1.0.0</p>
+            </div>
+
+          </div>
+          </div> {/* END OF TOP LAYOUT */}
             {/* BOTTOM SECTION: TABS & SUMMARY */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden xl:col-span-2">
-              <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="flex w-full border-b border-slate-100 overflow-x-auto no-scrollbar">
                 {[
                   { id: "measurements", label: "Measurement Details", icon: <Calendar className="w-3.5 h-3.5" /> },
                   { id: "material", label: "Material Details", icon: <Briefcase className="w-3.5 h-3.5" /> },
@@ -1544,14 +2141,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   { id: "charges", label: "Extra Charges", icon: <PlusCircle className="w-3.5 h-3.5" /> },
                   { id: "tax", label: "Tax Details", icon: <FileText className="w-3.5 h-3.5" /> },
                   { id: "payment", label: "Payment Details", icon: <Calendar className="w-3.5 h-3.5" /> },
-                  { id: "notes", label: "Notes", icon: <FileText className="w-3.5 h-3.5" /> },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
+                    className={`shrink-0 min-w-fit flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
                       ? "text-indigo-600 border-indigo-600 bg-indigo-50/20"
-                      : "text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50/50"
+                      : "text-slate-600 border-transparent hover:text-slate-800 hover:bg-slate-50/50"
                       }`}
                   >
                     {tab.icon} {tab.label}
@@ -1726,7 +2322,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Skill Type</th>
                             <th className="pb-4">Count</th>
                             <th className="pb-4">Wage (₹)</th>
@@ -1756,7 +2352,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_count}
+                                  value={item.labour_count === 0 ? "" : item.labour_count}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_count", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1765,7 +2361,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.daily_wage}
+                                  value={item.daily_wage === 0 ? "" : item.daily_wage}
                                   onChange={(e) => handleLabourFieldChange(idx, "daily_wage", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1774,7 +2370,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_days}
+                                  value={item.labour_days === 0 ? "" : item.labour_days}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_days", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1783,7 +2379,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_hours}
+                                  value={item.overtime_hours === 0 ? "" : item.overtime_hours}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_hours", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-16 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1793,7 +2389,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_rate}
+                                  value={item.overtime_rate === 0 ? "" : item.overtime_rate}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1842,7 +2438,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Material Name</th>
                             <th className="pb-4">Unit</th>
                             <th className="pb-4">Quantity</th>
@@ -1880,7 +2476,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_quantity}
+                                  value={item.estimated_quantity === 0 ? "" : item.estimated_quantity}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_quantity", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -1889,7 +2485,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_rate}
+                                  value={item.estimated_rate === 0 ? "" : item.estimated_rate}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -1985,7 +2581,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           <div className="w-20">
                             <input
                               type="number"
-                              value={item.quantity}
+                              value={item.quantity === 0 ? "" : item.quantity}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "quantity", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Qty"
@@ -1995,7 +2591,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           <div className="w-32">
                             <input
                               type="number"
-                              value={item.rate}
+                              value={item.rate === 0 ? "" : item.rate}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "rate", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Amount"
@@ -2021,7 +2617,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">GST Breakdown Settings</h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total GST (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Total GST (%)</label>
                           <input
                             type="number"
                             value={gstRates.gst}
@@ -2031,7 +2627,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">CGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">CGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.cgst}
@@ -2040,7 +2636,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">SGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">SGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.sgst}
@@ -2050,35 +2646,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           </div>
                         </div>
                         <div className="pt-4 border-t border-slate-50">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">TDS (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">TDS (%)</label>
                           <input
                             type="number"
                             value={gstRates.tds}
                             onChange={(e) => setGstRates({ ...gstRates, tds: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Project Timeline</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Start Date</label>
-                          <input
-                            type="date"
-                            value={projectStartEnd.start}
-                            onChange={(e) => setProjectStartEnd({ ...projectStartEnd, start: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Completion Date</label>
-                          <input
-                            type="date"
-                            value={projectStartEnd.end}
-                            onChange={(e) => setProjectStartEnd({ ...projectStartEnd, end: e.target.value })}
                             className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono"
                           />
                         </div>
@@ -2091,22 +2663,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Mode</label>
-                        <select
-                          value={paymentDetails.payment_mode}
-                          onChange={(e) => setPaymentDetails({ ...paymentDetails, payment_mode: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none cursor-pointer"
-                        >
-                          <option value="UPI">UPI</option>
-                          <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
-                          <option value="Cash">Cash</option>
-                          <option value="Cheque">Cheque</option>
-                        </select>
-                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Bank Name</label>
                           <input
                             type="text"
                             value={paymentDetails.bank_name}
@@ -2115,7 +2674,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Code</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">IFSC Code</label>
                           <input
                             type="text"
                             value={paymentDetails.ifsc_code}
@@ -2125,7 +2684,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Number</label>
                         <input
                           type="text"
                           value={paymentDetails.account_number}
@@ -2134,7 +2693,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI ID</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">UPI ID</label>
                         <input
                           type="text"
                           value={paymentDetails.upi_id}
@@ -2146,7 +2705,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Company Details on Quotation</h4>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Holder Name</label>
                         <input
                           type="text"
                           value={paymentDetails.account_holder_name}
@@ -2155,7 +2714,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
                         <input
                           type="text"
                           value={clientDetails.company}
@@ -2165,7 +2724,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
                         <input
                           type="date"
                           value={paymentDetails.due_date || ""}
@@ -2177,37 +2736,13 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   </div>
                 )}
 
-                {activeTab === "notes" && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notes</label>
-                      <textarea
-                        rows={4}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-100"
-                        placeholder="Add any specific notes for this quotation..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Terms & Conditions</label>
-                      <textarea
-                        rows={4}
-                        value={terms}
-                        onChange={(e) => setTerms(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-100"
-                        placeholder="Add terms and conditions..."
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {activeTab === "signature" && (
                   <div className="space-y-6">
                     <div className="flex items-start gap-6 flex-wrap">
                       <div className="flex-1 min-w-[240px] space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Upload Signature Image</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Upload Signature Image</label>
                           <p className="text-xs text-slate-400 mb-4">Upload a PNG/JPEG signature to be printed on this quotation. Transparent PNGs look best.</p>
                         </div>
                         <div
@@ -2239,7 +2774,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                         )}
                       </div>
                       <div className="w-64 shrink-0">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Preview on Quotation</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Preview on Quotation</label>
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                           <p className="text-[10px] font-black text-slate-900 uppercase mb-3">For {clientDetails.company || "Your Company"}</p>
                           <div className="h-16 border-b border-slate-200 flex items-end justify-center pb-2 mb-2">
@@ -2265,274 +2800,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
               </div>
             </div>
 
-          </div>
-
-          {/* RIGHT COLUMN: SUMMARY & PREVIEW */}
-          <div className="w-full space-y-6 xl:col-start-2 xl:row-start-1 xl:row-span-2">
-
-            {/* INVOICE SUMMARY */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-600 rounded-lg text-white">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Invoice Summary</h3>
-                </div>
-                {id && (
-                  <div className="flex gap-2">
-                    {status === "approved" && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
-                        <CheckCircle className="w-3 h-3" /> Approved
-                      </span>
-                    )}
-                    {status === "declined" && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-rose-200">
-                        <XCircle className="w-3 h-3" /> Declined
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Sub Total</span>
-                  <span className="font-black text-slate-800">₹ {subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">CGST</span>
-                    <input
-                      type="number"
-                      value={gstRates.cgst}
-                      onChange={(e) => setGstRates(prev => {
-                        const val = parseFloat(e.target.value) || 0;
-                        return { ...prev, cgst: val, gst: val + prev.sgst };
-                      })}
-                      readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                    <span className="text-[10px] font-bold text-slate-400">%</span>
-                  </div>
-                  <span className="font-black text-slate-800">₹ {cgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">SGST</span>
-                    <input
-                      type="number"
-                      value={gstRates.sgst}
-                      onChange={(e) => setGstRates(prev => {
-                        const val = parseFloat(e.target.value) || 0;
-                        return { ...prev, sgst: val, gst: val + prev.cgst };
-                      })}
-                      readOnly={isReadOnly}
-                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                    <span className="text-[10px] font-bold text-slate-400">%</span>
-                  </div>
-                  <span className="font-black text-slate-800">₹ {sgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Discount</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-300 text-xs">₹</span>
-                    <input
-                      type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                      readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-500">TDS</span>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
-                  </div>
-                  <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-
-                <div className="py-4 border-y border-slate-100 my-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Grand Total</span>
-                    <span className="text-xl font-black text-indigo-600">₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-500">Advance Paid</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-300 text-xs">₹</span>
-                    <input
-                      type="number"
-                      value={advancePaid}
-                      onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
-                      readOnly={isReadOnly}
-                      className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 bg-emerald-50 rounded-2xl flex items-center justify-between mt-6">
-                  <span className="text-xs font-black text-emerald-800 uppercase tracking-widest">Balance Due</span>
-                  <span className="text-lg font-black text-emerald-600">₹ {balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div className="space-y-3">
-              <button
-                onClick={handlePreviewModalOpen}
-                disabled={isPreviewLoading}
-                className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-wait"
-              >
-                {isPreviewLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Eye className="w-5 h-5 group-hover:animate-pulse" />
-                )}
-                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
-              </button>
-              <button
-                onClick={handleSaveQuotation}
-                disabled={isSaving || isReadOnly}
-                className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-3 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
-              >
-                <Save className={`w-5 h-5 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
-              </button>
-
-              {id && !isReadOnly && (
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleApproveQuotation}
-                    className="w-full py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Approve
-                  </button>
-                  <button
-                    onClick={() => setIsRejectModalOpen(true)}
-                    className="w-full py-3.5 bg-rose-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-                  >
-                    <XCircle className="w-4 h-4" /> Reject
-                  </button>
-                </div>
-              )}
-
-              {id && (
-                <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Zap className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
-                  </div>
-
-                  <button
-                    onClick={handleConvertToWorkOrder}
-                    disabled={isConvertingWorkOrder}
-                    className="w-full py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isConvertingWorkOrder ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Briefcase className="w-3 h-3" />} Convert To Work Order
-                  </button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3">
-                <button
-                  onClick={handleDownload}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4 text-indigo-600" /> Download PDF
-                </button>
-                <button
-                  onClick={handleWhatsAppShare}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-4 h-4 text-emerald-500" /> Send on WhatsApp
-                </button>
-                <button
-                  onClick={handleEmailShare}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                >
-                  <Send className="w-4 h-4 text-blue-500" /> Send Email
-                </button>
-              </div>
-
-              <button onClick={onCancel} className="w-full py-3.5 bg-slate-50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-2">
-                <X className="w-4 h-4" /> Cancel
-              </button>
-            </div>
-
-            {/* VERSION INFO */}
-            <div className="text-center pt-4 opacity-30">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Infrapilot v1.0.0</p>
-            </div>
-
-          </div>
-
         </div>
-      </div>
+      </PageTransition>
 
-      {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? (
-        <InvoicePreviewModal
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          data={previewData ? previewData : {
-            clientName: clientDetails.name,
-            clientAddress: clientDetails.address,
-            clientGst: clientDetails.gst,
-            invoiceNo: invoiceDetails.invoiceNo,
-            date: invoiceDetails.date,
-            items: items,
-            labourItems: labourItems,
-            materialItems: materialItems,
-            extraChargeItems: extraChargeItems,
-            subTotal: subTotal,
-            grandTotal: grandTotal,
-            cgstRate: gstRates.cgst,
-            sgstRate: gstRates.sgst,
-            discount: discount,
-            advancePaid: advancePaid,
-            balanceDue: balanceDue,
-          }}
-        />
-      ) : (
-        <QuotationPreviewModal
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          data={previewData ? previewData : {
-            clientName: clientDetails.name,
-            clientAddress: clientDetails.address || projectDetails.siteAddress,
-            mobile_number: clientDetails.mobile,
-            gst_number: clientDetails.gst,
-            projectName: projectDetails.name || "N/A",
-            siteAddress: projectDetails.siteAddress || clientDetails.address,
-            invoiceNo: invoiceDetails.invoiceNo || (id ? `QTN-${id}` : "NEW"),
-            date: invoiceDetails.date || new Date().toLocaleDateString(),
-            items: items,
-            labourItems: labourItems,
-            materialItems: materialItems,
-            extraChargeItems: extraChargeItems,
-            subTotal: subTotal,
-            grandTotal: grandTotal,
-            cgstRate: gstRates.cgst,
-            sgstRate: gstRates.sgst,
-            discount: discount,
-            advancePaid: advancePaid,
-            balanceDue: balanceDue,
-            // Add missing dynamic fields
-            projectType: projectDetails.type || "Commercial",
-            engineerName: projectDetails.engineer || "N/A",
-            workOrderNo: projectDetails.workOrderNo || "N/A",
-            terms: terms || "50% advance payment required."
-          }}
-        />
-      )}
 
       <EditInvoiceItemModal
         isOpen={isEditModalOpen}
@@ -2541,165 +2811,53 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         onSave={handleSaveItem}
       />
 
-      {/* PORTAL FOR PERFECT PRINTING (ULTRATECH STYLE) */}
-      {createPortal(
-        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto">
-          <div className="bg-white max-w-[210mm] mx-auto p-0 min-h-[297mm]">
-            {/* Header: Logo and Title */}
-            <div className="flex justify-between items-center mb-8">
-              <img src={logo} alt="Logo" className="w-24 h-24 object-contain" />
-              <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">
-                {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? "TAX INVOICE" : "PROJECT QUOTATION"}
-              </h1>
-            </div>
-
-            {/* Company Info */}
-            <div className="mb-8">
-              <h2 className="text-lg font-bold text-slate-900">Infra Pilot</h2>
-              <p className="text-xs text-slate-600">GST: 27ABCDE1234F1Z5</p>
-              <p className="text-xs text-slate-600">Mobile: 9876543210</p>
-              <p className="text-xs text-slate-600">Email: info@infrapilot.com</p>
-            </div>
-
-            {/* Main Info Table */}
-            <div className="mb-6">
-              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                <div className="w-1/2">Field</div>
-                <div className="w-1/2 text-left">Value</div>
-              </div>
-              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Document No</div>
-                  <div className="w-1/2">{invoiceDetails.invoiceNo}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Date</div>
-                  <div className="w-1/2">{invoiceDetails.date}</div>
-                </div>
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Project</div>
-                  <div className="w-1/2 uppercase">{(() => { const p = projects.find(p => p.id === selectedProjectId); return p ? ((p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`) : "N/A"; })()}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Project Type</div>
-                  <div className="w-1/2">Residential</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Client Details */}
-            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
-            <div className="mb-6">
-              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                <div className="w-1/2">Field</div>
-                <div className="w-1/2 text-left">Value</div>
-              </div>
-              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Client Name</div>
-                  <div className="w-1/2 uppercase text-slate-900 font-black">{clientDetails.name || "N/A"}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Billing Address</div>
-                  <div className="w-1/2">{clientDetails.address || "N/A"}</div>
-                </div>
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">GST Number</div>
-                  <div className="w-1/2">{clientDetails.gst || "N/A"}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Item Details */}
-            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
-            <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
-              <thead>
-                <tr className="bg-[#1F4E79] text-white font-bold">
-                  <th className="border border-slate-300 p-2 text-left">Item</th>
-                  <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
-                  <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
-                  <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
-                  <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-300 text-slate-700">
-                {items.map((item, idx) => (
-                  <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
-                    <td className="border border-slate-300 p-2 font-bold whitespace-pre-line">{item.description}</td>
-                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
-                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
-                    <td className="border border-slate-300 p-2 text-right">{item.rate.toLocaleString()}</td>
-                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Summary Footer */}
-            <div className="flex justify-end mb-8">
-              <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Subtotal:</span>
-                  <span className="font-bold">INR {subTotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Grand Total:</span>
-                  <span className="font-black text-slate-900 text-lg">INR {grandTotal.toLocaleString()}</span>
-                </div>
-                <div className="pt-2 border-t border-slate-200">
-                  <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(grandTotal)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto border-t-2 border-slate-900 pt-8 flex justify-between items-end">
-              <div>
-                <p className="text-[8px] text-slate-400 italic">This is a computer generated document.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black mb-12 uppercase text-slate-900">For Infra Pilot</p>
-                <div className="border-t border-slate-400 pt-1">
-                  <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <style>{`
-        @media print {
-          /* Hide the main application root entirely */
-          #root { 
-            display: none !important; 
-            visibility: hidden !important; 
-          }
-          
-          /* Show specifically our print zone */
-          #ultra-tech-print-zone {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            z-index: 9999999 !important;
-          }
-
-          body { 
-            background: white !important; 
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
       <ImportEstimateModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSelect={handleImportQuotation}
+      />
+
+      <QuotationPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        forceLocal={true}
+        data={{
+          id: id,
+          invoiceNo: invoiceDetails.invoiceNo,
+          date: invoiceDetails.date,
+          projectName: projectDetails.name,
+          projectType: projectDetails.type,
+          engineerName: projectDetails.engineer,
+          workOrderNo: projectDetails.workOrderNo,
+          clientName: clientDetails.name,
+          clientAddress: clientDetails.address,
+          clientMobile: clientDetails.mobile,
+          clientGst: clientDetails.gst,
+          items: items,
+          labourItems: labourItems,
+          materialItems: materialItems,
+          subTotal: subTotal,
+          cgstRate: gstRates.cgst,
+          sgstRate: gstRates.sgst,
+          grandTotal: grandTotal,
+          advancePaid: advancePaid,
+          balanceDue: balanceDue,
+          terms: terms
+        }}
+      />
+
+      <PDFPreviewModal
+        isOpen={isPDFModalOpen}
+        onClose={() => {
+          setIsPDFModalOpen(false);
+          if (pdfUrl) {
+            window.URL.revokeObjectURL(pdfUrl);
+            setPdfUrl(null);
+          }
+        }}
+        pdfUrl={pdfUrl}
+        title={`Preview Quotation: ${invoiceDetails.invoiceNo || 'New'}`}
+        onDownload={handleDownloadFromPreview}
       />
 
       {/* Action Confirmation Modals */}

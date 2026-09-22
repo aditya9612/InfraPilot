@@ -17,6 +17,7 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
     const [owners, setOwners] = useState<Owner[]>([]);
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const [formData, setFormData] = useState({
         quotation_id: "",
@@ -26,11 +27,13 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
         state: "",
         country: "India",
         pincode: "",
-        latitude: 0,
-        longitude: 0,
+        latitude: 0 as number | string,
+        longitude: 0 as number | string,
+        start_date: "",
+        end_date: "",
         shift_start_time: "09:00",
         shift_end_time: "18:00",
-        grace_period_minutes: 15,
+        grace_period_minutes: 15 as number | string,
     });
 
     const handleGetLocation = () => {
@@ -82,6 +85,24 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
     useEffect(() => {
         if (isOpen) {
             fetchInitialData();
+            // Reset state
+            setErrors({});
+            setFormData({
+                quotation_id: "",
+                owner_id: "",
+                location_type: "URBAN",
+                city: "",
+                state: "",
+                country: "India",
+                pincode: "",
+                latitude: 0,
+                longitude: 0,
+                start_date: "",
+                end_date: "",
+                shift_start_time: "09:00",
+                shift_end_time: "18:00",
+                grace_period_minutes: 15,
+            });
         }
     }, [isOpen]);
 
@@ -92,7 +113,7 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                 quotationService.getQuotations(200, 0),
                 ownerService.getOwners(),
             ]);
-            setQuotations(qData.filter((q) => q.is_approved || q.status === "approved"));
+            setQuotations(qData.filter((q) => q.is_approved || q.status === "approved" || String(q.status).toUpperCase() === "APPROVED"));
             setOwners(oData);
         } catch (error) {
             toast.error("Failed to load quotations or owners");
@@ -101,10 +122,58 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
         }
     };
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const { [name]: _, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
+    const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value === "" ? "" : Number(value) }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const { [name]: _, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.quotation_id) newErrors.quotation_id = "Quotation is required";
+        if (!formData.owner_id) newErrors.owner_id = "Owner is required";
+        if (!formData.city.trim()) newErrors.city = "City is required";
+        if (!formData.state.trim()) newErrors.state = "State is required";
+        if (!formData.country.trim()) newErrors.country = "Country is required";
+        if (!formData.pincode.trim()) newErrors.pincode = "Pincode is required";
+
+        if (!formData.start_date) newErrors.start_date = "Start date is required";
+        if (!formData.end_date) newErrors.end_date = "End date is required";
+        else if (formData.start_date && formData.end_date < formData.start_date) {
+            newErrors.end_date = "End date cannot be before start date";
+        }
+
+        if (!formData.shift_start_time) newErrors.shift_start_time = "Shift start is required";
+        if (!formData.shift_end_time) newErrors.shift_end_time = "Shift end is required";
+        if (formData.grace_period_minutes === "" || formData.grace_period_minutes === undefined) {
+            newErrors.grace_period_minutes = "Grace period is required";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.quotation_id || !formData.owner_id) {
-            toast.error("Please select a quotation and an owner");
+
+        if (!validate()) {
+            toast.error("Please fill all required fields correctly");
             return;
         }
 
@@ -114,6 +183,9 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
             await quotationService.convertToProject(Number(quotation_id), {
                 ...payload,
                 owner_id: Number(payload.owner_id),
+                grace_period_minutes: Number(payload.grace_period_minutes),
+                latitude: payload.latitude === "" ? 0 : Number(payload.latitude),
+                longitude: payload.longitude === "" ? 0 : Number(payload.longitude),
             });
             toast.success("Quotation converted to project successfully!");
             onSuccess();
@@ -144,12 +216,13 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                     {/* Step 1: Selection */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Quotation</label>
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Quotation <span className="text-red-500">*</span></label>
                             <select
+                                name="quotation_id"
                                 required
                                 value={formData.quotation_id}
-                                onChange={(e) => setFormData({ ...formData, quotation_id: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all appearance-none"
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 bg-slate-50 border ${errors.quotation_id ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all appearance-none`}
                             >
                                 <option value="">Select an approved quotation</option>
                                 {quotations.map((q) => (
@@ -158,15 +231,17 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                                     </option>
                                 ))}
                             </select>
+                            {errors.quotation_id && <p className="text-[10px] text-red-500 mt-1">{errors.quotation_id}</p>}
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Project Owner (Client)</label>
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Project Owner (Client) <span className="text-red-500">*</span></label>
                             <select
+                                name="owner_id"
                                 required
                                 value={formData.owner_id}
-                                onChange={(e) => setFormData({ ...formData, owner_id: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all appearance-none"
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all appearance-none`}
                             >
                                 <option value="">Select project owner</option>
                                 {owners.map((o) => (
@@ -175,6 +250,7 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                                     </option>
                                 ))}
                             </select>
+                            {errors.owner_id && <p className="text-[10px] text-red-500 mt-1">{errors.owner_id}</p>}
                         </div>
                     </div>
 
@@ -187,8 +263,9 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Location Type</label>
                                 <select
+                                    name="location_type"
                                     value={formData.location_type}
-                                    onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
+                                    onChange={handleChange}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all appearance-none"
                                 >
                                     <option value="URBAN">Urban</option>
@@ -200,50 +277,58 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">City <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
+                                    name="city"
                                     required
                                     value={formData.city}
-                                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                    onChange={handleChange}
                                     placeholder="e.g. Pune"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.city ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.city && <p className="text-[10px] text-red-500 mt-1">{errors.city}</p>}
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">State</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">State <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     required
+                                    name="state"
                                     value={formData.state}
-                                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                    onChange={handleChange}
                                     placeholder="e.g. Maharashtra"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.state ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.state && <p className="text-[10px] text-red-500 mt-1">{errors.state}</p>}
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Country</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Country <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     required
+                                    name="country"
                                     value={formData.country}
-                                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.country ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.country && <p className="text-[10px] text-red-500 mt-1">{errors.country}</p>}
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pincode</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pincode <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
+                                    name="pincode"
                                     required
                                     value={formData.pincode}
-                                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                                    onChange={handleChange}
                                     placeholder="e.g. 411001"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.pincode ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.pincode && <p className="text-[10px] text-red-500 mt-1">{errors.pincode}</p>}
                             </div>
                         </div>
 
@@ -268,9 +353,10 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Latitude</label>
                                 <input
                                     type="number"
+                                    name="latitude"
                                     step="0.000001"
                                     value={formData.latitude}
-                                    onChange={(e) => setFormData({ ...formData, latitude: Number(e.target.value) })}
+                                    onChange={handleNumberChange}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
                                 />
                             </div>
@@ -278,9 +364,10 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Longitude</label>
                                 <input
                                     type="number"
+                                    name="longitude"
                                     step="0.000001"
                                     value={formData.longitude}
-                                    onChange={(e) => setFormData({ ...formData, longitude: Number(e.target.value) })}
+                                    onChange={handleNumberChange}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
                                 />
                             </div>
@@ -291,37 +378,70 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
 
                     {/* Step 3: Shift Information */}
                     <div className="space-y-4">
-                        <h3 className="text-xs font-bold text-violet-600 uppercase tracking-widest bg-violet-50 px-3 py-1.5 rounded-lg inline-block">Shift & Operations</h3>
+                        <h3 className="text-xs font-bold text-violet-600 uppercase tracking-widest bg-violet-50 px-3 py-1.5 rounded-lg inline-block">Schedule & Operations</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Date <span className="text-red-500">*</span></label>
+                                <input
+                                    type="date"
+                                    required
+                                    name="start_date"
+                                    value={formData.start_date}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.start_date ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all text-slate-700`}
+                                />
+                                {errors.start_date && <p className="text-[10px] text-red-500 mt-1">{errors.start_date}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">End Date <span className="text-red-500">*</span></label>
+                                <input
+                                    type="date"
+                                    required
+                                    name="end_date"
+                                    value={formData.end_date}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.end_date ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all text-slate-700`}
+                                />
+                                {errors.end_date && <p className="text-[10px] text-red-500 mt-1">{errors.end_date}</p>}
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Shift Start</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Shift Start <span className="text-red-500">*</span></label>
                                 <input
                                     type="time"
                                     required
+                                    name="shift_start_time"
                                     value={formData.shift_start_time}
-                                    onChange={(e) => setFormData({ ...formData, shift_start_time: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.shift_start_time ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.shift_start_time && <p className="text-[10px] text-red-500 mt-1">{errors.shift_start_time}</p>}
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Shift End</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Shift End <span className="text-red-500">*</span></label>
                                 <input
                                     type="time"
+                                    name="shift_end_time"
                                     required
                                     value={formData.shift_end_time}
-                                    onChange={(e) => setFormData({ ...formData, shift_end_time: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.shift_end_time ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.shift_end_time && <p className="text-[10px] text-red-500 mt-1">{errors.shift_end_time}</p>}
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Grace Period (Mins)</label>
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Grace Period (Mins) <span className="text-red-500">*</span></label>
                                 <input
                                     type="number"
+                                    name="grace_period_minutes"
                                     required
                                     value={formData.grace_period_minutes}
-                                    onChange={(e) => setFormData({ ...formData, grace_period_minutes: Number(e.target.value) })}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all"
+                                    onChange={handleNumberChange}
+                                    className={`w-full px-4 py-3 bg-slate-50 border ${errors.grace_period_minutes ? "border-red-500 focus:ring-red-200" : "border-slate-100 focus:ring-primary/10"} rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:bg-white transition-all`}
                                 />
+                                {errors.grace_period_minutes && <p className="text-[10px] text-red-500 mt-1">{errors.grace_period_minutes}</p>}
                             </div>
                         </div>
                     </div>

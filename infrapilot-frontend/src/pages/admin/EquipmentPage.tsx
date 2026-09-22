@@ -11,7 +11,7 @@ import StatCard from "../../components/common/StatCard";
 import Modal from "../../components/common/Modal";
 
 import {
-    Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, ShieldCheck, FileText, ArrowRightLeft, Link2, Wrench, History, QrCode
+    Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, ShieldCheck, FileText, ArrowRightLeft, Link2, Wrench, History, QrCode, Check, RefreshCcw
 } from "lucide-react";
 import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormModal";
 import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
@@ -37,6 +37,7 @@ const EquipmentPage = () => {
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCondition, setFilterCondition] = useState("All");
+    const [filterProject, setFilterProject] = useState("All");
     const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
     const [globalEquipment, setGlobalEquipment] = useState<any[]>([]);
     const [globalRentals, setGlobalRentals] = useState<any[]>([]);
@@ -49,18 +50,29 @@ const EquipmentPage = () => {
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
     const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
     const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
+    const [isRentalViewModalOpen, setIsRentalViewModalOpen] = useState(false);
+    const [rentalToView, setRentalToView] = useState<any>(null);
+    const [isRentalDeleteModalOpen, setIsRentalDeleteModalOpen] = useState(false);
+    const [rentalToDelete, setRentalToDelete] = useState<{ id: number, equipment_id: number } | null>(null);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [qrEquipmentCode, setQrEquipmentCode] = useState('');
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
     const [allocationStatus, setAllocationStatus] = useState({ allocated: false, project_id: null as number | null });
 
+    // Added Maintenance Table States
+    const [selectedEquipmentLogs, setSelectedEquipmentLogs] = useState<{ maint: any[], usage: any[] }>({ maint: [], usage: [] });
+    const [viewMaintenanceItem, setViewMaintenanceItem] = useState<any>(null);
+    const [isViewMaintenanceModalOpen, setIsViewMaintenanceModalOpen] = useState(false);
+    const [isMaintenanceDeleteModalOpen, setIsMaintenanceDeleteModalOpen] = useState(false);
+    const [maintenanceToDelete, setMaintenanceToDelete] = useState<{ id: number, equipment_id: number } | null>(null);
+
     const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
     const [boqsList, setBoqsList] = useState<any[]>([]);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [isViewMode, setIsViewMode] = useState(false);
     const [formData, setFormData] = useState<any>({});
-    const modalEquipmentList = equipmentList.filter(eq => !eq.project_id || eq.project_id === 0 || eq.id === formData?.equipment_id);
+    const modalEquipmentList = equipmentList; // Render all available equipment instead of filtering by Unassigned
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
 
@@ -76,7 +88,39 @@ const EquipmentPage = () => {
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
     const [availability, setAvailability] = useState<AvailabilityReport[]>([]);
     const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
+    const [costReport, setCostReport] = useState<any[]>([]);
     const [transferList, setTransferList] = useState<any[]>([]);
+
+    // Reports Pagination
+    const [utilizationPage, setUtilizationPage] = useState(1);
+    const [utilizationItemsPerPage, setUtilizationItemsPerPage] = useState(10);
+    const [costPage, setCostPage] = useState(1);
+    const [costItemsPerPage, setCostItemsPerPage] = useState(10);
+    const [usagePage, setUsagePage] = useState(1);
+    const [usageItemsPerPage, setUsageItemsPerPage] = useState(10);
+    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchaseItemsPerPage, setPurchaseItemsPerPage] = useState(10);
+    const [availabilityPage, setAvailabilityPage] = useState(1);
+    const [availabilityItemsPerPage, setAvailabilityItemsPerPage] = useState(10);
+
+    // Reports Filters
+    const [costDateFrom, setCostDateFrom] = useState("");
+    const [costDateTo, setCostDateTo] = useState("");
+    const [appliedCostDateFrom, setAppliedCostDateFrom] = useState("");
+    const [appliedCostDateTo, setAppliedCostDateTo] = useState("");
+
+    const [usageDateFrom, setUsageDateFrom] = useState("");
+    const [usageDateTo, setUsageDateTo] = useState("");
+    const [appliedUsageDateFrom, setAppliedUsageDateFrom] = useState("");
+    const [appliedUsageDateTo, setAppliedUsageDateTo] = useState("");
+
+    const [purchaseType, setPurchaseType] = useState("");
+    const [appliedPurchaseType, setAppliedPurchaseType] = useState("");
+
+    const [isAvailableFilter, setIsAvailableFilter] = useState("");
+    const [appliedIsAvailableFilter, setAppliedIsAvailableFilter] = useState("");
+
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // KPI Data
     const projectMap = useMemo(() => {
@@ -100,8 +144,8 @@ const EquipmentPage = () => {
                 const res = await equipmentService.getUsageReport(pIdObj);
                 setUsageReport(res);
             } else if (activeTab === "Maintenance") {
-                const res = await equipmentService.getMaintenanceAlerts(pIdObj);
-                setMaintenanceAlerts(res);
+                const res = await equipmentService.getAllMaintenance(pIdObj);
+                setAllMaintenance(res);
             } else if (activeTab === "Rental") {
                 const res = await equipmentService.listRental(undefined, pIdObj);
                 setRentalList(Array.isArray(res) ? res : (res as any).items || []);
@@ -109,16 +153,26 @@ const EquipmentPage = () => {
                 const res = await equipmentService.listPurchase(pIdObj);
                 setPurchaseList(Array.isArray(res) ? res : (res as any).items || []);
             } else if (activeTab === "Reports & Alerts") {
-                const [avail, util, eAlerts, purchaseRes] = await Promise.all([
-                    equipmentService.getAvailabilityReport(pIdObj),
-                    equipmentService.getUtilizationReport(pIdObj),
-                    equipmentService.getEquipmentAlerts(pIdObj),
-                    equipmentService.getPurchaseReport(pIdObj).catch(() => [])
+                const utilParams = { ...pIdObj };
+                const costParams = { ...pIdObj, start_date: appliedCostDateFrom || undefined, end_date: appliedCostDateTo || undefined };
+                const usageParams = { ...pIdObj, start_date: appliedUsageDateFrom || undefined, end_date: appliedUsageDateTo || undefined };
+                const purParams = { ...pIdObj, purchase_type: appliedPurchaseType || undefined };
+                const availParams = { ...pIdObj, is_available: appliedIsAvailableFilter === "" ? undefined : appliedIsAvailableFilter === "true" };
+
+                const [avail, util, eAlerts, purchaseRes, costRes, usageRes] = await Promise.all([
+                    equipmentService.getAvailabilityReport(availParams).catch(() => []),
+                    equipmentService.getUtilizationReport(utilParams).catch(() => []),
+                    equipmentService.getEquipmentAlerts(pIdObj).catch(() => []),
+                    equipmentService.getPurchaseReport(purParams).catch(() => []),
+                    equipmentService.getCostReport(costParams).catch(() => []),
+                    equipmentService.getUsageReport(usageParams).catch(() => [])
                 ]);
                 setAvailability(avail);
                 setUtilizationReport(util);
                 setEquipmentAlerts(eAlerts);
                 setPurchaseReport(purchaseRes || []);
+                setCostReport(costRes || []);
+                setUsageReport(usageRes || []);
             } else if (activeTab === "Transfer Equipment") {
                 const res = await equipmentService.listTransferHistory(pIdObj);
                 setTransferList(res);
@@ -128,7 +182,7 @@ const EquipmentPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, selectedProjectId]);
+    }, [activeTab, selectedProjectId, appliedCostDateFrom, appliedCostDateTo, appliedUsageDateFrom, appliedUsageDateTo, appliedPurchaseType, appliedIsAvailableFilter, refreshTrigger]);
 
     useEffect(() => {
         let isMounted = true;
@@ -204,6 +258,15 @@ const EquipmentPage = () => {
     }, [selectedProjectId, isRentalModalOpen, isUsageModalOpen, formData.project_id, formData.equipment_id, globalEquipment, equipmentList]);
 
     useEffect(() => {
+        if (!selectedEquipment) return;
+        if (activeTab === "Maintenance") {
+            equipmentService.listMaintenance(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, maint: res })));
+        } else if (activeTab === "Usage & Tracking") {
+            equipmentService.listUsage(selectedEquipment.id).then(res => setSelectedEquipmentLogs(prev => ({ ...prev, usage: res })));
+        }
+    }, [selectedEquipment, activeTab]);
+
+    useEffect(() => {
         let isMounted = true;
         const fetchBoqs = async () => {
             const missingBoqs = new Set<number>();
@@ -270,12 +333,19 @@ const EquipmentPage = () => {
                 return equipmentList.filter(item => {
                     const matchesSearch = (item.equipment_name || "").toLowerCase().includes(term) || (item.equipment_code || "").toLowerCase().includes(term);
                     const matchesCondition = filterCondition === "All" || (item.condition || "GOOD").toUpperCase() === filterCondition.toUpperCase();
-                    return matchesSearch && matchesCondition;
+                    const matchesProject = filterProject === "All" || String(item.project_id) === filterProject || (!item.project_id && filterProject === "Unassigned");
+                    return matchesSearch && matchesCondition && matchesProject;
                 });
             case "Usage & Tracking":
                 return usageReport.filter(u => (u.equipment_code || "").toLowerCase().includes(term));
             case "Maintenance":
-                return maintenanceAlerts.filter(m => (m.equipment_code || "").toLowerCase().includes(term));
+                console.log("[DEBUG] allMaintenance before filter:", allMaintenance);
+                const filtered = allMaintenance.filter(m => {
+                    const matchedName = String(equipmentMap[m.equipment_id] || m.equipment_id).toLowerCase();
+                    return matchedName.includes(term) || (m.description || "").toLowerCase().includes(term);
+                });
+                console.log("[DEBUG] filtered maintenance:", filtered);
+                return filtered;
             case "Rental":
                 return rentalList.filter(r => (r.equipment_code || r.client_name || "").toLowerCase().includes(term));
             case "Purchases":
@@ -296,12 +366,12 @@ const EquipmentPage = () => {
             default:
                 return [];
         }
-    }, [activeTab, searchTerm, filterCondition, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
+    }, [activeTab, searchTerm, filterCondition, filterProject, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
 
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     // Reset page
-    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, selectedProjectId]);
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, filterProject, selectedProjectId]);
 
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this equipment?")) return;
@@ -374,8 +444,42 @@ const EquipmentPage = () => {
             toast.success(formData.usage_id ? "Usage updated successfully!" : "Usage logged successfully!");
             setIsUsageModalOpen(false);
             fetchData();
+            if (activeTab === "Usage & Tracking" && selectedEquipment) {
+                equipmentService.listUsage(selectedEquipment.id).then((res: any) => setSelectedEquipmentLogs((prev: any) => ({ ...prev, usage: res })));
+            }
         } catch (error) {
             toast.error(formData.usage_id ? "Failed to update usage" : "Failed to log usage");
+        }
+    };
+
+    const openUsageEditModal = (log: any) => {
+        const eq = equipmentList.find(e => e.id === log.equipment_id) || globalEquipment.find(e => e.id === log.equipment_id);
+        if (eq) setSelectedEquipment(eq);
+        setFormData({
+            usage_id: log.id,
+            equipment_id: log.equipment_id,
+            working_hours: log.working_hours,
+            fuel_used: log.fuel_used,
+            usage_date: log.usage_date,
+            notes: log.notes || ''
+        });
+        setIsUsageModalOpen(true);
+    };
+
+    const handleUsageDelete = async (usageId: number) => {
+        if (!usageId) return;
+        setIsLoading(true);
+        try {
+            await equipmentService.deleteUsage(usageId);
+            toast.success('Usage entry deleted');
+            fetchData();
+            if (activeTab === "Usage & Tracking" && selectedEquipment) {
+                equipmentService.listUsage(selectedEquipment.id).then((res: any) => setSelectedEquipmentLogs((prev: any) => ({ ...prev, usage: res })));
+            }
+        } catch (err) {
+            toast.error('Failed to delete usage entry');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -406,8 +510,35 @@ const EquipmentPage = () => {
             }
             setIsMaintenanceModalOpen(false);
             fetchData();
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.detail || "Failed to save maintenance";
+            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+        }
+    };
+
+    const handleCompleteMaintenance = async (maint_id: number, equipment_id: number) => {
+        if (!confirm("Start to mark maintenance as completed?")) return;
+        try {
+            await equipmentService.completeMaintenance(equipment_id, maint_id);
+            toast.success("Maintenance marked as complete!");
+            fetchData();
         } catch (error) {
-            toast.error("Failed to save maintenance");
+            toast.error("Failed to complete maintenance");
+        }
+    };
+
+    const handleDeleteMaintenance = async () => {
+        if (maintenanceToDelete) {
+            try {
+                await equipmentService.deleteMaintenance(maintenanceToDelete.equipment_id, maintenanceToDelete.id);
+                toast.success("Maintenance deleted successfully");
+                fetchData();
+            } catch (err: any) {
+                toast.error("Failed to delete maintenance record");
+            } finally {
+                setIsMaintenanceDeleteModalOpen(false);
+                setMaintenanceToDelete(null);
+            }
         }
     };
 
@@ -438,6 +569,30 @@ const EquipmentPage = () => {
         } catch (error: any) {
             const errorMsg = error.response?.data?.detail || "Failed to add rental";
             toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+        }
+    };
+
+    const handleCompleteRental = async (rental_id: number, equipment_id: number) => {
+        try {
+            await equipmentService.completeRental(rental_id);
+            toast.success("Rental marked as completed successfully");
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to complete rental");
+        }
+    };
+
+    const handleDeleteRentalConfirm = async () => {
+        if (!rentalToDelete) return;
+        try {
+            await equipmentService.deleteRental(rentalToDelete.id);
+            toast.success("Rental record deleted");
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to delete rental");
+        } finally {
+            setIsRentalDeleteModalOpen(false);
+            setRentalToDelete(null);
         }
     };
 
@@ -544,61 +699,197 @@ const EquipmentPage = () => {
         </table>
     );
 
-    const renderUsage = () => (
-        <table className="w-full text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b sticky top-0 z-10">
-                <tr>
-                    <th className="px-6 py-4">Equipment Code</th>
-                    <th className="px-6 py-4">Total Hours</th>
-                    <th className="px-6 py-4">Avg Hours/Day</th>
-                    <th className="px-6 py-4">Total Fuel (L)</th>
-                    <th className="px-6 py-4">Entries</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 text-sm">
-                {isLoading ? (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading usage logs...</td></tr>
-                ) : pagedData.length > 0 ? pagedData.map((report: any) => (
-                    <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-primary">{report.equipment_code}</td>
-                        <td className="px-6 py-4 font-medium text-slate-700">{report.total_hours}</td>
-                        <td className="px-6 py-4 text-slate-600">{report.avg_hours?.toFixed(1) || "0.0"}</td>
-                        <td className="px-6 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
-                        <td className="px-6 py-4 text-slate-500">{report.usage_count}</td>
-                    </tr>
-                )) : (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No usage reports found</td></tr>
-                )}
-            </tbody>
-        </table>
-    );
+    const renderUsage = () => {
+        const totalHrs = currentListData.reduce((sum, r) => sum + (r.total_hours || 0), 0);
+        const totalFuel = currentListData.reduce((sum, r) => sum + (r.total_fuel || 0), 0);
+        const totalCount = currentListData.reduce((sum, r) => sum + (r.usage_count || 0), 0);
+
+        return (
+            <div className="space-y-6 p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">Usage Analytics</h2>
+                        <p className="text-sm text-slate-500">Track equipment activity, fuel consumption, and recent log details.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button onClick={() => fetchData()} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-all">
+                            <RefreshCcw className="w-4 h-4" /> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                        { title: "Total Hours Logged", value: totalHrs.toString(), sub: "Across all equipment", accent: "text-blue-500" },
+                        { title: "Total Fuel Consumed", value: `${totalFuel} L`, sub: "Across all equipment", accent: "text-orange-500" },
+                        { title: "Usage Entries", value: totalCount.toString(), sub: "Total log records", accent: "text-emerald-500" }
+                    ].map((stat) => (
+                        <div key={stat.title} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400 mb-3">{stat.title}</p>
+                            <p className={`text-2xl font-bold ${stat.accent}`}>{stat.value}</p>
+                            <p className="text-xs text-slate-500 mt-2">{stat.sub}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.9fr] gap-6">
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50">
+                            <h3 className="font-bold text-sm text-slate-800">Usage Report Summary</h3>
+                        </div>
+                        <div className="overflow-auto max-h-[500px]">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-white sticky top-0 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                    <tr>
+                                        <th className="px-4 py-3">Equipment</th>
+                                        <th className="px-4 py-3">Hours</th>
+                                        <th className="px-4 py-3">Fuel (L)</th>
+                                        <th className="px-4 py-3">Entries</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {isLoading ? (
+                                        <tr><td colSpan={4} className="p-8 text-center text-slate-400">Loading usage report...</td></tr>
+                                    ) : currentListData.length > 0 ? currentListData.map((report: any) => {
+                                        const equipment = equipmentList.find(eq => eq.id === report.equipment_id) || globalEquipment.find(eq => eq.id === report.equipment_id);
+                                        return (
+                                            <tr key={report.equipment_id} onClick={() => equipment && setSelectedEquipment(equipment)} className={`cursor-pointer hover:bg-slate-50 transition-colors ${selectedEquipment?.id === report.equipment_id ? 'bg-slate-100' : ''}`}>
+                                                <td className="px-4 py-4 font-semibold text-slate-800">{equipment?.equipment_name || report.equipment_code}</td>
+                                                <td className="px-4 py-4 text-slate-700">{report.total_hours != null ? Number(report.total_hours).toFixed(1) : '-'}</td>
+                                                <td className="px-4 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
+                                                <td className="px-4 py-4 text-slate-500">{report.usage_count}</td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr><td colSpan={4} className="p-10 text-center text-slate-400">No usage reports found</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50">
+                            <h3 className="font-bold text-sm text-slate-800">Logs {selectedEquipment ? `— ${selectedEquipment.equipment_code}` : "(Select equipment)"}</h3>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 space-y-4 max-h-[500px]">
+                            {selectedEquipmentLogs.usage && selectedEquipmentLogs.usage.length > 0 ? selectedEquipmentLogs.usage.map((log: any) => (
+                                <div key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                    <div className="flex items-center justify-between gap-4 mb-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800">{log.usage_date}</p>
+                                            <p className="text-xs text-slate-500">{log.notes || 'No notes added'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button type="button" onClick={() => openUsageEditModal(log)} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:text-primary hover:border-primary transition">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button type="button" onClick={() => handleUsageDelete(log.id)} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:text-rose-600 hover:border-rose-200 transition">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Fuel</p>
+                                        <span className="rounded-2xl bg-slate-100 px-3 py-1 text-sm font-bold text-slate-800">{log.fuel_used} L</span>
+                                        <span className="rounded-2xl bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">{log.working_hours} hrs</span>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="text-center text-slate-400 text-sm mt-10">Select equipment to view logs</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     const renderMaintenance = () => (
         <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b sticky top-0 z-10">
                 <tr>
-                    <th className="px-6 py-4">Equipment Code</th>
+                    <th className="px-6 py-4">Project</th>
+                    <th className="px-6 py-4">BOQ Item</th>
+                    <th className="px-6 py-4">Equipment</th>
                     <th className="px-6 py-4">Maintenance Date</th>
-                    <th className="px-6 py-4">Days remaining</th>
+                    <th className="px-6 py-4">Cost</th>
+                    <th className="px-6 py-4">Next Maintenance Date</th>
+                    <th className="px-6 py-4">Created / Completed</th>
                     <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading maintenance schedule...</td></tr>
-                ) : pagedData.length > 0 ? pagedData.map((alert: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
-                        <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
-                        <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                {alert.status}
-                            </span>
-                        </td>
-                    </tr>
-                )) : (
-                    <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-medium">No maintenance alerts</td></tr>
+                    <tr><td colSpan={9} className="p-10 text-center text-slate-400">Loading maintenance operations...</td></tr>
+                ) : pagedData.length > 0 ? pagedData.map((log: any, idx: number) => {
+                    const eqName = equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || equipmentMap[log.equipment_id] || log.equipment_code || `Asset ${log.equipment_id}`;
+                    const isCompleted = log.status === 'COMPLETED' || log.is_completed || !!log.completed_at;
+
+                    const projectName = log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || (projects.find(p => p.id === log.project_id) as any)?.name || `Project #${log.project_id}`) : '-';
+                    const boqName = log.boq_item_id ? (log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name || boqsList.find(b => Number(b.id) === Number(log.boq_item_id))?.item_name || `BOQ Item #${log.boq_item_id}`) : '-';
+
+                    let safeMaintDate = "—";
+                    if (log.maintenance_date) safeMaintDate = log.maintenance_date;
+                    else if (log.created_at) {
+                        try {
+                            safeMaintDate = new Date(log.created_at).toISOString().split("T")[0];
+                        } catch (e) { safeMaintDate = "—"; }
+                    }
+
+                    return (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">{projectName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{boqName}</td>
+                            <td className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">{eqName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-slate-700">{safeMaintDate}</td>
+                            <td className="px-6 py-4 font-bold text-emerald-600">₹{(log.cost || 0).toLocaleString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-slate-700">{log.next_maintenance_date || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] text-slate-500">Created: {log.created_at ? new Date(log.created_at).toLocaleDateString() : '-'}</span>
+                                    <span className="text-[10px] text-slate-500">Completed: {log.completed_at ? new Date(log.completed_at).toLocaleDateString() : '-'}</span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {log.status || (isCompleted ? 'COMPLETED' : 'PENDING')}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-1">
+                                    <button onClick={async () => {
+                                        try {
+                                            const detailedItem = await equipmentService.getMaintenance(log.equipment_id, log.id);
+                                            setViewMaintenanceItem(detailedItem);
+                                            setIsViewMaintenanceModalOpen(true);
+                                        } catch (e) {
+                                            toast.error("Failed to load details");
+                                        }
+                                    }} className="p-1.5 text-slate-400 hover:text-indigo-500 rounded hover:bg-slate-50 transition-colors" title="View Details">
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+                                    {!isCompleted && (
+                                        <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id)} className="p-1.5 rounded text-emerald-500 hover:text-white hover:bg-emerald-500" title="Complete Maintenance">
+                                            <Check className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setSelectedEquipment(equipmentList.find(e => e.id === log.equipment_id) || globalEquipment.find(e => e.id === log.equipment_id) || null); setFormData({ ...log, equipment_id: log.equipment_id, maintenance_id: log.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => {
+                                        setMaintenanceToDelete({ id: log.id, equipment_id: log.equipment_id });
+                                        setIsMaintenanceDeleteModalOpen(true);
+                                    }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    );
+                }) : (
+                    <tr><td colSpan={9} className="p-10 text-center text-slate-400 font-medium">No maintenance records found</td></tr>
                 )}
             </tbody>
         </table>
@@ -619,6 +910,7 @@ const EquipmentPage = () => {
                         <th className="px-6 py-4">Total Cost</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4">Notes</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-sm">
@@ -643,6 +935,29 @@ const EquipmentPage = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-slate-500 truncate max-w-[150px]" title={report.notes || ""}>{report.notes || "—"}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <button onClick={async () => {
+                                            const rentalDetails = await equipmentService.getRental(report.id);
+                                            setRentalToView(rentalDetails);
+                                            setIsRentalViewModalOpen(true);
+                                        }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
+                                            <Eye className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleCompleteRental(report.id, report.equipment_id)} disabled={report.status === 'COMPLETED'} className={`p-1.5 rounded ${report.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
+                                            <Check className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => { setFormData({ ...report, rental_id: report.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => {
+                                            setRentalToDelete({ id: report.id, equipment_id: report.equipment_id });
+                                            setIsRentalDeleteModalOpen(true);
+                                        }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         )
                     }) : (
@@ -741,9 +1056,15 @@ const EquipmentPage = () => {
         </div>
     );
 
-    const renderReports = () => (
-        <div className="space-y-6 pt-2">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    const renderReports = () => {
+        const paginatedUtilization = utilizationReport.slice((utilizationPage - 1) * utilizationItemsPerPage, utilizationPage * utilizationItemsPerPage);
+        const paginatedCost = costReport.slice((costPage - 1) * costItemsPerPage, costPage * costItemsPerPage);
+        const paginatedUsage = usageReport.slice((usagePage - 1) * usageItemsPerPage, usagePage * usageItemsPerPage);
+        const paginatedPurchase = purchaseReport.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
+        const paginatedAvailability = availability.slice((availabilityPage - 1) * availabilityItemsPerPage, availabilityPage * availabilityItemsPerPage);
+
+        return (
+            <div className="space-y-6 pt-2">
                 {/* Equipment Alerts */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -773,82 +1094,229 @@ const EquipmentPage = () => {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-primary" /> <h3 className="font-bold text-sm text-slate-800">Utilization Rate</h3>
-                        </div>
-                        <div className="p-4 space-y-4 max-h-[170px] overflow-auto">
-                            {utilizationReport.length > 0 ? utilizationReport.map(r => (
-                                <div key={r.equipment_id}>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-bold text-slate-700">{r.equipment_code}</span>
-                                        <span className="font-medium text-slate-500">{r.total_hours} hrs ({r.utilization_rate}%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2">
-                                        <div className={`h-2 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <p className="text-xs text-slate-400 text-center">No utilization data.</p>
-                            )}
+                {/* Utilization Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Utilization Report</h3>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Utilization Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUtilization.length > 0 ? paginatedUtilization.map((r: any) => (
+                                    <tr key={r.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === r.equipment_id)?.equipment_name || r.equipment_code}</td>
+                                        <td className="p-4">{r.total_hours} hrs</td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${r.utilization_rate > 75 ? 'bg-rose-500' : r.utilization_rate > 30 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, r.utilization_rate)}%` }}></div></div>
+                                                <span>{r.utilization_rate}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No utilization data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={utilizationReport.length}
+                        currentPage={utilizationPage}
+                        pageSize={utilizationItemsPerPage}
+                        onPageChange={setUtilizationPage}
+                        label="Utilization Metrics"
+                    />
+                </div>
+
+                {/* Cost Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Cost Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={costDateFrom} onChange={e => setCostDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={costDateTo} onChange={e => setCostDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="End Date" />
+                            <button onClick={() => { setAppliedCostDateFrom(costDateFrom); setAppliedCostDateTo(costDateTo); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
                     </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Cost</th>
+                                    <th className="p-4">Rentals</th>
+                                    <th className="p-4">Avg Cost</th>
+                                    <th className="p-4">Total Days</th>
+                                    <th className="p-4">Rev/Day</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedCost.length > 0 ? paginatedCost.map((c: any) => (
+                                    <tr key={c.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === c.equipment_id)?.equipment_name || c.equipment_code}</td>
+                                        <td className="p-4 text-emerald-600 font-medium">₹{c.total_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.rental_count}</td>
+                                        <td className="p-4">₹{c.avg_cost?.toLocaleString()}</td>
+                                        <td className="p-4">{c.total_days}</td>
+                                        <td className="p-4">₹{c.revenue_per_day?.toLocaleString()}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No cost data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={costReport.length}
+                        currentPage={costPage}
+                        pageSize={costItemsPerPage}
+                        onPageChange={setCostPage}
+                        label="Records"
+                    />
+                </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-emerald-500" /> <h3 className="font-bold text-sm text-slate-800">Availability Map</h3>
-                        </div>
-                        <div className="overflow-auto max-h-[170px]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-white sticky top-0 font-bold text-slate-400 text-[10px] uppercase">
-                                    <tr><th className="p-3">Code</th><th className="p-3">Status</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {availability.length > 0 ? availability.map(a => (
-                                        <tr key={a.equipment_id} className="hover:bg-slate-50">
-                                            <td className="p-3 font-bold text-slate-700">{a.equipment_code}</td>
-                                            <td className="p-3">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${a.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                    {a.is_available ? 'Available' : 'Allocated'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan={2} className="p-3 text-center text-xs text-slate-400">No availability data.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
+                {/* Usage Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Usage Report</h3>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={usageDateFrom} onChange={e => setUsageDateFrom(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="Start Date" />
+                            <span className="text-xs text-slate-500">to</span>
+                            <input type="date" value={usageDateTo} onChange={e => setUsageDateTo(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200" title="End Date" />
+                            <button onClick={() => { setAppliedUsageDateFrom(usageDateFrom); setAppliedUsageDateTo(usageDateTo); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
                     </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Total Hrs</th>
+                                    <th className="p-4">Total Fuel</th>
+                                    <th className="p-4">Avg Hrs</th>
+                                    <th className="p-4">Entries</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedUsage.length > 0 ? paginatedUsage.map((u: any) => (
+                                    <tr key={u.equipment_id} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{equipmentList.find(e => e.id === u.equipment_id)?.equipment_name || u.equipment_code}</td>
+                                        <td className="p-4">{u.total_hours}</td>
+                                        <td className="p-4">{u.total_fuel}</td>
+                                        <td className="p-4">{u.avg_hours?.toFixed(1)}</td>
+                                        <td className="p-4">{u.usage_count}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No usage data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={usageReport.length}
+                        currentPage={usagePage}
+                        pageSize={usageItemsPerPage}
+                        onPageChange={setUsagePage}
+                        label="Usage Records"
+                    />
                 </div>
-            </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-purple-500" /> <h3 className="font-bold text-sm text-slate-800">Purchase Analytics</h3>
+                {/* Purchase Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Purchase Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={purchaseType} onChange={e => setPurchaseType(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200">
+                                <option value="">All Types</option>
+                                <option value="NEW">NEW</option>
+                                <option value="USED">USED</option>
+                            </select>
+                            <button onClick={() => { setAppliedPurchaseType(purchaseType); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
+                        </div>
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Purchase Count</th>
+                                    <th className="p-4 text-center">Quantity</th>
+                                    <th className="p-4">Cost</th>
+                                    <th className="p-4">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{p.asset_name}</td>
+                                        <td className="p-4">{p.purchase_count}</td>
+                                        <td className="p-4 text-center">{p.total_quantity}</td>
+                                        <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
+                                        <td className="p-4">{p.purchase_type}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No purchase data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={purchaseReport.length}
+                        currentPage={purchasePage}
+                        pageSize={purchaseItemsPerPage}
+                        onPageChange={setPurchasePage}
+                        label="Purchase Analytics"
+                    />
                 </div>
-                <div className="p-6">
-                    {purchaseReport.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {purchaseReport.map((p, idx) => (
-                                <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{p.category || 'General Equipment'}</p>
-                                    <p className="text-2xl font-bold text-slate-800 mb-1">₹{p.total_cost?.toLocaleString() || '0'}</p>
-                                    <p className="text-xs text-slate-500 font-medium">{p.purchase_count || 0} Assets Purchased</p>
-                                </div>
-                            ))}
+
+                {/* Availability Report */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-800">Availability Report</h3>
+                        <div className="flex items-center gap-2">
+                            <select value={isAvailableFilter} onChange={e => setIsAvailableFilter(e.target.value)} className="border border-slate-200 rounded-lg text-xs px-2 py-1 outline-none focus:border-primary border-slate-200">
+                                <option value="">All</option>
+                                <option value="true">Available</option>
+                                <option value="false">Not Available</option>
+                            </select>
+                            <button onClick={() => { setAppliedIsAvailableFilter(isAvailableFilter); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                            <FileText className="w-8 h-8 mb-2 opacity-20" />
-                            <p className="text-sm font-medium">No purchase data available</p>
-                        </div>
-                    )}
+                    </div>
+                    <div className="overflow-auto max-h-[300px]">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase z-10">
+                                <tr>
+                                    <th className="p-4">Equipment</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Project</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedAvailability.length > 0 ? paginatedAvailability.map((a: any, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-bold text-slate-700">{a.equipment_name || a.equipment_code}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                {a.is_available ? "true" : "false"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">{a.project_id ? (projectMap[a.project_id] || a.project_id) : '-'}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No availability data</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        totalItems={availability.length}
+                        currentPage={availabilityPage}
+                        pageSize={availabilityItemsPerPage}
+                        onPageChange={setAvailabilityPage}
+                        label="Registries"
+                    />
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const exportExcel = async () => {
         try {
@@ -961,23 +1429,39 @@ const EquipmentPage = () => {
                 {/* Main Content Pane */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex w-full md:max-w-md items-center gap-3 flex-1">
+                        <div className="flex w-full lg:max-w-2xl items-center gap-3 flex-1">
                             <div className="relative flex-1 min-w-[200px]">
                                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input type="text" placeholder={`Search in ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
                             {activeTab === "Equipment List" && (
-                                <select
-                                    value={filterCondition}
-                                    onChange={(e) => setFilterCondition(e.target.value)}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm"
-                                >
-                                    <option value="All">Condition: All</option>
-                                    <option value="Good">Good</option>
-                                    <option value="Repair">Repair</option>
-                                    <option value="Damaged">Damaged</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                </select>
+                                <div className="flex gap-2 shrink-0">
+
+                                    <select
+                                        value={filterCondition}
+                                        onChange={(e) => setFilterCondition(e.target.value)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm"
+                                    >
+                                        <option value="All">Condition: All</option>
+                                        <option value="Good">Good</option>
+                                        <option value="Repair">Repair</option>
+                                        <option value="Damaged">Damaged</option>
+                                        <option value="Maintenance">Maintenance</option>
+                                    </select>
+                                    <select
+                                        value={filterProject}
+                                        onChange={(e) => setFilterProject(e.target.value)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-bold text-slate-600 shadow-sm max-w-[200px]"
+                                    >
+                                        <option value="All">Project: All</option>
+                                        <option value="Unassigned">Unassigned</option>
+                                        {assignedProjects.map(p => (
+                                            <option key={p.id} value={String(p.id)} title={p.project_name || (p as any).name}>
+                                                {((p.project_name || (p as any).name) || "").length > 20 ? ((p.project_name || (p as any).name) || "").substring(0, 20) + "..." : (p.project_name || (p as any).name)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             )}
                         </div>
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
@@ -1039,9 +1523,7 @@ const EquipmentPage = () => {
                     try {
                         await equipmentService.transferEquipment({
                             equipment_id: Number(data.equipment_id),
-                            to_project_id: Number(data.to_project_id),
-                            transfer_date: data.transfer_date,
-                            condition_notes: data.reason
+                            to_project_id: Number(data.to_project_id)
                         });
                         toast.success("Equipment successfully transferred!");
                         setIsTransferModalOpen(false);
@@ -1070,11 +1552,11 @@ const EquipmentPage = () => {
                 <div className="p-6 font-inter">
                     <form onSubmit={handleAllocate} className="space-y-5">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">EQUIPMENT NAME *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-rose-500">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={formData.project_id || ''}
@@ -1088,7 +1570,7 @@ const EquipmentPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">ALLOCATION STATUS *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-rose-500">*</span></label>
                             <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
                                 <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
                                 <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
@@ -1114,14 +1596,14 @@ const EquipmentPage = () => {
             <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveUsage} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
@@ -1134,7 +1616,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
                             value={formData.boq_item_id || ''}
                             onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })}
@@ -1148,20 +1630,20 @@ const EquipmentPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Working Hours *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Working Hours <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Fuel Used (L) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Usage Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Usage Date <span className="text-rose-500">*</span></label>
                         <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Notes</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -1175,18 +1657,18 @@ const EquipmentPage = () => {
             <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title="Schedule Maintenance" maxWidth="max-w-md">
                 <form onSubmit={handleSaveMaintenance} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DESCRIPTION *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
@@ -1199,7 +1681,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
                             value={formData.boq_item_id || ''}
                             onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })}
@@ -1213,17 +1695,17 @@ const EquipmentPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAINTENANCE DATE *</label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-rose-500">*</span></label>
+                            <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">COST (₹) *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">COST (₹) <span className="text-rose-500">*</span></label>
                             <input type="number" min="0" required value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NEXT MAINTENANCE DATE</label>
-                        <input type="date" value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE <span className="text-rose-500">*</span></label>
+                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                         <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
@@ -1232,41 +1714,46 @@ const EquipmentPage = () => {
                 </form>
             </Modal>
 
-            {/* 7. Add Rental */}
-            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title="Add Rental Record" maxWidth="max-w-md">
+            {/* 7. Add/Update Rental */}
+            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title={formData.rental_id ? "Update Rental" : "Add Rental Record"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">EQUIPMENT *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose equipment --</option>
                             {globalEquipment.filter(eq => {
                                 if (Number(eq.id) === Number(formData.equipment_id)) return true;
                                 const isRented = globalRentals.some((r: any) => Number(r.equipment_id) === Number(eq.id) && r.status !== 'CANCELLED' && r.status !== 'COMPLETED');
                                 const isInMaintenance = globalMaintenance.some((m: any) => Number(m.equipment_id) === Number(eq.id) && m.status !== 'COMPLETED');
-                                return !isRented && !isInMaintenance && (!eq.project_id);
-                            }).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
+                                // Removing the (!eq.project_id) strict check so users can rent equipment even if allocated.
+                                return !isRented && !isInMaintenance;
+                            }).map(eq => (
+                                <option key={eq.id} value={eq.id}>
+                                    {eq.equipment_name} ({eq.equipment_code}) {eq.project_id ? `[Allocated]` : '[Global]'}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">START DATE *</label>
-                            <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">START DATE <span className="text-rose-500">*</span></label>
+                            <input type="date" required value={formData.start_date || ''} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">END DATE *</label>
-                            <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">END DATE <span className="text-rose-500">*</span></label>
+                            <input type="date" required value={formData.end_date || ''} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RENTAL COST (₹) *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-rose-500">*</span></label>
                         <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CLIENT NAME *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">CLIENT NAME <span className="text-rose-500">*</span></label>
                         <input type="text" required value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
                         <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : '', boq_item_id: '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Select Project --</option>
                             {projects.map(p => (
@@ -1275,7 +1762,7 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ ITEM (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ Item --</option>
                             {boqsList
@@ -1286,14 +1773,101 @@ const EquipmentPage = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NOTES</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">NOTES</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                         <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Add Rental</button>
+                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Save Rental</button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Rental View Modal */}
+            <Modal isOpen={isRentalViewModalOpen} onClose={() => setIsRentalViewModalOpen(false)} title="Rental Details" maxWidth="max-w-xl">
+                {rentalToView && (
+                    <div className="p-6 font-inter">
+                        <div className={`rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden ${rentalToView.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-500'}`}>
+                            <div className="relative z-10">
+                                <div className="flex flex-col mb-1">
+                                    <h3 className="text-2xl font-bold tracking-tight">{equipmentList.find(e => e.id === rentalToView.equipment_id)?.equipment_name || `Equipment ID: ${rentalToView.equipment_id}`}</h3>
+                                    <p className="text-sm opacity-90 mt-1">Client: {rentalToView.client_name || 'N/A'}</p>
+                                </div>
+                                <span className="inline-block px-2.5 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest mt-2">
+                                    Status: {rentalToView.status || 'COMPLETED'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
+                            <div className="col-span-2">
+                                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</p>
+                                <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{rentalToView.notes || 'No notes provided.'}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => setIsRentalViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                            <button onClick={() => { setIsRentalViewModalOpen(false); setFormData({ ...rentalToView, rental_id: rentalToView.id, equipment_id: rentalToView.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-500/20">Edit Details</button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Delete Rental Modal */}
+            <Modal isOpen={isRentalDeleteModalOpen} onClose={() => setIsRentalDeleteModalOpen(false)} title="Delete Rental Record" maxWidth="max-w-md">
+                <div className="p-6">
+                    <p className="text-slate-600 mb-6 font-medium">Are you sure you want to delete this rental record? This action cannot be undone.</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={() => setIsRentalDeleteModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button onClick={handleDeleteRentalConfirm} className="px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 transition-colors">Delete</button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* View Maintenance Modal */}
+            <Modal isOpen={isViewMaintenanceModalOpen} onClose={() => setIsViewMaintenanceModalOpen(false)} title="Maintenance Details" maxWidth="max-w-md">
+                <div className="p-6 font-inter bg-slate-50">
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4 space-y-3 text-sm">
+                        {viewMaintenanceItem ? (
+                            <>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Status</span><span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${viewMaintenanceItem.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{viewMaintenanceItem.is_completed ? 'COMPLETED' : 'PENDING'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Project</span><span className="font-bold text-slate-800">{projects.find(p => p.id === viewMaintenanceItem.project_id)?.project_name || (projects.find(p => p.id === viewMaintenanceItem.project_id) as any)?.name || viewMaintenanceItem.project_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">BOQ Item</span><span className="font-bold text-slate-800">{boqsList.find(b => b.id === viewMaintenanceItem.boq_item_id)?.item_name || viewMaintenanceItem.boq_item_name || '-'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Equipment</span><span className="font-bold text-slate-800">{equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_name || viewMaintenanceItem.equipment_name || `ID: ${viewMaintenanceItem.equipment_id}`}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Maintenance Date</span><span className="font-bold text-slate-800">{viewMaintenanceItem.maintenance_date}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Cost</span><span className="font-bold text-indigo-600">₹{viewMaintenanceItem.cost?.toLocaleString() || '0'}</span></div>
+                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Next Maintenance</span><span className="font-bold text-slate-800">{viewMaintenanceItem.next_maintenance_date || 'Not set'}</span></div>
+                                <div><span className="text-slate-500 font-medium block mb-2">Description</span><p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-xs">{viewMaintenanceItem.description || 'No description provided.'}</p></div>
+                                <div className="text-xs text-slate-400 mt-5 text-center">
+                                    <p>Created: {viewMaintenanceItem.created_at ? new Date(viewMaintenanceItem.created_at).toLocaleString() : 'N/A'}</p>
+                                    <p>Completed: {viewMaintenanceItem.completed_at ? new Date(viewMaintenanceItem.completed_at).toLocaleString() : 'N/A'}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center text-slate-400 py-4">Loading details...</div>
+                        )}
+                    </div>
+                    <button onClick={() => setIsViewMaintenanceModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                </div>
+            </Modal>
+
+            {/* Delete Maintenance Modal */}
+            <Modal isOpen={isMaintenanceDeleteModalOpen} onClose={() => setIsMaintenanceDeleteModalOpen(false)} title="Delete Maintenance Record" maxWidth="max-w-md">
+                <div className="p-6">
+                    <p className="text-slate-600 mb-6 font-medium">Are you sure you want to delete this maintenance record? This action cannot be undone.</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={() => setIsMaintenanceDeleteModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button onClick={handleDeleteMaintenance} className="px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 transition-colors">Delete</button>
+                    </div>
+                </div>
             </Modal>
 
             {/* 8. Audit Logs Modal */}

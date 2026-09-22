@@ -38,12 +38,14 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
             setAttachmentFile(null);
 
             if (request.project_id) {
-                projectService.getProjectMembers(request.project_id)
-                    .then(res => {
-                        const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
-                        setProjectMembers(membersList);
-                    })
-                    .catch(err => console.error("Failed to fetch project members:", err));
+                import('../../../services/labourService').then(({ labourService }) => {
+                    labourService.getLabours(request.project_id, { limit: 100 })
+                        .then((res: any) => {
+                            const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                            setProjectMembers(membersList);
+                        })
+                        .catch(err => console.error("Failed to fetch project members:", err));
+                });
             }
         }
     }, [request, isOpen]);
@@ -72,6 +74,12 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
         e.preventDefault();
         if (!request) return;
 
+        if (!formData.title?.trim()) { toast.error("Title is required"); return; }
+        if (!formData.category) { toast.error("Category is required"); return; }
+        if (!formData.priority) { toast.error("Priority is required"); return; }
+        if (!formData.status) { toast.error("Status is required"); return; }
+        if (!formData.assigned_to) { toast.error("Assigning a user is required"); return; }
+
         setIsSubmitting(true);
         try {
             const payload = { ...formData };
@@ -93,7 +101,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
 
     if (!isOpen || !request) return null;
 
-    const labelClasses = "block text-sm font-medium text-gray-600 mb-1";
+    const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium";
 
     const modalFooter = (
@@ -112,60 +120,49 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                 className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
             >
                 {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                Save changes
+                Edit Task Request
             </button>
         </div>
     );
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
             title="Edit Task Request"
             footer={modalFooter}
         >
-            <form id="edit-task-request-form" onSubmit={handleSubmit} className="space-y-6">
-                
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <label className={labelClasses}>
-                            Title <span className="text-rose-500">*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            name="title"
-                            value={formData.title}
-                            onChange={handleChange}
-                            className={inputClasses}
-                            placeholder="Enter title"
-                            required
-                        />
-                    </div>
+            <form id="edit-task-request-form" onSubmit={handleSubmit} className="space-y-6 font-inter">
 
-                    <div className="space-y-1">
-                        <label className={labelClasses}>
-                            Description
-                        </label>
-                        <textarea 
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={3}
-                            className={`${inputClasses} resize-none`}
-                            placeholder="Enter description"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
+                {/* Basic Information */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Basic Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="md:col-span-2">
                             <label className={labelClasses}>
-                                Category
+                                Title <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <input
+                                type="text"
+                                name="title"
+                                value={formData.title}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder="Enter title"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                Category <span className="text-rose-500">*</span>
+                            </label>
+                            <select
                                 name="category"
                                 value={formData.category}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select category</option>
                                 <option value="Civil">Civil</option>
@@ -178,15 +175,16 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                             </select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div>
                             <label className={labelClasses}>
-                                Priority
+                                Priority <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <select
                                 name="priority"
                                 value={formData.priority}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select priority</option>
                                 <option value="LOW">LOW</option>
@@ -195,18 +193,17 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 <option value="CRITICAL">CRITICAL</option>
                             </select>
                         </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
+                        <div>
                             <label className={labelClasses}>
-                                Status
+                                Status <span className="text-rose-500">*</span>
                             </label>
-                            <select 
+                            <select
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
                                 className={inputClasses}
+                                required
                             >
                                 <option value="" disabled>Select status</option>
                                 <option value="PENDING">PENDING</option>
@@ -220,57 +217,75 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 <option value="CANCELLED">CANCELLED</option>
                             </select>
                         </div>
+                    </div>
+                </div>
 
-                        <div className="space-y-1">
+                {/* Additional Details */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Additional Details</h3>
+                    <div className="grid grid-cols-1 gap-5">
+                        <div>
                             <label className={labelClasses}>
-                                Assigned To
+                                Description
                             </label>
-                            <select 
-                                name="assigned_to"
-                                value={formData.assigned_to || ""}
+                            <textarea
+                                name="description"
+                                value={formData.description}
                                 onChange={handleChange}
-                                className={inputClasses}
-                            >
-                                <option value="" disabled>Select User</option>
-                                <option value="0">Unassigned</option>
-                                {projectMembers.map(m => (
-                                    <option key={m.id || m.user_id} value={m.user_id || m.id}>
-                                        {m.full_name || m.name || `User ${m.user_id || m.id}`}
-                                    </option>
-                                ))}
-                            </select>
+                                rows={3}
+                                className={`${inputClasses} resize-none`}
+                                placeholder="Enter description"
+                            />
                         </div>
-                    </div>
 
-                    <div className="space-y-1">
-                        <label className={labelClasses}>
-                            Attachment
-                        </label>
-                        <input 
-                            type="file" 
-                            name="attachment"
-                            onChange={handleFileChange}
-                            className={`${inputClasses} cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20`}
-                        />
-                        {request.attachment_url && !attachmentFile && (
-                            <p className="text-xs text-primary mt-1 truncate">
-                                Current: <a href={request.attachment_url} target="_blank" rel="noreferrer" className="underline hover:text-blue-600">{request.attachment_url}</a>
-                            </p>
-                        )}
-                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className={labelClasses}>
+                                    Assigned To <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    name="assigned_to"
+                                    value={formData.assigned_to || ""}
+                                    onChange={handleChange}
+                                    className={inputClasses}
+                                    required
+                                >
+                                    <option value="" disabled>Select User</option>
+                                    <option value="0">Unassigned</option>
+                                    {projectMembers.map(m => (
+                                        <option key={m.id || m.user_id} value={m.user_id || m.id}>
+                                            {m.labour_name || m.full_name || m.name || `User ${m.user_id || m.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                    <div className="flex items-center gap-2 pt-2">
-                        <input 
-                            type="checkbox" 
-                            id="is_deleted"
-                            name="is_deleted"
-                            checked={formData.is_deleted}
-                            onChange={handleChange}
-                            className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                        />
-                        <label htmlFor="is_deleted" className="text-sm font-medium text-gray-600 cursor-pointer">
-                            Mark as Deleted
-                        </label>
+                            <div>
+                                <label className={labelClasses}>
+                                    Attachment
+                                </label>
+                                <input
+                                    type="file"
+                                    name="attachment"
+                                    onChange={handleFileChange}
+                                    className={`${inputClasses} cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                            <input
+                                type="checkbox"
+                                id="is_deleted"
+                                name="is_deleted"
+                                checked={formData.is_deleted}
+                                onChange={handleChange}
+                                className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                            />
+                            <label htmlFor="is_deleted" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                                Mark as Deleted
+                            </label>
+                        </div>
                     </div>
                 </div>
 

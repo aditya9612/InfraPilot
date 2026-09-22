@@ -243,8 +243,7 @@ const TaskManagementPage = () => {
 
     const [projectMilestones, setProjectMilestones] = useState<any[]>([]);
     const [projectBoqs, setProjectBoqs] = useState<any[]>([]);
-    const [projectActivities, setProjectActivities] = useState<any[]>([]);
-
+    const [, setProjectActivities] = useState<any[]>([]);
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
@@ -252,7 +251,7 @@ const TaskManagementPage = () => {
     const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
     useEffect(() => {
-        userService.getAllUsers(1000).then((res: any) => {
+        userService.getAllUsers(100).then((res: any) => {
             const users = Array.isArray(res) ? res : (res.items || res.data || []);
             const map: Record<number, string> = {};
             users.forEach((u: any) => { map[u.id || u.user_id] = u.full_name || u.name || u.username });
@@ -316,6 +315,7 @@ const TaskManagementPage = () => {
     const [selectedProgressTask, setSelectedProgressTask] = useState<FrontendTask | null>(null);
     const [progressPercentage, setProgressPercentage] = useState(0);
     const [progressRemark, setProgressRemark] = useState("");
+    const [progressErrors, setProgressErrors] = useState<Record<string, string>>({});
 
     // Image Viewer Modal State
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -466,10 +466,10 @@ const TaskManagementPage = () => {
                 fetchedProjects = results[5];
             }
 
-            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
-            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
-            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
-            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+            const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || fetchedMembers.members || []);
+            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || (fetchedMilestones as any).milestones || []);
+            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || (fetchedBoqs as any).boqs || (fetchedBoqs as any).boq_items || []);
+            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || (fetchedActivities as any).activities || []);
             const projectsList = fetchedProjects ? (Array.isArray(fetchedProjects) ? fetchedProjects : (fetchedProjects.items || fetchedProjects.data || [])) : [];
 
             setProjectMilestones(milestonesList);
@@ -532,11 +532,11 @@ const TaskManagementPage = () => {
                     }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
                     : [];
 
-                const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
-                const milestoneName = milestone ? milestone.name : "None";
+                const milestone = milestonesList.find((m: any) => String(m.id || m.milestone_id) === String((t as any).milestone_id));
+                const milestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : "None";
 
-                const boq = boqsList.find((b: any) => b.id === (t as any).boq_id);
-                const boqName = boq ? boq.name : "None";
+                const boq = boqsList.find((b: any) => String(b.id || b.boq_id) === String((t as any).boq_id));
+                const boqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : "None";
 
                 return {
                     ...t,
@@ -697,13 +697,13 @@ const TaskManagementPage = () => {
                     projectService.getMilestones(targetProjId as number).catch(() => []),
                     boqService.getBoqItems(targetProjId as number).catch(() => [])
                 ]);
-                const m = Array.isArray(resM) ? resM : (resM.items || resM.data || []);
+                const m = Array.isArray(resM) ? resM : ((resM as any).items || (resM as any).data || []);
                 if (m.length > 0) setProjectMembers(m);
 
-                const ms = Array.isArray(resMilestone) ? resMilestone : (resMilestone.items || resMilestone.data || []);
+                const ms = Array.isArray(resMilestone) ? resMilestone : ((resMilestone as any).items || (resMilestone as any).data || []);
                 if (ms.length > 0) setProjectMilestones(ms);
 
-                const bs = Array.isArray(resBoq) ? resBoq : (resBoq.items || resBoq.data || []);
+                const bs = Array.isArray(resBoq) ? resBoq : ((resBoq as any).items || (resBoq as any).data || []);
                 if (bs.length > 0) setProjectBoqs(bs);
             } catch (e) {
                 console.error("Failed to load project details for edit modal", e);
@@ -713,7 +713,7 @@ const TaskManagementPage = () => {
         // Fetch global activity types
         try {
             const types = await masterService.getEntities("activity-types");
-            setEditModalActivities(Array.isArray(types) ? types : types.items || types.data || []);
+            setEditModalActivities(Array.isArray(types) ? types : (types as any).items || (types as any).data || []);
         } catch (err) {
             console.error(err);
             setEditModalActivities([]);
@@ -888,7 +888,7 @@ const TaskManagementPage = () => {
                 } as FrontendTask;
             });
 
-            const sortedMapped = mapped.sort((a, b) => (b.id || 0) - (a.id || 0));
+            const sortedMapped = mapped.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
             setProjectTasksMap(prev => ({ ...prev, [projId]: sortedMapped }));
         } catch (error) {
             console.error('Error fetching project tasks for', projId, error);
@@ -905,9 +905,43 @@ const TaskManagementPage = () => {
         try {
             const pid = task.project_id || (projectId === ('all' as any) ? 0 : projectId);
             const fetchedTask = await projectService.getTask(pid as number, task.id || (task as any).task_id);
+
+            const mId = fetchedTask.milestone_id || (task as any).milestone_id;
+            const bId = fetchedTask.boq_id || (task as any).boq_id;
+
+            const milestone = mId && projectMilestones ? projectMilestones.find((m: any) => String(m.id || m.milestone_id) === String(mId)) : null;
+            let updatedMilestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : null;
+            if (!updatedMilestoneName) {
+                if (mId) {
+                    try {
+                        const mData = await projectService.getMilestone(pid as number, mId);
+                        updatedMilestoneName = mData ? (mData.name || mData.title || mData.milestone_name) : null;
+                    } catch (e) { }
+                }
+                if (!updatedMilestoneName) {
+                    updatedMilestoneName = (task.milestoneName && task.milestoneName !== "None") ? task.milestoneName : (mId ? `Milestone #${mId}` : "None");
+                }
+            }
+
+            const boq = bId && projectBoqs ? projectBoqs.find((b: any) => String(b.id || b.boq_id) === String(bId)) : null;
+            let updatedBoqName = boq ? (boq.item_name || boq.name || boq.item_description || `BOQ Item #${boq.id || boq.boq_id}`) : null;
+            if (!updatedBoqName) {
+                if (bId) {
+                    try {
+                        const bData = await boqService.getBoqById(bId);
+                        updatedBoqName = bData ? (bData.item_name || (bData as any).name || bData.description) : null;
+                    } catch (e) { }
+                }
+                if (!updatedBoqName) {
+                    updatedBoqName = (task.boqName && task.boqName !== "None") ? task.boqName : (bId ? `BOQ #${bId}` : "None");
+                }
+            }
+
             setSelectedTask({
                 ...task,
                 ...fetchedTask,
+                milestoneName: updatedMilestoneName,
+                boqName: updatedBoqName,
                 priority: task.priority
             });
             setModalTab("Details");
@@ -960,6 +994,17 @@ const TaskManagementPage = () => {
     const handleUpdateProgress = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProgressTask || (!projectId && projectId !== ('all' as any))) return;
+
+        const newErrors: Record<string, string> = {};
+        if (!progressRemark.trim()) newErrors.remark = "Remarks are required.";
+
+        if (Object.keys(newErrors).length > 0) {
+            setProgressErrors(newErrors);
+            toast.error("Please fill in all required fields.");
+            return;
+        }
+
+        setProgressErrors({});
 
         const pid = selectedProgressTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
 
@@ -1518,7 +1563,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Start / End</th>
+
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
@@ -1573,12 +1618,7 @@ const TaskManagementPage = () => {
                                                                 <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'NA'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
-                                                            </div>
-                                                        </td>
+
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName && task.creatorName !== '[object Object]' ? task.creatorName : 'NA'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length && task.assignedNames.some(n => n && n !== '[object Object]') ? task.assignedNames.filter(n => n && n !== '[object Object]').join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
@@ -2215,14 +2255,7 @@ const TaskManagementPage = () => {
 
                                     <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Execution & Delays</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
-                                        </div>
+
                                         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                             <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
                                             <p className="text-sm font-bold text-slate-800">{(selectedTask as any).execution_duration || 0} days</p>
@@ -2465,7 +2498,7 @@ const TaskManagementPage = () => {
                                 <select
                                     name="project_id"
                                     defaultValue={selectedEditTask?.project_id || projectId || 1}
-                                    onChange={(e) => {
+                                    onChange={() => {
                                         // Do nothing for activities since they are global, but keep the standard onchange logic if we add project-specific things later
                                     }}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
@@ -2781,7 +2814,7 @@ const TaskManagementPage = () => {
                 onConfirm={executeDeleteTask}
                 title="Discard Task Entry"
                 message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history."
-                confirmText="Archive Record"
+                confirmText="Delete"
                 type="danger"
                 isLoading={isSubmitting}
             /> */}
@@ -2829,7 +2862,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handleUpdateProgress}
-                            disabled={!progressRemark.trim()}
+
                             className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                         >
                             Save Progress
@@ -2840,7 +2873,7 @@ const TaskManagementPage = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">
-                            Completion Percentage: {progressPercentage}%
+                            Completion Percentage: {progressPercentage}% <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="range"
@@ -2860,14 +2893,20 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">
+                            Remarks <span className="text-rose-500">*</span>
+                        </label>
                         <textarea
                             value={progressRemark}
-                            onChange={(e) => setProgressRemark(e.target.value)}
+                            onChange={(e) => {
+                                setProgressRemark(e.target.value);
+                                if (e.target.value.trim()) setProgressErrors({});
+                            }}
                             placeholder="e.g. 10 percent remaining"
                             rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
+                            className={`w-full px-4 py-2.5 bg-white border ${progressErrors.remark ? 'border-rose-300 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
                         />
+                        {progressErrors.remark && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{progressErrors.remark}</p>}
                     </div>
                 </div>
             </Modal>

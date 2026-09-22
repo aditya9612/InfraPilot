@@ -3,15 +3,14 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import toast from "react-hot-toast";
 import {
-  Plus,
+
   Calendar,
   AlertCircle,
   Search,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  Edit2,
-  Trash2
+  Edit2
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
@@ -23,16 +22,26 @@ import { useProject } from "../../../context/ProjectContext";
 // Modular Components
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
 import EditDailyEntryModal from "../../../components/WorkProgress/EditDailyEntryModal";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 
 
-const statusBadge: Record<string, string> = {
-  "On Track": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
-  "ON_TRACK": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
-  "ON TRACK": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
-  "Delay": "bg-rose-50 text-rose-600 border-rose-100 shadow-rose-50",
-  "Completed": "bg-blue-50 text-blue-600 border-blue-100 shadow-blue-50",
-  "Not Started": "bg-slate-50 text-slate-500 border-slate-100 shadow-slate-50"
+
+const formatDateObj = (dateObj: any) => {
+  if (!dateObj) return "-";
+  const d = new Date(dateObj);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const formatDateTimeObj = (dateObj: any) => {
+  if (!dateObj) return "-";
+  const d = new Date(dateObj);
+  if (isNaN(d.getTime())) return "-";
+  const dateStr = formatDateObj(dateObj);
+  const timeStr = d.toLocaleTimeString('en-US'); 
+  return `${dateStr}, ${timeStr}`;
 };
 
 const DailyProgressEntryPage = () => {
@@ -88,9 +97,7 @@ const DailyProgressEntryPage = () => {
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isEditEntryModalOpen, setIsEditEntryModalOpen] = useState(false);
-  const [isDeleteEntryModalOpen, setIsDeleteEntryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
-  const [deleteEntryId, setDeleteEntryId] = useState<number | null>(null);
 
 
   const loadActivities = useCallback(async () => {
@@ -157,7 +164,8 @@ const DailyProgressEntryPage = () => {
         : Number(selectedActivityId);
       const res = await workProgressService.getActivityHistory(activityId, projectId);
       const rawHistory = res?.history || res?.data || (Array.isArray(res) ? res : []);
-      
+
+
       const normalizedHistory = rawHistory.map((item: any) => ({
         ...item,
         activity_id: item.activity_id || activityId,
@@ -168,7 +176,7 @@ const DailyProgressEntryPage = () => {
           total_completed: item.running_total || item.total_completed || 0
         }
       }));
-      
+
       setActivityHistory(normalizedHistory);
       setHasLoadedHistory(true);
     } catch (err) {
@@ -231,8 +239,9 @@ const DailyProgressEntryPage = () => {
       loadActivities();
       if (activeTab === 'today') loadTodayProgress();
       else loadAllEntries();
-    } catch (err) {
-      toast.error("Failed to log progress");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to log progress";
+      toast.error(detail);
     }
   };
 
@@ -244,22 +253,9 @@ const DailyProgressEntryPage = () => {
       loadActivities();
       if (activeTab === 'today') loadTodayProgress();
       else loadAllEntries();
-    } catch (err) {
-      toast.error("Failed to update daily entry");
-    }
-  };
-
-  const handleDeleteEntrySubmit = async () => {
-    if (!deleteEntryId) return;
-    try {
-      await workProgressService.deleteDailyEntry(deleteEntryId);
-      toast.success("Daily entry deleted successfully!");
-      setIsDeleteEntryModalOpen(false);
-      loadActivities();
-      if (activeTab === 'today') loadTodayProgress();
-      else loadAllEntries();
-    } catch (err) {
-      toast.error("Failed to delete daily entry");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Failed to update daily entry";
+      toast.error(detail);
     }
   };
 
@@ -341,8 +337,8 @@ const DailyProgressEntryPage = () => {
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
     return baseHistoryEntries.filter(e => {
-      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
-      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      if (activeStatFilter === "Progress Updates") return Number(e.today_progress || e.new_value?.today_progress || 0) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.status && e.old_status && e.status !== e.old_status) || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
       return true;
     });
   }, [baseHistoryEntries, activeStatFilter]);
@@ -449,8 +445,7 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'history') {
       cards = [
         { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
-        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
-        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.today_progress || e.new_value?.today_progress || 0) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" }
       ];
     } else if (activeTab === 'delay') {
       cards = [
@@ -464,7 +459,7 @@ const DailyProgressEntryPage = () => {
     if (cards.length === 0) return null;
 
     return (
-      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-6 mb-8 font-inter`}>
+      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'md:grid-cols-4' : cards.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6 mb-8 font-inter`}>
         {cards.map(c => (
           <div
             key={c.label}
@@ -508,7 +503,6 @@ const DailyProgressEntryPage = () => {
                 onClick={() => setIsLogModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
               >
-                <Plus className="w-4 h-4" />
                 Add Daily Progress
               </button>
             )}
@@ -556,7 +550,7 @@ const DailyProgressEntryPage = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
             {activeTab !== 'summary' && (
-              <div className="p-4 border-b border-slate-50 flex flex-row items-center gap-4 bg-white font-inter flex-nowrap overflow-x-auto overflow-y-hidden scrollbar-none w-full">
+              <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
 
                 {/* 1. Search Box */}
                 <div className="relative flex-1 min-w-[200px] max-w-md font-inter shrink-0">
@@ -617,7 +611,7 @@ const DailyProgressEntryPage = () => {
                 )}
 
                 {/* 5. Status Filter */}
-                {(activeTab === 'all' || activeTab === 'history') && (
+                {activeTab === 'all' && (
                   <div className="flex items-center gap-2 font-inter shrink-0">
                     <select
                       value={statusFilter}
@@ -735,13 +729,13 @@ const DailyProgressEntryPage = () => {
                                 {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">
-                                {currentActivity?.start_date ? new Date(currentActivity.start_date).toLocaleDateString() : "-"}
+                                {e.entry_date ? formatDateObj(e.entry_date) : "-"}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks || (e as any).remark || (e as any).notes}>{e.remarks || (e as any).remark || (e as any).notes || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? formatDateTimeObj(e.created_at) : "-"}</td>
                               {activeTab === 'all' && (
                                 <td className="px-6 py-6 font-inter">
                                   <div className="flex items-center justify-end gap-2">
@@ -751,13 +745,6 @@ const DailyProgressEntryPage = () => {
                                       title="Edit Entry"
                                     >
                                       <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => { setDeleteEntryId(e.id); setIsDeleteEntryModalOpen(true); }}
-                                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                      title="Delete Entry"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
                                 </td>
@@ -779,7 +766,7 @@ const DailyProgressEntryPage = () => {
 
                   {/* â”€â”€ Pagination for Today's Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                   {!loading && (activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length) > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                    <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                       {/* Left: Items per page */}
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -801,7 +788,7 @@ const DailyProgressEntryPage = () => {
                       </div>
 
                       {/* Right: Pagination */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap justify-center items-center gap-1.5">
                         <button
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
@@ -867,10 +854,9 @@ const DailyProgressEntryPage = () => {
                         <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Date & Time</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Total Completed</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Action Type</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Remaining Quantity</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
@@ -879,16 +865,11 @@ const DailyProgressEntryPage = () => {
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
-                                {e.created_at ? new Date(e.created_at).toLocaleString() : e.entry_date || "-"}
+                                {e.created_at ? formatDateTimeObj(e.created_at) : (e.entry_date ? formatDateObj(e.entry_date) : "-")}
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
                                 {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
-                              </td>
-                              <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
-                                  {e.new_value?.status || "DELAY"}
-                                </span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
@@ -901,14 +882,14 @@ const DailyProgressEntryPage = () => {
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
                                 {e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
                               </td>
-                              <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
-                                {e.action || "DAILY_PROGRESS_UPDATE"}
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
+                                {Math.max(0, (currentActivity?.planned_quantity || 0) - (e.new_value?.total_completed || 0))} {currentActivity?.unit || ""}
                               </td>
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={6} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                            <td colSpan={5} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
                               No history records found for the selected filters.
                             </td>
                           </tr>
@@ -941,7 +922,7 @@ const DailyProgressEntryPage = () => {
                       </div>
 
                       {/* Right: Pagination */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap justify-center items-center gap-1.5">
                         <button
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
@@ -1012,7 +993,6 @@ const DailyProgressEntryPage = () => {
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Remaining</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Start Date</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">End Date</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Reported On</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
@@ -1036,12 +1016,11 @@ const DailyProgressEntryPage = () => {
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.start_date || "-"}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.end_date || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleDateString() : "-"}</td>
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={8} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                            <td colSpan={7} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
                               No delayed activities found.
                             </td>
                           </tr>
@@ -1052,7 +1031,7 @@ const DailyProgressEntryPage = () => {
 
                   {/* ── Pagination for Delay Logs ─────────────────────────────── */}
                   {delayActivities.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                    <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                       {/* Left: Items per page */}
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1074,7 +1053,7 @@ const DailyProgressEntryPage = () => {
                       </div>
 
                       {/* Right: Pagination */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap justify-center items-center gap-1.5">
                         <button
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
@@ -1150,16 +1129,6 @@ const DailyProgressEntryPage = () => {
         onClose={() => setIsEditEntryModalOpen(false)}
         onSubmit={handleEditEntrySubmit}
         entry={selectedEntry}
-      />
-
-      <ConfirmModal
-        isOpen={isDeleteEntryModalOpen}
-        onClose={() => setIsDeleteEntryModalOpen(false)}
-        onConfirm={handleDeleteEntrySubmit}
-        title="Delete Daily Entry"
-        message="Are you sure you want to delete this daily progress entry? This action cannot be undone."
-        confirmText="Delete"
-        type="danger"
       />
     </>
   );

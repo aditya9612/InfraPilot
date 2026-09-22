@@ -37,7 +37,7 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
         </table>
       </div>
       {data.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -56,45 +56,6 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
   );
 };
 
-// --- RESOLUTION HELPERS ---
-const resolveUsefulLife = (a: any) => {
-  if (a.useful_life !== undefined && a.useful_life !== null && Number(a.useful_life) > 0) {
-    return `${a.useful_life} Years`;
-  }
-  if (a.useful_life_years && Number(a.useful_life_years) > 0) {
-    return `${a.useful_life_years} Years`;
-  }
-  if (a.life_years && Number(a.life_years) > 0) {
-    return `${a.life_years} Years`;
-  }
-  const rate = Number(a.depreciation_rate || 0);
-  if (rate > 0) {
-    return `${Math.round(100 / rate)} Years`;
-  }
-  return "10 Years";
-};
-
-const resolveMethod = (a: any) => {
-  return a.depreciation_method || a.method || a.depreciation_type || "SLM";
-};
-
-const resolveSalvageValue = (a: any) => {
-  if (a.salvage_value !== undefined && a.salvage_value !== null && Number(a.salvage_value) > 0) {
-    return `₹${Number(a.salvage_value).toLocaleString("en-IN")}`;
-  }
-  if (a.residual_value !== undefined && a.residual_value !== null && Number(a.residual_value) > 0) {
-    return `₹${Number(a.residual_value).toLocaleString("en-IN")}`;
-  }
-  if (a.scrap_value !== undefined && a.scrap_value !== null && Number(a.scrap_value) > 0) {
-    return `₹${Number(a.scrap_value).toLocaleString("en-IN")}`;
-  }
-  const cost = Number(a.purchase_value || a.cost || 0);
-  if (cost > 0) {
-    return `₹${Math.round(cost * 0.05).toLocaleString("en-IN")}`;
-  }
-  return "₹0";
-};
-
 // --- SECTIONS ---
 
 const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) => {
@@ -103,13 +64,19 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
     purchase_value: 0,
     purchase_date: new Date().toISOString().split("T")[0],
     depreciation_rate: 10,
-    useful_life: 10,
-    depreciation_method: "SLM",
-    salvage_value: 0,
     project_id: 0
   });
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
 
   useEffect(() => {
     if (isOpen) {
@@ -129,25 +96,39 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
       const pVal = Number(value) || 0;
       setFormData(prev => ({
         ...prev,
-        purchase_value: pVal,
-        salvage_value: Math.round(pVal * 0.05)
+        purchase_value: pVal
       }));
     } else if (name === "depreciation_rate") {
       const dRate = Number(value) || 0;
       setFormData(prev => ({
         ...prev,
-        depreciation_rate: dRate,
-        useful_life: dRate > 0 ? Math.round(100 / dRate) : 10
+        depreciation_rate: dRate
       }));
     } else {
-      const val = name === "project_id" || name === "useful_life" || name === "salvage_value" ? Number(value) : value;
+      const val = name === "project_id" ? Number(value) : value;
       setFormData(prev => ({ ...prev, [name]: val }));
+    }
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return toast.error("Asset name is required");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.name) newErrors.name = "Asset name is required";
+    if (formData.purchase_value <= 0) newErrors.purchase_value = "Valid purchase value is required";
+    if (!formData.purchase_date) newErrors.purchase_date = "Purchase date is required";
+    if (formData.depreciation_rate <= 0) newErrors.depreciation_rate = "Valid depreciation rate is required";
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setLoading(true);
     try {
       await accountingService.createAsset(formData);
@@ -170,7 +151,7 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
       footer={
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Create Asset"}</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Asset"}</button>
         </>
       }
     >
@@ -182,44 +163,34 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name *</label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Asset name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Name <span className="text-rose-500">*</span></label>
+              <input type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="Asset name" className={inputClasses(errors.name)} />
+              {errors.name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.name}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value *</label>
-              <input type="number" name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Value <span className="text-rose-500">*</span></label>
+              <input type="number" required name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className={inputClasses(errors.purchase_value)} />
+              {errors.purchase_value && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.purchase_value}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label>
-              <input type="date" name="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Date <span className="text-rose-500">*</span></label>
+              <input type="date" required name="purchase_date" value={formData.purchase_date} onChange={handleChange} className={inputClasses(errors.purchase_date)} />
+              {errors.purchase_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.purchase_date}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label>
-              <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Depreciation Rate (%) <span className="text-rose-500">*</span></label>
+              <input type="number" required name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className={inputClasses(errors.depreciation_rate)} />
+              {errors.depreciation_rate && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.depreciation_rate}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years)</label>
-              <input type="number" name="useful_life" value={formData.useful_life || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Method</label>
-              <select name="depreciation_method" value={formData.depreciation_method} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                <option value="SLM">Straight Line Method (SLM)</option>
-                <option value="WDV">Written Down Value (WDV)</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹)</label>
-              <input type="number" name="salvage_value" value={formData.salvage_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project ID *</label>
-              <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project ID <span className="text-rose-500">*</span></label>
+              <select name="project_id" required value={formData.project_id || ""} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 <option value="" disabled>Select Project</option>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
             </div>
           </div>
         </div>
@@ -306,8 +277,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   const [assets, setAssets] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filterProject, setFilterProject] = useState("");
-  const [filterPurchaseDate, setFilterPurchaseDate] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState({ project: "", purchaseDate: "" });
+  const [filterPurchaseDate, setFilterPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
 
   const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }];
 
@@ -331,8 +301,10 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   }, [activeSubTab]);
 
   const filteredAssets = assets.filter(a => {
-    if (appliedFilters.project && String(a.project_id) !== String(appliedFilters.project)) return false;
-    if (appliedFilters.purchaseDate && a.purchase_date !== appliedFilters.purchaseDate) return false;
+    if (filterProject) {
+      if (String(a.project_id) !== String(filterProject)) return false;
+    }
+    if (filterPurchaseDate && a.purchase_date && !String(a.purchase_date).startsWith(filterPurchaseDate)) return false;
     return true;
   });
 
@@ -358,25 +330,19 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
               <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center">🔍</span>
               <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Filter By:</span>
             </div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option value="">All</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>Active</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" value={filterPurchaseDate} onChange={(e) => setFilterPurchaseDate(e.target.value)} className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
-            <button onClick={() => setAppliedFilters({ project: filterProject, purchaseDate: filterPurchaseDate })} className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5 hover:bg-slate-700 transition-colors">Apply</button>
           </div>
           <PaginatedTableSection 
             title="Asset List" 
-            columns={["Asset ID", "Name", "Category", "Purchase Value", "Purchase Date", "Current Value", "Project / Location", "Status", "Action"]} 
+            columns={["Asset ID", "Name", "Purchase Value", "Purchase Date", "Current Value", "Project / Location", "Action"]} 
             data={filteredAssets.length > 0 ? filteredAssets.map(a => [
               a.asset_id || `AST-${a.id}`,
               a.name || a.asset_name || "N/A",
-              a.category || a.asset_type || "General",
               `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
               a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
               `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              a.project_name || a.location || a.site_location || "Head Office",
-              a.status || "Active",
+              a.project_name || a.location || a.site_location || "-",
               <div key={a.id} className="flex gap-2">
                 <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
                 <button title="QR Code" onClick={async () => {
@@ -397,7 +363,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
                   }
                 }} className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><QrCode size={14}/></button>
               </div>
-            ]) : [["No assets found.", "", "", "", "", "", "", "", ""]]} 
+            ]) : [["No assets found.", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
@@ -419,15 +385,8 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   );
 };
 
-const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "monthly");
+const DepreciationWrapper = () => {
   const [assets, setAssets] = useState<any[]>([]);
-  const tabs = [
-    { key: "setup", label: "Depreciation Setup", icon: "⚙️" },
-    { key: "monthly", label: "Monthly Depreciation", icon: "📅" },
-    { key: "annual", label: "Annual Depreciation", icon: "🗓️" },
-    { key: "history", label: "Depreciation History", icon: "⏳" }
-  ];
 
   const fetchAssets = async () => {
     try {
@@ -444,103 +403,39 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-
-      {activeSubTab === "setup" && <PaginatedTableSection title="Depreciation Methods Configured" columns={["Asset Category", "Method", "Rate (%)", "Status"]} data={[["Vehicles", "SLM", "15", "Active"], ["Machinery", "WDV", "20", "Active"]]} />}
-
-      {activeSubTab === "monthly" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-slate-800">Monthly Depreciation Processing</h3>
-              <p className="text-xs text-slate-500 mt-1">Review and process depreciation for current month</p>
-            </div>
-            <button onClick={() => toast.success("Depreciation Journal Entries Created!")} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-700">Process & Auto Journal Entry</button>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-bold text-slate-800 mb-4">Auto Journal Entry Preview</h3>
-            <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-600 max-w-2xl">
-              <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Depreciation Expense A/c</span><span>Dr</span><span>₹1,25,000</span></div>
-              <div className="flex justify-between pl-8"><span>To Accumulated Depreciation A/c</span><span>Cr</span><span>₹1,25,000</span></div>
-            </div>
-          </div>
-          <PaginatedTableSection
-            title="Monthly Depreciation Schedule"
-            columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
-            data={assets.length > 0 ? assets.map(a => [
-              a.name || a.asset_name || "N/A",
-              `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              `${a.depreciation_rate || 10}% (${resolveMethod(a)})`,
-              `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`,
-              `₹${Math.round(((Number(a.current_value || a.purchase_value || 0)) * (Number(a.depreciation_rate || 10))) / 100 / 12).toLocaleString("en-IN")}`,
-              <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); } catch (e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
-            ]) : [["No assets found.", "", "", "", "", ""]]}
-          />
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center">
+        <div>
+          <h3 className="font-bold text-slate-800">Depreciation Processing</h3>
+          <p className="text-xs text-slate-500 mt-1">Review and process depreciation for assets</p>
         </div>
-      )}
-
-      {activeSubTab === "annual" && <PaginatedTableSection title="Annual Depreciation Summary" columns={["Financial Year", "Total Gross Block", "Depreciation Claimed", "Net Block"]} data={[["2023-24", "₹4,50,00,000", "₹45,20,000", "₹4,04,80,000"]]} />}
-      {activeSubTab === "history" && <PaginatedTableSection title="Depreciation Entry History" columns={["Date", "Journal No", "Amount", "Period", "Status"]} data={[["2024-10-31", "JE-DEP-010", "₹1,25,000", "October 2024", "Posted"]]} />}
+      </div>
+      <PaginatedTableSection
+        title="Depreciation Schedule"
+        columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Depreciation Amount", "Action"]}
+        data={assets.length > 0 ? assets.map(a => [
+          a.name || a.asset_name || "N/A",
+          `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
+          `${a.depreciation_rate || 10}%`,
+          `₹${Number(a.current_value || a.purchase_value || 0).toLocaleString("en-IN")}`,
+          `₹${Math.round(((Number(a.current_value || a.purchase_value || 0)) * (Number(a.depreciation_rate || 10))) / 100 / 12).toLocaleString("en-IN")}`,
+          <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); fetchAssets(); } catch (e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
+        ]) : [["No assets found.", "", "", "", "", ""]]}
+      />
     </div>
   );
 };
 
-const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "schedule");
-  const tabs = [
-    { key: "schedule", label: "Maintenance Schedule", icon: "📅" },
-    { key: "history", label: "Service History", icon: "⏳" },
-    { key: "cost", label: "Repair Cost", icon: "💸" },
-    { key: "amc", label: "AMC Tracking", icon: "🛡️" }
-  ];
 
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-
-      {activeSubTab === "schedule" && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-1 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5">Log Maintenance</h3>
-              <div className="space-y-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>CAT 320 Excavator</option></select></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Vendor</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Maintenance Cost (₹) *</label><input type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Next Service Date</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="e.g. Engine overhaul" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <button onClick={() => toast.success("Maintenance logged!")} className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Log Service</button>
-              </div>
-            </div>
-          </div>
-          <div className="xl:col-span-2">
-            <PaginatedTableSection title="Upcoming Maintenance" columns={["Asset", "Due Date", "Service Type", "Status"]} data={[["Concrete Mixer 2", "2024-12-02", "Oil change", "Pending"]]} />
-          </div>
-        </div>
-      )}
-
-      {activeSubTab === "history" && <PaginatedTableSection title="Service History Log" columns={["Date", "Asset", "Vendor", "Cost", "Next Due", "Remarks"]} data={[["2024-10-15", "CAT 320 Excavator", "ABC Heavy Machinery Repair", "₹45,000", "2025-04-15", "Routine servicing"]]} />}
-      {activeSubTab === "cost" && <PaginatedTableSection title="Repair Cost Analysis" columns={["Asset Category", "YTD Maintenance Cost", "Avg Cost/Asset"]} data={[["Construction Machinery", "₹1,20,000", "₹24,000"], ["Vehicles", "₹45,000", "₹15,000"]]} />}
-      {activeSubTab === "amc" && <PaginatedTableSection title="AMC Tracking" columns={["Vendor", "Asset Covered", "AMC Start", "AMC End", "Amount"]} data={[["Reliable IT Services", "Office Computers (x20)", "2024-01-01", "2024-12-31", "₹50,000"]]} />}
-    </div>
-  );
-};
 
 
 
 
 // --- MAIN PAGE ---
-type TabKey = "assets" | "depreciation" | "maintenance";
+type TabKey = "assets" | "depreciation";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "assets", label: "Assets" },
   { key: "depreciation", label: "Depreciation" },
-  { key: "maintenance", label: "Maintenance" },
 ];
 
 const FixedAssetsPage = () => {
@@ -556,7 +451,6 @@ const FixedAssetsPage = () => {
     const map: Record<string, TabKey> = {
       "assets": "assets",
       "depreciation": "depreciation",
-      "maintenance": "maintenance",
     };
     return map[currentSub || ""] || "assets";
   };
@@ -583,11 +477,6 @@ const FixedAssetsPage = () => {
       subtitle: "Calculate and manage asset depreciation.",
       actions: null,
     },
-    maintenance: {
-      title: "Maintenance",
-      subtitle: "Log and track asset maintenance activities.",
-      actions: null,
-    },
   };
 
   const currentConfig = TAB_CONFIG[activeTab];
@@ -599,7 +488,7 @@ const FixedAssetsPage = () => {
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
         {/* ── Section Header ─────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>
@@ -626,7 +515,6 @@ const FixedAssetsPage = () => {
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "assets" && <AssetRegisterWrapper />}
         {activeTab === "depreciation" && <DepreciationWrapper />}
-        {activeTab === "maintenance" && <AssetMaintenanceWrapper />}
       </PageTransition>
     </>
   );

@@ -17,11 +17,11 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Building,
   CheckCircle,
   XCircle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -38,6 +38,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import EditInvoiceItemModal from "../../components/forms/EditInvoiceItemModal";
 import ImportEstimateModal from "../../components/forms/ImportEstimateModal";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
@@ -66,7 +67,7 @@ const CreateInvoicePage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewLoading] = useState(false);
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
@@ -86,22 +87,7 @@ const CreateInvoicePage = () => {
   const [pendingConversionType, setPendingConversionType] = useState<"bill" | "workOrder" | null>(null);
 
   const handlePreviewModalOpen = async () => {
-    if (id) {
-      setIsPreviewLoading(true);
-      try {
-        const blob = await quotationService.downloadQuotationPDF(Number(id));
-        const url = window.URL.createObjectURL(blob);
-        setPdfUrl(url);
-        setIsPDFModalOpen(true);
-      } catch (err) {
-        console.error("Preview Error:", err);
-        toast.error("Failed to generate PDF preview");
-      } finally {
-        setIsPreviewLoading(false);
-      }
-    } else {
-      toast.error("Please save the quotation first to preview the PDF", { duration: 3000 });
-    }
+    setIsPreviewModalOpen(true);
   };
 
   const handleDownloadFromPreview = async () => {
@@ -115,7 +101,10 @@ const CreateInvoicePage = () => {
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InvoiceItem | null>(null);
+  const [activeHeaderSection, setActiveHeaderSection] = useState<"client" | "project" | "quotation" | null>("client");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
@@ -143,11 +132,7 @@ const CreateInvoicePage = () => {
     dueDate: ""
   });
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: "1", description: "Soling", unit: "Brass", quantity: 0, rate: 0, amount: 0 },
-    { id: "2", description: "Plum Concrete", unit: "Cum", quantity: 0, rate: 0, amount: 0 },
-    { id: "3", description: "Stone Work", unit: "Brass", quantity: 0, rate: 0, amount: 0 }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
 
   const [discount, setDiscount] = useState(0);
   const [advancePaid, setAdvancePaid] = useState(0);
@@ -474,6 +459,13 @@ const CreateInvoicePage = () => {
   const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
 
   const handleAddItem = () => {
+    if (items.length > 0) {
+      const last = items[items.length - 1];
+      if (!last.description?.trim() || !last.unit?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current item row before adding a new one.");
+        return;
+      }
+    }
     const newItem: InvoiceItem = {
       id: "new_" + Date.now().toString(),
       description: "",
@@ -508,10 +500,6 @@ const CreateInvoicePage = () => {
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    if (items.length <= 1) {
-      toast.error("At least one item is required");
-      return;
-    }
     setItemDeleteTarget(itemId);
   };
 
@@ -522,8 +510,8 @@ const CreateInvoicePage = () => {
       try {
         await quotationService.deleteQuotationItem(Number(itemDeleteTarget));
         toast.success("Item deleted from quotation");
-      } catch (error) {
-        toast.error("Failed to delete item from database");
+      } catch (error: any) {
+        toast.error(error.response?.data?.detail || "Failed to delete item from database");
         setIsDeletingItem(false);
         setItemDeleteTarget(null);
         return;
@@ -615,9 +603,33 @@ const CreateInvoicePage = () => {
 
   // Implement Save
   const handleSaveQuotation = async () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!clientDetails.clientId && (!clientDetails.name || clientDetails.name.trim() === "")) {
+      newErrors.clientName = "Client Name is required";
+    }
+    if (!clientDetails.clientId && (!clientDetails.mobile || clientDetails.mobile.trim().length !== 10)) {
+      newErrors.clientMobile = "Mobile number must be exactly 10 digits";
+    }
+    if (!clientDetails.clientId && (!clientDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientDetails.email.trim()))) {
+      newErrors.clientEmail = "A valid email address is required";
+    }
+
     if (!projectDetails.name || projectDetails.name.trim() === "") {
-      toast.error("Project Name is required! Please select a valid project.");
-      setIsSaving(false);
+      newErrors.projectName = "Project Name is required";
+    }
+    if (!projectDetails.type || projectDetails.type.trim() === "") {
+      newErrors.projectType = "Project Type is required";
+    }
+    if (!projectDetails.siteAddress || projectDetails.siteAddress.trim() === "") {
+      newErrors.siteAddress = "Site Address is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Focus client section if client errors exist, else project section
+      const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
+      setActiveHeaderSection(hasClientErrors ? "client" : "project");
       return;
     }
 
@@ -647,27 +659,31 @@ const CreateInvoicePage = () => {
         extra_charge_items: extraChargeItems,
 
         items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
-          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+          let d = (item.description || "").toLowerCase();
+          let itemType = "road_work"; // safe default for backend validation
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
+            itemType = "soling";
             itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
+            itemType = "plum_concrete";
             itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone") || d.includes("pitching")) {
+            itemType = "stone_work";
             itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = item.item_type || "custom";
+            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
@@ -699,27 +715,31 @@ const CreateInvoicePage = () => {
             measurements
           };
         }) : items.map(item => {
-          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+          let d = (item.description || "").toLowerCase();
+          let itemType = "road_work"; // safe default for backend validation
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
+            itemType = "soling";
             itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
+            itemType = "plum_concrete";
             itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone") || d.includes("pitching")) {
+            itemType = "stone_work";
             itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = item.item_type || "custom";
+            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
@@ -896,32 +916,6 @@ const CreateInvoicePage = () => {
   };
 
   // Implement Professional Direct Download
-  // Helper to convert number to Indian currency words
-  const toWords = (num: number) => {
-    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-    const inWords = (n: any): string => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n_arr) return '';
-      let str = '';
-      str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
-      str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
-      str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
-      str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
-      str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
-      return str;
-    };
-
-    const amount = Math.floor(num);
-    const paisa = Math.round((num - amount) * 100);
-    let res = inWords(amount) + "Rupees Only";
-    if (paisa > 0) {
-      res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
-    }
-    return res;
-  };
 
   // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
@@ -1149,6 +1143,13 @@ const CreateInvoicePage = () => {
 
   const handleAddLabourRow = async () => {
     if (isReadOnly) return;
+    if (labourItems.length > 0) {
+      const last = labourItems[labourItems.length - 1];
+      if (!last.skill_type?.trim() || !last.labour_count || !last.daily_wage) {
+        toast.error("Please fill all fields in the current labour row before adding a new one.");
+        return;
+      }
+    }
     const newItem: LabourItem = {
       skill_type: "General Labourer",
       labour_count: 1,
@@ -1192,7 +1193,7 @@ const CreateInvoicePage = () => {
         toast.success("Labour item removed");
       } catch (err: any) {
         console.error("Failed to delete labour item:", err);
-        toast.error("Failed to remove labour item from server");
+        toast.error(err.response?.data?.detail || "Failed to remove labour item from server");
       }
     }
   };
@@ -1224,6 +1225,13 @@ const CreateInvoicePage = () => {
 
   const handleAddMaterialRow = async () => {
     if (isReadOnly) return;
+    if (materialItems.length > 0) {
+      const last = materialItems[materialItems.length - 1];
+      if (!last.material_name?.trim() || !last.category?.trim() || !last.unit?.trim() || !last.estimated_quantity || !last.estimated_rate) {
+        toast.error("Please fill all fields in the current material row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       material_name: "",
       category: "",
@@ -1265,7 +1273,7 @@ const CreateInvoicePage = () => {
         toast.success("Material removed");
       } catch (err: any) {
         console.error("Failed to delete material item:", err);
-        toast.error("Failed to remove material from server");
+        toast.error(err.response?.data?.detail || "Failed to remove material from server");
       }
     }
   };
@@ -1303,6 +1311,13 @@ const CreateInvoicePage = () => {
 
   const handleAddExtraChargeRow = async () => {
     if (isReadOnly) return;
+    if (extraChargeItems.length > 0) {
+      const last = extraChargeItems[extraChargeItems.length - 1];
+      if (!last.description?.trim() || !last.quantity || !last.rate) {
+        toast.error("Please fill all fields in the current extra charge row before adding a new one.");
+        return;
+      }
+    }
     const newItem: any = {
       expense_type: "misc",
       description: "",
@@ -1344,7 +1359,7 @@ const CreateInvoicePage = () => {
         toast.success("Extra charge removed");
       } catch (err: any) {
         console.error("Failed to delete extra charge:", err);
-        toast.error("Failed to remove extra charge from server");
+        toast.error(err.response?.data?.detail || "Failed to remove extra charge from server");
       }
     }
   };
@@ -1361,6 +1376,13 @@ const CreateInvoicePage = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
                 {id ? "Quotation Intelligence" : "Quotation Details"}
                 {status === "approved" && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
@@ -1376,6 +1398,13 @@ const CreateInvoicePage = () => {
               <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create and customize professional invoices / estimates."}</p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsPreviewModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              >
+                <Eye className="w-4 h-4 text-emerald-600" />
+                Preview Document
+              </button>
               <button
                 onClick={() => setIsImportModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -1401,220 +1430,279 @@ const CreateInvoicePage = () => {
           <div className="flex-1 space-y-6">
 
             {/* TOP GRID: DETAILS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col gap-4">
 
               {/* CLIENT DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                    <User className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "client" ? null : "client")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "client" ? "bg-indigo-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Client Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Client Details</h3>
-                  <button className="ml-auto text-slate-400 hover:text-indigo-600 transition-colors">
-                    <Building className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
-                    <select
-                      value={clientDetails.clientId || 0}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        if (val === 0) {
-                          setClientDetails({ clientId: null, name: "", company: "", mobile: "", email: "", address: "", gst: "" });
-                        } else {
-                          const c = clients.find(x => (x.id || x.user_id) === val);
-                          if (c) {
-                            setClientDetails({
-                              clientId: c.id || c.user_id,
-                              name: c.full_name || "",
-                              company: clientDetails.company, // Preserve whatever user manually typed
-                              mobile: c.mobile_number || "",
-                              email: c.email || "",
-                              address: c.address || "",
-                              gst: ""
-                            });
+                  <div className="flex items-center gap-3">
+                    <div className="text-slate-400">
+                      <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'client' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>
+                  </div>
+                </button>
+                {activeHeaderSection === "client" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
+                      <select
+                        value={clientDetails.clientId || 0}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (val === 0) {
+                            setClientDetails({ clientId: null, name: "", company: "", mobile: "", email: "", address: "", gst: "" });
+                          } else {
+                            const c = clients.find(x => (x.id || x.user_id) === val);
+                            if (c) {
+                              setClientDetails({
+                                clientId: c.id || c.user_id,
+                                name: c.full_name || "",
+                                company: clientDetails.company, // Preserve whatever user manually typed
+                                mobile: c.mobile_number || "",
+                                email: c.email || "",
+                                address: c.address || "",
+                                gst: ""
+                              });
+                            }
                           }
-                        }
-                      }}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option value={0}>Walk-in / Manual Client</option>
-                      {clients.map(c => (
-                        <option key={c.id || c.user_id} value={c.id || c.user_id}>{c.full_name}</option>
-                      ))}
-                    </select>
-                    {!clientDetails.clientId && (
-                      <input
-                        type="text"
-                        value={clientDetails.name}
-                        onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
-                        readOnly={isReadOnly}
-                        placeholder="Type Manual Client Name..."
-                        className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                      />
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                        }}
+                        disabled={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      >
+                        <option value={0}>Walk-in / Manual Client</option>
+                        {clients.map(c => (
+                          <option key={c.id || c.user_id} value={c.id || c.user_id}>{c.full_name}</option>
+                        ))}
+                      </select>
+                      {!clientDetails.clientId && (
+                        <>
+                          <input
+                            type="text"
+                            value={clientDetails.name}
+                            onChange={(e) => {
+                              setClientDetails({ ...clientDetails, name: e.target.value });
+                              if (errors.clientName) setErrors(prev => ({ ...prev, clientName: "" }));
+                            }}
+                            readOnly={isReadOnly}
+                            placeholder="Type Manual Client Name..."
+                            className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border ${errors.clientName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          />
+                          {errors.clientName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientName}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Mobile Number {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <input
+                          type="text"
+                          value={clientDetails.mobile}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setClientDetails({ ...clientDetails, mobile: v });
+                            if (errors.clientMobile) setErrors(prev => ({ ...prev, clientMobile: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientMobile ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
+                        />
+                        {errors.clientMobile && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientMobile}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Email Address {!clientDetails.clientId && <span className="text-rose-500">*</span>}</label>
+                        <input
+                          type="email"
+                          value={clientDetails.email}
+                          onChange={(e) => {
+                            setClientDetails({ ...clientDetails, email: e.target.value });
+                            if (errors.clientEmail) setErrors(prev => ({ ...prev, clientEmail: "" }));
+                          }}
+                          className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.clientEmail ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-indigo-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500`}
+                          placeholder="client@example.com"
+                        />
+                        {errors.clientEmail && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.clientEmail}</p>}
+                      </div>
+                    </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile Number</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name</label>
                       <input
                         type="text"
-                        value={clientDetails.mobile}
-                        onChange={(e) => setClientDetails({ ...clientDetails, mobile: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        value={clientDetails.company}
+                        onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        placeholder="e.g. Patil Construction Pvt Ltd"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Billing Address</label>
+                      <textarea
+                        rows={1}
+                        value={clientDetails.address}
+                        onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
                       <input
-                        type="email"
-                        value={clientDetails.email}
-                        onChange={(e) => setClientDetails({ ...clientDetails, email: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                        placeholder="client@example.com"
+                        type="text"
+                        value={clientDetails.gst}
+                        onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-slate-900 placeholder-slate-500 uppercase"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name</label>
-                    <input
-                      type="text"
-                      value={clientDetails.company}
-                      onChange={(e) => setClientDetails({ ...clientDetails, company: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      placeholder="e.g. Patil Construction Pvt Ltd"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Billing Address</label>
-                    <textarea
-                      rows={1}
-                      value={clientDetails.address}
-                      onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST Number (Optional)</label>
-                    <input
-                      type="text"
-                      value={clientDetails.gst}
-                      onChange={(e) => setClientDetails({ ...clientDetails, gst: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all uppercase"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* PROJECT DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                    <Briefcase className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "project" ? null : "project")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "project" ? "bg-blue-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Project Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Project Details</h3>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
-                    <input
-                      type="text"
-                      value={projectDetails.name}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, name: e.target.value })}
-                      placeholder="Type Manual Project Name..."
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
+                  <div className="text-slate-400">
+                    <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'project' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
-                    <input
-                      type="text"
-                      list="project-types-list"
-                      value={projectDetails.type}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
-                      readOnly={isReadOnly}
-                      placeholder="e.g. Residential, Infrastructure"
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                    <datalist id="project-types-list">
-                      <option value="Residential" />
-                      <option value="Commercial" />
-                      <option value="Industrial" />
-                      <option value="Infrastructure" />
-                      <option value="Institutional" />
-                      <option value="Government" />
-                    </datalist>
+                </button>
+                {activeHeaderSection === "project" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        value={projectDetails.name}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, name: e.target.value });
+                          if (errors.projectName) setErrors(prev => ({ ...prev, projectName: "" }));
+                        }}
+                        placeholder="Type Manual Project Name..."
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.projectName && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectName}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Project Type <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        list="project-types-list"
+                        value={projectDetails.type}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, type: e.target.value });
+                          if (errors.projectType) setErrors(prev => ({ ...prev, projectType: "" }));
+                        }}
+                        readOnly={isReadOnly}
+                        placeholder="e.g. Residential, Infrastructure"
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.projectType ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.projectType && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.projectType}</p>}
+                      <datalist id="project-types-list">
+                        <option value="Residential" />
+                        <option value="Commercial" />
+                        <option value="Industrial" />
+                        <option value="Infrastructure" />
+                        <option value="Institutional" />
+                        <option value="Government" />
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
+                      <input
+                        type="text"
+                        value={projectDetails.engineer}
+                        onChange={(e) => setProjectDetails({ ...projectDetails, engineer: e.target.value })}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        placeholder="e.g. Er. Tejas Dhande"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Site Address <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        value={projectDetails.siteAddress}
+                        onChange={(e) => {
+                          setProjectDetails({ ...projectDetails, siteAddress: e.target.value });
+                          if (errors.siteAddress) setErrors(prev => ({ ...prev, siteAddress: "" }));
+                        }}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.siteAddress ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-100 focus:ring-blue-100'} rounded-xl text-sm font-semibold focus:ring-2 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                      {errors.siteAddress && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.siteAddress}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Work Order No.</label>
+                      <input
+                        type="text"
+                        value={projectDetails.workOrderNo}
+                        onChange={(e) => setProjectDetails({ ...projectDetails, workOrderNo: e.target.value })}
+                        readOnly={isReadOnly}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 placeholder-slate-500 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
-                    <input
-                      type="text"
-                      value={projectDetails.engineer}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, engineer: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                      placeholder="e.g. Er. Tejas Dhande"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Address</label>
-                    <input
-                      type="text"
-                      value={projectDetails.siteAddress}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, siteAddress: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Order No.</label>
-                    <input
-                      type="text"
-                      value={projectDetails.workOrderNo}
-                      onChange={(e) => setProjectDetails({ ...projectDetails, workOrderNo: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* INVOICE DETAILS */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                    <FileText className="w-5 h-5" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeaderSection(activeHeaderSection === "quotation" ? null : "quotation")}
+                  className={`w-full p-5 flex items-center justify-between transition-colors ${activeHeaderSection === "quotation" ? "bg-emerald-50/50" : "hover:bg-slate-50"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={invoiceDetails.date}
-                        onChange={(e) => setInvoiceDetails({ ...invoiceDetails, date: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-                      />
+                  <div className="text-slate-400">
+                    <svg className={`w-5 h-5 transition-transform ${activeHeaderSection === 'quotation' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </button>
+                {activeHeaderSection === "quotation" && (
+                  <div className="p-5 pt-0 border-t border-slate-100 space-y-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Quotation Date</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={invoiceDetails.date}
+                          onChange={(e) => setInvoiceDetails({ ...invoiceDetails, date: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={invoiceDetails.dueDate}
+                          onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={invoiceDetails.dueDate}
-                        onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>
@@ -1642,11 +1730,11 @@ const CreateInvoicePage = () => {
                     <tr className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
                       <th className="px-6 py-4 w-12">#</th>
                       <th className="px-6 py-4">Item / Work Description</th>
-                      <th className="px-6 py-4 w-28">Unit</th>
-                      <th className="px-6 py-4 w-32">Quantity</th>
+                      <th className="px-6 py-4 w-40">Unit</th>
+                      <th className="px-6 py-4 w-36">Quantity</th>
                       <th className="px-6 py-4 w-40">Rate (₹)</th>
                       <th className="px-6 py-4 w-40">Amount (₹)</th>
-                      <th className="px-6 py-4 w-32 text-center">Action</th>
+                      <th className="px-6 py-4 w-28 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1654,11 +1742,12 @@ const CreateInvoicePage = () => {
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">{index + 1}</td>
                         <td className="px-6 py-4">
-                          <textarea
+                          <input
+                            type="text"
                             value={item.description}
                             onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none resize-none"
-                            rows={2}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="Enter item description..."
                           />
                         </td>
                         <td className="px-6 py-4">
@@ -1666,7 +1755,7 @@ const CreateInvoicePage = () => {
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                             disabled={isReadOnly}
-                            className={`w-full bg-transparent border-none text-sm font-semibold text-slate-600 outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className={`w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 cursor-pointer transition-all ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                           >
                             <option value="">Select Unit</option>
                             {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
@@ -1677,17 +1766,47 @@ const CreateInvoicePage = () => {
                         <td className="px-6 py-4">
                           <input
                             type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={9999999}
+                            step="any"
+                            value={item.quantity === 0 ? "" : item.quantity}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "quantity", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 9999999) return;
+                                  updateItem(item.id, "quantity", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">
                           <input
                             type="number"
-                            value={item.rate}
-                            onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none text-sm font-bold text-slate-700 outline-none"
+                            min={0}
+                            max={99999999}
+                            step="any"
+                            value={item.rate === 0 ? "" : item.rate}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                updateItem(item.id, "rate", "");
+                              } else {
+                                let val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  if (val < 0) return;
+                                  if (val > 99999999) return;
+                                  updateItem(item.id, "rate", val);
+                                }
+                              }
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 placeholder:font-medium"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-black text-indigo-600">
@@ -1739,9 +1858,9 @@ const CreateInvoicePage = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
+                    className={`shrink-0 min-w-fit flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
                       ? "text-indigo-600 border-indigo-600 bg-indigo-50/20"
-                      : "text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50/50"
+                      : "text-slate-600 border-transparent hover:text-slate-800 hover:bg-slate-50/50"
                       }`}
                   >
                     {tab.icon} {tab.label}
@@ -1916,7 +2035,7 @@ const CreateInvoicePage = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Skill Type</th>
                             <th className="pb-4">Count</th>
                             <th className="pb-4">Wage (₹)</th>
@@ -1946,7 +2065,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_count}
+                                  value={item.labour_count === 0 ? "" : item.labour_count}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_count", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1955,7 +2074,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.daily_wage}
+                                  value={item.daily_wage === 0 ? "" : item.daily_wage}
                                   onChange={(e) => handleLabourFieldChange(idx, "daily_wage", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1964,7 +2083,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.labour_days}
+                                  value={item.labour_days === 0 ? "" : item.labour_days}
                                   onChange={(e) => handleLabourFieldChange(idx, "labour_days", parseInt(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1973,7 +2092,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_hours}
+                                  value={item.overtime_hours === 0 ? "" : item.overtime_hours}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_hours", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-16 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -1983,7 +2102,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.overtime_rate}
+                                  value={item.overtime_rate === 0 ? "" : item.overtime_rate}
                                   onChange={(e) => handleLabourFieldChange(idx, "overtime_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2032,7 +2151,7 @@ const CreateInvoicePage = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
-                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                          <tr className="text-[10px] font-black text-slate-700 uppercase tracking-widest border-b border-slate-50">
                             <th className="pb-4">Material Name</th>
                             <th className="pb-4">Unit</th>
                             <th className="pb-4">Quantity</th>
@@ -2070,7 +2189,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_quantity}
+                                  value={item.estimated_quantity === 0 ? "" : item.estimated_quantity}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_quantity", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -2079,7 +2198,7 @@ const CreateInvoicePage = () => {
                               <td className="py-3">
                                 <input
                                   type="number"
-                                  value={item.estimated_rate}
+                                  value={item.estimated_rate === 0 ? "" : item.estimated_rate}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
                                   className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
@@ -2175,7 +2294,7 @@ const CreateInvoicePage = () => {
                           <div className="w-20">
                             <input
                               type="number"
-                              value={item.quantity}
+                              value={item.quantity === 0 ? "" : item.quantity}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "quantity", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Qty"
@@ -2185,7 +2304,7 @@ const CreateInvoicePage = () => {
                           <div className="w-32">
                             <input
                               type="number"
-                              value={item.rate}
+                              value={item.rate === 0 ? "" : item.rate}
                               onChange={(e) => handleExtraChargeFieldChange(idx, "rate", parseFloat(e.target.value) || 0)}
                               readOnly={isReadOnly}
                               placeholder="Amount"
@@ -2211,7 +2330,7 @@ const CreateInvoicePage = () => {
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">GST Breakdown Settings</h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total GST (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Total GST (%)</label>
                           <input
                             type="number"
                             value={gstRates.gst}
@@ -2221,7 +2340,7 @@ const CreateInvoicePage = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">CGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">CGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.cgst}
@@ -2230,7 +2349,7 @@ const CreateInvoicePage = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">SGST (%)</label>
+                            <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">SGST (%)</label>
                             <input
                               type="number"
                               value={gstRates.sgst}
@@ -2240,7 +2359,7 @@ const CreateInvoicePage = () => {
                           </div>
                         </div>
                         <div className="pt-4 border-t border-slate-50">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">TDS (%)</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">TDS (%)</label>
                           <input
                             type="number"
                             value={gstRates.tds}
@@ -2259,7 +2378,7 @@ const CreateInvoicePage = () => {
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Bank Name</label>
                           <input
                             type="text"
                             value={paymentDetails.bank_name}
@@ -2268,7 +2387,7 @@ const CreateInvoicePage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Code</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">IFSC Code</label>
                           <input
                             type="text"
                             value={paymentDetails.ifsc_code}
@@ -2278,7 +2397,7 @@ const CreateInvoicePage = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Number</label>
                         <input
                           type="text"
                           value={paymentDetails.account_number}
@@ -2287,7 +2406,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI ID</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">UPI ID</label>
                         <input
                           type="text"
                           value={paymentDetails.upi_id}
@@ -2299,7 +2418,7 @@ const CreateInvoicePage = () => {
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Company Details on Quotation</h4>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Account Holder Name</label>
                         <input
                           type="text"
                           value={paymentDetails.account_holder_name}
@@ -2308,7 +2427,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Company Name on Quote</label>
                         <input
                           type="text"
                           value={clientDetails.company}
@@ -2318,7 +2437,7 @@ const CreateInvoicePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
                         <input
                           type="date"
                           value={paymentDetails.due_date || ""}
@@ -2336,7 +2455,7 @@ const CreateInvoicePage = () => {
                     <div className="flex items-start gap-6 flex-wrap">
                       <div className="flex-1 min-w-[240px] space-y-4">
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Upload Signature Image</label>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Upload Signature Image</label>
                           <p className="text-xs text-slate-400 mb-4">Upload a PNG/JPEG signature to be printed on this quotation. Transparent PNGs look best.</p>
                         </div>
                         <div
@@ -2368,7 +2487,7 @@ const CreateInvoicePage = () => {
                         )}
                       </div>
                       <div className="w-64 shrink-0">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Preview on Quotation</label>
+                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Preview on Quotation</label>
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                           <p className="text-[10px] font-black text-slate-900 uppercase mb-3">For {clientDetails.company || "Your Company"}</p>
                           <div className="h-16 border-b border-slate-200 flex items-end justify-center pb-2 mb-2">
@@ -2434,7 +2553,8 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">CGST</span>
                     <input
                       type="number"
-                      value={gstRates.cgst}
+                      value={gstRates.cgst === 0 ? "" : gstRates.cgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, cgst: val, gst: val + prev.sgst };
@@ -2452,7 +2572,8 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">SGST</span>
                     <input
                       type="number"
-                      value={gstRates.sgst}
+                      value={gstRates.sgst === 0 ? "" : gstRates.sgst}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setGstRates(prev => {
                         const val = parseFloat(e.target.value) || 0;
                         return { ...prev, sgst: val, gst: val + prev.cgst };
@@ -2471,7 +2592,8 @@ const CreateInvoicePage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={discount}
+                      value={discount === 0 ? "" : discount}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-rose-500 outline-none focus:ring-2 focus:ring-rose-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2482,7 +2604,15 @@ const CreateInvoicePage = () => {
                 <div className="flex items-center justify-between text-sm py-2 border-t border-slate-50 border-dashed">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-500">TDS</span>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
+                    <input
+                      type="number"
+                      value={gstRates.tds === 0 ? "" : gstRates.tds}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                      onChange={(e) => setGstRates(prev => ({ ...prev, tds: parseFloat(e.target.value) || 0 }))}
+                      readOnly={isReadOnly}
+                      className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <span className="text-[10px] font-bold text-slate-400">%</span>
                   </div>
                   <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -2500,7 +2630,8 @@ const CreateInvoicePage = () => {
                     <span className="text-slate-300 text-xs">₹</span>
                     <input
                       type="number"
-                      value={advancePaid}
+                      value={advancePaid === 0 ? "" : advancePaid}
+                      onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       readOnly={isReadOnly}
                       className={`w-24 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-right text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -2516,62 +2647,62 @@ const CreateInvoicePage = () => {
             </div>
 
             {/* ACTION BUTTONS */}
-            <div className="space-y-3">
+            <div className="flex flex-col mx-auto max-w-[280px] w-full space-y-2">
               <button
                 onClick={handlePreviewModalOpen}
                 disabled={isPreviewLoading}
-                className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-wait"
+                className="w-full py-2 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-indigo-200 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-wait"
               >
                 {isPreviewLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Eye className="w-5 h-5 group-hover:animate-pulse" />
+                  <Eye className="w-3 h-3 group-hover:animate-pulse" />
                 )}
                 {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
               </button>
               <button
                 onClick={handleSaveQuotation}
                 disabled={isSaving || isReadOnly}
-                className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-3 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
+                className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
               >
-                <Save className={`w-5 h-5 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
+                <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
               </button>
 
               {id && !isReadOnly && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleApproveQuotation}
-                    className="w-full py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-1.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <CheckCircle className="w-4 h-4" /> Approve
+                    <CheckCircle className="w-3 h-3" /> Approve
                   </button>
                   <button
                     onClick={() => setIsRejectModalOpen(true)}
-                    className="w-full py-3.5 bg-rose-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <XCircle className="w-4 h-4" /> Reject
+                    <XCircle className="w-3 h-3" /> Reject
                   </button>
                 </div>
               )}
 
               {id && (
-                <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-center gap-2 mb-0.5">
                     <Zap className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
+                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Conversion Actions</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={handleConvertToBill}
                       disabled={isConvertingBill}
-                      className="py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="py-1.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isConvertingBill ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Bill
                     </button>
                     <button
                       onClick={handleConvertToInvoice}
                       disabled={isConvertingInvoice}
-                      className="py-2.5 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="py-1.5 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isConvertingInvoice ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />} Invoice
                     </button>
@@ -2579,44 +2710,44 @@ const CreateInvoicePage = () => {
                   <button
                     onClick={handleConvertToWorkOrder}
                     disabled={isConvertingWorkOrder}
-                    className="w-full py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-1.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     {isConvertingWorkOrder ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Briefcase className="w-3 h-3" />} Convert To Work Order
                   </button>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-3">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={handleDownload}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
                 >
-                  <Download className="w-4 h-4 text-indigo-600" /> Download PDF
+                  <Download className="w-3 h-3 text-indigo-600" /> Download PDF
                 </button>
                 {id && (
                   <button
                     onClick={handleSendQuotation}
-                    className="w-full py-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <Send className="w-4 h-4 text-indigo-600" /> Send Quotation
+                    <Send className="w-3 h-3 text-indigo-600" /> Send Quotation
                   </button>
                 )}
                 <button
                   onClick={handleWhatsAppShare}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
                 >
-                  <MessageCircle className="w-4 h-4 text-emerald-500" /> Send on WhatsApp
+                  <MessageCircle className="w-3 h-3 text-emerald-500" /> Send on WhatsApp
                 </button>
                 <button
                   onClick={handleEmailShare}
-                  className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
                 >
-                  <Send className="w-4 h-4 text-blue-500" /> Send Email
+                  <Send className="w-3 h-3 text-blue-500" /> Send Email
                 </button>
               </div>
 
-              <button className="w-full py-3.5 bg-slate-50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-2">
-                <X className="w-4 h-4" /> Cancel
+              <button className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-1.5">
+                <X className="w-3 h-3" /> Cancel
               </button>
             </div>
 
@@ -2642,6 +2773,35 @@ const CreateInvoicePage = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSelect={handleImportQuotation}
+      />
+
+      <QuotationPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        forceLocal={true}
+        data={{
+          id: id,
+          invoiceNo: invoiceDetails.invoiceNo,
+          date: invoiceDetails.date,
+          projectName: projectDetails.name,
+          projectType: projectDetails.type,
+          engineerName: projectDetails.engineer,
+          workOrderNo: projectDetails.workOrderNo,
+          clientName: clientDetails.name,
+          clientAddress: clientDetails.address,
+          clientMobile: clientDetails.mobile,
+          clientGst: clientDetails.gst,
+          items: items,
+          labourItems: labourItems,
+          materialItems: materialItems,
+          subTotal: subTotal,
+          cgstRate: gstRates.cgst,
+          sgstRate: gstRates.sgst,
+          grandTotal: grandTotal,
+          advancePaid: advancePaid,
+          balanceDue: balanceDue,
+          terms: terms
+        }}
       />
 
       <PDFPreviewModal

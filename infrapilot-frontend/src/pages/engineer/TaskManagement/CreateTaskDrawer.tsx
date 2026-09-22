@@ -298,7 +298,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         }
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1.5";
+    const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 flex items-center gap-1.5 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300";
 
     const modalFooter = (
@@ -315,7 +315,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 type="submit"
                 className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
             >
-                Create Task
+                Save Task
             </button>
         </>
     );
@@ -332,7 +332,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                 {/* Task Details Section */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2 mb-4">Task Information</h3>
+                    <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Task Information</h3>
 
                     <div>
                         <label className={labelClasses}>
@@ -439,12 +439,13 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div>
                             <label className={labelClasses}>
                                 <Briefcase className="w-3 h-3 text-primary" />
-                                Priority
+                                Priority <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 className={inputClasses}
                                 value={priority}
                                 onChange={(e) => setPriority(e.target.value)}
+                                required
                             >
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>

@@ -106,7 +106,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                 <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 bg-indigo-50/50">
                     <div>
                         <h2 className="text-xl font-black text-indigo-900 tracking-tight">Create Purchase Order</h2>
-                        <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">Issue manual order to supplier</p>
+
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -117,7 +117,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Project Selection */}
                         <div className="md:col-span-2 space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deliver To Project *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deliver To Project <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={formData.project_id || ""}
@@ -133,7 +133,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
                         {/* Supplier Selection */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 value={formData.supplier_id || ""}
@@ -149,7 +149,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
                         {/* Material Selection */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Material *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Material <span className="text-rose-500">*</span></label>
                             <select
                                 required
                                 disabled={!formData.supplier_id || !formData.project_id}
@@ -202,7 +202,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
                         {/* Quantity */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity <span className="text-rose-500">*</span></label>
                             <div className="relative">
                                 <input
                                     required
@@ -222,7 +222,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
                         {/* Rate */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate <span className="text-rose-500">*</span></label>
                             <div className="relative">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
                                 <input
@@ -252,7 +252,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                             disabled={loading || filteredMaterials.length === 0}
                             className="flex-1 px-8 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {loading ? "Issuing Order..." : "Issue Purchase Order"}
+                            {loading ? "Issuing Order..." : "Save Purchase Order"}
                         </button>
                     </div>
                 </form>

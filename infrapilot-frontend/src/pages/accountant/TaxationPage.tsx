@@ -51,35 +51,35 @@ const DashboardSection = () => {
           <div className="w-10 h-10 rounded-lg bg-emerald-100/50 text-emerald-600 flex items-center justify-center mb-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Input GST</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Input GST</p>
           <p className="text-xl font-bold text-slate-800">{summary?.input_gst || "₹0"}</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
           <div className="w-10 h-10 rounded-lg bg-rose-100/50 text-rose-600 flex items-center justify-center mb-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Output GST</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Output GST</p>
           <p className="text-xl font-bold text-slate-800">{summary?.output_gst || "₹0"}</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
           <div className="w-10 h-10 rounded-lg bg-blue-100/50 text-blue-600 flex items-center justify-center mb-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net GST</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Net GST</p>
           <p className="text-xl font-bold text-slate-800">{summary?.net_gst || "₹0"}</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
           <div className="w-10 h-10 rounded-lg bg-purple-100/50 text-purple-600 flex items-center justify-center mb-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TDS Collected</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">TDS Collected</p>
           <p className="text-xl font-bold text-slate-800">{summary?.tds_collected || "₹0"}</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
           <div className="w-10 h-10 rounded-lg bg-amber-100/50 text-amber-600 flex items-center justify-center mb-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Upcoming Return</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-1">Upcoming Return</p>
           <p className="text-xl font-bold text-slate-800">{summary?.upcoming_return || "20th Jun"}</p>
         </div>
       </div>
@@ -171,6 +171,15 @@ const GSTInvoiceModal = ({
   onSuccess?: (newInv: any) => void;
 }) => {
   const [projects, setProjects] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500'
+    }`;
+
   const [formData, setFormData] = useState({
     party_name: "",
     gstin: "",
@@ -189,7 +198,7 @@ const GSTInvoiceModal = ({
 
   useEffect(() => {
     projectService
-      .getProjects(200)
+      .getProjects(100)
       .then((res: any) => {
         const list = Array.isArray(res) ? res : res?.items || res?.data || [];
         setProjects(list.length > 0 ? list : PROJECTS);
@@ -240,10 +249,22 @@ const GSTInvoiceModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_name) {
-      toast.error("Please select a Project");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.party_name) newErrors.party_name = "Client / Vendor Name is required";
+    if (!formData.gstin) newErrors.gstin = "Party GSTIN is required";
+    if (!formData.invoice_number) newErrors.invoice_number = "Invoice Number is required";
+    if (!formData.invoice_date) newErrors.invoice_date = "Invoice Date is required";
+    if (!formData.project_name) newErrors.project_name = "Project Name is required";
+    if (!formData.taxable_amount && formData.taxable_amount !== 0) newErrors.taxable_amount = "Taxable Amount is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
       return;
     }
+
     const newRecord = {
       id: Date.now(),
       invoice_date: formData.invoice_date,
@@ -304,7 +325,7 @@ const GSTInvoiceModal = ({
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Client / Vendor Name *
                 </label>
                 <input
@@ -313,11 +334,12 @@ const GSTInvoiceModal = ({
                   value={formData.party_name}
                   onChange={handleChange}
                   placeholder="Select Party"
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className={inputClasses(errors.party_name)}
                 />
+                {errors.party_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.party_name}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Party GSTIN *
                 </label>
                 <input
@@ -326,11 +348,12 @@ const GSTInvoiceModal = ({
                   value={formData.gstin}
                   onChange={handleChange}
                   placeholder="27ABCDE1234F1Z5"
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className={inputClasses(errors.gstin)}
                 />
+                {errors.gstin && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.gstin}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Invoice Number *
                 </label>
                 <input
@@ -339,11 +362,12 @@ const GSTInvoiceModal = ({
                   value={formData.invoice_number}
                   onChange={handleChange}
                   placeholder="INV-001"
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className={inputClasses(errors.invoice_number)}
                 />
+                {errors.invoice_number && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.invoice_number}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Invoice Date *
                 </label>
                 <input
@@ -351,19 +375,19 @@ const GSTInvoiceModal = ({
                   name="invoice_date"
                   value={formData.invoice_date}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className={inputClasses(errors.invoice_date)}
                 />
+                {errors.invoice_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.invoice_date}</p>}
               </div>
               <div className="col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Project Name *
                 </label>
                 <select
                   name="project_name"
-                  required
                   value={formData.project_name}
                   onChange={handleChange}
-                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer font-medium text-slate-700"
+                  className={inputClasses(errors.project_name)}
                 >
                   <option value="">Select Project</option>
                   {projects.map((p: any) => {
@@ -377,6 +401,7 @@ const GSTInvoiceModal = ({
                     );
                   })}
                 </select>
+                {errors.project_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_name}</p>}
               </div>
             </div>
           </div>
@@ -390,7 +415,7 @@ const GSTInvoiceModal = ({
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="md:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Taxable Amount (₹) *
                 </label>
                 <input
@@ -399,18 +424,19 @@ const GSTInvoiceModal = ({
                   value={formData.taxable_amount || ""}
                   onChange={handleChange}
                   placeholder="0"
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className={inputClasses(errors.taxable_amount)}
                 />
+                {errors.taxable_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.taxable_amount}</p>}
               </div>
               <div className="md:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   GST Rate (%) *
                 </label>
                 <select
                   name="gst_rate"
                   value={formData.gst_rate}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                  className={inputClasses(errors.gst_rate)}
                 >
                   <option value="18%">18%</option>
                   <option value="12%">12%</option>
@@ -418,9 +444,10 @@ const GSTInvoiceModal = ({
                   <option value="28%">28%</option>
                   <option value="Exempt">Exempt</option>
                 </select>
+                {errors.gst_rate && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.gst_rate}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   CGST
                 </label>
                 <input
@@ -431,7 +458,7 @@ const GSTInvoiceModal = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   SGST
                 </label>
                 <input
@@ -442,7 +469,7 @@ const GSTInvoiceModal = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   IGST
                 </label>
                 <input
@@ -453,7 +480,7 @@ const GSTInvoiceModal = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Total GST
                 </label>
                 <input
@@ -475,7 +502,7 @@ const GSTInvoiceModal = ({
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   Invoice Copy
                 </label>
                 <input
@@ -484,7 +511,7 @@ const GSTInvoiceModal = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                   GST Document
                 </label>
                 <input
@@ -602,10 +629,10 @@ const GSTInvoicesWrapperSection = () => {
             <input type="file" className="hidden" onChange={handleImport} accept=".csv,.xlsx" />
           </label>
           <button onClick={() => openModal("Purchase")} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">
-            + Purchase Invoice
+            Purchase Invoice
           </button>
           <button onClick={() => openModal("Sales")} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all shadow-sm">
-            + Sales Invoice
+            Sales Invoice
           </button>
         </div>
       </div>
@@ -616,7 +643,7 @@ const GSTInvoicesWrapperSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Date", "Invoice No", "Type", "Party Name", "GSTIN", "Taxable Amt", "Total GST", "Invoice Total", "Attachments", "Action"].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -663,7 +690,7 @@ const GSTInvoicesWrapperSection = () => {
           </table>
         </div>
         {!isLoading && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -709,6 +736,14 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-white focus:ring-2 focus:ring-primary/20'
+    }`;
 
   const handleGenerate = async () => {
     if (!formData.filing_period) {
@@ -753,6 +788,23 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.filing_period) newErrors.filing_period = "Filing Period is required";
+    if (!formData.return_type) newErrors.return_type = "Return Type is required";
+    if (formData.taxable_value === undefined || formData.taxable_value === null || formData.taxable_value.toString() === "") newErrors.taxable_value = "Taxable Value is required";
+    if (formData.gst_liability === undefined || formData.gst_liability === null || formData.gst_liability.toString() === "") newErrors.gst_liability = "GST Liability is required";
+    if (formData.itc_available === undefined || formData.itc_available === null || formData.itc_available.toString() === "") newErrors.itc_available = "ITC Available is required";
+    if (!formData.status) newErrors.status = "Status is required";
+    if (!formData.filing_date) newErrors.filing_date = "Filing Date is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       if (initialData?.id) {
@@ -772,62 +824,69 @@ const CreateGstReturnModal = ({ isOpen, onClose, onSuccess, initialReturnType, i
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={initialData?.id ? "Edit GST Return" : "Create GST Return"} maxWidth="max-w-2xl" footer={
+    <Modal isOpen={isOpen} onClose={onClose} title={initialData?.id ? "Edit GST Return" : "Save Gst Return"} maxWidth="max-w-2xl" footer={
       <>
         <button type="button" onClick={handleGenerate} disabled={isGenerating || !formData.filing_period} className="mr-auto px-6 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-50">
           {isGenerating ? "Generating..." : "⚡ Auto-Generate Values"}
         </button>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
         <button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50">
-          {isSubmitting ? "Saving..." : (initialData?.id ? "Update GST Return" : "Create GST Return")}
+          {isSubmitting ? "Saving..." : (initialData?.id ? "Edit Gst Return" : "Save Gst Return")}
         </button>
       </>
     }>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">filing_period *</label>
-            <input type="month" required value={formData.filing_period} onChange={(e) => setFormData({ ...formData, filing_period: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">filing_period <span className="text-rose-500">*</span></label>
+            <input type="month" value={formData.filing_period} onChange={(e) => setFormData({ ...formData, filing_period: e.target.value })} className={inputClasses(errors.filing_period)} />
+            {errors.filing_period && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.filing_period}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">return_type</label>
-            <select value={formData.return_type} onChange={(e) => setFormData({ ...formData, return_type: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none">
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">return_type</label>
+            <select value={formData.return_type} onChange={(e) => setFormData({ ...formData, return_type: e.target.value })} className={inputClasses(errors.return_type)}>
               <option value="">Select Return Type...</option>
               <option value="GSTR-1">GSTR-1</option>
               <option value="GSTR-3B">GSTR-3B</option>
               <option value="GSTR-2A Recon">GSTR-2A Recon</option>
               <option value="GSTR-2B Recon">GSTR-2B Recon</option>
             </select>
+            {errors.return_type && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.return_type}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">taxable_value *</label>
-            <input type="number" required value={formData.taxable_value || ""} onChange={(e) => setFormData({ ...formData, taxable_value: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">taxable_value <span className="text-rose-500">*</span></label>
+            <input type="number" value={formData.taxable_value || ""} onChange={(e) => setFormData({ ...formData, taxable_value: Number(e.target.value) || 0 })} placeholder="0" className={inputClasses(errors.taxable_value)} />
+            {errors.taxable_value && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.taxable_value}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">gst_liability *</label>
-            <input type="number" required value={formData.gst_liability || ""} onChange={(e) => setFormData({ ...formData, gst_liability: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">gst_liability <span className="text-rose-500">*</span></label>
+            <input type="number" value={formData.gst_liability || ""} onChange={(e) => setFormData({ ...formData, gst_liability: Number(e.target.value) || 0 })} placeholder="0" className={inputClasses(errors.gst_liability)} />
+            {errors.gst_liability && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.gst_liability}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">itc_available *</label>
-            <input type="number" required value={formData.itc_available || ""} onChange={(e) => setFormData({ ...formData, itc_available: Number(e.target.value) || 0 })} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">itc_available <span className="text-rose-500">*</span></label>
+            <input type="number" value={formData.itc_available || ""} onChange={(e) => setFormData({ ...formData, itc_available: Number(e.target.value) || 0 })} placeholder="0" className={inputClasses(errors.itc_available)} />
+            {errors.itc_available && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.itc_available}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">net_gst_payable</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">net_gst_payable</label>
             <input type="number" value={formData.net_gst_payable} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 font-bold text-indigo-700 outline-none" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status *</label>
-            <select required value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none font-bold text-amber-600">
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">status <span className="text-rose-500">*</span></label>
+            <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className={inputClasses(errors.status) + " font-bold text-amber-600"}>
               <option value="Draft">Draft</option>
               <option value="Pending">Pending</option>
               <option value="Filed">Filed</option>
               <option value="Rejected">Rejected</option>
               <option value="Revised">Revised</option>
             </select>
+            {errors.status && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.status}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">filing_date *</label>
-            <input type="date" required value={formData.filing_date} onChange={(e) => setFormData({ ...formData, filing_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">filing_date <span className="text-rose-500">*</span></label>
+            <input type="date" value={formData.filing_date} onChange={(e) => setFormData({ ...formData, filing_date: e.target.value })} className={inputClasses(errors.filing_date)} />
+            {errors.filing_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.filing_date}</p>}
           </div>
         </div>
       </form>
@@ -862,15 +921,15 @@ const GstReturnViewModal = ({ returnId, onClose }: { returnId: number | string |
           <div className="text-center py-8 text-slate-500">Loading...</div>
         ) : detail ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</p><p className="font-bold text-slate-800">{detail.filing_period || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Return Type</p><p className="font-bold text-slate-800">{detail.return_type || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Value</p><p className="font-bold text-slate-800">₹{detail.taxable_value?.toLocaleString("en-IN") || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Liability</p><p className="font-bold text-slate-800">₹{detail.gst_liability?.toLocaleString("en-IN") || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ITC Available</p><p className="font-bold text-slate-800">₹{detail.itc_available?.toLocaleString("en-IN") || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable</p><p className="font-bold text-indigo-700">₹{detail.net_gst_payable?.toLocaleString("en-IN") || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Date</p><p className="font-bold text-slate-800">{detail.filing_date || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{detail.status || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{detail.created_at ? new Date(detail.created_at).toLocaleString() : "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Filing Period</p><p className="font-bold text-slate-800">{detail.filing_period || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Return Type</p><p className="font-bold text-slate-800">{detail.return_type || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Taxable Value</p><p className="font-bold text-slate-800">₹{detail.taxable_value?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Liability</p><p className="font-bold text-slate-800">₹{detail.gst_liability?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">ITC Available</p><p className="font-bold text-slate-800">₹{detail.itc_available?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Net Payable</p><p className="font-bold text-indigo-700">₹{detail.net_gst_payable?.toLocaleString("en-IN") || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Filing Date</p><p className="font-bold text-slate-800">{detail.filing_date || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{detail.status || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{detail.created_at ? new Date(detail.created_at).toLocaleString() : "N/A"}</p></div>
           </div>
         ) : (
           <div className="text-center py-8 text-slate-500">Details not found.</div>
@@ -984,15 +1043,15 @@ const GSTReturnsWrapperSection = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Taxable Value</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">GST Liability</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">ITC Available</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Net Payable</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Filing Date</th>
-                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Filing Period</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Type</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Taxable Value</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">GST Liability</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">ITC Available</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Net Payable</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Filing Date</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -1047,7 +1106,7 @@ const GSTReturnsWrapperSection = () => {
           </div>
         )}
         {returnsList.length > 0 && !isLoading && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-4 rounded-b-2xl">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 mt-4 rounded-b-2xl">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1081,6 +1140,14 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
     party_name: "", pan_number: "", invoice_number: "", payment_amount: 0, tds_section: "", tds_rate: 0, tds_amount: 0, deposit_date: new Date().toISOString().split('T')[0], status: "Pending", vendor_bill_id: null as number | null, ra_bill_id: null as number | null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string, baseClasses?: string) => 
+    `${baseClasses || "w-full px-3 py-2 text-sm border rounded-xl bg-slate-50"} transition-all outline-none ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-1 focus:ring-indigo-500 focus:bg-white'
+    }`;
 
   useEffect(() => {
     if (initialData) {
@@ -1094,6 +1161,22 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.party_name) newErrors.party_name = "Party Name is required";
+    if (!formData.pan_number) newErrors.pan_number = "PAN Number is required";
+    if (!formData.payment_amount && formData.payment_amount !== 0) newErrors.payment_amount = "Payment Amount is required";
+    if (!formData.tds_section) newErrors.tds_section = "TDS Section is required";
+    if (!formData.tds_rate && formData.tds_rate !== 0) newErrors.tds_rate = "TDS Rate is required";
+    if (!formData.tds_amount && formData.tds_amount !== 0) newErrors.tds_amount = "TDS Amount is required";
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       if (initialData?.id) {
@@ -1117,16 +1200,16 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
         <button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">
-          {isSubmitting ? "Saving..." : (initialData?.id ? "Update TDS Deduction" : "Record TDS Deduction")}
+          {isSubmitting ? "Saving..." : (initialData?.id ? "Edit Tds Deduction" : "Save Tds Deduction")}
         </button>
       </>
     }>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">party_name *</label><input type="text" required value={formData.party_name} onChange={(e) => setFormData({ ...formData, party_name: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pan_number *</label><input type="text" required value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">party_name <span className="text-rose-500">*</span></label><input type="text" value={formData.party_name} onChange={(e) => setFormData({ ...formData, party_name: e.target.value })} className={inputClasses(errors.party_name)} />{errors.party_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.party_name}</p>}</div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">pan_number <span className="text-rose-500">*</span></label><input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value })} className={inputClasses(errors.pan_number, "w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 font-mono")} />{errors.pan_number && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.pan_number}</p>}</div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">invoice_number</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">invoice_number</label>
             <select value={formData.invoice_number || ""} onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select Invoice</option>
               <option value="INV-2026-001">INV-2026-001</option>
@@ -1136,23 +1219,24 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
               {initialData?.invoice_number && !["INV-2026-001", "INV-2026-002", "INV-2026-003", "INV-2026-004"].includes(initialData.invoice_number) && <option value={initialData.invoice_number}>{initialData.invoice_number}</option>}
             </select>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">payment_amount</label><input type="number" required value={formData.payment_amount || ""} onChange={(e) => setFormData({ ...formData, payment_amount: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">payment_amount</label><input type="number" value={formData.payment_amount || ""} onChange={(e) => setFormData({ ...formData, payment_amount: Number(e.target.value) || 0 })} className={inputClasses(errors.payment_amount, "w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 font-bold")} />{errors.payment_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.payment_amount}</p>}</div>
           <div className="col-span-2 space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_section *</label>
-            <select required value={formData.tds_section} onChange={(e) => setFormData({ ...formData, tds_section: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">tds_section <span className="text-rose-500">*</span></label>
+            <select value={formData.tds_section} onChange={(e) => setFormData({ ...formData, tds_section: e.target.value })} className={inputClasses(errors.tds_section)}>
               <option value="">Select Section</option>
               <option value="194C">194C - Contractor Payments</option>
               <option value="194J">194J - Professional Fees</option>
               <option value="194I">194I - Equipment Rental</option>
             </select>
+            {errors.tds_section && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.tds_section}</p>}
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_rate (%)</label><input type="number" required value={formData.tds_rate || ""} onChange={(e) => setFormData({ ...formData, tds_rate: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">tds_amount</label><input type="number" required value={formData.tds_amount || ""} onChange={(e) => setFormData({ ...formData, tds_amount: Number(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date || ""} onChange={(e) => setFormData({ ...formData, deposit_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">status</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="Pending">Pending</option><option value="Deposited">Deposited</option></select></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">tds_rate (%)</label><input type="number" value={formData.tds_rate || ""} onChange={(e) => setFormData({ ...formData, tds_rate: Number(e.target.value) || 0 })} className={inputClasses(errors.tds_rate)} />{errors.tds_rate && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.tds_rate}</p>}</div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">tds_amount</label><input type="number" value={formData.tds_amount || ""} onChange={(e) => setFormData({ ...formData, tds_amount: Number(e.target.value) || 0 })} className={inputClasses(errors.tds_amount, "w-full px-3 py-2 text-sm border rounded-xl bg-amber-50 text-amber-700 font-bold")} />{errors.tds_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.tds_amount}</p>}</div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">deposit_date</label><input type="date" value={formData.deposit_date || ""} onChange={(e) => setFormData({ ...formData, deposit_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">status</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option value="Pending">Pending</option><option value="Deposited">Deposited</option></select></div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">vendor bill</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">vendor bill</label>
             <select value={formData.vendor_bill_id || ""} onChange={(e) => setFormData({ ...formData, vendor_bill_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select Vendor Bill</option>
               <option value="1">ABC Corp</option>
@@ -1163,7 +1247,7 @@ const TdsDeductionModal = ({ isOpen, onClose, onSuccess, initialData }: { isOpen
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ra bill</label>
+            <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">ra bill</label>
             <select value={formData.ra_bill_id || ""} onChange={(e) => setFormData({ ...formData, ra_bill_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option value="">Select RA Bill</option>
               <option value="1">Excavation</option>
@@ -1205,20 +1289,20 @@ const TdsViewModal = ({ tdsId, onClose }: { tdsId: number | string | null, onClo
           <div className="text-center py-8 text-slate-500">Loading...</div>
         ) : tdsDetail ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party Name</p><p className="font-bold text-slate-800">{tdsDetail.party_name || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PAN Number</p><p className="font-bold text-slate-800 font-mono">{tdsDetail.pan_number || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number</p><p className="font-bold text-slate-800">{tdsDetail.invoice_number || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Amount</p><p className="font-bold text-slate-800">₹{tdsDetail.payment_amount || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section</p><p className="font-bold text-slate-800">{tdsDetail.tds_section || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Rate</p><p className="font-bold text-slate-800">{tdsDetail.tds_rate || 0}%</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount</p><p className="font-bold text-amber-600">₹{tdsDetail.tds_amount || 0}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deposit Date</p><p className="font-bold text-slate-800">{tdsDetail.deposit_date || "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{tdsDetail.status || "N/A"}</p></div>
-            {tdsDetail.vendor_bill_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Bill</p><p className="font-bold text-slate-800">{tdsDetail.vendor_bill_name}</p></div>}
-            {tdsDetail.ra_bill_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RA Bill</p><p className="font-bold text-slate-800">{tdsDetail.ra_bill_name}</p></div>}
-            {tdsDetail.created_by_name && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created By</p><p className="font-bold text-slate-800">{tdsDetail.created_by_name}</p></div>}
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{tdsDetail.created_at ? new Date(tdsDetail.created_at).toLocaleString() : "N/A"}</p></div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated At</p><p className="font-bold text-slate-800">{tdsDetail.updated_at ? new Date(tdsDetail.updated_at).toLocaleString() : "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Party Name</p><p className="font-bold text-slate-800">{tdsDetail.party_name || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">PAN Number</p><p className="font-bold text-slate-800 font-mono">{tdsDetail.pan_number || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Invoice Number</p><p className="font-bold text-slate-800">{tdsDetail.invoice_number || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Payment Amount</p><p className="font-bold text-slate-800">₹{tdsDetail.payment_amount || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Section</p><p className="font-bold text-slate-800">{tdsDetail.tds_section || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Rate</p><p className="font-bold text-slate-800">{tdsDetail.tds_rate || 0}%</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Amount</p><p className="font-bold text-amber-600">₹{tdsDetail.tds_amount || 0}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Deposit Date</p><p className="font-bold text-slate-800">{tdsDetail.deposit_date || "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Status</p><p className="font-bold text-slate-800">{tdsDetail.status || "N/A"}</p></div>
+            {tdsDetail.vendor_bill_name && <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Vendor Bill</p><p className="font-bold text-slate-800">{tdsDetail.vendor_bill_name}</p></div>}
+            {tdsDetail.ra_bill_name && <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">RA Bill</p><p className="font-bold text-slate-800">{tdsDetail.ra_bill_name}</p></div>}
+            {tdsDetail.created_by_name && <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Created By</p><p className="font-bold text-slate-800">{tdsDetail.created_by_name}</p></div>}
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800">{tdsDetail.created_at ? new Date(tdsDetail.created_at).toLocaleString() : "N/A"}</p></div>
+            <div><p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Updated At</p><p className="font-bold text-slate-800">{tdsDetail.updated_at ? new Date(tdsDetail.updated_at).toLocaleString() : "N/A"}</p></div>
           </div>
         ) : (
           <div className="text-center py-8 text-slate-500">Details not found.</div>
@@ -1288,7 +1372,7 @@ const TDSManagementSection = () => {
           <p className="text-xs text-slate-500">Manage TDS deductions and payments</p>
         </div>
         <button onClick={() => { setEditData(null); setIsModalOpen(true); }} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm">
-          + Create TDS Deduction
+          Create TDS Deduction
         </button>
       </div>
 
@@ -1298,7 +1382,7 @@ const TDSManagementSection = () => {
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                {headers.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}
+                {headers.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -1327,7 +1411,7 @@ const TDSManagementSection = () => {
           </table>
         </div>
         {tdsList.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1421,7 +1505,7 @@ const TaxReconciliationSection = () => {
           <thead className="bg-white border-b border-slate-100">
             <tr>
               {["Invoice No", "Vendor", "GST (ERP)", "GST (Portal)", "Difference", "Status", "Actions"].map(h => (
-                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
@@ -1519,7 +1603,7 @@ const TaxationPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">GST & Taxation</h1>
             <p className="text-slate-500 text-sm mt-1">Manage GST invoices, returns, TDS deductions, and reconciliations.</p>
@@ -1556,3 +1640,4 @@ const TaxationPage = () => {
 };
 
 export default TaxationPage;
+

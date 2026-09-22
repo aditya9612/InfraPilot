@@ -326,8 +326,10 @@ const ManagerBOQPage = () => {
                 await boqService.updateBoqActuals(activeItemForModal.id, data);
                 toast.success("Actuals updated successfully!");
                 await refreshBoqs();
-            } catch (error) {
-                toast.error("Failed to update actuals");
+            } catch (error: any) {
+                const msg = error?.response?.data?.detail?.[0]?.msg || error?.response?.data?.detail || error?.response?.data?.message || "Failed to update actuals";
+                toast.error(typeof msg === 'string' ? msg : "Failed to update actuals");
+                throw error;
             }
         }
     };
@@ -520,13 +522,21 @@ const ManagerBOQPage = () => {
     const handleViewAlerts = async (item: BoqItem) => {
         try {
             const alerts = await boqService.getBoqAlerts(item.id);
-            if (alerts.length === 0) {
-                toast.success(`No alerts for ${item.item_name}!`);
+            if (Array.isArray(alerts)) {
+                if (alerts.length === 0) {
+                    toast.success(`No alerts for ${item.item_name}!`);
+                } else {
+                    toast.error(`Found ${alerts.length} alerts for ${item.item_name}.`);
+                }
+            } else if (alerts && typeof alerts === 'object') {
+                const msg = (alerts as any).detail || (alerts as any).message || `Found alerts for ${item.item_name}.`;
+                toast.error(String(msg));
             } else {
-                toast.error(`Found ${alerts.length} alerts for ${item.item_name}.`);
+                toast.success(`No alerts for ${item.item_name}!`);
             }
-        } catch (error) {
-            toast.error("Failed to fetch alerts");
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail?.[0]?.msg || error?.response?.data?.detail || error?.response?.data?.message || "Failed to fetch alerts";
+            toast.error(typeof msg === 'string' ? msg : "Failed to fetch alerts");
         }
     };
 
@@ -819,7 +829,7 @@ const ManagerBOQPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                                                     <th className="px-6 py-5">Identified Item</th>
-                                                    <th className="px-6 py-5">Classification</th>
+                                                    <th className="px-6 py-5">Category</th>
                                                     <th className="px-6 py-5">Quantity Unit</th>
                                                     <th className="px-6 py-5">Unit Rate</th>
                                                     <th className="px-6 py-5">Estimated Total</th>

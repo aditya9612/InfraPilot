@@ -10,7 +10,6 @@ import {
     FileText,
     Layers,
     Search,
-    Plus,
     Eye,
     RefreshCcw,
     Edit2,
@@ -60,9 +59,9 @@ const initialFormData = {
     project_id: "",
     drawing_name: "",
     version: "",
-    approved_by: "Site Engineer",
     date: "",
     remarks: "",
+    parent_id: "",
     file: ""
 };
 
@@ -73,6 +72,7 @@ const DrawingsDocumentsPage = () => {
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -277,8 +277,22 @@ const DrawingsDocumentsPage = () => {
         if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
         if (!formData.version?.trim()) newErrors.version = "Required";
         if (!isEditMode && !formData.project_id) newErrors.project_id = "Required";
-        if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
+        if (!isEditMode && !photoFile && !formData.file) newErrors.file = "Blueprint file is required";
+        
         setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            const missingFields = [];
+            if (newErrors.project_id) missingFields.push("Project ID");
+            if (newErrors.drawing_name) missingFields.push("Drawing Name");
+            if (newErrors.version) missingFields.push("Version");
+            if (newErrors.file) missingFields.push("File");
+
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -294,9 +308,9 @@ const DrawingsDocumentsPage = () => {
                 project_id: Number(formData.project_id),
                 drawing_name: formData.drawing_name,
                 version: formData.version,
-                approved_by: formData.approved_by || "Site Engineer",
                 date: formData.date || new Date().toISOString().split('T')[0],
-                remarks: formData.remarks || "Uploaded from dashboard",
+                remarks: formData.remarks || "",
+                parent_id: formData.parent_id ? Number(formData.parent_id) : null,
                 file: photoFile || formData.file || "document.png"
             };
 
@@ -310,11 +324,15 @@ const DrawingsDocumentsPage = () => {
                         remarks: formData.remarks || ""
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
-                    toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
-                    setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData);
+                    setFormNotification({ type: 'success', message: 'Drawing updated successfully!' });
+                    toast.success("Drawing updated successfully", { id: toastId, duration: 3000 });
+                    setTimeout(() => {
+                        setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData);
+                    }, 1500);
                 } catch (error) {
+                    setFormNotification({ type: 'error', message: 'Update failed. Please try again.' });
                     toast.error("Update Failed", { id: toastId });
                 }
                 setIsSubmitting(false);
@@ -322,6 +340,7 @@ const DrawingsDocumentsPage = () => {
             } else {
                 try {
                     newRecord = await drawingService.uploadDrawing(payload);
+                    setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                     toast.success("Successful", { id: toastId, duration: 3000 });
                 } catch (error: any) {
                     if (error.response?.status === 403) {
@@ -330,6 +349,7 @@ const DrawingsDocumentsPage = () => {
                             ...payload,
                             upload_file: "VIRTUAL_SYNC.pdf"
                         };
+                        setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                         toast.success("Successful", { id: toastId, duration: 3000 });
                     } else {
                         throw error;
@@ -337,18 +357,21 @@ const DrawingsDocumentsPage = () => {
                 }
 
                 if (newRecord) {
-                    if (projectId !== payload.project_id) {
-                        setSelectedProjectId(payload.project_id);
-                    }
-                    setDrawingData(prev => [newRecord, ...prev]);
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData); // Reset form
-                    setPhotoFile(null); // Clear file
-                    setPhotoPreview(null); // Clear photo
-                    setErrors({}); // Clear errors
+                    setTimeout(() => {
+                        if (projectId !== payload.project_id) {
+                            setSelectedProjectId(payload.project_id);
+                        }
+                        setDrawingData(prev => [newRecord, ...prev]);
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData); // Reset form
+                        setPhotoFile(null); // Clear file
+                        setPhotoPreview(null); // Clear photo
+                        setErrors({}); // Clear errors
+                    }, 1500);
                 }
             }
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to register asset. Please try again.' });
             toast.error("Failed to register asset", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -359,7 +382,7 @@ const DrawingsDocumentsPage = () => {
         const toastId = toast.loading("Fetching document metadata...");
         try {
             const isDoc = typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder";
-            let metadata;
+            let metadata: any;
             let blobUrl = null;
             let finalContentType = "application/pdf";
 
@@ -434,6 +457,7 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
+        setFormNotification(null);
         if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
             setDocEditFormData({
                 id: Number(drawing.id),
@@ -453,9 +477,9 @@ const DrawingsDocumentsPage = () => {
             id: drawing.id,
             drawing_name: drawing.drawing_name,
             version: drawing.version,
-            approved_by: drawing.approved_by || "Site Engineer",
             date: drawing.date || new Date().toISOString().split("T")[0],
             remarks: drawing.remarks || "",
+            parent_id: drawing.parent_id || "",
             file_url: drawing.file_url || drawing.upload_file || "",
             approval_status: drawing.approval_status,
             approval_id: drawing.approval_id
@@ -478,10 +502,14 @@ const DrawingsDocumentsPage = () => {
             if (docEditFormData.file) formData.append("file", docEditFormData.file);
 
             await documentService.updateDocument(docEditFormData.id, formData);
+            setFormNotification({ type: 'success', message: 'Document updated successfully!' });
             toast.success("Document updated successfully", { id: toastId });
-            setIsDocEditModalOpen(false);
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocEditModalOpen(false);
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to update document. Please try again.' });
             toast.error("Failed to update document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -490,10 +518,18 @@ const DrawingsDocumentsPage = () => {
 
     const handleDocCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!docCreateFormData.file) {
-            toast.error("Please select a file to upload.");
+        
+        const missingFields = [];
+        if (!docCreateFormData.title?.trim()) missingFields.push("Title");
+        if (!docCreateFormData.file) missingFields.push("File");
+
+        if (missingFields.length > 0) {
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
             return;
         }
+
         setIsSubmitting(true);
         const toastId = toast.loading("Creating document...");
         try {
@@ -505,11 +541,15 @@ const DrawingsDocumentsPage = () => {
                 remarks: docCreateFormData.remarks,
                 file: docCreateFormData.file
             });
+            setFormNotification({ type: 'success', message: 'Document created successfully!' });
             toast.success("Document created successfully", { id: toastId });
-            setIsDocCreateModalOpen(false);
-            setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocCreateModalOpen(false);
+                setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to create document. Please try again.' });
             toast.error("Failed to create document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -568,7 +608,8 @@ const DrawingsDocumentsPage = () => {
             }
 
             const originalUrl = drawing.file_url || drawing.upload_file;
-            await drawingService.downloadDocument(drawing.id, drawing.drawing_name, originalUrl);
+            const drawingId = drawing.id || (drawing as any).drawing_id || (drawing as any).document_id;
+            await drawingService.downloadDocument(drawingId, drawing.drawing_name, originalUrl);
             toast.success("Download successful", { id: toastId });
         } catch (error) {
             toast.error("Failed to download document", { id: toastId });
@@ -668,7 +709,7 @@ const DrawingsDocumentsPage = () => {
     }, [drawingData]);
 
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -733,11 +774,11 @@ const DrawingsDocumentsPage = () => {
                                             remarks: "",
                                             file: null
                                         });
+                                        setFormNotification(null);
                                         setIsDocCreateModalOpen(true);
                                     }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
                                     Upload Document
                                 </button>
                             </>
@@ -754,11 +795,10 @@ const DrawingsDocumentsPage = () => {
                                     Create Folder
                                 </button> */}
                                 <button
-                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setFormNotification(null); setIsFormModalOpen(true); }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
-                                    Upload Drawing
+                                    Upload Drawings
                                 </button>
                             </>
                         )}
@@ -768,28 +808,28 @@ const DrawingsDocumentsPage = () => {
                 {typeFilter === "Documents" ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage Bytes</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Storage Bytes</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-indigo-500 tracking-tight">{backendStats ? backendStats.total_storage_bytes : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage GB</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Storage GB</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-emerald-500 tracking-tight">{backendStats ? backendStats.total_storage_gb : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption GB</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Pending Approvals</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-amber-500 tracking-tight">{backendStats ? backendStats.pending_approvals : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Total Documents</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : 0}</span>
                             </div>
@@ -799,14 +839,14 @@ const DrawingsDocumentsPage = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">All Files</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : stats.all}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Drawings</span>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.drawings}</span>
                             </div>
@@ -833,9 +873,9 @@ const DrawingsDocumentsPage = () => {
 
                 {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
                         {/* Search */}
-                        <div className="relative flex-1 max-w-md font-inter">
+                        <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
@@ -924,8 +964,18 @@ const DrawingsDocumentsPage = () => {
                                                     <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.version}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                            {drawing.status || drawing.approval_status}
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
+                                                            }`}>
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
@@ -1060,15 +1110,18 @@ const DrawingsDocumentsPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4 font-inter">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
-                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                            : drawing.approval_status === "Pending"
-                                                                ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                : drawing.approval_status === "UNDER_REVIEW"
-                                                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
                                                             }`}>
-                                                            {drawing.approval_status ? drawing.approval_status.replace("_", " ") : "Pending"}
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -1115,7 +1168,7 @@ const DrawingsDocumentsPage = () => {
 
                     {/* ──────────────── Pagination ──────────────── */}
                     {!isLoading && filteredDrawings.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1205,30 +1258,41 @@ const DrawingsDocumentsPage = () => {
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                        <button onClick={() => setIsFormModalOpen(false)} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
                             Cancel
                         </button>
                         <button
                             form="drawing-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : (isEditMode ? "Update Asset" : "Register Asset")}
+                            {isSubmitting ? "Saving..." : (isEditMode ? "Edit Drawings" : "Save Drawings")}
                         </button>
                     </div>
                 }
             >
-                <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
+                <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-6 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                            <Layers className="w-4 h-4 text-primary" />
-                            Core Blueprint Identity
-                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                    <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
                                     <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
                                         <option value="">Select Project</option>
                                         {projects.map(p => (
@@ -1240,134 +1304,129 @@ const DrawingsDocumentsPage = () => {
                                     {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                                 </div>
                             )}
+
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
-                                <label className={labelClasses}>Descriptive Drawing Name <span className="text-rose-500">*</span></label>
-                                <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} placeholder="e.g. Foundation Structural Detail" className={inputClasses(errors.drawing_name)} />
+                                <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
+                                <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
+
                             <div className="font-inter">
-                                <label className={labelClasses}>Revision / Version <span className="text-rose-500">*</span></label>
-                                <input name="version" value={formData.version} onChange={handleInputChange} placeholder="e.g. V2.1" className={inputClasses(errors.version)} />
+                                <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
+                                <input name="version" value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
-                            {!isEditMode && (
-                                <div className="font-inter">
-                                    <label className={labelClasses}>Authorized Approver</label>
-                                    <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="e.g. Chief Architect" className={inputClasses(errors.approved_by)} />
-                                </div>
-                            )}
+
                             <div className="font-inter">
-                                <label className={labelClasses}>Registration Sequence (Date)</label>
+                                <label className={labelClasses}>Date</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                            <FileText className="w-4 h-4 text-primary" />
-                            Technical Specifications
-                        </h3>
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Lead Engineer Remarks</label>
-                            <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} placeholder="Describe technical scope or revision details..." className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
-                        </div>
-                    </div>
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Remarks</label>
+                                <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
+                            </div>
 
-                    {/* Site Documentation (DSR Style) */}
-                    {!isEditMode && (
-                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
-                                Site Documentation
-                                {photoPreview && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                                        className="text-rose-500 hover:text-rose-600 transition-colors font-inter"
-                                    >
-                                        <XIcon className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </h3>
+                            {!isEditMode && (
+                                <div className="font-inter md:col-span-2">
+                                    <label className={labelClasses}>Parent ID</label>
+                                    <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} />
+                                </div>
+                            )}
 
-                            <div className="flex flex-col items-center justify-center font-inter">
-                                {photoPreview ? (
-                                    photoPreview === "__file__" ? (
-                                        // Non-image file: show document icon + filename
-                                        <div className="relative w-full rounded-xl border border-slate-200 bg-slate-50 shadow-sm p-6 flex flex-col items-center gap-3 font-inter">
-                                            <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
-                                                <FileText className="w-8 h-8 text-primary" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm font-bold text-slate-700 font-inter truncate max-w-xs">{photoFile?.name}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{photoFile ? (photoFile.size / 1024).toFixed(1) + " KB" : ""}</p>
-                                            </div>
+                            {!isEditMode && (
+                                <div className="font-inter md:col-span-2 mt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
+                                        {photoPreview && (
                                             <button
                                                 type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all hover:bg-slate-50 font-inter"
+                                                onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                                                className="text-rose-500 hover:text-rose-600 transition-colors font-inter text-xs font-bold flex items-center gap-1"
                                             >
-                                                Change File
+                                                <XIcon className="w-4 h-4" /> Remove
                                             </button>
-                                        </div>
-                                    ) : (
-                                        // Image preview
-                                        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
-                                            <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-center justify-center font-inter">
+                                        {photoPreview ? (
+                                            photoPreview === "__file__" ? (
+                                                <div className="relative w-full rounded-xl border border-slate-200 bg-slate-50 shadow-sm p-6 flex flex-col items-center gap-3 font-inter">
+                                                    <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
+                                                        <FileText className="w-8 h-8 text-primary" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-bold text-slate-700 font-inter truncate max-w-xs">{photoFile?.name}</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{photoFile ? (photoFile.size / 1024).toFixed(1) + " KB" : ""}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all hover:bg-slate-50 font-inter"
+                                                    >
+                                                        Change File
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
+                                                    <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                        >
+                                                            Change Photo
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        ) : (
+                                            <div className="w-full flex flex-col items-center gap-4 font-inter">
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    className="hidden font-inter"
+                                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.dwg,.dxf,.csv"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setPhotoFile(file);
+                                                            setFormData((prev: any) => ({ ...prev, file: file.name }));
+                                                            if (file.type.startsWith("image/")) {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => {
+                                                                    setPhotoPreview(reader.result as string);
+                                                                };
+                                                                reader.readAsDataURL(file);
+                                                            } else {
+                                                                setPhotoPreview("__file__");
+                                                            }
+                                                            toast.success(`"${file.name}" selected!`);
+                                                        }
+                                                    }}
+                                                />
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                    className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
                                                 >
-                                                    Change Photo
+                                                    <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
+                                                        <Upload className="w-8 h-8 font-inter" />
+                                                    </div>
+                                                    <div className="text-center font-inter">
+                                                        <p className="text-sm font-bold text-slate-600 font-inter">Upload File</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
+                                                    </div>
                                                 </button>
+                                                {errors.file && <p className="mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-widest font-inter">{errors.file}</p>}
                                             </div>
-                                        </div>
-                                    )
-                                ) : (
-                                    <div className="w-full flex flex-col items-center gap-6 font-inter">
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            className="hidden font-inter"
-                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.dwg,.dxf,.csv"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    setPhotoFile(file);
-                                                    setFormData((prev: any) => ({ ...prev, file: file.name }));
-                                                    if (file.type.startsWith("image/")) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                            setPhotoPreview(reader.result as string);
-                                                        };
-                                                        reader.readAsDataURL(file);
-                                                    } else {
-                                                        setPhotoPreview("__file__");
-                                                    }
-                                                    toast.success(`"${file.name}" selected!`);
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
-                                        >
-                                            <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
-                                                <Upload className="w-8 h-8 font-inter" />
-                                            </div>
-                                            <div className="text-center font-inter">
-                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document <span className="text-rose-500">*</span></p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
-                                            </div>
-                                        </button>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </form>
             </Modal>
 
@@ -1473,7 +1532,7 @@ const DrawingsDocumentsPage = () => {
                                     value={folderFormData.title}
                                     onChange={(e) => setFolderFormData({ ...folderFormData, title: e.target.value })}
                                     className={inputClasses()}
-                                    placeholder="e.g. Contract Documents"
+                                   
                                 />
                             </div>
                             <div className="font-inter md:col-span-1">
@@ -1483,7 +1542,7 @@ const DrawingsDocumentsPage = () => {
                                     value={folderFormData.parent_id}
                                     onChange={(e) => setFolderFormData({ ...folderFormData, parent_id: e.target.value ? Number(e.target.value) : "" })}
                                     className={inputClasses()}
-                                    placeholder="Optional parent folder ID"
+                                   
                                 />
                             </div>
                         </div>
@@ -1521,14 +1580,29 @@ const DrawingsDocumentsPage = () => {
             <Modal isOpen={isDocEditModalOpen} onClose={() => setIsDocEditModalOpen(false)} title="Update Document" maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Document"}
+                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Edit Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-edit-form" onSubmit={handleDocEditSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />
@@ -1541,7 +1615,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
+                                <input type="text" className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Status</label>
@@ -1578,14 +1652,29 @@ const DrawingsDocumentsPage = () => {
             <Modal isOpen={isDocCreateModalOpen} onClose={() => setIsDocCreateModalOpen(false)} title="Upload Document" maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload Document"}
+                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-create-form" onSubmit={handleDocCreateSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />
@@ -1609,7 +1698,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
+                                <input type="text" className={inputClasses()} value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Parent ID</label>
@@ -1670,7 +1759,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>
-                                <input type="text" placeholder="e.g. Foundation Blueprints" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
+                                <input type="text" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
                             </div>
                         </div>
                     </div>

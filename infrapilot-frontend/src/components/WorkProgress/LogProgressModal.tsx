@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, DailyProgressRequest } from "../../types/workProgress";
+import toast from "react-hot-toast";
 
 interface LogProgressModalProps {
   isOpen: boolean;
@@ -46,7 +47,10 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -77,7 +81,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
   const inputClasses = (error?: string) =>
     `w-full px-4 py-2.5 bg-white border ${error ? "border-rose-300 focus:ring-rose-200" : "border-slate-200 focus:ring-primary/20 focus:border-primary"} rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter`;
 
@@ -99,7 +103,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         disabled={isSubmitting || !formData.activity_id}
         className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
       >
-        {isSubmitting ? "Syncing..." : "Add Daily Progress"}
+        {isSubmitting ? "Saving..." : "Save daily progress"}
       </button>
     </>
   );
@@ -110,7 +114,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Basic Information</h3>
           {activity ? (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
@@ -122,9 +126,9 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             </div>
           ) : (
             <div>
-              <label className={labelClasses}>Select Target Activity *</label>
+              <label className={labelClasses}>Select Target Activity <span className="text-rose-500">*</span></label>
               <select
-                required name="activity_id"
+                name="activity_id"
                 className={inputClasses(errors.activity_id)}
                 value={formData.activity_id} onChange={handleChange}
               >
@@ -140,12 +144,12 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Execution Details */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Execution Details</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Execution Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Entry Date <span className="text-rose-500">*</span></label>
               <input
-                required type="date" name="entry_date"
+                type="date" name="entry_date"
                 className={inputClasses(errors.entry_date)}
                 value={formData.entry_date} onChange={handleChange}
               />
@@ -156,7 +160,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
                 Today Progress{selectedActivity ? ` (${selectedActivity.unit}) — Remaining: ${selectedActivity.remaining_quantity || 0}` : ""} <span className="text-rose-500">*</span>
               </label>
               <input
-                required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
+                type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
                 className={`${inputClasses(errors.today_progress)} ${selectedActivity && selectedActivity.remaining_quantity <= 0 ? "bg-slate-50 cursor-not-allowed opacity-60" : ""}`}
                 value={formData.today_progress} onChange={handleChange}
                 disabled={!!(selectedActivity && selectedActivity.remaining_quantity <= 0)}
@@ -171,7 +175,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
         {/* Additional Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Additional Information</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">Additional Information</h3>
           <label className={labelClasses}>Remarks</label>
           <textarea
             name="remarks" rows={3} placeholder="Describe site conditions or progress..."

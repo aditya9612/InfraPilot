@@ -7,7 +7,6 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     Search,
-    Plus,
     Eye,
     FileText,
     Loader2,
@@ -19,10 +18,7 @@ import {
     RotateCcw
     ,
     ChevronLeft,
-    ChevronRight,
-    Clock,
-    ChevronDown,
-    Layers
+    ChevronRight
 } from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
@@ -75,6 +71,7 @@ const WorkApprovalPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+    const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string, missingFields?: string[] } | null>(null);
     const { selectedProjectId } = useProject();
 
     useEffect(() => {
@@ -116,7 +113,7 @@ const WorkApprovalPage = () => {
     useEffect(() => {
         const fetchEntities = async () => {
             if (!isFormModalOpen) return;
-            
+
             let pId = selectedProjectId || 0;
 
             setIsFetchingEntities(true);
@@ -154,7 +151,7 @@ const WorkApprovalPage = () => {
                 });
 
                 setAvailableEntities(pendingItems);
-                
+
                 // If there are pending items and no entity_id is selected or the selected is not in the list, auto-select the first one
                 if (pendingItems.length > 0) {
                     const firstId = pendingItems[0].id || pendingItems[0].labour_id || pendingItems[0].material_id || "";
@@ -197,15 +194,34 @@ const WorkApprovalPage = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+        if (formNotification) setFormNotification(null);
     };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.entity_type.trim()) newErrors.entity_type = "Required";
-        if (!formData.entity_id) newErrors.entity_id = "Required";
-        if (!formData.remarks.trim()) newErrors.remarks = "Required";
+        const missingFields: string[] = [];
+
+        if (!formData.entity_type.trim()) {
+            newErrors.entity_type = "Required";
+            missingFields.push("Entity Type");
+        }
+        
+        if (!formData.entity_id) {
+            newErrors.entity_id = "Required";
+            missingFields.push("Entity ID");
+        }
+        
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        
+        if (missingFields.length > 0) {
+            const errorMsg = `Please fill all mandatory fields: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg, missingFields });
+            toast.error(errorMsg);
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -229,9 +245,10 @@ const WorkApprovalPage = () => {
                 setApprovalData(prev => [newRecord, ...prev]);
             }
             setIsFormModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Submit Error:", error);
-            toast.error("Failed to process request", { id: toastId });
+            const errMsg = error.response?.data?.message || error.response?.data?.error || "Failed to process request";
+            toast.error(errMsg, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -336,7 +353,7 @@ const WorkApprovalPage = () => {
         clearanceRate: `${baseFilteredApprovals.length > 0 ? Math.round((baseFilteredApprovals.filter(a => a.status === "Approved").length / baseFilteredApprovals.length) * 100) : 0}%`
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-white border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -382,8 +399,7 @@ const WorkApprovalPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
-                            Approvals
+                            Approval
                         </button>
                     </div>
                 </div>
@@ -439,7 +455,7 @@ const WorkApprovalPage = () => {
 
                 {/* ── Filter Bar & Table Container ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                         <div className="relative w-full md:max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -466,47 +482,31 @@ const WorkApprovalPage = () => {
                             </select>
 
                             {/* Sort Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="latest">Latest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
 
                             {/* Category Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Layers className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="All">All Categories</option>
-                                    <option value="Labour">Labour</option>
-                                    <option value="Material">Material</option>
-                                    <option value="Equipment">Equipment</option>
-                                    <option value="Drawing">Drawing</option>
-                                    <option value="Documents">Documents</option>
-                                    <option value="BOQ">BOQ</option>
-                                    <option value="Measurement">Measurement</option>
-                                    <option value="Bills">Bills</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="All">All Categories</option>
+                                <option value="Labour">Labour</option>
+                                <option value="Material">Material</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Drawing">Drawing</option>
+                                <option value="Documents">Documents</option>
+                                <option value="BOQ">BOQ</option>
+                                <option value="Measurement">Measurement</option>
+                                <option value="Bills">Bills</option>
+                            </select>
                         </div>
                     </div>
 
@@ -591,12 +591,12 @@ const WorkApprovalPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!loading && filteredApprovals.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -613,7 +613,7 @@ const WorkApprovalPage = () => {
                             </div>
 
                             {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap justify-center items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
@@ -621,7 +621,7 @@ const WorkApprovalPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredApprovals.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -648,11 +648,10 @@ const WorkApprovalPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -788,12 +787,18 @@ const WorkApprovalPage = () => {
             {/* ── Form Modal ────────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
-                title={isEditMode ? "Modify Work Approval" : "New Work Request"}
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                    setFormNotification(null);
+                }}
+                title={isEditMode ? "Update Approval" : "Request Approval"}
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end gap-3 px-6 pb-6">
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter">
+                        <button onClick={() => {
+                            setIsFormModalOpen(false);
+                            setFormNotification(null);
+                        }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter">
                             Cancel
                         </button>
                         <button
@@ -806,12 +811,29 @@ const WorkApprovalPage = () => {
                             {isSubmitting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : null}
-                            {isEditMode ? "Update Request" : "Submit Request"}
+                            {isEditMode ? "Update Approval" : "Request Approval"}
                         </button>
                     </div>
                 }
             >
                 <form id="approval-form" onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'} font-inter`}>
+                            <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    {formNotification.type === 'error' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-bold ${formNotification.type === 'error' ? 'text-rose-800' : 'text-emerald-800'}`}>
+                                        {formNotification.type === 'error' ? 'Validation Error' : 'Success'}
+                                    </h4>
+                                    <p className={`text-xs mt-1 ${formNotification.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {formNotification.message}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Authorization Identity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-inter">
@@ -831,10 +853,10 @@ const WorkApprovalPage = () => {
                             <div>
                                 <label className={labelClasses}>Entity ID <span className="text-rose-500">*</span></label>
                                 <div className="relative">
-                                    <select 
-                                        name="entity_id" 
-                                        value={formData.entity_id} 
-                                        onChange={handleInputChange} 
+                                    <select
+                                        name="entity_id"
+                                        value={formData.entity_id}
+                                        onChange={handleInputChange}
                                         className={inputClasses(errors.entity_id)}
                                         disabled={isFetchingEntities || availableEntities.length === 0}
                                     >
@@ -865,8 +887,8 @@ const WorkApprovalPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Technical Narrative</h3>
                         <div className="font-inter">
-                            <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
-                            <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="Describe the technical requirements or justification..." className={`${inputClasses(errors.remarks)} resize-none font-inter font-bold`} />
+                            <label className={labelClasses}>Remarks</label>
+                            <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="" className={`${inputClasses(errors.remarks)} resize-none font-inter font-bold`} />
                             {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
                         </div>
                     </div>

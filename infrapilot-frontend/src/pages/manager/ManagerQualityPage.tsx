@@ -126,7 +126,12 @@ const ManagerQualityPage = () => {
                 const members = await projectService.getProjectMembers(Number(formData.project_id));
                 const list = Array.isArray(members) ? members : (members?.items || members?.data || []);
 
-                let mapped = list.map((m: any) => {
+                let mapped = list.filter((m: any) => {
+                    const u = m.user || m || {};
+                    const role = typeof m.role === 'string' ? m.role : typeof u.role === 'string' ? u.role : (u.role?.name || '');
+                    const normalizedRole = String(role).toLowerCase().replace(/\s+/g, '');
+                    return normalizedRole === 'siteengineer' || normalizedRole === 'engineer';
+                }).map((m: any) => {
                     const u = m.user || {};
                     const id = u.id || m.user_id || m.userId;
                     const name = u.full_name || u.username || (u.name) || `User #${id}`;
@@ -226,6 +231,16 @@ const ManagerQualityPage = () => {
             setIsDeleteModalOpen(false);
             setDeleteId(null);
         } catch { toast.error("Failed to delete"); } finally { setIsSubmitting(false); }
+    };
+
+    const buildFileUrl = (file_url: string) => {
+        if (!file_url) return "";
+        const normalizedUrl = file_url.replace(/\\/g, '/');
+        if (normalizedUrl.startsWith('http')) return normalizedUrl;
+        const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+        return `${baseUrl}${path}`;
     };
 
     const resetForm = () => setFormData({
@@ -632,7 +647,7 @@ const ManagerQualityPage = () => {
                         <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Create Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Save Entry")}
                         </button>
                     </>
                 }
@@ -841,6 +856,16 @@ const ManagerQualityPage = () => {
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
                                         <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || '—'}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
+                                        {(selectedQc as any).report_file_url || (selectedQc as any).report_file ? (
+                                            <a href={buildFileUrl((selectedQc as any).report_file_url || (selectedQc as any).report_file)} target="_blank" rel="noreferrer" className="text-sm font-bold text-primary hover:underline font-inter flex items-center gap-1 w-fit">
+                                                View Attached Report
+                                            </a>
+                                        ) : (
+                                            <span className="text-sm font-medium text-slate-600 font-inter">—</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

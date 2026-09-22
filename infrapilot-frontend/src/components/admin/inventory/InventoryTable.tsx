@@ -51,7 +51,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{projects[item.project_id] || "Unknown Site"}</p>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">{item.category}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{item.unit}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{item.unit_name || item.unit || '-'}</td>
                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{item.remaining_stock?.toLocaleString() || 0}</td>
                 <td className="px-6 py-4 text-sm text-slate-500 text-center">{item.minimum_stock_level?.toLocaleString() || 0}</td>
                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatCurrency(item.purchase_rate)}</td>

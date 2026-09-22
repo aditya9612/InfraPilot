@@ -5,7 +5,7 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-    Plus, ShoppingCart, Eye, Edit2, Trash2, Search, RotateCcw,
+    ShoppingCart, Eye, Edit2, Trash2, Search, RotateCcw,
     ChevronLeft, ChevronRight, TrendingUp, Activity,
     AlertTriangle
 } from "lucide-react";
@@ -29,7 +29,20 @@ const MaterialReceiptPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Dashboard");
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+        try {
+            const pid = localStorage.getItem("infrapilot_selected_project_id");
+            if (pid && pid !== "null") return Number(pid);
+
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const pId = parsed.default_project_id || parsed.project_id;
+                return pId ? Number(pId) : null;
+            }
+        } catch (e) { }
+        return null;
+    });
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,6 +179,7 @@ const MaterialReceiptPage = () => {
         const newProjectId = id === 0 ? null : id;
         setSelectedProjectId(newProjectId);
         if (newProjectId) {
+            localStorage.setItem("infrapilot_selected_project_id", String(newProjectId));
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
@@ -214,7 +228,7 @@ const MaterialReceiptPage = () => {
     const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-xs font-black text-slate-900 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
 
     // ─── CRUD Handlers ──────────────────────────────────────────────
@@ -257,8 +271,14 @@ const MaterialReceiptPage = () => {
         if (!nameRegex.test(supplierForm.contactPerson || "")) {
             return toast.error("Contact person must contain only letters and spaces.");
         }
-        if (!/^[0-9]{10}$/.test(supplierForm.contact || "")) {
-            return toast.error("Phone number must be exactly 10 digits.");
+        const contactVal = supplierForm.contact?.trim() || "";
+        if (!contactVal) {
+            return toast.error("Phone / Email is required.");
+        }
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactVal);
+        const isPhone = /^\+?[0-9]{10,15}$/.test(contactVal);
+        if (!isEmail && !isPhone) {
+            return toast.error("Please enter a valid phone number (10-15 digits) or a valid email address.");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(supplierForm.gst || "")) {
@@ -329,7 +349,7 @@ const MaterialReceiptPage = () => {
         }
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky bottom-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -363,7 +383,7 @@ const MaterialReceiptPage = () => {
             <Navbar title="Material Receipt" breadcrumb={["Engineer", "Material Management", "Receipt & Masters"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Material Management
@@ -374,12 +394,12 @@ const MaterialReceiptPage = () => {
                     </div>
                     {activeTab === "Materials" && (
                         <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); if (suppliers.length === 0) fetchSuppliers(projectId); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                            <Plus className="w-4 h-4" /> Add Material
+                            Add Material
                         </button>
                     )}
                     {activeTab === "Suppliers" && (
                         <button onClick={() => { setSelectedSupplier(null); setSupplierForm({}); setIsSupplierModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95">
-                            <Plus className="w-4 h-4" /> Add Supplier
+                            Add Supplier
                         </button>
                     )}
                     {activeTab === "Purchase Orders" && (
@@ -392,13 +412,13 @@ const MaterialReceiptPage = () => {
                             if (boqs.length === 0 && projectId) fetchBoqs(projectId);
                             setIsPOModalOpen(true);
                         }} className="flex items-center gap-2 px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all active:scale-95">
-                            <Plus className="w-4 h-4" /> Create PO
+                            Create PO
                         </button>
                     )}
                 </div>
 
                 {/* Tabs & Project Filter */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
                     <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto scrollbar-none">
                         {(["Dashboard", "Materials", "Suppliers", "Purchase Orders"] as TabType[]).map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
@@ -410,8 +430,8 @@ const MaterialReceiptPage = () => {
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
+                        <select value={projectId || ""} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value="" disabled>Select Project</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>
@@ -634,28 +654,28 @@ const MaterialReceiptPage = () => {
 
             {/* Modals */}
             {/* Modal A & B: Add/Edit Material */}
-            <Modal isOpen={isMaterialModalOpen} onClose={() => setIsMaterialModalOpen(false)} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => setIsMaterialModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Material"}</button></>}>
+            <Modal isOpen={isMaterialModalOpen} onClose={() => setIsMaterialModalOpen(false)} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => setIsMaterialModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedMaterial ? "Edit Material" : "Save Material")}</button></>}>
                 <form id="material-form" onSubmit={handleMaterialSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
-                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            {!selectedMaterial && <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
+                            <div><label className={labelClasses}>Material Master <span className="text-rose-500">*</span></label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Purchase Rate *</label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate Type *</label><select required value={materialForm.rate_type || ""} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                            <div><label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label><select required value={materialForm.rate_type || ""} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                             {!selectedMaterial && (
                                 <>
-                                    <div><label className={labelClasses}>Qty Purchased *</label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
-                                    <div><label className={labelClasses}>Payment Given *</label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
+                                    <div><label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={inputClasses} /></div>
                                 </>
                             )}
-                            <div><label className={labelClasses}>Min Stock Level *</label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -675,8 +695,8 @@ const MaterialReceiptPage = () => {
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
@@ -685,10 +705,10 @@ const MaterialReceiptPage = () => {
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_name || "—"}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_brand || "—"}</p></div>
-                                    <div className="col-span-2"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Specification</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_specification || "—"}</p></div>
+                                    <div className="col-span-2 md:col-span-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Specification</p><p className="font-bold text-slate-700">{(selectedMaterial as any).material_master_specification || "—"}</p></div>
                                 </div>
                             </div>
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                            <div className="md:col-span-1 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Stock Details</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700">{selectedMaterial.quantity_purchased}</p></div>
@@ -717,12 +737,12 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Issue Type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                             <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Amount Paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -761,15 +781,15 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal G & H: Add/Edit Supplier */}
-            <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Supplier"}</button></>}>
+            <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Edit Supplier" : "Save Supplier")}</button></>}>
                 <form id="supplier-form" onSubmit={handleSupplierSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
-                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone Number * <span className="text-rose-400 text-[9px] normal-case font-normal ml-1">(exactly 10 digits)</span></label><input required type="tel" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="E.g. 9876543210" /></div>
-                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
+                            <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" title="Please enter a valid phone number (10-15 digits) or a valid email address." value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
@@ -802,15 +822,15 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal J & L: Add/Edit PO */}
-            <Modal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPOModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save PO"}</button></>}>
+            <Modal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPOModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedPO ? "Edit PO" : "Save PO")}</button></>}>
                 <form id="po-form" onSubmit={handlePOSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                             <div>
-                                <label className={labelClasses}>Material *</label>
+                                <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
                                 <select
                                     required
                                     value={poForm.material_id || ""}
@@ -847,8 +867,8 @@ const MaterialReceiptPage = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
 
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
                                 <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>
@@ -889,7 +909,7 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal M: Delete Confirm */}
-            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDelete} title={`Delete ${deleteTarget?.type}`} message="Are you sure? This cannot be undone." confirmText="Delete" type="danger" isLoading={isSubmitting} />
+            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDelete} title={`Delete ${deleteTarget?.type ? deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1) : ''}`} message="Are you sure? This cannot be undone." confirmText="Delete" type="danger" isLoading={isSubmitting} />
         </>
     );
 };

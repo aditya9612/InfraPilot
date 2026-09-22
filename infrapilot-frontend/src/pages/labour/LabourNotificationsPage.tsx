@@ -376,7 +376,7 @@ const LabourNotificationsPage = () => {
     <>
       <Navbar title="Notifications" breadcrumb={["Labour", "Notifications"]} />
 
-      <div className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
+      <div className="p-6 bg-slate-50 min-h-\[calc(100vh-64px)\] pb-8 font-inter">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>

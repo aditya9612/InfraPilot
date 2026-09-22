@@ -5,7 +5,6 @@ import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
-    Plus,
     Search,
     Eye,
     Edit2,
@@ -121,6 +120,7 @@ const SafetyManagementPage = () => {
         safety_checklist_status: "pending",
         ppe_compliance: true
     });
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -288,6 +288,11 @@ const SafetyManagementPage = () => {
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
+        
+        VIOLATION_TYPES.forEach(type => {
+            groups[type] = { total: 0, resolved: 0, unresolved: 0 };
+        });
+
         baseFilteredList.forEach(q => {
             if (!groups[q.violation_type]) {
                 groups[q.violation_type] = { total: 0, resolved: 0, unresolved: 0 };
@@ -303,7 +308,7 @@ const SafetyManagementPage = () => {
         return Object.entries(groups).map(([type, data]) => ({
             type,
             ...data,
-            resolutionRate: Math.round((data.resolved / data.total) * 100) + "%"
+            resolutionRate: data.total > 0 ? Math.round((data.resolved / data.total) * 100) + "%" : "0%"
         }));
     }, [baseFilteredList]);
 
@@ -369,16 +374,27 @@ const SafetyManagementPage = () => {
 
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
-        if (!formData.date || !formData.violation_type || !formData.description || !formData.action_taken || !formData.responsible_person) {
-            toast.error("Please fill all required fields");
+        setFormNotification(null);
+
+        // Field-level validation with specific messages
+        if (!formData.project_id) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Project' });
+            toast.error("Please fill mandatory field: Project", { id: 'validation' });
+            return;
+        }
+        if (!formData.date) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Date' });
+            toast.error("Please fill mandatory field: Date", { id: 'validation' });
             return;
         }
 
         setIsSubmitting(true);
         try {
             const newIncident = await safetyService.createIncident({ ...formData, project_id: formData.project_id || projectId || 0 });
-            toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety incident created successfully!");
+            setFormNotification({ type: 'success', message: activeTab === "Incident Report" ? 'Incident reported successfully!' : 'Safety audit saved successfully!' });
+            toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety audit saved successfully!");
             setIsNewModalOpen(false);
+            setFormNotification(null);
 
             setIncidentList(prev => [newIncident, ...prev]);
 
@@ -395,8 +411,11 @@ const SafetyManagementPage = () => {
                 safety_checklist_status: "pending",
                 ppe_compliance: activeTab === "Incident Report" ? true : false
             });
-        } catch (error) {
-            toast.error(activeTab === "Incident Report" ? "Failed to report incident" : "Failed to create safety incident");
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || null;
+            const errMsg = msg ? `Error: ${msg}` : (activeTab === "Incident Report" ? "Failed to report incident" : "Failed to save safety audit");
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -436,15 +455,33 @@ const SafetyManagementPage = () => {
     const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
         if (!selectedIncident) return;
+        setFormNotification(null);
+
+        // Field-level validation for edit
+        if (!formData.project_id) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Project' });
+            toast.error("Please fill mandatory field: Project", { id: 'validation' });
+            return;
+        }
+        if (!formData.date) {
+            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Date' });
+            toast.error("Please fill mandatory field: Date", { id: 'validation' });
+            return;
+        }
 
         setIsSubmitting(true);
         try {
             await safetyService.updateIncident(selectedIncident.id, formData);
-            toast.success("Updated successfully!");
+            setFormNotification({ type: 'success', message: 'Safety record updated successfully!' });
+            toast.success("Safety record updated successfully!");
             setIsEditModalOpen(false);
+            setFormNotification(null);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to update");
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || null;
+            const errMsg = msg ? `Error: ${msg}` : "Failed to update safety record";
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -452,7 +489,7 @@ const SafetyManagementPage = () => {
 
     // ─── RENDER HELPERS ─────────────────────────────────────────────────
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
 
     const statCardsData = [
@@ -498,7 +535,6 @@ const SafetyManagementPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             {activeTab === "Safety Checklist" ? "Log Audit Entry" : "Log Incident Report"}
                         </button>
                     </div>
@@ -542,7 +578,7 @@ const SafetyManagementPage = () => {
                 {activeTab === "Safety Checklist" && (
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                         {/* Integrated Filter Bar */}
-                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                             <div className="relative flex-1 max-w-md font-inter">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                                     <Search className="w-4 h-4 font-inter" />
@@ -632,12 +668,12 @@ const SafetyManagementPage = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
                                                             {item.violation_type}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
                                                             item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
                                                                 item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
                                                                     'bg-slate-100 text-slate-600'
@@ -818,44 +854,63 @@ const SafetyManagementPage = () => {
 
             <Modal
                 isOpen={isNewModalOpen || isEditModalOpen}
-                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); setFormNotification(null); }}
                 title={isEditModalOpen ? (activeTab === "Incident Report" ? "Modify Incident Report" : "Modify Safety Intelligence") : (activeTab === "Incident Report" ? "Log New Incident Report" : "Record New Safety Audit")}
                 maxWidth="max-w-2xl"
                 footer={
                     <>
                         <button
                             type="button"
-                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); setFormNotification(null); }}
                             disabled={isSubmitting}
                             className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
-                            type="button"
-                            onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
+                            type="submit"
+                            form="audit-form"
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
                         >
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : (activeTab === "Incident Report" ? "Create Report" : "Create Audit Entry"))}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Edit Safety" : (activeTab === "Incident Report" ? "Create Report" : "Save Safety Audit"))}
                         </button>
                     </>
                 }
             >
                 <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
+                    {/* Inline Notification Banner */}
+                    {formNotification && (
+                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter animate-fade-in ${
+                            formNotification.type === 'error'
+                                ? 'bg-red-50 border-red-200 text-red-700'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        }`}>
+                            <span className="text-lg leading-none mt-0.5">
+                                {formNotification.type === 'error' ? '⚠️' : '✅'}
+                            </span>
+                            <span>{formNotification.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => setFormNotification(null)}
+                                className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
+                            >×</button>
+                        </div>
+                    )}
                     {/* Basic Info */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                        <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
                                 <select
                                     name="project_id"
                                     value={formData.project_id}
                                     onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }))}
                                     className={inputClasses}
+                                    required
                                 >
                                     <option value="">-- Select Project --</option>
                                     {projects.map((p: any) => (
@@ -866,9 +921,8 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task *</label>
+                                <label className={labelClasses}>Task</label>
                                 <select
-                                    required
                                     name="task_id"
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
@@ -883,17 +937,18 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
                                 <input
                                     name="date"
                                     type="date"
                                     value={formData.date}
                                     onChange={handleInputChange}
                                     className={inputClasses}
+                                    required
                                 />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Responsible Person (Optional)</label>
                                 <input
                                     name="responsible_person"
                                     value={formData.responsible_person}
@@ -902,7 +957,7 @@ const SafetyManagementPage = () => {
                                     className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:ring-rose-200" : ""}`}
                                 />
                                 {/\d/.test(formData.responsible_person) && (
-                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed.</p>
+                                    <p className="text-[10px] text-red-600 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed.</p>
                                 )}
                             </div>
                         </div>
@@ -910,17 +965,18 @@ const SafetyManagementPage = () => {
 
                     {/* Observation Details */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                        <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">
                             Observation Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="font-inter">
-                                <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Safety Checklist Status <span className="text-red-600">*</span></label>
                                 <select
                                     name="safety_checklist_status"
                                     value={formData.safety_checklist_status}
                                     onChange={handleInputChange}
                                     className={inputClasses}
+                                    required
                                 >
                                     <option value="pending">Pending</option>
                                     <option value="completed">Completed</option>
@@ -928,7 +984,7 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Violation Type (Optional)</label>
                                 <select
                                     name="violation_type"
                                     value={formData.violation_type}
@@ -942,7 +998,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Description (Optional)</label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
@@ -966,7 +1022,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Action Taken (Optional)</label>
                                 <textarea
                                     name="action_taken"
                                     value={formData.action_taken}
@@ -1044,7 +1100,7 @@ const SafetyManagementPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">PPE Compliance</p>
-                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.ppe_compliance ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.ppe_compliance ? 'text-emerald-500' : 'text-red-600'}`}>
                                             {selectedIncident.ppe_compliance ? 'Compliant' : 'Non-Compliant'}
                                         </p>
                                     </div>

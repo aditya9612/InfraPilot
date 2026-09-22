@@ -108,7 +108,8 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
-    if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done is required";
+    if (!formData.weather) errs.weather = "Weather Condition is required";
+    if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done Today is required";
     // Project ID is implicit in the context/submission for DSR
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -135,7 +136,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1";
   const inputClasses = (error?: string) => `
     w-full px-4 py-2.5 bg-white border 
     ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -154,7 +155,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
             Cancel
           </button>
           <button form="edit-dsr-form" type="submit" disabled={isLoading} className={`px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}>
-            {isLoading ? "Saving..." : "Update DSR Entry"}
+            {isLoading ? "Saving..." : "Edit DSR Entry"}
           </button>
         </>
       }
@@ -162,7 +163,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
       <form id="edit-dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={labelClasses}>Report Date <span className="text-rose-500">*</span></label>
@@ -180,8 +181,9 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
               {errors.site_location && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.site_location}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Weather Condition</label>
-              <select name="weather" value={formData.weather || "Sunny"} onChange={handleChange} className={inputClasses(errors.weather)}>
+              <label className={labelClasses}>Weather Condition <span className="text-rose-500">*</span></label>
+              <select required name="weather" value={formData.weather || "Sunny"} onChange={handleChange} className={inputClasses(errors.weather)}>
+                <option value="">Select Weather</option>
                 <option value="Sunny">Sunny</option>
                 <option value="Rainy">Rainy</option>
                 <option value="Cloudy">Cloudy</option>
@@ -222,11 +224,12 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Work Progress */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work Progress</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Work Progress</h3>
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Work Done Today <span className="text-rose-500">*</span></label>
-              <textarea required name="work_done" value={formData.work_done || ""} onChange={handleChange} rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
+              <textarea name="work_done" value={formData.work_done || ""} onChange={handleChange} rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
+              {errors.work_done && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.work_done}</p>}
             </div>
             <div>
               <label className={labelClasses}>Work Planned for Tomorrow</label>
@@ -237,7 +240,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Resource Tracking */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Resource Tracking</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Resource Tracking</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={labelClasses}>Machinery Used</label>
@@ -259,7 +262,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
 
         {/* Issues & Observations */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Issues & Observations</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Issues & Observations</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Issues / Delays</label>

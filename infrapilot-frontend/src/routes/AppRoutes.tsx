@@ -5,6 +5,19 @@ import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
+import SuperAdminDashboard from "../pages/superadmin/SuperAdminDashboard";
+import CompaniesPage from "../pages/superadmin/CompaniesPage";
+import SubscriptionsPage from "../pages/superadmin/SubscriptionsPage";
+import PlansPage from "../pages/superadmin/PlansPage";
+import TransactionsPage from "../pages/superadmin/TransactionsPage";
+import SuperAdminUsersPage from "../pages/superadmin/UsersPage";
+import AuditLogsPage from "../pages/superadmin/AuditLogsPage";
+import SuperAdminProfilePage from "../pages/superadmin/SuperAdminProfilePage"; // Force TS refresh
+import CompanyDetailsPage from "../pages/superadmin/CompanyDetailsPage";
+import CompanyAdminsPage from "../pages/superadmin/CompanyAdminsPage";
+
+import ManualPaymentsPage from "../pages/superadmin/ManualPaymentsPage";
+import BillingReconciliationPage from "../pages/superadmin/BillingReconciliationPage";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
 import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
@@ -35,12 +48,14 @@ import SettingsPage from "../pages/admin/SettingsPage";
 import ReportsPage from "../pages/admin/ReportsPage";
 import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
+import RolesPermissionsPage from "../pages/access-control/RolesPermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 import BOQDetailPage from "../pages/admin/BOQDetailPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 import QuotationsPage from "../pages/admin/QuotationsPage";
+import CreateDraftQuotationPage from "../pages/admin/CreateDraftQuotationPage";
 import AdminClientPaymentPage from "../pages/admin/AdminClientPaymentPage";
 import ManagerApprovalsPage from "../pages/manager/ApprovalsPage";
 import QCGovernancePage from "../pages/manager/QCGovernancePage";
@@ -65,6 +80,7 @@ import ManagerMaterialConsumptionPage from "../pages/manager/Resources/MaterialM
 import ManagerMaterialStockPage from "../pages/manager/Resources/MaterialManagement/MaterialStockPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerReportsPage from "../pages/manager/ManagerReportsPage";
+import ManagerAttendancePage from "../pages/manager/ManagerAttendancePage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -142,6 +158,7 @@ import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
 import ApprovalCenterPage from "../pages/accountant/ApprovalCenterPage";
+import AccountantCreateInvoice from "../pages/accountant/AccountantCreateInvoice";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import LabourDashboard from "../pages/labour/LabourDashboard";
 import MyTasksPage from "../pages/labour/MyTasksPage";
@@ -157,6 +174,7 @@ const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
   const paths: Record<string, string> = {
+    SuperAdmin: "/superadmin",
     Admin: "/admin",
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
@@ -180,6 +198,23 @@ function AppRoutes() {
             {" "}
             {/* No role restriction here, inner routes will handle */}
             <Route element={<DashboardLayout />}>
+              {/* Super Admin Specific Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["SuperAdmin"]} />}>
+                <Route path="/superadmin" element={<SuperAdminDashboard />} />
+                <Route path="/superadmin/companies" element={<CompaniesPage />} />
+                <Route path="/superadmin/companies/:id" element={<CompanyDetailsPage />} />
+                <Route path="/superadmin/company-admins" element={<CompanyAdminsPage />} />
+                <Route path="/superadmin/subscriptions" element={<SubscriptionsPage />} />
+                <Route path="/superadmin/plans" element={<PlansPage />} />
+                <Route path="/superadmin/transactions" element={<TransactionsPage />} />
+                <Route path="/superadmin/manual-payments" element={<ManualPaymentsPage />} />
+                <Route path="/superadmin/billing" element={<BillingReconciliationPage />} />
+                <Route path="/superadmin/users" element={<SuperAdminUsersPage />} />
+                <Route path="/superadmin/audit-logs" element={<AuditLogsPage />} />
+                <Route path="/superadmin/profile" element={<SuperAdminProfilePage />} />
+
+              </Route>
+
               {/* Admin Specific Routes */}
               <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
                 <Route path="/admin" element={<AdminDashboard />} />
@@ -194,6 +229,10 @@ function AppRoutes() {
                 <Route
                   path="/admin/users/permissions"
                   element={<PermissionsPage />}
+                />
+                <Route
+                  path="/admin/access-control/roles"
+                  element={<RolesPermissionsPage />}
                 />
                 <Route path="/admin/clients" element={<ClientsPage />} />
                 <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
@@ -271,6 +310,8 @@ function AppRoutes() {
                 <Route path="/admin/measurements" element={<MeasurementPage />} />
                 <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
                 <Route path="/admin/quotations" element={<QuotationsPage />} />
+                <Route path="/admin/quotations/draft/new" element={<CreateDraftQuotationPage />} />
+                <Route path="/admin/quotations/draft/:id" element={<CreateDraftQuotationPage />} />
                 <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
                 <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
                 <Route path="/admin/master-data" element={<MasterDataPage />} />
@@ -305,6 +346,7 @@ function AppRoutes() {
               {/* Manager Specific Routes */}
               <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
                 <Route index element={<ManagerDashboard />} />
+                <Route path="attendance" element={<ManagerAttendancePage />} />
                 <Route path="projects" element={<ProjectsPage />} />
                 <Route path="projects/list" element={<ProjectsPage />} />
                 <Route path="projects/:id" element={<ProjectDetailsPage />} />
@@ -647,6 +689,11 @@ function AppRoutes() {
                   path="/accountant/approvals/:category"
                   element={<ApprovalCenterPage />}
                 />
+                <Route path="/accountant/invoices/create" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/invoices/view/:id" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/quotations/view/:id" element={<AccountantCreateInvoice />} />
+                <Route path="/accountant/quotations/draft/new" element={<CreateDraftQuotationPage />} />
+                <Route path="/accountant/quotations/draft/:id" element={<CreateDraftQuotationPage />} />
               </Route>
             </Route>
           </Route>

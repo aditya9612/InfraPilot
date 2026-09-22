@@ -6,7 +6,7 @@ import Modal from "../../components/common/Modal";
 import LedgerModal from "../../components/forms/accounting/LedgerModal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Pencil } from "lucide-react";
 
 // --- UI COMPONENTS ---
 
@@ -216,7 +216,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
         </div>
       </Modal>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{getTitle()}</h1>
           <p className="text-slate-500 text-sm mt-1">Manage and track your {activeTab.replace('-', ' ')} records.</p>
@@ -234,7 +234,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
           </button>
           {activeTab === "accounts" && (
             <button onClick={onAddAccount} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> Add Account
+              Add Account
             </button>
           )}
         </div>
@@ -295,6 +295,7 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
   });
   const [isLoading, setIsLoading] = useState(false);
   const [accountsList, setAccountsList] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -317,6 +318,19 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.account_id) newErrors.account_id = "Account is required";
+    if (!formData.bank_name) newErrors.bank_name = "Bank Name is required";
+    if (!formData.account_number) newErrors.account_number = "Account Number is required";
+    if (!formData.ifsc_code) newErrors.ifsc_code = "IFSC Code is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (initialData && initialData.id) {
@@ -335,6 +349,25 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
     }
   };
 
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 transition-all font-semibold outline-none ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50' 
+            : 'border-slate-200'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let parsedValue: any = value;
+    if (name === 'account_id') {
+      parsedValue = parseInt(value) || 0;
+    }
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -345,7 +378,7 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
           <button onClick={handleSubmit} disabled={isLoading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
-            {isLoading ? "Saving..." : initialData ? "Save Changes" : "Create Account"}
+            {isLoading ? "Saving..." : initialData ? "Edit Bank Account" : "Save Bank Account"}
           </button>
         </>
       }
@@ -358,17 +391,30 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account *</label>
-              <select required value={formData.account_id || ""} onChange={e => setFormData({ ...formData, account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account <span className="text-rose-500">*</span></label>
+              <select name="account_id" value={formData.account_id || ""} onChange={handleChange} className={inputClasses(errors.account_id)}>
                 <option value="">Select an Account</option>
                 {accountsList.map(acc => (
                   <option key={acc.id} value={acc.id}>{acc.name} {acc.code ? `(${acc.code})` : ""}</option>
                 ))}
               </select>
+              {errors.account_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.account_id}</p>}
             </div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Name *</label><input type="text" required value={formData.bank_name} onChange={e => setFormData({ ...formData, bank_name: e.target.value })} placeholder="e.g. HDFC Bank" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Number *</label><input type="text" required value={formData.account_number} onChange={e => setFormData({ ...formData, account_number: e.target.value })} placeholder="0000 0000 0000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IFSC Code *</label><input type="text" required value={formData.ifsc_code} onChange={e => setFormData({ ...formData, ifsc_code: e.target.value })} placeholder="HDFC0001234" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono uppercase" /></div>
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bank Name <span className="text-rose-500">*</span></label>
+                <input type="text" name="bank_name" value={formData.bank_name} onChange={handleChange} placeholder="e.g. HDFC Bank" className={inputClasses(errors.bank_name)} />
+                {errors.bank_name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.bank_name}</p>}
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Account Number <span className="text-rose-500">*</span></label>
+                <input type="text" name="account_number" value={formData.account_number} onChange={handleChange} placeholder="0000 0000 0000" className={inputClasses(errors.account_number)} />
+                {errors.account_number && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.account_number}</p>}
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">IFSC Code <span className="text-rose-500">*</span></label>
+                <input type="text" name="ifsc_code" value={formData.ifsc_code} onChange={handleChange} placeholder="HDFC0001234" className={`${inputClasses(errors.ifsc_code)} uppercase`} />
+                {errors.ifsc_code && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.ifsc_code}</p>}
+            </div>
           </div>
         </div>
       </form>
@@ -460,8 +506,8 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button onClick={() => handleViewLedger(acc)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">View Ledger</button>
-                    <button onClick={() => handleEdit(acc.id)} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all">Edit</button>
+                    <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="View Ledger"><BookOpen className="w-4 h-4" /></button>
+                    <button onClick={() => handleEdit(acc.id)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit"><Pencil className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -470,7 +516,7 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
         </table>
       </div>
       {!isLoading && accounts.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -540,6 +586,7 @@ const CreateBankTransactionModal = ({ isOpen, onClose, onSuccess }: { isOpen: bo
   });
   const [isLoading, setIsLoading] = useState(false);
   const [accountsList, setAccountsList] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -551,6 +598,21 @@ const CreateBankTransactionModal = ({ isOpen, onClose, onSuccess }: { isOpen: bo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.bank_account_id) newErrors.bank_account_id = "Bank Account is required";
+    if (!formData.transaction_date) newErrors.transaction_date = "Transaction Date is required";
+    if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.type) newErrors.type = "Type is required";
+    if (!formData.description) newErrors.description = "Description is required";
+    if (!formData.reference_number) newErrors.reference_number = "Reference Number is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await accountingService.createBankTransaction(formData);
@@ -561,6 +623,27 @@ const CreateBankTransactionModal = ({ isOpen, onClose, onSuccess }: { isOpen: bo
       toast.error("Failed to create transaction");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 transition-all font-semibold outline-none ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50' 
+            : 'border-slate-200'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    let parsedValue: any = value;
+    if (name === 'bank_account_id') {
+      parsedValue = parseInt(value) || 0;
+    } else if (type === 'number') {
+      parsedValue = parseFloat(value) || 0;
+    }
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -581,37 +664,43 @@ const CreateBankTransactionModal = ({ isOpen, onClose, onSuccess }: { isOpen: bo
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
-          <select required value={formData.bank_account_id || ""} onChange={e => setFormData({ ...formData, bank_account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account <span className="text-rose-500">*</span></label>
+          <select name="bank_account_id" value={formData.bank_account_id || ""} onChange={handleChange} className={inputClasses(errors.bank_account_id)}>
             <option value="">Select a Bank Account</option>
             {accountsList.map(acc => (
               <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>
             ))}
           </select>
+          {errors.bank_account_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.bank_account_id}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Date *</label>
-          <input type="date" required value={formData.transaction_date} onChange={e => setFormData({ ...formData, transaction_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Date <span className="text-rose-500">*</span></label>
+          <input type="date" name="transaction_date" value={formData.transaction_date} onChange={handleChange} className={inputClasses(errors.transaction_date)} />
+          {errors.transaction_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.transaction_date}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</label>
-          <input type="number" required value={formData.amount || ""} onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount <span className="text-rose-500">*</span></label>
+          <input type="number" name="amount" value={formData.amount || ""} onChange={handleChange} className={inputClasses(errors.amount)} />
+          {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type *</label>
-          <select required value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type <span className="text-rose-500">*</span></label>
+          <select name="type" value={formData.type} onChange={handleChange} className={inputClasses(errors.type)}>
             <option value="Deposit">Deposit</option>
             <option value="Withdrawal">Withdrawal</option>
             <option value="Transfer">Transfer</option>
           </select>
+          {errors.type && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.type}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label>
-          <input type="text" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description <span className="text-rose-500">*</span></label>
+          <input type="text" name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} />
+          {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Number *</label>
-          <input type="text" required value={formData.reference_number} onChange={e => setFormData({ ...formData, reference_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Number <span className="text-rose-500">*</span></label>
+          <input type="text" name="reference_number" value={formData.reference_number} onChange={handleChange} className={inputClasses(errors.reference_number)} />
+          {errors.reference_number && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.reference_number}</p>}
         </div>
       </form>
     </Modal>
@@ -622,6 +711,7 @@ const AutoRunReconModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; on
   const [bankAccountId, setBankAccountId] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [accountsList, setAccountsList] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -631,6 +721,13 @@ const AutoRunReconModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!bankAccountId) {
+      setErrors({ bankAccountId: "Bank Account is required" });
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await accountingService.autoRunBankReconciliation(bankAccountId);
@@ -644,6 +741,13 @@ const AutoRunReconModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; on
     }
   };
 
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 transition-all font-semibold outline-none ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50' 
+            : 'border-slate-200'
+    }`;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Auto Run Reconciliation" maxWidth="max-w-md" footer={
       <>
@@ -655,11 +759,12 @@ const AutoRunReconModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; on
     }>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Bank Account *</label>
-          <select required value={bankAccountId || ""} onChange={e => setBankAccountId(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Bank Account <span className="text-rose-500">*</span></label>
+          <select value={bankAccountId || ""} onChange={e => { setBankAccountId(parseInt(e.target.value) || 0); setErrors({}); }} className={inputClasses(errors.bankAccountId)}>
             <option value="">Select a Bank Account</option>
             {accountsList.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>)}
           </select>
+          {errors.bankAccountId && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.bankAccountId}</p>}
         </div>
       </form>
     </Modal>
@@ -671,6 +776,7 @@ const MatchTransactionModal = ({ isOpen, onClose, onSuccess, initialTransactionI
   const [journalId, setJournalId] = useState<string | number>("");
   const [isLoading, setIsLoading] = useState(false);
   const [journalsList, setJournalsList] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -681,6 +787,17 @@ const MatchTransactionModal = ({ isOpen, onClose, onSuccess, initialTransactionI
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors: Record<string, string> = {};
+    if (!transactionId) newErrors.transactionId = "Transaction is required";
+    if (!journalId) newErrors.journalId = "Journal is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await accountingService.matchBankTransaction(transactionId, journalId);
@@ -694,6 +811,13 @@ const MatchTransactionModal = ({ isOpen, onClose, onSuccess, initialTransactionI
     }
   };
 
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl bg-slate-50 transition-all font-semibold outline-none ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50' 
+            : 'border-slate-200'
+    }`;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Match Transaction" maxWidth="max-w-md" footer={
       <>
@@ -705,18 +829,20 @@ const MatchTransactionModal = ({ isOpen, onClose, onSuccess, initialTransactionI
     }>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Transaction *</label>
-          <select required value={transactionId || ""} onChange={e => setTransactionId(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Transaction <span className="text-rose-500">*</span></label>
+          <select value={transactionId || ""} onChange={e => { setTransactionId(e.target.value); setErrors(prev => ({ ...prev, transactionId: "" })); }} className={inputClasses(errors.transactionId)}>
             <option value="">Select a Transaction</option>
             {pendingTransactions.map(txn => <option key={txn.id} value={txn.id}>{txn.description} - ₹{txn.amount}</option>)}
           </select>
+          {errors.transactionId && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.transactionId}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Journal Entry *</label>
-          <select required value={journalId || ""} onChange={e => setJournalId(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Journal Entry <span className="text-rose-500">*</span></label>
+          <select value={journalId || ""} onChange={e => { setJournalId(e.target.value); setErrors(prev => ({ ...prev, journalId: "" })); }} className={inputClasses(errors.journalId)}>
             <option value="">Select a Journal Entry</option>
             {journalsList.map(j => <option key={j.id} value={j.id}>{j.entry_number || j.id} - {j.description}</option>)}
           </select>
+          {errors.journalId && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.journalId}</p>}
         </div>
       </form>
     </Modal>
@@ -761,7 +887,7 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <button onClick={() => setIsTransactionModalOpen(true)} className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">+ Add Bank Txn</button>
+          <button onClick={() => setIsTransactionModalOpen(true)} className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">Add Bank Txn</button>
           <button onClick={() => setIsAutoRunModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm">Auto Run Recon</button>
         </div>
       </div>
@@ -793,7 +919,7 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
                   <select value={pendingRpp} onChange={(e) => { setPendingRpp(Number(e.target.value)); setPendingPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -844,7 +970,7 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
                   <select value={historyRpp} onChange={(e) => { setHistoryRpp(Number(e.target.value)); setHistoryPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -969,7 +1095,7 @@ const BankBookLedgerTable = () => {
         </table>
       </div>
       {!isLoading && data.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1066,7 +1192,7 @@ const CashLedgerTable = () => {
         </table>
       </div>
       {!isLoading && data.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -1181,3 +1307,4 @@ const BankingPage = () => {
 };
 
 export default BankingPage;
+

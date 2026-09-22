@@ -203,22 +203,24 @@ export default function ApprovalCenterPage() {
     }
     
     return (
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-2">
         <button 
           onClick={() => handleApprove(item)} 
           disabled={isProcessing} 
           title="Approve" 
-          className="text-emerald-500 hover:bg-emerald-50/80 p-2 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
-          <Check className="w-5 h-5 stroke-[3]" />
+          <Check className="w-4 h-4 stroke-[3]" />
+          Approve
         </button>
         <button 
           onClick={() => handleReject(item)} 
           disabled={isProcessing} 
           title="Reject" 
-          className="text-rose-500 hover:bg-rose-50/80 p-2 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
-          <X className="w-5 h-5 stroke-[3]" />
+          <X className="w-4 h-4 stroke-[3]" />
+          Reject
         </button>
       </div>
     );
@@ -331,7 +333,7 @@ export default function ApprovalCenterPage() {
         {/* MAIN CONTENT */}
         <div className="flex flex-col gap-6 relative">
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
             <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Pending {activeTab}</h1>
               <p className="text-slate-500 text-sm mt-1">Review and manage pending {activeTab.toLowerCase()} requiring your approval.</p>
@@ -371,7 +373,7 @@ export default function ApprovalCenterPage() {
                 </div>
                 
                 {/* Pagination for History Logs style */}
-                  <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-auto rounded-b-2xl">
+                  <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 mt-auto rounded-b-2xl">
                     {/* Left: Items per page */}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-medium text-slate-500">Records per page:</span>

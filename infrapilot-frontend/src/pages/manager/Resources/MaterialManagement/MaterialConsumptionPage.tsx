@@ -191,7 +191,14 @@ const MaterialConsumptionPage = () => {
 
     // Handlers
     const handleUsageSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedInventory) return; setIsSubmitting(true);
+        e.preventDefault(); if (!selectedInventory) return;
+        if (usageForm.quantity <= 0) {
+            return toast.error("Quantity must be greater than 0");
+        }
+        if (usageForm.quantity > selectedInventory.remaining_stock) {
+            return toast.error("Quantity cannot exceed available stock");
+        }
+        setIsSubmitting(true);
         try {
             const payload = { ...usageForm, issue_type: usageForm.issue_type as IssueType };
             if (!payload.task_id) delete payload.task_id;
@@ -207,7 +214,10 @@ const MaterialConsumptionPage = () => {
         try {
             await materialService.createTransfer({ ...transferForm } as any);
             toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to create transfer"); }
+        } catch (e: any) {
+            const errorMsg = e.response?.data?.detail;
+            toast.error(typeof errorMsg === 'string' ? errorMsg : "Failed to create transfer");
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -216,7 +226,10 @@ const MaterialConsumptionPage = () => {
         try {
             await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
             toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to update transfer"); }
+        } catch (e: any) {
+            const errorMsg = e.response?.data?.detail;
+            toast.error(typeof errorMsg === 'string' ? errorMsg : "Failed to update transfer");
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -381,7 +394,7 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
+                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: "", project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
                                                 </td>
                                             </tr>
                                         )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
@@ -398,7 +411,7 @@ const MaterialConsumptionPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                                     <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
+                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status === 'PENDING' ? '' as TransferStatus : t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
                                                 </td>
                                             </tr>
                                         )) : paginatedTransactions.map((t, idx) => (
@@ -429,7 +442,7 @@ const MaterialConsumptionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div>
                                 <label className={labelClasses}>Task Name</label>
                                 <select value={usageForm.task_id || ""} onChange={e => setUsageForm({ ...usageForm, task_id: Number(e.target.value) || 0 })} className={inputClasses}>
@@ -444,8 +457,11 @@ const MaterialConsumptionPage = () => {
                                     {boqsList.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}
                                 </select>
                             </div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={inputClasses} max={selectedInventory?.remaining_stock} /></div>
-                            <div className="md:col-span-2"><label className={labelClasses}>Issue Type *</label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={usageForm.quantity} onChange={e => setUsageForm({ ...usageForm, quantity: e.target.value === '' ? '' : Number(e.target.value) })} className={`${inputClasses} ${usageForm.quantity > (selectedInventory?.remaining_stock || 0) ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : ''}`} />
+                                {usageForm.quantity > (selectedInventory?.remaining_stock || 0) && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Cannot exceed available stock ({selectedInventory?.remaining_stock}).</p>}
+                                {usageForm.quantity !== "" && usageForm.quantity <= 0 && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Quantity must be greater than 0.</p>}
+                            </div>
+                            <div className="md:col-span-2"><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>
                     </div>
                 </form>
@@ -457,10 +473,10 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Material *</label><select required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}</select></div>
-                            <div><label className={labelClasses}>From Project *</label><select required value={transferForm.from_project_id || ""} onChange={e => setTransferForm({ ...transferForm, from_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Origin</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>To Project *</label><select required value={transferForm.to_project_id || ""} onChange={e => setTransferForm({ ...transferForm, to_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Destination</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Material <span className="text-rose-500">*</span></label><select required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}</select></div>
+                            <div><label className={labelClasses}>From Project <span className="text-rose-500">*</span></label><select required value={transferForm.from_project_id || ""} onChange={e => setTransferForm({ ...transferForm, from_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Origin</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>To Project <span className="text-rose-500">*</span></label><select required value={transferForm.to_project_id || ""} onChange={e => setTransferForm({ ...transferForm, to_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Destination</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
                         </div>
                     </div>
@@ -473,8 +489,14 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
                         <div className="space-y-4">
-                            <div><label className={labelClasses}>Transfer ID *</label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
-                            <div><label className={labelClasses}>Status *</label><select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                            <div><label className={labelClasses}>Transfer ID <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
+                            <div><label className={labelClasses}>Status <span className="text-rose-500">*</span></label>
+                                <select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>
+                                    <option value="" disabled>Select Status</option>
+                                    <option value="COMPLETED">COMPLETED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </form>
