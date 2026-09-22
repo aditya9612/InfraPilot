@@ -270,11 +270,6 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                     onChange={handleFileChange}
                                     className={`${inputClasses} cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20`}
                                 />
-                                {request.attachment_url && !attachmentFile && (
-                                    <p className="text-xs text-primary mt-1 truncate">
-                                        Current: <a href={request.attachment_url} target="_blank" rel="noreferrer" className="underline hover:text-blue-600">{request.attachment_url}</a>
-                                    </p>
-                                )}
                             </div>
                         </div>
 

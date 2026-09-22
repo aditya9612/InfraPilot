@@ -14,8 +14,7 @@ import {
     HeartPulse,
     Briefcase,
     Activity,
-    Mail,
-    ChevronDown
+    Mail
 } from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
@@ -64,7 +63,6 @@ const SafetyManagementPage = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
 
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
@@ -870,8 +868,8 @@ const SafetyManagementPage = () => {
                             Cancel
                         </button>
                         <button
-                            type="button"
-                            onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
+                            type="submit"
+                            form="audit-form"
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
                         >
@@ -912,6 +910,7 @@ const SafetyManagementPage = () => {
                                     value={formData.project_id}
                                     onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }))}
                                     className={inputClasses}
+                                    required
                                 >
                                     <option value="">-- Select Project --</option>
                                     {projects.map((p: any) => (
@@ -921,36 +920,21 @@ const SafetyManagementPage = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div className="md:col-span-2 font-inter relative">
+                            <div className="md:col-span-2 font-inter">
                                 <label className={labelClasses}>Task</label>
-                                <div 
-                                    className={`${inputClasses} flex justify-between items-center cursor-pointer`}
-                                    onClick={() => setIsTaskDropdownOpen(!isTaskDropdownOpen)}
+                                <select
+                                    name="task_id"
+                                    value={formData.task_id || ""}
+                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
+                                    className={inputClasses}
                                 >
-                                    <span className={formData.task_id ? "text-slate-900" : "text-slate-400"}>
-                                        {formData.task_id ? (tasks.find((t: any) => t.id === formData.task_id)?.title || `Task #${formData.task_id}`) : "-- Select Task --"}
-                                    </span>
-                                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isTaskDropdownOpen ? "rotate-180" : ""}`} />
-                                </div>
-                                {isTaskDropdownOpen && (
-                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto font-inter">
-                                        <div 
-                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-700"
-                                            onClick={() => { setFormData((prev: any) => ({...prev, task_id: 0})); setIsTaskDropdownOpen(false); }}
-                                        >
-                                            -- Select Task --
-                                        </div>
-                                        {tasks.map((t: any) => (
-                                            <div 
-                                                key={t.id}
-                                                className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm ${formData.task_id === t.id ? "bg-slate-50 text-primary font-bold" : "text-slate-700"}`}
-                                                onClick={() => { setFormData((prev: any) => ({...prev, task_id: t.id})); setIsTaskDropdownOpen(false); }}
-                                            >
-                                                {t.title || `Task #${t.id}`}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                    <option value="">-- Select Task --</option>
+                                    {tasks.map((t: any) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title || `Task #${t.id}`}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
@@ -960,10 +944,11 @@ const SafetyManagementPage = () => {
                                     value={formData.date}
                                     onChange={handleInputChange}
                                     className={inputClasses}
+                                    required
                                 />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Responsible Person {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
+                                <label className={labelClasses}>Responsible Person (Optional)</label>
                                 <input
                                     name="responsible_person"
                                     value={formData.responsible_person}
@@ -991,6 +976,7 @@ const SafetyManagementPage = () => {
                                     value={formData.safety_checklist_status}
                                     onChange={handleInputChange}
                                     className={inputClasses}
+                                    required
                                 >
                                     <option value="pending">Pending</option>
                                     <option value="completed">Completed</option>
@@ -998,7 +984,7 @@ const SafetyManagementPage = () => {
                                 </select>
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Violation Type {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
+                                <label className={labelClasses}>Violation Type (Optional)</label>
                                 <select
                                     name="violation_type"
                                     value={formData.violation_type}
@@ -1012,7 +998,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Description {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
+                                <label className={labelClasses}>Description (Optional)</label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
@@ -1036,7 +1022,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Action Taken {!isEditModalOpen && <span className="text-red-600">*</span>}</label>
+                                <label className={labelClasses}>Action Taken (Optional)</label>
                                 <textarea
                                     name="action_taken"
                                     value={formData.action_taken}

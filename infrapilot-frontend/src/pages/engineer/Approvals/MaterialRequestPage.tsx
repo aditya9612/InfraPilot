@@ -14,9 +14,7 @@ import {
     Box
     ,
     ChevronLeft,
-    ChevronRight,
-    Clock,
-    ChevronDown
+    ChevronRight
 } from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
 import { projectService } from "../../../services/projectService";
@@ -48,6 +46,7 @@ const MaterialRequestPage = () => {
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string, missingFields?: string[] } | null>(null);
 
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
     const [resourceTypeFilter, setResourceTypeFilter] = useState<"All" | "Material" | "Equipment" | "Labour">("All");
@@ -112,17 +111,41 @@ const MaterialRequestPage = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+        if (formNotification) setFormNotification(null);
     };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.project_id) newErrors.project_id = "Project ID is required";
-        if (!formData.request_type) newErrors.request_type = "Request type is required";
-        if (!formData.description.trim()) newErrors.description = "Technical narrative is required";
-        if (!formData.quantity || Number(formData.quantity) <= 0) newErrors.quantity = "Valid numeric quantity is required";
+        const missingFields: string[] = [];
+
+        if (!formData.project_id) {
+            newErrors.project_id = "Project ID is required";
+            missingFields.push("Project");
+        }
+        if (!formData.request_type) {
+            newErrors.request_type = "Request type is required";
+            missingFields.push("Resource Classification");
+        }
+        if (!formData.description.trim()) {
+            newErrors.description = "Technical narrative is required";
+            missingFields.push("Descriptive Narrative");
+        }
+        if (!formData.quantity || Number(formData.quantity) <= 0) {
+            newErrors.quantity = "Valid numeric quantity is required";
+            missingFields.push("Required Quantum (Units)");
+        }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        
+        if (missingFields.length > 0) {
+            const errorMsg = `Please fill all mandatory fields: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg, missingFields });
+            toast.error(errorMsg);
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -396,22 +419,14 @@ const MaterialRequestPage = () => {
                             </select>
 
                             {/* Sort Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="latest">Latest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
                     </div>
 
@@ -644,15 +659,21 @@ const MaterialRequestPage = () => {
                 )}
             </Modal>
 
-            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Form Modal ────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                    setFormNotification(null);
+                }}
                 title="Save Resources Request"
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button onClick={() => {
+                            setIsFormModalOpen(false);
+                            setFormNotification(null);
+                        }} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
                         <button
                             onClick={handleSubmit}
                             disabled={isSubmitting}
@@ -664,6 +685,23 @@ const MaterialRequestPage = () => {
                 }
             >
                 <form id="request-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'} font-inter`}>
+                            <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    {formNotification.type === 'error' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-bold ${formNotification.type === 'error' ? 'text-rose-800' : 'text-emerald-800'}`}>
+                                        {formNotification.type === 'error' ? 'Validation Error' : 'Success'}
+                                    </h4>
+                                    <p className={`text-xs mt-1 ${formNotification.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {formNotification.message}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Box className="w-4 h-4 text-primary" />

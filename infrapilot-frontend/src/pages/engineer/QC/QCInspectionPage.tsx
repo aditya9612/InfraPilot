@@ -1113,13 +1113,18 @@ const QCInspectionPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
-                                        {selectedQc.report_file && typeof selectedQc.report_file === 'string' ? (
-                                            <a href={selectedQc.report_file.startsWith('http') ? selectedQc.report_file : `${import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'}/${selectedQc.report_file.replace(/^\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter truncate inline-flex items-center gap-1">
-                                                <Eye className="w-3.5 h-3.5" /> View Report
-                                            </a>
-                                        ) : (
-                                            <p className="text-sm font-bold text-slate-800 font-inter truncate">N/A</p>
-                                        )}
+                                        {(() => {
+                                            const fileUrl = (selectedQc as any).report_file_url || selectedQc.report_file || (selectedQc as any)['report file'];
+                                            if (fileUrl && typeof fileUrl === 'string') {
+                                                const finalUrl = fileUrl.startsWith('http') ? fileUrl : `${import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'}/${fileUrl.replace(/^\//, '')}`;
+                                                return (
+                                                    <a href={finalUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter truncate inline-flex items-center gap-1">
+                                                        <Eye className="w-3.5 h-3.5" /> View Report
+                                                    </a>
+                                                );
+                                            }
+                                            return <p className="text-sm font-bold text-slate-800 font-inter truncate">N/A</p>;
+                                        })()}
                                     </div>
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>

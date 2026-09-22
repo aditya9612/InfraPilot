@@ -40,7 +40,27 @@ export const approvalService = {
     },
 
     async createApproval(data: CreateApprovalRequest) {
-        const response = await api.post("/approvals", data);
+        // Map frontend entity types to backend supported types
+        let backendType = data.entity_type.toLowerCase();
+        
+        const typeMap: Record<string, string> = {
+            'material': 'purchase_order',
+            'equipment': 'purchase_order',
+            'labour': 'measurement',
+            'qc': 'document',
+            'safety': 'document'
+        };
+
+        if (typeMap[backendType]) {
+            backendType = typeMap[backendType];
+        }
+
+        const payload = {
+            ...data,
+            entity_type: backendType
+        };
+
+        const response = await api.post("/approvals", payload);
         return response.data;
     },
 

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import { projectService } from "../../../services/projectService";
 import { boqService } from "../../../services/boqService";
+import { userService } from "../../../services/userService";
 import type {
     Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport,
     UtilizationReport, AvailabilityReport, UsageItem, MaintenanceItem, RentalItem, AuditLog
@@ -169,6 +170,8 @@ const MachineryPage = () => {
     const [rentalItemsPerPage, setRentalItemsPerPage] = useState(10);
 
     const [transferHistory, setTransferHistory] = useState<any[]>([]);
+    // Users map: id → name (for Transferred By column)
+    const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
@@ -418,6 +421,13 @@ const MachineryPage = () => {
                 setEquipmentList(eqList);
                 setTransferHistory(history);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+                // Fetch all users for Transferred By name resolution
+                userService.getAllUsers(100, 0).then((res: any) => {
+                    const items: any[] = Array.isArray(res) ? res : (res?.items || res?.users || []);
+                    const map: Record<number, string> = {};
+                    items.forEach((u: any) => { if (u.id) map[u.id] = u.full_name || u.name || u.username || `User #${u.id}`; });
+                    setUsersMap(map);
+                }).catch(() => {});
             }
             else if (activeTab === "Reports") {
                 const [avail, util, eqRes, costRes, usageRes] = await Promise.all([
@@ -554,7 +564,15 @@ const MachineryPage = () => {
         }
         if (!selectedEquipment) return;
         try {
-            await equipmentService.allocateEquipment(selectedEquipment.id, formData.project_id || selectedProjectId);
+            const result = await equipmentService.allocateEquipment(selectedEquipment.id, formData.project_id || selectedProjectId);
+
+            // The API returns a batch response — check if allocation actually succeeded
+            if (result.success_count === 0 || (result.failed && result.failed.length > 0)) {
+                const reason = result.failed?.[0]?.reason || "Equipment could not be allocated";
+                toast.error(`Allocation failed: ${reason}`);
+                return;
+            }
+
             toast.success("Equipment allocated successfully!");
             setIsAllocateModalOpen(false);
             // Refetch equipment list so UI reflects the new allocation status immediately
@@ -619,7 +637,6 @@ const MachineryPage = () => {
                 ...createPurchaseForm,
                 total_amount: createPurchaseForm.total_amount || ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
             };
-            delete payload.purchase_date;
             if (createPurchaseForm.id) {
                 await equipmentService.updatePurchase(createPurchaseForm.id, payload);
                 toast.success("Purchase updated successfully!");
@@ -755,20 +772,46 @@ const MachineryPage = () => {
             toast.error("Please fill mandatory field", { id: 'validation' });
             return;
         }
+
+        // Normalize dates: strip time part if stored as ISO datetime (e.g. "2026-09-22T00:00:00" → "2026-09-22")
+        // Also handles DD-MM-YYYY → converts to YYYY-MM-DD for the backend
+        const normalizeDate = (val: string | undefined): string | undefined => {
+            if (!val) return undefined;
+            // Already ISO date YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+            // ISO datetime — strip time
+            if (/^\d{4}-\d{2}-\d{2}T/.test(val)) return val.split('T')[0];
+            // DD-MM-YYYY format (localized display value)
+            const ddmmyyyy = val.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
+            // Fallback: try parsing and re-formatting
+            const parsed = new Date(val);
+            if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+            return val;
+        };
+
+        const today = new Date().toISOString().split('T')[0];
+
+        const sanitizedFormData = {
+            ...formData,
+            maintenance_date: normalizeDate(formData.maintenance_date || today),
+            next_maintenance_date: normalizeDate(formData.next_maintenance_date),
+        };
+
         try {
-            if (formData.id || formData.maintenance_id) {
-                const mid = formData.id || formData.maintenance_id;
-                await equipmentService.updateMaintenance(Number(formData.equipment_id), mid, formData as any);
+            if (sanitizedFormData.id || sanitizedFormData.maintenance_id) {
+                const mid = sanitizedFormData.id || sanitizedFormData.maintenance_id;
+                await equipmentService.updateMaintenance(Number(sanitizedFormData.equipment_id), mid, sanitizedFormData as any);
                 toast.success("Maintenance updated successfully");
             } else {
-                await equipmentService.createMaintenance(Number(formData.equipment_id), formData as any);
+                await equipmentService.createMaintenance(Number(sanitizedFormData.equipment_id), sanitizedFormData as any);
                 toast.success("Maintenance scheduled successfully");
             }
             setIsMaintenanceModalOpen(false);
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
                 setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === formData.equipment_id);
+                const eq = equipmentList.find(e => e.id === sanitizedFormData.equipment_id);
                 if (eq) {
                     setSelectedEquipment(eq);
                     const logs = await equipmentService.listMaintenance(eq.id);
@@ -1248,10 +1291,9 @@ const MachineryPage = () => {
                                                 <td className="p-4 font-bold text-slate-800">{t.equipment_name || t.equipment?.equipment_name || selectedEquipment?.equipment_name || '-'}</td>
                                                 <td className="p-4 text-slate-600">{t.from_project_name || t.from_project?.project_name || t.from_project?.name || 'Central Yard'}</td>
                                                 <td className="p-4 text-indigo-600 font-medium">{t.to_project_name || t.to_project?.project_name || t.to_project?.name || 'Central Yard'}</td>
-                                                <td className="p-4 text-slate-600">{t.transferred_by_name || '-'}</td>
+                                                <td className="p-4 text-slate-600">{t.transferred_by_name || usersMap[t.transferred_by] || '-'}</td>
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="text-slate-500">{t.transferred_at ? new Date(t.transferred_at).toLocaleString() : (t.transfer_date ? new Date(t.transfer_date).toLocaleDateString() : 'N/A')}</div>
-                                                    {t.ip_address && <div className="text-slate-400 text-[10px] mt-0.5 font-mono">IP: {t.ip_address}</div>}
                                                 </td>
                                             </tr>
                                         ))}
@@ -2185,7 +2227,7 @@ const MachineryPage = () => {
                             </p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
-                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()} <span className="text-xs text-slate-500 font-normal">{selectedEquipment.cost_unit === 'PER_DAY' ? '/ Day' : selectedEquipment.cost_unit === 'PER_MONTH' ? '/ Month' : ''}</span></p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : 'N/A'}</p></div>
@@ -2316,7 +2358,7 @@ const MachineryPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-red-600">*</span></label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} onFocus={(e) => { if (!formData.maintenance_date) setFormData((prev: any) => ({ ...prev, maintenance_date: e.target.value })); }} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">COST (₹)</label>
@@ -2485,7 +2527,7 @@ const MachineryPage = () => {
                                                 {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-bold text-slate-900">{vals.operator_name}</span></div>}
                                                 {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-bold text-slate-900">{vals.condition}</span></div>}
                                                 {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-bold text-slate-900">{getProjectName(vals.project_id)}</span></div>}
-                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-bold text-slate-900">₹{vals.rental_cost}</span></div>}
+                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-bold text-slate-900">₹{vals.rental_cost} <span className="font-normal text-slate-500 text-[10px]">{vals.cost_unit === 'PER_DAY' ? '/ Day' : vals.cost_unit === 'PER_MONTH' ? '/ Month' : ''}</span></span></div>}
                                             </div>
                                         );
                                     }
@@ -2628,7 +2670,7 @@ const MachineryPage = () => {
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (rentalToView.boq_item_name || rentalToView.boq_name || rentalToView.boq_item?.item_name || rentalToView.boq_item?.name || boqsList.find(b => Number(b.id) === Number(rentalToView.boq_item_id))?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
-                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()} <span className="text-xs text-slate-500 font-normal">/ Day</span></p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
                             <div className="col-span-2">
                                 <p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p>
@@ -2777,6 +2819,16 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Date <span className="text-red-600">*</span></label>
+                            <input
+                                required
+                                type="date"
+                                value={createPurchaseForm.purchase_date || ""}
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            />
+                        </div>
+                        <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Vendor Name <span className="text-red-600">*</span></label>
                             <input
                                 required
@@ -2820,9 +2872,8 @@ const MachineryPage = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Total Amount <span className="text-red-600">*</span></label>
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Total Amount</label>
                             <input
-                                required
                                 readOnly
                                 type="number"
                                 value={createPurchaseForm.total_amount || ""}

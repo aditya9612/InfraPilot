@@ -854,7 +854,7 @@ const ChecklistsPage = () => {
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Create Checklist"}
+                            {isSubmitting ? "Syncing..." : "Save Checklist"}
                         </button>
                     </div>
                 }

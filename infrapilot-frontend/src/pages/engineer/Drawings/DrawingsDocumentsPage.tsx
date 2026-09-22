@@ -277,8 +277,22 @@ const DrawingsDocumentsPage = () => {
         if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
         if (!formData.version?.trim()) newErrors.version = "Required";
         if (!isEditMode && !formData.project_id) newErrors.project_id = "Required";
-        if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
+        if (!isEditMode && !photoFile && !formData.file) newErrors.file = "Blueprint file is required";
+        
         setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            const missingFields = [];
+            if (newErrors.project_id) missingFields.push("Project ID");
+            if (newErrors.drawing_name) missingFields.push("Drawing Name");
+            if (newErrors.version) missingFields.push("Version");
+            if (newErrors.file) missingFields.push("File");
+
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -504,10 +518,18 @@ const DrawingsDocumentsPage = () => {
 
     const handleDocCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!docCreateFormData.file) {
-            toast.error("Please select a file to upload.");
+        
+        const missingFields = [];
+        if (!docCreateFormData.title?.trim()) missingFields.push("Title");
+        if (!docCreateFormData.file) missingFields.push("File");
+
+        if (missingFields.length > 0) {
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
             return;
         }
+
         setIsSubmitting(true);
         const toastId = toast.loading("Creating document...");
         try {
@@ -586,7 +608,8 @@ const DrawingsDocumentsPage = () => {
             }
 
             const originalUrl = drawing.file_url || drawing.upload_file;
-            await drawingService.downloadDocument(drawing.id, drawing.drawing_name, originalUrl);
+            const drawingId = drawing.id || (drawing as any).drawing_id || (drawing as any).document_id;
+            await drawingService.downloadDocument(drawingId, drawing.drawing_name, originalUrl);
             toast.success("Download successful", { id: toastId });
         } catch (error) {
             toast.error("Failed to download document", { id: toastId });
@@ -941,8 +964,18 @@ const DrawingsDocumentsPage = () => {
                                                     <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.version}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                            {drawing.status || drawing.approval_status}
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
+                                                            }`}>
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
@@ -1077,15 +1110,18 @@ const DrawingsDocumentsPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4 font-inter">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
-                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                            : drawing.approval_status === "Pending"
-                                                                ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                : drawing.approval_status === "UNDER_REVIEW"
-                                                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
                                                             }`}>
-                                                            {drawing.approval_status ? drawing.approval_status.replace("_", " ") : "Pending"}
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -1256,7 +1292,7 @@ const DrawingsDocumentsPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
+                                    <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
                                     <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
                                         <option value="">Select Project</option>
                                         {projects.map(p => (
@@ -1270,30 +1306,30 @@ const DrawingsDocumentsPage = () => {
                             )}
 
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
-                                <label className={labelClasses}>drawing_name <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
                                 <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
 
                             <div className="font-inter">
-                                <label className={labelClasses}>version <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
                                 <input name="version" value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
 
                             <div className="font-inter">
-                                <label className={labelClasses}>date</label>
+                                <label className={labelClasses}>Date</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
                             </div>
 
                             <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>remarks</label>
+                                <label className={labelClasses}>Remarks</label>
                                 <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
                             </div>
 
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>parent_id</label>
+                                    <label className={labelClasses}>Parent ID</label>
                                     <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} />
                                 </div>
                             )}
@@ -1301,7 +1337,7 @@ const DrawingsDocumentsPage = () => {
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2 mt-4">
                                     <div className="flex items-center justify-between mb-2">
-                                        <label className={labelClasses}>file <span className="text-rose-500">*</span></label>
+                                        <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
                                         {photoPreview && (
                                             <button
                                                 type="button"

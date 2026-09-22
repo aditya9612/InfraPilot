@@ -9,7 +9,6 @@ import {
     Eye,
     Activity,
     Filter,
-    Mail,
     RotateCcw,
     Briefcase,
     ChevronLeft,
@@ -111,14 +110,15 @@ const IssueTrackerPage = () => {
     }, [projectId]);
 
     useEffect(() => {
-        if (formData.project_id) {
-            projectService.getProjectMembers(formData.project_id)
+        const projectIdToFetch = selectedIssue?.project_id || formData.project_id;
+        if (projectIdToFetch) {
+            projectService.getProjectMembers(projectIdToFetch)
                 .then((res: any) => setProjectMembers(Array.isArray(res) ? res : (res.items || [])))
                 .catch(() => setProjectMembers([]));
         } else {
             setProjectMembers([]);
         }
-    }, [formData.project_id]);
+    }, [formData.project_id, selectedIssue?.project_id]);
 
     const openExportModal = (type: 'pdf' | 'excel') => {
         if (!projectId) {
@@ -621,10 +621,6 @@ const IssueTrackerPage = () => {
                                             {selectedIssue.status}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">issue.ref-#{selectedIssue.id}</span>
-                                    </div>
                                     <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
                                         <span className="text-[9px] font-bold uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
                                     </div>
@@ -658,7 +654,7 @@ const IssueTrackerPage = () => {
                                     <div className="col-span-1 sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
                                         <div>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned To</p>
-                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.assigned_to ? `ID: ${selectedIssue.assigned_to}` : "Unassigned"}</p>
+                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.assigned_to ? (projectMembers.find(m => Number(m.user_id) === Number(selectedIssue.assigned_to) || Number(m.id) === Number(selectedIssue.assigned_to))?.full_name || projectMembers.find(m => Number(m.user_id) === Number(selectedIssue.assigned_to) || Number(m.id) === Number(selectedIssue.assigned_to))?.name || `ID: ${selectedIssue.assigned_to}`) : "Unassigned"}</p>
                                         </div>
                                         <div>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Resolution</p>
@@ -674,7 +670,6 @@ const IssueTrackerPage = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reported</p><p className="text-sm font-bold text-slate-800">{selectedIssue.reported_date}</p></div>
-                                    <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reference</p><p className="text-sm font-bold text-slate-800">ISS-#{selectedIssue.id}</p></div>
                                 </div>
                             </div>
                         </div>

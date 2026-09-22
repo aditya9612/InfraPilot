@@ -8,6 +8,7 @@ export interface EquipmentItem {
     operator_name: string;
     condition: string;
     rental_cost: number;
+    cost_unit?: string;
     maintenance_date: string;
     is_deleted: boolean;
     created_at: string;
@@ -60,6 +61,11 @@ export interface AllocationStatus {
     equipment_id: number;
     project_id: number | null;
     allocated: boolean;
+    // Batch response fields from POST /equipment/allocate
+    success_count?: number;
+    failed_count?: number;
+    allocated_ids?: number[];
+    failed?: { equipment_id: number; reason: string }[];
 }
 
 export interface MaintenanceAlert {

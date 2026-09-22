@@ -340,7 +340,7 @@ const LaborDetailsPage = () => {
         e.preventDefault();
         setApiError(null);
         if (!validate()) {
-            toast.error("Please correct the errors in the form");
+            toast.error("Please fill in all mandatory details correctly.");
             return;
         }
         setIsSubmitting(true);
@@ -1021,10 +1021,10 @@ const LaborDetailsPage = () => {
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project</label>
                                     <select
                                         value={formData.project_id || ""}
-                                        onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                                        onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : "" })}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter"
                                     >
-                                        <option value="" disabled>-- Select Project --</option>
+                                        <option value="">-- No Project (Optional) --</option>
                                         {projects.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                         ))}

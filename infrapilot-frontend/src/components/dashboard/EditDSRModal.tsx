@@ -109,6 +109,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
     if (!formData.weather) errs.weather = "Weather Condition is required";
+    if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done Today is required";
     // Project ID is implicit in the context/submission for DSR
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -226,8 +227,9 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
           <h3 className="text-base font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Work Progress</h3>
           <div className="space-y-4">
             <div>
-              <label className={labelClasses}>Work Done Today</label>
+              <label className={labelClasses}>Work Done Today <span className="text-rose-500">*</span></label>
               <textarea name="work_done" value={formData.work_done || ""} onChange={handleChange} rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
+              {errors.work_done && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.work_done}</p>}
             </div>
             <div>
               <label className={labelClasses}>Work Planned for Tomorrow</label>

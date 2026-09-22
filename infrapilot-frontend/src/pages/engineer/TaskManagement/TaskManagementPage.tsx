@@ -760,7 +760,12 @@ const TaskManagementPage = () => {
 
     const handlePassTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPassTask || !projectId || !passNewUserId) return;
+        if (!selectedPassTask || !projectId) return;
+
+        if (!passNewUserId) {
+            toast.error("Please select a team member to pass the task to.");
+            return;
+        }
 
         try {
             await projectService.passTask(projectId, selectedPassTask.id, {
@@ -2685,7 +2690,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handleUpdateProgress}
-                            disabled={!progressRemark.trim()}
+                            
                             className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                         >
                             Save Progress
@@ -2745,8 +2750,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handlePassTask}
-                            disabled={!passNewUserId || !passRemark.trim()}
-                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all disabled:opacity-50"
+                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all"
                         >
                             Pass Task
                         </button>
@@ -2820,7 +2824,7 @@ const TaskManagementPage = () => {
                             placeholder="e.g. passed to user 2 due to shift end"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            required
+                            
                         />
                     </div>
                 </div>

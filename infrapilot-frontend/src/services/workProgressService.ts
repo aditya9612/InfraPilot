@@ -301,7 +301,7 @@ export const workProgressService = {
   async getDelayReport(project_id?: number): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
     try {
       if (!project_id) return { limit: 10, offset: 0, page_count: 1, data: [] };
-      const params: Record<string, any> = {};
+      const params: Record<string, any> = { limit: 1000 };
       params.project_id = project_id;
       const response = await api.get(`/work-progress/project/${project_id}/delayed-activities`, { params });
       return response.data;

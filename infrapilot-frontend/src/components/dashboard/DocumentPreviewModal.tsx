@@ -344,7 +344,6 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
 
-              <InfoItem label="Folder Status" value={document.folder_status || (document.isFolder ? "Folder" : "File")} />
               <InfoItem label="Remarks" value={document.remarks || "—"} />
               <InfoItem label="Storage Location" value={document.isFolder ? "Root Directory" : "Secure Vault / Project Files"} />
             </Section>

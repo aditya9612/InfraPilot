@@ -18,10 +18,7 @@ import {
     RotateCcw
     ,
     ChevronLeft,
-    ChevronRight,
-    Clock,
-    ChevronDown,
-    Layers
+    ChevronRight
 } from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
@@ -74,6 +71,7 @@ const WorkApprovalPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+    const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string, missingFields?: string[] } | null>(null);
     const { selectedProjectId } = useProject();
 
     useEffect(() => {
@@ -196,14 +194,34 @@ const WorkApprovalPage = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+        if (formNotification) setFormNotification(null);
     };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.entity_type.trim()) newErrors.entity_type = "Required";
-        if (!formData.entity_id) newErrors.entity_id = "Required";
+        const missingFields: string[] = [];
+
+        if (!formData.entity_type.trim()) {
+            newErrors.entity_type = "Required";
+            missingFields.push("Entity Type");
+        }
+        
+        if (!formData.entity_id) {
+            newErrors.entity_id = "Required";
+            missingFields.push("Entity ID");
+        }
+        
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        
+        if (missingFields.length > 0) {
+            const errorMsg = `Please fill all mandatory fields: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg, missingFields });
+            toast.error(errorMsg);
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -464,47 +482,31 @@ const WorkApprovalPage = () => {
                             </select>
 
                             {/* Sort Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="latest">Latest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
 
                             {/* Category Filter */}
-                            <div className="relative flex items-center">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Layers className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="All">All Categories</option>
-                                    <option value="Labour">Labour</option>
-                                    <option value="Material">Material</option>
-                                    <option value="Equipment">Equipment</option>
-                                    <option value="Drawing">Drawing</option>
-                                    <option value="Documents">Documents</option>
-                                    <option value="BOQ">BOQ</option>
-                                    <option value="Measurement">Measurement</option>
-                                    <option value="Bills">Bills</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="All">All Categories</option>
+                                <option value="Labour">Labour</option>
+                                <option value="Material">Material</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Drawing">Drawing</option>
+                                <option value="Documents">Documents</option>
+                                <option value="BOQ">BOQ</option>
+                                <option value="Measurement">Measurement</option>
+                                <option value="Bills">Bills</option>
+                            </select>
                         </div>
                     </div>
 
@@ -785,12 +787,18 @@ const WorkApprovalPage = () => {
             {/* ── Form Modal ────────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                    setFormNotification(null);
+                }}
                 title={isEditMode ? "Update Approval" : "Request Approval"}
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end gap-3 px-6 pb-6">
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter">
+                        <button onClick={() => {
+                            setIsFormModalOpen(false);
+                            setFormNotification(null);
+                        }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter">
                             Cancel
                         </button>
                         <button
@@ -809,6 +817,23 @@ const WorkApprovalPage = () => {
                 }
             >
                 <form id="approval-form" onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'} font-inter`}>
+                            <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    {formNotification.type === 'error' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-bold ${formNotification.type === 'error' ? 'text-rose-800' : 'text-emerald-800'}`}>
+                                        {formNotification.type === 'error' ? 'Validation Error' : 'Success'}
+                                    </h4>
+                                    <p className={`text-xs mt-1 ${formNotification.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {formNotification.message}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Authorization Identity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-inter">

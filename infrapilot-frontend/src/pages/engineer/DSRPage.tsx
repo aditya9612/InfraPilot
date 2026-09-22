@@ -31,6 +31,7 @@ import { dsrService } from "../../services/dsrService";
 import { reportService } from "../../services/reportService";
 import { useProject } from "../../context/ProjectContext";
 import { sitePhotoService } from "../../services/sitePhotoService";
+import { projectService } from "../../services/projectService";
 import type { DsrItem, LabourTrend, ContractorAnalytics, IssueAnalytics } from "../../types/dsr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ const DSRPage = () => {
     const [labourTrend, setLabourTrend] = useState<LabourTrend[]>([]);
     const [contractorAnalytics, setContractorAnalytics] = useState<ContractorAnalytics[]>([]);
     const [issueAnalytics, setIssueAnalytics] = useState<IssueAnalytics | null>(null);
+
+    // Tasks lookup map: task_id → task title
+    const [tasksMap, setTasksMap] = useState<Record<number, string>>({});
 
     // ─── Export Filter State ───────────────────────────────────────────────────
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -215,6 +219,17 @@ const DSRPage = () => {
     useEffect(() => {
         fetchAnalytics();
     }, [fetchAnalytics]);
+
+    // Fetch tasks and build id→title lookup map
+    useEffect(() => {
+        if (!projectId) return;
+        projectService.getTasks(projectId, { limit: 100 }).then((res: any) => {
+            const items: any[] = Array.isArray(res) ? res : (res?.items || []);
+            const map: Record<number, string> = {};
+            items.forEach((t: any) => { if (t.id && t.title) map[t.id] = t.title; });
+            setTasksMap(map);
+        }).catch(() => { /* non-critical */ });
+    }, [projectId]);
 
     const handleView = async (id: number) => {
         setLoadingId(id);
@@ -651,6 +666,11 @@ const DSRPage = () => {
                                                             <div className="flex flex-col font-inter">
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
                                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
+                                                                {dsr.task_id && (
+                                                                    <span className="text-[10px] text-primary font-bold mt-0.5 truncate max-w-[160px] font-inter">
+                                                                        📌 {tasksMap[dsr.task_id] || `Task #${dsr.task_id}`}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
@@ -1027,8 +1047,12 @@ const DSRPage = () => {
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.created_by_name || "N/A"}</p>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Task ID</p>
-                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.task_id ? `${selectedDsr.task_id}` : "N/A"}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Marked Task</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {selectedDsr.task_id
+                                                ? (tasksMap[selectedDsr.task_id] || `Task #${selectedDsr.task_id}`)
+                                                : "N/A"}
+                                        </p>
                                     </div>
                                     <div className="sm:col-span-2 lg:col-span-1">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
