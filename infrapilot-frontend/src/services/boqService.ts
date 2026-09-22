@@ -571,7 +571,7 @@ export const boqService = {
         `Get Alerts for Boq ${boqId} Error:`,
         error.response?.data || error.message,
       );
-      return [];
+      throw error;
     }
   },
 

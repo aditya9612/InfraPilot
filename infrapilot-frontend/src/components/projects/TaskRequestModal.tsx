@@ -221,9 +221,8 @@ const TaskRequestModal = ({
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
                         >
                             <option value="PENDING">Pending</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
                         </select>
                     </div>
 
@@ -277,11 +276,6 @@ const TaskRequestModal = ({
                         }}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                     />
-                    {formData.attachment_url && !formData.attachment_file && (
-                        <div className="mt-2 text-[11px] font-medium text-slate-500">
-                            Current Attachment: <a href={formData.attachment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View File</a>
-                        </div>
-                    )}
                 </div>
             </form>
         </Modal>

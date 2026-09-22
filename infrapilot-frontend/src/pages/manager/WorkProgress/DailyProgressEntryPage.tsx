@@ -1266,7 +1266,6 @@ const DailyProgressEntryPage = () => {
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Remaining</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Start Date</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">End Date</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Reported On</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
@@ -1290,12 +1289,11 @@ const DailyProgressEntryPage = () => {
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.start_date || "-"}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.end_date || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleDateString() : "-"}</td>
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={8} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                            <td colSpan={7} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
                               No delayed activities found.
                             </td>
                           </tr>

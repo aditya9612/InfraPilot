@@ -233,6 +233,16 @@ const ManagerQualityPage = () => {
         } catch { toast.error("Failed to delete"); } finally { setIsSubmitting(false); }
     };
 
+    const buildFileUrl = (file_url: string) => {
+        if (!file_url) return "";
+        const normalizedUrl = file_url.replace(/\\/g, '/');
+        if (normalizedUrl.startsWith('http')) return normalizedUrl;
+        const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+        return `${baseUrl}${path}`;
+    };
+
     const resetForm = () => setFormData({
         project_id: selectedProjectId || "", task_id: null, dsr_id: null,
         inspection_type: "General", test_type: "Visual Check",
@@ -846,6 +856,16 @@ const ManagerQualityPage = () => {
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
                                         <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || '—'}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
+                                        {(selectedQc as any).report_file_url || (selectedQc as any).report_file ? (
+                                            <a href={buildFileUrl((selectedQc as any).report_file_url || (selectedQc as any).report_file)} target="_blank" rel="noreferrer" className="text-sm font-bold text-primary hover:underline font-inter flex items-center gap-1 w-fit">
+                                                View Attached Report
+                                            </a>
+                                        ) : (
+                                            <span className="text-sm font-medium text-slate-600 font-inter">—</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

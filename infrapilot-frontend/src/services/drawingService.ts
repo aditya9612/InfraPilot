@@ -240,7 +240,31 @@ export const drawingService = {
                 else if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) extension = 'jpg';
             }
 
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const rawBlob = new Blob([response.data]);
+
+            // If it resolved to generic octet-stream, try sniffing magic bytes to catch images
+            if (contentType.includes('octet-stream') || contentType.includes('application/pdf')) {
+                const buffer = await rawBlob.arrayBuffer();
+                const bytes = new Uint8Array(buffer.slice(0, 4));
+                // PNG
+                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+                    extension = 'png';
+                }
+                // JPEG
+                else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+                    extension = 'jpg';
+                }
+                // GIF
+                else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
+                    extension = 'gif';
+                }
+                // WEBP
+                else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+                    extension = 'webp';
+                }
+            }
+
+            const url = window.URL.createObjectURL(rawBlob);
             const link = document.createElement('a');
             link.href = url;
             const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;

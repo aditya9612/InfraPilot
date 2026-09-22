@@ -164,24 +164,28 @@ const DocumentsPage = () => {
       ]);
 
       // Map standard Documents
-      const mappedDocs = docResult.items.map((d: any) => ({
-        ...d,
-        type: d.is_folder ? "Folder" : "Document",
-        display_name: d.title
-      }));
+      const mappedDocs = docResult.items
+        .filter((d: any) => !d.is_folder && d.type !== "Folder")
+        .map((d: any) => ({
+          ...d,
+          type: "Document",
+          display_name: d.title
+        }));
 
       // Map specialized Drawings from drawing service
-      const mappedDrawings = (apiDrawings as any[]).map((d: any) => ({
-        ...d,
-        id: d.id,
-        title: d.drawing_name,
-        display_name: d.drawing_name,
-        document_type: "Drawing",
-        type: "Drawing",
-        uploaded_at: d.created_at || d.date,
-        file_url: d.file_url,
-        project_name: projects.find(p => p.id === d.project_id)?.project_name || projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
-      }));
+      const mappedDrawings = (apiDrawings as any[])
+        .filter((d: any) => !d.is_folder && d.type !== "Folder" && d.document_type !== "Folder")
+        .map((d: any) => ({
+          ...d,
+          id: d.id,
+          title: d.drawing_name,
+          display_name: d.drawing_name,
+          document_type: "Drawing",
+          type: "Drawing",
+          uploaded_at: d.created_at || d.date,
+          file_url: d.file_url,
+          project_name: projects.find(p => p.id === d.project_id)?.project_name || projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
+        }));
 
       const combined = [...mappedDrawings, ...mappedDocs];
 
@@ -210,9 +214,14 @@ const DocumentsPage = () => {
       setPreviewUrl("");
       return;
     }
-    // <img> and <iframe> tags load cross-origin URLs without CORS restrictions.
-    // No need to fetch/blob — just build the direct URL.
-    setPreviewUrl(buildFileUrl(viewingDoc.file_url || ""));
+
+    let baseUrl = import.meta.env.VITE_API_URL || 'https://infrapilot.in/api/v1';
+    if (!baseUrl.endsWith('/api/v1')) {
+      if (baseUrl.endsWith('/')) baseUrl += 'api/v1';
+      else baseUrl += '/api/v1';
+    }
+
+    setPreviewUrl(`${baseUrl}/drawings/documents/view/${viewingDoc.id}`);
   }, [viewingDoc]);
 
   const handleViewHistory = async (doc: Document) => {
@@ -342,28 +351,6 @@ const DocumentsPage = () => {
         toast.error("Deletion failed", { id: toastId });
       }
     }
-  };
-
-  const buildFileUrl = (file_url: string) => {
-    if (!file_url) return "";
-    // Normalize backslashes to forward slashes for web compatibility
-    const normalizedUrl = file_url.replace(/\\/g, '/');
-    if (normalizedUrl.startsWith('http')) return normalizedUrl;
-
-    // Ensure leading slash for consistency
-    const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
-
-    // Robust absolute URL selection:
-    // 1. If VITE_API_URL is absolute, use it (removing /api/v1 suffix if present)
-    // 2. If VITE_API_URL is relative or missing, fallback to the known production domain
-    let baseUrl = import.meta.env.VITE_API_URL || '';
-    if (baseUrl.startsWith('http')) {
-      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
-    } else {
-      baseUrl = 'https://infrapilot.in';
-    }
-
-    return `${baseUrl}${path}`;
   };
 
   const handleDownload = async (doc: Document) => {
@@ -528,13 +515,6 @@ const DocumentsPage = () => {
               title="Refresh"
             >
               <RefreshCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-            </button>
-            <button
-              onClick={() => setIsFolderModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all font-semibold"
-            >
-              <FolderPlus className="w-4 h-4 text-indigo-500" />
-              New Folder
             </button>
             <button
               onClick={() => {

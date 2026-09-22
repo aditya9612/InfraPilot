@@ -18,10 +18,10 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
     const [formData, setFormData] = useState({
         name: "",
         category: "",
-        skill_category: "Unskilled",
-        default_daily_wage: 0,
-        default_working_hours: 8,
-        default_ot_rate_per_hour: 0,
+        skill_category: "",
+        default_daily_wage: "" as number | string,
+        default_working_hours: "" as number | string,
+        default_ot_rate_per_hour: "" as number | string,
         is_active: true,
         type: "Labour"
     });
@@ -32,9 +32,9 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
         if (initialData) {
             setFormData({
                 ...initialData,
-                default_daily_wage: initialData.default_daily_wage ?? 0,
-                default_working_hours: initialData.default_working_hours ?? 8,
-                default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? 0,
+                default_daily_wage: initialData.default_daily_wage ?? "",
+                default_working_hours: initialData.default_working_hours ?? "",
+                default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? "",
                 is_active: initialData.is_active ?? true,
                 type: "Labour"
             });
@@ -42,10 +42,10 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
             setFormData({
                 name: "",
                 category: "",
-                skill_category: "Unskilled",
-                default_daily_wage: 0,
-                default_working_hours: 8,
-                default_ot_rate_per_hour: 0,
+                skill_category: "",
+                default_daily_wage: "",
+                default_working_hours: "",
+                default_ot_rate_per_hour: "",
                 is_active: true,
                 type: "Labour"
             });
@@ -59,9 +59,11 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
 
         if (!formData.name.trim()) newErrors.name = "Labour type name is required.";
         if (!formData.category.trim()) newErrors.category = "Category is required.";
+        if (!formData.skill_category) newErrors.skill_category = "Skill category is required.";
 
-        if (formData.default_daily_wage < 0) newErrors.default_daily_wage = "Daily wage cannot be negative.";
-        if (formData.default_ot_rate_per_hour < 0) newErrors.default_ot_rate_per_hour = "OT rate cannot be negative.";
+        if (formData.default_daily_wage === "" || Number(formData.default_daily_wage) < 0) newErrors.default_daily_wage = "Daily wage is required and cannot be negative.";
+        if (formData.default_ot_rate_per_hour === "" || Number(formData.default_ot_rate_per_hour) < 0) newErrors.default_ot_rate_per_hour = "OT rate is required and cannot be negative.";
+        if (formData.default_working_hours === "" || Number(formData.default_working_hours) <= 0) newErrors.default_working_hours = "Working hours are required and must be positive.";
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -131,25 +133,34 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Skill Category</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">
+                                Skill Category <span className="text-rose-500">*</span>
+                            </label>
                             <select
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold"
+                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-bold ${errors.skill_category ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10"}`}
                                 value={formData.skill_category}
-                                onChange={(e) => setFormData({ ...formData, skill_category: e.target.value })}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, skill_category: e.target.value });
+                                    if (e.target.value) setErrors(prev => ({ ...prev, skill_category: "" }));
+                                }}
                             >
+                                <option value="" disabled>Select Category</option>
                                 <option value="Unskilled">Unskilled</option>
                                 <option value="Semi Skilled">Semi Skilled</option>
                                 <option value="Skilled">Skilled</option>
                             </select>
+                            {errors.skill_category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.skill_category}</p>}
                         </div>
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Daily Wage (₹)</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">
+                                Daily Wage (₹) <span className="text-rose-500">*</span>
+                            </label>
                             <input
                                 type="number"
                                 placeholder="700"
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_daily_wage ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                                 value={formData.default_daily_wage}
-                                onChange={(e) => setFormData({ ...formData, default_daily_wage: Number(e.target.value) })}
+                                onChange={(e) => setFormData({ ...formData, default_daily_wage: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
                             {errors.default_daily_wage && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_daily_wage}</p>}
                         </div>
@@ -157,23 +168,28 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Working Hours</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">
+                                Working Hours <span className="text-rose-500">*</span>
+                            </label>
                             <input
                                 type="number"
                                 placeholder="8"
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_working_hours ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                                 value={formData.default_working_hours}
-                                onChange={(e) => setFormData({ ...formData, default_working_hours: Number(e.target.value) })}
+                                onChange={(e) => setFormData({ ...formData, default_working_hours: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
+                            {errors.default_working_hours && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_working_hours}</p>}
                         </div>
                         <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">OT Rate / Hour (₹)</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">
+                                OT Rate / Hour (₹) <span className="text-rose-500">*</span>
+                            </label>
                             <input
                                 type="number"
                                 placeholder="90"
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_ot_rate_per_hour ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                                 value={formData.default_ot_rate_per_hour}
-                                onChange={(e) => setFormData({ ...formData, default_ot_rate_per_hour: Number(e.target.value) })}
+                                onChange={(e) => setFormData({ ...formData, default_ot_rate_per_hour: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
                             {errors.default_ot_rate_per_hour && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_ot_rate_per_hour}</p>}
                         </div>

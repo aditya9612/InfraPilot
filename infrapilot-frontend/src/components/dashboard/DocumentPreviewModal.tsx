@@ -90,7 +90,7 @@ const detectMimeAndCategory = (
     if (textSnippet.startsWith("<svg") || (textSnippet.startsWith("<?xml") && textSnippet.includes("<svg"))) {
       return { mime: "image/svg+xml", category: "image" };
     }
-  } catch {}
+  } catch { }
 
   // 2. Server declared content-type
   if (declaredContentType) {
@@ -148,7 +148,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 buffer = await blobRes.arrayBuffer();
                 contentTypeHeader = blobRes.headers.get("content-type") || contentTypeHeader;
               }
-            } catch {}
+            } catch { }
             if (!buffer) {
               if (!isMounted) return;
               setLocalUrl(rawUrl);
@@ -222,7 +222,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                     contentTypeHeader = ct;
                   }
                 }
-              } catch {}
+              } catch { }
             }
           }
 
@@ -343,9 +343,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="File Type" value={document.type || document.document_type || (document.isDrawing ? "Drawing" : "Document")} />
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
-
               <InfoItem label="Remarks" value={document.remarks || "—"} />
-              <InfoItem label="Storage Location" value={document.isFolder ? "Root Directory" : "Secure Vault / Project Files"} />
             </Section>
           </div>
 

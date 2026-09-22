@@ -18,8 +18,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
     const [formData, setFormData] = useState({
         name: "",
         category: "",
-        type: "Unit",
-        is_active: true
+        type: "Unit"
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -27,16 +26,15 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
     useEffect(() => {
         if (initialData) {
             setFormData({
+                name: "",
                 ...initialData,
-                is_active: initialData.is_active ?? true,
                 type: "Unit"
             });
         } else {
             setFormData({
                 name: "",
                 category: "",
-                type: "Unit",
-                is_active: true
+                type: "Unit"
             });
         }
         setErrors({});
@@ -111,17 +109,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                         />
                         {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2">
-                        <input
-                            type="checkbox"
-                            id="unit-active"
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                            checked={formData.is_active}
-                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                        />
-                        <label htmlFor="unit-active" className="text-sm font-medium text-gray-600">Is Active</label>
                     </div>
                 </div>
             </form>

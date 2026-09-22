@@ -315,6 +315,7 @@ const TaskManagementPage = () => {
     const [selectedProgressTask, setSelectedProgressTask] = useState<FrontendTask | null>(null);
     const [progressPercentage, setProgressPercentage] = useState(0);
     const [progressRemark, setProgressRemark] = useState("");
+    const [progressErrors, setProgressErrors] = useState<Record<string, string>>({});
 
     // Image Viewer Modal State
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -993,6 +994,17 @@ const TaskManagementPage = () => {
     const handleUpdateProgress = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProgressTask || (!projectId && projectId !== ('all' as any))) return;
+
+        const newErrors: Record<string, string> = {};
+        if (!progressRemark.trim()) newErrors.remark = "Remarks are required.";
+
+        if (Object.keys(newErrors).length > 0) {
+            setProgressErrors(newErrors);
+            toast.error("Please fill in all required fields.");
+            return;
+        }
+
+        setProgressErrors({});
 
         const pid = selectedProgressTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
 
@@ -2850,7 +2862,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handleUpdateProgress}
-                            disabled={!progressRemark.trim()}
+
                             className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                         >
                             Save Progress
@@ -2861,7 +2873,7 @@ const TaskManagementPage = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">
-                            Completion Percentage: {progressPercentage}%
+                            Completion Percentage: {progressPercentage}% <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="range"
@@ -2881,14 +2893,20 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">
+                            Remarks <span className="text-rose-500">*</span>
+                        </label>
                         <textarea
                             value={progressRemark}
-                            onChange={(e) => setProgressRemark(e.target.value)}
+                            onChange={(e) => {
+                                setProgressRemark(e.target.value);
+                                if (e.target.value.trim()) setProgressErrors({});
+                            }}
                             placeholder="e.g. 10 percent remaining"
                             rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
+                            className={`w-full px-4 py-2.5 bg-white border ${progressErrors.remark ? 'border-rose-300 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
                         />
+                        {progressErrors.remark && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{progressErrors.remark}</p>}
                     </div>
                 </div>
             </Modal>

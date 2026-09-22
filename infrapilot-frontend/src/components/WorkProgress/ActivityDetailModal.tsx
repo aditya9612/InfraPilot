@@ -61,18 +61,19 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
       // ── BOQ Name ───────────────────────────────────────────────────
       // If already enriched with a name, use it
       const existingBoqName = (activity as any).boq_name || (activity as any).boq_item_name || (activity as any).boq_title;
+      const boqId = (activity as any).boq_item_id || activity.boq_code;
       if (existingBoqName) {
         setBoqName(existingBoqName);
-      } else if (activity.boq_code) {
-        // boq_code is the BOQ ID – fetch its name
-        api.get(`/boq/${activity.boq_code}`)
+      } else if (boqId) {
+        // fetch its name by ID
+        api.get(`/boq/${boqId}`)
           .then((res: any) => {
             const data = res.data;
-            const name = data.item_name || data.title || data.name || data.boq_name || data.description || `BOQ ${activity.boq_code}`;
+            const name = data.item_name || data.title || data.name || data.boq_name || data.description || `BOQ ${boqId}`;
             setBoqName(name);
           })
           .catch(() => {
-            setBoqName(`BOQ ${activity.boq_code}`);
+            setBoqName(`BOQ ${boqId}`);
           });
       } else {
         setBoqName("-");

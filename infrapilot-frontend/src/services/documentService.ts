@@ -110,66 +110,65 @@ export const documentService = {
      * GET /api/v1/documents/{id}/download
      */
     async getDownloadUrl(id: number): Promise<{ file_url: string }> {
-        const response = await api.get(`/documents/${id}/download`);
+        const response = await api.get(`/drawings/documents/download/${id}`);
         return response.data;
     },
 
-    /**
-     * Download a specific document
-     * GET /api/v1/documents/{id}/download
-     */
     async downloadDocument(id: number, fileName?: string) {
         try {
-            // Document download endpoint returns a JSON with { file_url: string }
-            const data = await this.getDownloadUrl(id);
-            const fileUrl = data.file_url || (data as any).url || (data as any).download_url;
+            const response = await api.get(`/drawings/documents/download/${id}`, {
+                responseType: 'blob'
+            });
 
-            if (fileUrl) {
-                const link = document.createElement('a');
-                link.href = fileUrl;
-                link.setAttribute('download', fileName || `document_${id}`);
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                return;
+            // Ensure we preserve the MIME type so the OS knows what to do with the file natively
+            const contentType = response.data.type || String(response.headers['content-type'] || 'application/octet-stream');
+            const blob = new Blob([response.data], { type: contentType });
+
+            let extension = 'pdf'; // Default
+            if (contentType.includes('image/png')) extension = 'png';
+            else if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) extension = 'jpg';
+            else if (contentType.includes('spreadsheet') || contentType.includes('excel')) extension = 'xlsx';
+            else if (contentType.includes('word') || contentType.includes('document')) extension = 'docx';
+            else if (contentType.includes('image/gif')) extension = 'gif';
+            else if (contentType.includes('image/webp')) extension = 'webp';
+
+            // If it resolved to generic octet-stream, let's try to sniff magic bytes to catch images
+            if (contentType.includes('octet-stream') || contentType.includes('application/pdf')) {
+                const buffer = await blob.arrayBuffer();
+                const bytes = new Uint8Array(buffer.slice(0, 4));
+                // PNG
+                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+                    extension = 'png';
+                }
+                // JPEG
+                else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+                    extension = 'jpg';
+                }
+                // GIF
+                else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
+                    extension = 'gif';
+                }
+                // WEBP (first 4 bytes RIFF)
+                else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+                    extension = 'webp';
+                }
             }
-        } catch (err: any) {
-            // Re-throw server errors explicitly instead of attempting a broken fallback
-            if (err.response && err.response.status >= 400) {
-                throw err;
-            }
-            // If JSON parse fails or file_url is missing, fallback to blob fetch
-            console.warn("Could not fetch pre-signed URL for document, attempting raw blob download.");
+
+            const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', finalName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            return true;
+        } catch (error: any) {
+            console.error(`Download Document ${id} Failed:`, error?.message);
+            throw error;
         }
-
-        // Fallback for native blob response
-        const response = await api.get(`/documents/${id}/download`, {
-            responseType: 'blob'
-        });
-
-        // Ensure we preserve the MIME type so the OS knows what to do with the file natively
-        const contentType = response.headers['content-type'] || response.data.type || 'application/octet-stream';
-        const blob = new Blob([response.data], { type: contentType });
-
-        let extension = 'pdf'; // Default
-        if (contentType.includes('image/png')) extension = 'png';
-        else if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) extension = 'jpg';
-        else if (contentType.includes('spreadsheet') || contentType.includes('excel')) extension = 'xlsx';
-        else if (contentType.includes('word') || contentType.includes('document')) extension = 'docx';
-        else if (contentType.includes('image/gif')) extension = 'gif';
-        else if (contentType.includes('image/webp')) extension = 'webp';
-
-        const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;
-
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', finalName);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
     },
 
     /**

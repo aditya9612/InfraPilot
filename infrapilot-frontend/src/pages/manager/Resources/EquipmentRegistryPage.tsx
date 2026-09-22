@@ -737,7 +737,7 @@ const EquipmentRegistryPage = () => {
 
     const handleCompleteMaintenance = async (maintenance_id: number, equipment_id: number) => {
         try {
-            await equipmentService.completeMaintenance(maintenance_id);
+            await equipmentService.completeMaintenance(equipment_id, maintenance_id);
             toast.success("Maintenance marked as completed!");
 
             // Optimistic UI Update
@@ -745,6 +745,8 @@ const EquipmentRegistryPage = () => {
                 ...prev,
                 maint: prev.maint.map((l: any) => l.id === maintenance_id ? { ...l, status: 'COMPLETED', is_completed: true, completed_at: new Date().toISOString() } : l)
             }));
+
+            setAllMaintenanceLogs(prev => prev.map(l => l.id === maintenance_id ? { ...l, status: 'COMPLETED', is_completed: true, completed_at: new Date().toISOString() } : l));
 
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: effectiveProjectId || undefined });

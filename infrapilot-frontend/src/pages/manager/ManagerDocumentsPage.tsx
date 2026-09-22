@@ -19,6 +19,7 @@ import SortDropdown from "../../components/common/SortDropdown";
 import { drawingService } from "../../services/drawingService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { API_BASE_URL } from "../../services/api";
+import { userService } from "../../services/userService";
 
 // ─── Types ──────────────────────────────────────────────────────────
 type SortOrder = "latest" | "oldest";
@@ -94,6 +95,7 @@ const ManagerDocumentsPage = () => {
     const [docs, setDocs] = useState<Document[]>([]);
     const [stats, setStats] = useState<DocumentStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [usersMap, setUsersMap] = useState<Record<number, string>>({});
 
 
     const [searchTerm, setSearchTerm] = useState("");
@@ -218,6 +220,20 @@ const ManagerDocumentsPage = () => {
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, categoryFilter]);
 
+    useEffect(() => {
+        userService.getAllUsers(100).then((res: any) => {
+            const items = Array.isArray(res) ? res : res.items || res.data || [];
+            const map: Record<number, string> = {};
+            items.forEach((u: any) => {
+                const userId = u.user_id || u.id;
+                if (userId) {
+                    map[userId] = u.full_name || u.name || u.username;
+                }
+            });
+            setUsersMap(map);
+        }).catch(() => null);
+    }, []);
+
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
         if (!uploadFile) {
@@ -308,7 +324,6 @@ const ManagerDocumentsPage = () => {
         setDocViewerLatest(null);
         setIsDocViewerOpen(true);
 
-        const toastId = toast.loading(`Loading ${doc.title}...`);
         try {
             // Run API calls in parallel
             const [viewRes, versionsRes, latestRes, docDataRes] = await Promise.allSettled([
@@ -347,7 +362,20 @@ const ManagerDocumentsPage = () => {
 
             // Handle metadata merge for non-drawings
             if (docDataRes && docDataRes.status === "fulfilled" && docDataRes.value) {
-                setDocViewerDoc(prev => (prev ? { ...prev, ...docDataRes.value } : docDataRes.value));
+                setDocViewerDoc(prev => {
+                    const merged = prev ? { ...prev, ...docDataRes.value } : docDataRes.value;
+                    if (merged && !merged.uploaded_by_name && merged.uploaded_by_user_id) {
+                        merged.uploaded_by_name = usersMap[merged.uploaded_by_user_id] || `User ${merged.uploaded_by_user_id}`;
+                    }
+                    return merged;
+                });
+            } else {
+                setDocViewerDoc(prev => {
+                    if (prev && !prev.uploaded_by_name && prev.uploaded_by_user_id) {
+                        return { ...prev, uploaded_by_name: usersMap[prev.uploaded_by_user_id] || `User ${prev.uploaded_by_user_id}` };
+                    }
+                    return prev;
+                });
             }
 
             // Handle versions
@@ -362,10 +390,8 @@ const ManagerDocumentsPage = () => {
                 const match = latestArr.find((l: any) => l?.drawing_name === doc.title) || latestArr[0];
                 setDocViewerLatest(match || null);
             }
-
-            toast.dismiss(toastId);
         } catch {
-            toast.error("Failed to open document.", { id: toastId });
+            toast.error("Failed to open document.");
         }
     };
 
@@ -543,7 +569,7 @@ const ManagerDocumentsPage = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <ProjectSelector variant="page" />
+                        <ProjectSelector variant="page" hideAllProjects={true} />
                         <button
                             onClick={fetchDocs}
                             disabled={isLoading || !selectedProjectId}
@@ -795,8 +821,8 @@ const ManagerDocumentsPage = () => {
                                                         key={page}
                                                         onClick={() => setCurrentPage(page)}
                                                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                                ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                                : "text-slate-500 hover:bg-slate-100"
+                                                            ? "bg-primary text-white shadow-sm shadow-primary/20"
+                                                            : "text-slate-500 hover:bg-slate-100"
                                                             }`}
                                                     >
                                                         {page}

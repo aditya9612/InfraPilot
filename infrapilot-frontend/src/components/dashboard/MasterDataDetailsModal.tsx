@@ -41,7 +41,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
     <div className="flex justify-end">
       <button
         onClick={onClose}
-        className="px-8 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg"
+        className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all"
       >
         Close details
       </button>

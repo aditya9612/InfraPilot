@@ -35,7 +35,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("All");
-  const [sourceFilter, setSourceFilter] = useState<string>("All");
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -90,17 +89,13 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       selectedProjectId === "All" ||
       Number(n.project_id) === Number(selectedProjectId);
 
-    const matchesSource =
-      sourceFilter === "All" ||
-      (n.source || "general").toLowerCase() === sourceFilter.toLowerCase();
-
-    return matchesStatFilter && matchesSearch && matchesProject && matchesSource;
+    return matchesStatFilter && matchesSearch && matchesProject;
   });
 
   // Reset page on filter/search change
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, activeStatFilter, filter, selectedProjectId, sourceFilter, activeTab]);
+  }, [searchTerm, activeStatFilter, filter, selectedProjectId, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
   const pagedNotifs = filteredNotifs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -138,7 +133,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
     try {
       await notificationService.createAlert({
         project_id: data.project_id || 1,
-        alert_type: `${data.status || "Normal"}||${data.type || "System"}`,
+        alert_type: data.type || "System",
         message: data.message,
         user_id: Number(user.id) || 1
       });
@@ -156,13 +151,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
         type === "System" ? "bg-amber-50 text-amber-600" :
           "bg-blue-50 text-blue-600";
 
-  const sourceLabel = (source?: string) =>
-    source === "project" ? "Project" :
-      source === "task" ? "Task" :
-        source === "system" ? "System" :
-          source === "direct" ? "Direct" :
-            "General";
-
   return (
     <>
       <Navbar
@@ -170,7 +158,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
         breadcrumb={["Admin", "Notifications"]}
       />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
+      <PageTransition className="p-6 bg-slate-50 min-h-\[calc(100vh-64px)\] pb-8 font-inter">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification & Alert Center</h1>
@@ -207,7 +195,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 setActiveTab(t.key);
                 setActiveStatFilter("All");
                 setSearchTerm("");
-                setSourceFilter("All");
                 setSelectedProjectId("All");
                 fetchNotifications(t.key);
               }}
@@ -226,10 +213,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
             const matchesProject =
               selectedProjectId === "All" ||
               Number(n.project_id) === Number(selectedProjectId);
-            const matchesSource =
-              sourceFilter === "All" ||
-              (n.source || "general").toLowerCase() === sourceFilter.toLowerCase();
-            return matchesProject && matchesSource;
+            return matchesProject;
           });
 
           const cardDefs = [
@@ -338,23 +322,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 </div>
               )}
 
-              {activeTab === "alerts" && (
-                <select
-                  value={sourceFilter}
-                  onChange={(e) => { setSourceFilter(e.target.value); }}
-                  className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${sourceFilter !== "All"
-                    ? "bg-primary/10 border-primary/30 text-primary"
-                    : "bg-slate-50 border-slate-200 text-slate-600"
-                    }`}
-                >
-                  <option value="All">All Sources</option>
-                  <option value="general">General</option>
-                  <option value="project">Project</option>
-                  <option value="task">Task</option>
-                  <option value="system">System</option>
-                  <option value="direct">Direct</option>
-                </select>
-              )}
             </div>
           </div>
 
@@ -364,8 +331,8 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
 
                   <th className="px-6 py-4 w-48">Type</th>
-                  <th className="px-6 py-4">Title & Description</th>
-                  <th className="px-6 py-4">Source</th>
+                  <th className="px-6 py-4">Title</th>
+                  <th className="px-6 py-4">Message</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Date & Time</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -408,13 +375,10 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className={`text-sm mb-0.5 group-hover:text-primary transition-colors ${!notif.read ? "text-slate-800 font-bold" : "text-slate-600 font-semibold"}`}>{notif.title}</p>
-                        <p className="text-xs text-slate-500 max-w-lg truncate">{notif.description}</p>
+                        <p className={`text-sm group-hover:text-primary transition-colors ${!notif.read ? "text-slate-800 font-bold" : "text-slate-600 font-semibold"}`}>{notif.title}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-500 uppercase tracking-widest">
-                          {sourceLabel(notif.source)}
-                        </span>
+                        <p className="text-xs text-slate-500 max-w-sm truncate">{(notif as any).message || notif.description}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${notif.read
@@ -577,7 +541,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
               <button
                 onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                className="w-full py-4 bg-slate-900 hover:bg-black text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-xs shadow-xl shadow-slate-200 active:scale-[0.98]"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-xs shadow-xl shadow-blue-600/20 active:scale-[0.98]"
               >
                 Dismiss
               </button>
