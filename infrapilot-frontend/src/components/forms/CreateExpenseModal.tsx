@@ -73,6 +73,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = "Amount must be greater than 0.";
+    if (!formData.project_id) newErrors.project_id = "Project is required.";
+    if (!formData.expense_date) newErrors.expense_date = "Expense Date is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -132,23 +134,30 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Project (Optional)</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Project <span className="text-rose-500">*</span></label>
                 <select
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.project_id
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   value={formData.project_id}
-                  onChange={e => setFormData({ ...formData, project_id: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, project_id: e.target.value });
+                    if (errors.project_id) setErrors({ ...errors, project_id: "" });
+                  }}
                 >
-                  <option value="">None (General Expense)</option>
+                  <option value="">Select Project...</option>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>{p.project_name}</option>
                   ))}
                 </select>
+                {errors.project_id && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.project_id}</p>}
               </div>
 
               {formData.project_id && (
                 <div className="md:col-span-2 space-y-1">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    BOQ Item (Mandatory for Project Expenses)
+                    BOQ Item
                   </label>
                   <select
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
@@ -197,13 +206,20 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Expense Date</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Expense Date <span className="text-rose-500">*</span></label>
                 <input
                   type="date"
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none font-medium"
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none font-medium ${errors.expense_date
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   value={formData.expense_date}
-                  onChange={e => setFormData({ ...formData, expense_date: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, expense_date: e.target.value });
+                    if (errors.expense_date) setErrors({ ...errors, expense_date: "" });
+                  }}
                 />
+                {errors.expense_date && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.expense_date}</p>}
               </div>
 
               <div className="space-y-1">

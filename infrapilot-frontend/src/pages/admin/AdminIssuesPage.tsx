@@ -301,6 +301,21 @@ const AdminIssuesPage = () => {
         setIsEditModalOpen(true);
     };
 
+    const openCreateModal = () => {
+        setFormData({
+            project_id: selectedProjectId || 0,
+            title: "",
+            category: "",
+            description: "",
+            reported_date: new Date().toISOString().split("T")[0],
+            priority: "",
+            status: "Open",
+            assigned_to: 0,
+            resolution: ""
+        });
+        setIsCreateModalOpen(true);
+    };
+
     const openViewModal = async (issue: IssueItem) => {
         setSelectedIssue(issue);
         setFormData({
@@ -386,7 +401,7 @@ const AdminIssuesPage = () => {
                                 PDF
                             </button>
                             <button
-                                onClick={() => setIsCreateModalOpen(true)}
+                                onClick={openCreateModal}
                                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                             >
                                 Report Issue
@@ -428,7 +443,7 @@ const AdminIssuesPage = () => {
                             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
                                 <Filter className="w-4 h-4 text-slate-400" />
                                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-transparent text-xs font-bold text-slate-600 outline-none">
-                                    <option value="all">All Statuses</option>
+                                    <option value="all">All Status</option>
                                     <option value="open">Open</option>
                                     <option value="closed">Closed</option>
                                 </select>

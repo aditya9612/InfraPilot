@@ -152,7 +152,7 @@ const ApprovalsPage = () => {
   useEffect(() => {
     // Fetch users once to build an id→name lookup map
     userService.getAllUsers(100, 0).then((data) => {
-      const list = Array.isArray(data) ? data : data?.items || data?.users || [];
+      const list = Array.isArray(data) ? data : data?.items || data?.data || data?.users || [];
       const map: Record<number, string> = {};
       list.forEach((u: any) => {
         const uid = u.user_id ?? u.id;
@@ -366,7 +366,11 @@ const ApprovalsPage = () => {
                       <div className="flex justify-end gap-1 items-center">
                         <button
                           onClick={() => {
-                            setViewingApproval(item);
+                            setViewingApproval({
+                              ...item,
+                              requested_by_name: usersMap[Number(item.requested_by)] || item.requested_by,
+                              reviewer_name: usersMap[Number(item.approved_by)] || item.approved_by
+                            });
                             setIsViewModalOpen(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-primary rounded-lg transition-colors"

@@ -450,13 +450,13 @@ const ManagerDocumentsPage = () => {
                     fd.append("file", editFile);
                     payload = fd;
                 } else {
-                    payload = {
-                        title: editForm.title,
-                        document_type: editForm.document_type,
-                        remarks: editForm.remarks,
-                        version: editForm.version,
-                        status: editForm.status,
-                    };
+                    const fd = new FormData();
+                    fd.append("title", editForm.title);
+                    fd.append("document_type", editForm.document_type);
+                    fd.append("remarks", editForm.remarks || "");
+                    fd.append("version", editForm.version);
+                    fd.append("status", editForm.status);
+                    payload = fd;
                 }
                 await documentService.updateDocument(editForm.id, payload);
             }
@@ -977,9 +977,9 @@ const ManagerDocumentsPage = () => {
                 isOpen={isDeleteModalOpen}
                 onClose={() => { setIsDeleteModalOpen(false); setDeleteId(null); }}
                 onConfirm={handleDelete}
-                title="Delete Document"
-                message="This action is permanent and cannot be undone."
-                confirmText="Delete"
+                title={mainTab === "Drawings" ? "Delete Drawing" : "Delete Document"}
+                message={`Are you sure you want to permanently delete this ${mainTab === "Drawings" ? "drawing" : "document"}? This action cannot be undone and the file will be removed from the repository.`}
+                confirmText={mainTab === "Drawings" ? "Delete Drawing" : "Delete Document"}
                 type="danger"
             />
 
