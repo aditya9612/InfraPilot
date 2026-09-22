@@ -116,7 +116,9 @@ export default function AddMaterialModal({
 
     if (!formData.material_master_id)
       newErrors.material_master_id = "Please select a material master.";
-    if (!formData.supplier_name)
+    if (initialData && !(formData as any).supplier_id)
+      newErrors.supplier_id = "Please select a supplier.";
+    else if (!initialData && !formData.supplier_name)
       newErrors.supplier_name = "Please select a supplier.";
     if (!formData.purchase_rate || formData.purchase_rate <= 0)
       newErrors.purchase_rate = "Purchase rate must be greater than 0.";
@@ -189,23 +191,25 @@ export default function AddMaterialModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Project ID <span className="text-rose-500">*</span>
-              </label>
-              <select
-                name="project_id"
-                value={formData.project_id}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none outline-none"
-              >
-                {projects.map((proj) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.name || proj.project_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!initialData && (
+              <div className="md:col-span-2 space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Project ID <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  name="project_id"
+                  value={formData.project_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none outline-none"
+                >
+                  {projects.map((proj) => (
+                    <option key={proj.id} value={proj.id}>
+                      {proj.name || proj.project_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -251,10 +255,16 @@ export default function AddMaterialModal({
                 Supplier <span className="text-rose-500">*</span>
               </label>
               <select
-                name="supplier_name"
-                value={formData.supplier_name}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${errors.supplier_name
+                name={initialData ? "supplier_id" : "supplier_name"}
+                value={initialData ? ((formData as any).supplier_id || "") : formData.supplier_name}
+                onChange={(e) => {
+                  const val = initialData ? Number(e.target.value) : e.target.value;
+                  setFormData(prev => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: val }));
+                  if (errors[initialData ? "supplier_id" : "supplier_name"]) {
+                    setErrors((prev) => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: "" }));
+                  }
+                }}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${errors[initialData ? "supplier_id" : "supplier_name"]
                   ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                   : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                   }`}
@@ -266,15 +276,15 @@ export default function AddMaterialModal({
                   const supId = sup.id ?? (sup as any).supplier_id;
                   const supName = typeof sup === "string" ? sup : (sup.name || (sup as any).supplier_name || sup.contactPerson || sup.phone || `Supplier #${supId}`);
                   return (
-                    <option key={supId} value={supName}>
+                    <option key={supId} value={initialData ? supId : supName}>
                       {supName}
                     </option>
                   );
                 })}
               </select>
-              {errors.supplier_name && (
+              {errors[initialData ? "supplier_id" : "supplier_name"] && (
                 <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
-                  {errors.supplier_name}
+                  {errors[initialData ? "supplier_id" : "supplier_name"]}
                 </p>
               )}
             </div>
@@ -432,30 +442,7 @@ export default function AddMaterialModal({
               </>
             )}
 
-            {initialData && (
-              <div className="space-y-1 md:col-span-2 border-t border-slate-50 pt-4 mt-2">
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Payment Given (Additional)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">
-                    ₹
-                  </span>
-                  <input
-                    type="text"
-                    name="payment_given"
-                    value={formData.payment_given || ""}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold text-emerald-600 shadow-sm"
-                    placeholder="Enter amount to add to ledger"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 font-medium mt-2 ml-1 italic">
-                  * Only enter the amount being paid now. Existing payments are
-                  preserved.
-                </p>
-              </div>
-            )}
+            {/* Payment Given (Additional) removed from Update mode as per backend structure */}
           </div>
         </div>
       </form>

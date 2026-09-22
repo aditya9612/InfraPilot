@@ -17,6 +17,7 @@ import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormMod
 import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
 import TransferEquipmentModal from "../../components/forms/TransferEquipmentModal";
 import CreatePurchaseModal from "../../components/forms/CreatePurchaseModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import { useProject } from "../../context/ProjectContext";
 
 const conditionColors: Record<string, string> = {
@@ -43,6 +44,10 @@ const EquipmentPage = () => {
     const [globalRentals, setGlobalRentals] = useState<any[]>([]);
     const [globalMaintenance, setGlobalMaintenance] = useState<any[]>([]);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+
+    // Added Delete Equipment Modal States
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [equipmentToDelete, setEquipmentToDelete] = useState<number | null>(null);
 
     // Extracted states for advanced actions
     const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
@@ -373,14 +378,17 @@ const EquipmentPage = () => {
     // Reset page
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, filterCondition, filterProject, selectedProjectId]);
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this equipment?")) return;
+    const handleDelete = async () => {
+        if (!equipmentToDelete) return;
         try {
-            await equipmentService.deleteEquipment(id);
+            await equipmentService.deleteEquipment(equipmentToDelete);
             toast.success("Equipment deleted successfully");
+            setIsDeleteModalOpen(false);
+            setEquipmentToDelete(null);
             fetchData();
-        } catch (err) {
-            toast.error("Failed to delete equipment");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to delete equipment";
+            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
         }
     };
 
@@ -688,7 +696,7 @@ const EquipmentPage = () => {
                                 <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
                                 <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
-                                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => { setEquipmentToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                             </div>
                         </td>
                     </tr>

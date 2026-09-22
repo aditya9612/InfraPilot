@@ -40,7 +40,10 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
             <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-800">
-                  {new Date(log.created_at).toLocaleString()}
+                  {new Date(log.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {new Date(log.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </td>
               <td className="px-6 py-4">
