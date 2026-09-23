@@ -829,27 +829,30 @@ const ManagerBOQPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                                                     <th className="px-6 py-5">Identified Item</th>
+                                                    <th className="px-6 py-5">Project</th>
                                                     <th className="px-6 py-5">Category</th>
                                                     <th className="px-6 py-5">Quantity Unit</th>
                                                     <th className="px-6 py-5">Unit Rate</th>
                                                     <th className="px-6 py-5">Estimated Total</th>
                                                     <th className="px-6 py-5">Budget Variance</th>
-                                                    <th className="px-6 py-5 text-center">Lifecycle</th>
-                                                    <th className="px-6 py-5 text-center">Rate Approval</th>
+                                                    <th className="px-6 py-5 text-center">Status</th>
+                                                    <th className="px-6 py-5 text-center">Approval Status</th>
                                                     <th className="px-6 py-5 text-right">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
                                                 {filteredBoqData.length === 0 ? (
-                                                    <tr><td colSpan={8} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
+                                                    <tr><td colSpan={9} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
                                                 ) : (
                                                     filteredBoqData.map((item) => (
                                                         <tr key={item.id} className="hover:bg-slate-50/80 transition-all group text-slate-800">
                                                             <td className="px-6 py-5">
                                                                 <div className="flex flex-col">
                                                                     <p className="font-black text-slate-700 group-hover:text-slate-900 transition-colors text-xs tracking-tight uppercase">{item.item_name}</p>
-                                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{projectMap[item.project_id] || "Global Registry"}</p>
                                                                 </div>
+                                                            </td>
+                                                            <td className="px-6 py-5">
+                                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{projectMap[item.project_id] || "Global Registry"}</p>
                                                             </td>
                                                             <td className="px-6 py-5">
                                                                 <div className="flex flex-col gap-1.5 font-inter">

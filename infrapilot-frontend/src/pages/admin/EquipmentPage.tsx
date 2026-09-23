@@ -982,7 +982,6 @@ const EquipmentPage = () => {
                 <tr>
                     <th className="px-6 py-4">Equipment</th>
                     <th className="px-6 py-4">From Project</th>
-                    <th className="px-6 py-4 text-center">Transfer</th>
                     <th className="px-6 py-4">To Project</th>
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Transferred By</th>
@@ -990,7 +989,7 @@ const EquipmentPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading transfer history...</td></tr>
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading transfer history...</td></tr>
                 ) : pagedData.length > 0 ? pagedData.map((t: any) => (
                     <tr key={t.id || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4">
@@ -998,9 +997,6 @@ const EquipmentPage = () => {
                         </td>
                         <td className="px-6 py-4 font-medium text-slate-600">
                             {t.from_project_name || (t.from_project_id ? projectMap[t.from_project_id] || `Project ${t.from_project_id}` : 'Global / Unassigned')}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                            <ArrowRightLeft className="w-4 h-4 mx-auto text-slate-300" />
                         </td>
                         <td className="px-6 py-4 font-medium text-primary">
                             {t.to_project_name || (t.to_project_id === 0 ? 'Global / Unassigned' : projectMap[t.to_project_id] || `Project ${t.to_project_id}`)}
@@ -1013,7 +1009,7 @@ const EquipmentPage = () => {
                         </td>
                     </tr>
                 )) : (
-                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No transfer history found</td></tr>
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No transfer history found</td></tr>
                 )}
             </tbody>
         </table>
@@ -1029,6 +1025,7 @@ const EquipmentPage = () => {
                         <th className="px-6 py-4">Type</th>
                         <th className="px-6 py-4">Date</th>
                         <th className="px-6 py-4">Vendor</th>
+                        <th className="px-6 py-4">Invoice No.</th>
                         <th className="px-6 py-4">Qty</th>
                         <th className="px-6 py-4">Unit Price</th>
                         <th className="px-6 py-4">Total Amount</th>
@@ -1038,7 +1035,7 @@ const EquipmentPage = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-sm">
                     {isLoading ? (
-                        <tr><td colSpan={10} className="p-10 text-center text-slate-400">Loading purchases...</td></tr>
+                        <tr><td colSpan={11} className="p-10 text-center text-slate-400">Loading purchases...</td></tr>
                     ) : pagedData.length > 0 ? pagedData.map((report: any) => (
                         <tr key={report.id || Math.random()} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4 font-bold text-slate-700">{report.asset_name || report.equipment_code || report.asset_code || "—"}</td>
@@ -1050,6 +1047,7 @@ const EquipmentPage = () => {
                             </td>
                             <td className="px-6 py-4 text-slate-500">{report.purchase_date || report.created_at?.split('T')[0] || "—"}</td>
                             <td className="px-6 py-4 text-slate-600">{report.vendor_name || report.vendor || "—"}</td>
+                            <td className="px-6 py-4 text-slate-600 font-mono text-xs font-bold">{report.invoice_number || "—"}</td>
                             <td className="px-6 py-4 text-slate-700 font-medium">{report.quantity || 1}</td>
                             <td className="px-6 py-4 text-slate-600">₹{(report.unit_price || 0).toLocaleString()}</td>
                             <td className="px-6 py-4 text-emerald-600 font-bold">₹{(report.total_amount || report.cost || report.total_cost || 0).toLocaleString()}</td>
@@ -1057,7 +1055,7 @@ const EquipmentPage = () => {
                             <td className="px-6 py-4 text-slate-500 truncate max-w-[150px]" title={report.notes || report.description || ""}>{report.notes || report.description || "—"}</td>
                         </tr>
                     )) : (
-                        <tr><td colSpan={10} className="p-10 text-center text-slate-400 font-medium">No purchases found</td></tr>
+                        <tr><td colSpan={11} className="p-10 text-center text-slate-400 font-medium">No purchases found</td></tr>
                     )}
                 </tbody>
             </table>
@@ -1137,6 +1135,7 @@ const EquipmentPage = () => {
                         currentPage={utilizationPage}
                         pageSize={utilizationItemsPerPage}
                         onPageChange={setUtilizationPage}
+                        onPageSizeChange={setUtilizationItemsPerPage}
                         label="Utilization Metrics"
                     />
                 </div>
@@ -1183,6 +1182,7 @@ const EquipmentPage = () => {
                         currentPage={costPage}
                         pageSize={costItemsPerPage}
                         onPageChange={setCostPage}
+                        onPageSizeChange={setCostItemsPerPage}
                         label="Records"
                     />
                 </div>
@@ -1227,6 +1227,7 @@ const EquipmentPage = () => {
                         currentPage={usagePage}
                         pageSize={usageItemsPerPage}
                         onPageChange={setUsagePage}
+                        onPageSizeChange={setUsageItemsPerPage}
                         label="Usage Records"
                     />
                 </div>
@@ -1273,6 +1274,7 @@ const EquipmentPage = () => {
                         currentPage={purchasePage}
                         pageSize={purchaseItemsPerPage}
                         onPageChange={setPurchasePage}
+                        onPageSizeChange={setPurchaseItemsPerPage}
                         label="Purchase Analytics"
                     />
                 </div>
@@ -1319,6 +1321,7 @@ const EquipmentPage = () => {
                         currentPage={availabilityPage}
                         pageSize={availabilityItemsPerPage}
                         onPageChange={setAvailabilityPage}
+                        onPageSizeChange={setAvailabilityItemsPerPage}
                         label="Registries"
                     />
                 </div>
@@ -1610,19 +1613,7 @@ const EquipmentPage = () => {
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
-                        <select
-                            value={formData.project_id || ''}
-                            onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                        >
-                            <option value="">-- Select Project --</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name}</option>
-                            ))}
-                        </select>
-                    </div>
+
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">LINK TO BOQ ITEM (OPTIONAL)</label>
                         <select
@@ -1676,8 +1667,9 @@ const EquipmentPage = () => {
                         <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT <span className="text-rose-500">*</span></label>
                         <select
+                            required
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null, boq_item_id: null })}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
@@ -1822,8 +1814,7 @@ const EquipmentPage = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setIsRentalViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
-                            <button onClick={() => { setIsRentalViewModalOpen(false); setFormData({ ...rentalToView, rental_id: rentalToView.id, equipment_id: rentalToView.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-500/20">Edit Details</button>
+                            <button onClick={() => setIsRentalViewModalOpen(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 transition-colors text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-blue-500/20">Close</button>
                         </div>
                     </div>
                 )}
