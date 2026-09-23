@@ -182,8 +182,8 @@ const ClientOverviewPage = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Duration</p>
                     <p className="text-sm font-bold text-slate-800">
                       {projectData?.start_date || "—"}
-                      <span className="mx-2 text-slate-300">→</span>
-                      <span className="text-blue-600">{projectData?.end_date || "—"}</span>
+                      <span className="mx-2 text-slate-400 font-semibold text-xs">TO</span>
+                      <span className="text-slate-800">{projectData?.end_date || "—"}</span>
                     </p>
                   </div>
                 </div>

@@ -22,7 +22,7 @@ import {
   ChevronRight, Eye, History, Download, IndianRupee, Clock,
   TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
   ArrowUpRight, Pencil, Trash2, CreditCard, Info, Banknote, Building2,
-  Smartphone, Save, X, Upload, ChevronDown,
+  Smartphone, Save, X, Upload, ChevronDown, Table as TableIcon, Landmark, Layers, Coins
 } from "lucide-react";
 
 interface ClientPayment {
@@ -39,7 +39,13 @@ interface ClientPayment {
   paymentDate: string;
 }
 
-const mapApiPayment = (p: any, paidInvoicesSet?: Set<string>): ClientPayment => {
+const mapApiPayment = (
+  p: any,
+  paidInvoicesSet?: Set<string>,
+  contextProjects?: any[],
+  contextInvoices?: any[],
+  fallbackProjectName?: string
+): ClientPayment => {
   const statusRaw = String(p.payment_status || p.status || p.invoice_status || "").trim().toUpperCase();
   const invStatusRaw = String(p.invoice_status || "").trim().toUpperCase();
 
@@ -91,12 +97,55 @@ const mapApiPayment = (p: any, paidInvoicesSet?: Set<string>): ClientPayment => 
     return `${day}/${month}/${year}`;
   };
 
+  // ── Robust Project Name Resolution ──
+  let resolvedProjectName = p.project_name || p.projectName || p.project || "";
+  if (!resolvedProjectName || resolvedProjectName === "—" || resolvedProjectName === "-") {
+    // 1. Look up from context invoices matching invoice_id or invoice_no
+    if (Array.isArray(contextInvoices) && contextInvoices.length > 0) {
+      const matchInv = contextInvoices.find((inv: any) => {
+        const iId = inv.id != null ? String(inv.id).trim() : (inv.invoice_id != null ? String(inv.invoice_id).trim() : "");
+        const iNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").trim().toUpperCase();
+        const iDigits = iNo.replace(/\D/g, "");
+        return (
+          (invIdStr && iId === invIdStr) ||
+          (invNo && iNo === invNo) ||
+          (invDigits && iDigits && iDigits === invDigits)
+        );
+      });
+      if (matchInv && (matchInv.project_name || matchInv.projectName || matchInv.project)) {
+        resolvedProjectName = matchInv.project_name || matchInv.projectName || matchInv.project;
+      }
+    }
+
+    // 2. Look up from context projects matching project_id
+    if ((!resolvedProjectName || resolvedProjectName === "—") && Array.isArray(contextProjects) && contextProjects.length > 0) {
+      const pProjId = p.project_id != null ? String(p.project_id).trim() : "";
+      if (pProjId) {
+        const matchProj = contextProjects.find((pr: any) => String(pr.id || pr.project_id).trim() === pProjId);
+        if (matchProj && (matchProj.name || matchProj.project_name)) {
+          resolvedProjectName = matchProj.name || matchProj.project_name;
+        }
+      }
+    }
+
+    // 3. Fallback to active project name
+    if (!resolvedProjectName || resolvedProjectName === "—") {
+      if (fallbackProjectName && fallbackProjectName !== "Loading..." && fallbackProjectName !== "All Projects") {
+        resolvedProjectName = fallbackProjectName;
+      }
+    }
+  }
+
+  if (!resolvedProjectName) {
+    resolvedProjectName = "—";
+  }
+
   return {
     paymentId: p.payment_no || (p.payment_id != null ? String(p.payment_id) : (p.id != null ? String(p.id) : "—")),
     invoiceNo: p.invoice_no || p.invoiceNo || (p.invoice_id ? `INV-${String(p.invoice_id).padStart(6, '0')}` : "—"),
     clientName: p.user_name || p.clientName || p.client_name || p.client || "Client",
     clientEmail: p.clientEmail || p.client_email || p.email || "client@example.com",
-    projectName: p.project_name || p.projectName || p.project || "—",
+    projectName: resolvedProjectName,
     invoiceDate: formatDate(p.created_at || p.invoiceDate || p.invoice_date || p.payment_date),
     dueDate: formatDate(p.due_date || p.dueDate),
     amount: Number(p.amount ?? p.total_amount ?? 0),
@@ -106,7 +155,12 @@ const mapApiPayment = (p: any, paidInvoicesSet?: Set<string>): ClientPayment => 
   };
 };
 
-const processPaymentHistory = (historyList: any[]) => {
+const processPaymentHistory = (
+  historyList: any[],
+  contextProjects?: any[],
+  contextInvoices?: any[],
+  fallbackProjectName?: string
+) => {
   const paidInvoiceIdentifiers = new Set<string>();
 
   historyList.forEach((p: any) => {
@@ -144,7 +198,9 @@ const processPaymentHistory = (historyList: any[]) => {
     }
   });
 
-  const mapped = historyList.map(p => mapApiPayment(p, paidInvoiceIdentifiers));
+  const mapped = historyList.map(p =>
+    mapApiPayment(p, paidInvoiceIdentifiers, contextProjects, contextInvoices, fallbackProjectName)
+  );
   const seenPaidInvoices = new Set<string>();
   const deduplicatedPayments: ClientPayment[] = [];
 
@@ -273,11 +329,17 @@ const ClientPaymentPage = () => {
         const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
         setAvailableProjects(items);
         if (items.length > 0) {
-          const currentId = projectId ? Number(projectId) : Number(items[0].id || items[0].project_id);
-          const found = items.find((p: any) => Number(p.id || p.project_id) === currentId) || items[0];
-          setNewProjectId(String(found.id || found.project_id));
-          setNewProjectName(found.name || found.project_name || "");
-          setProjectName(found.name || found.project_name || `Project ${found.id || found.project_id}`);
+          const currentId = projectId ? Number(projectId) : null;
+          if (currentId) {
+            const found = items.find((p: any) => Number(p.id || p.project_id) === currentId);
+            if (found) {
+              setNewProjectId(String(found.id || found.project_id));
+              setNewProjectName(found.name || found.project_name || "");
+              setProjectName(found.name || found.project_name || `Project ${found.id || found.project_id}`);
+            }
+          } else {
+            setProjectName(user?.project_name || "All Projects");
+          }
         } else {
           setProjectName(user?.project_name || "All Projects");
         }
@@ -306,176 +368,209 @@ const ClientPaymentPage = () => {
   const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [paymentAnalytics, setPaymentAnalytics] = useState<any>(null);
+  const [analyticsTab, setAnalyticsTab] = useState<"chart" | "table">("chart");
   const [apiLoading, setApiLoading] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
-  // ── Available Pending Invoices (excluding any already paid/recorded invoices) ──
+  // ── Available Pending Invoices (strictly scoped to current selected project from settings & excluding paid) ──
   const availablePendingInvoices = useMemo(() => {
-    const existingInvoiceKeys = new Set<string>();
+    const paidInvoiceKeys = new Set<string>();
 
-    const addKeys = (invNo?: any, invId?: any) => {
-      if (invNo) {
-        const s = String(invNo).trim().toUpperCase();
-        if (s && s !== "—" && s !== "-") {
-          existingInvoiceKeys.add(s);
-          const d = s.replace(/\D/g, "");
-          if (d) {
-            existingInvoiceKeys.add(d);
-            existingInvoiceKeys.add(`INV-${d.padStart(6, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(5, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(4, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(3, '0')}`.toUpperCase());
-          }
-        }
-      }
-      if (invId != null) {
-        const s = String(invId).trim();
-        if (s && s !== "—" && s !== "-") {
-          existingInvoiceKeys.add(s);
-          const d = s.replace(/\D/g, "");
-          if (d) {
-            existingInvoiceKeys.add(d);
-            existingInvoiceKeys.add(`INV-${d.padStart(6, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(5, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(4, '0')}`.toUpperCase());
-            existingInvoiceKeys.add(`INV-${d.padStart(3, '0')}`.toUpperCase());
-          }
+    const addPaidKey = (val: any) => {
+      if (val == null) return;
+      const s = String(val).trim().toUpperCase();
+      if (s && s !== "—" && s !== "-") {
+        paidInvoiceKeys.add(s);
+        const d = s.replace(/\D/g, "");
+        if (d) {
+          paidInvoiceKeys.add(d);
+          paidInvoiceKeys.add(`INV-${d.padStart(6, "0")}`);
+          paidInvoiceKeys.add(`INV-${d.padStart(5, "0")}`);
+          paidInvoiceKeys.add(`INV-${d.padStart(4, "0")}`);
+          paidInvoiceKeys.add(`INV-${d.padStart(3, "0")}`);
         }
       }
     };
 
-    clientPayments.forEach(p => {
-      addKeys(p.invoiceNo);
+    // Check payment history for completed/verified/approved payments only
+    (paymentHistory || []).forEach((p: any) => {
+      const st = String(p.payment_status || p.status || "").toUpperCase();
+      const isPaid =
+        st === "PAID" ||
+        st === "VERIFIED" ||
+        st === "APPROVED" ||
+        st === "COMPLETED" ||
+        st === "SUCCESS" ||
+        Boolean(p.verified_by) ||
+        Boolean(p.verified_at);
+
+      if (isPaid) {
+        addPaidKey(p.invoice_no || p.invoiceNo);
+        addPaidKey(p.invoice_id || p.id);
+      }
     });
 
-    paymentHistory.forEach((p: any) => {
-      addKeys(p.invoice_no || p.invoiceNo, p.invoice_id || p.id);
-    });
+    // Active project context from settings/hook (or modal selection)
+    const targetProjectId = projectId ? Number(projectId) : (newProjectId ? Number(newProjectId) : null);
+    const targetProjectName = (projectName && projectName !== "Loading..." && projectName !== "All Projects")
+      ? projectName.toLowerCase().trim()
+      : (newProjectName ? newProjectName.toLowerCase().trim() : "");
 
-    return (pendingInvoices || []).filter((inv: any) => {
+    // Prioritize pendingInvoices (which comes from /client-payments/pending-invoices for the active project)
+    const sourceCandidates = (pendingInvoices && pendingInvoices.length > 0)
+      ? pendingInvoices
+      : [
+          ...(Array.isArray(invoiceSummary?.invoices) ? invoiceSummary.invoices : []),
+          ...(Array.isArray(allInvoices) ? allInvoices : []),
+        ];
+
+    const seenUnique = new Set<string>();
+    const available: any[] = [];
+
+    sourceCandidates.forEach((inv: any) => {
       const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
       const invId = inv.id ?? inv.invoice_id;
       const invIdStr = String(invId != null ? invId : "").trim();
       const digits = (invNo || invIdStr).replace(/\D/g, "");
       const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
 
-      // Exclude if marked PAID / APPROVED directly
-      if (invStatus === "PAID" || invStatus === "APPROVED") return false;
+      // Project filter: strictly ensure the invoice belongs to the selected project
+      const invProjId = inv.project_id ?? inv.projectId;
+      const invProjName = String(inv.project_name ?? inv.projectName ?? inv.project ?? "").toLowerCase().trim();
 
-      // Exclude if this invoice has already had a payment created / done
-      if (invNo && existingInvoiceKeys.has(invNo)) return false;
-      if (invIdStr && existingInvoiceKeys.has(invIdStr)) return false;
-      if (digits && existingInvoiceKeys.has(digits)) return false;
-      if (digits && (
-        existingInvoiceKeys.has(`INV-${digits.padStart(6, '0')}`.toUpperCase()) ||
-        existingInvoiceKeys.has(`INV-${digits.padStart(5, '0')}`.toUpperCase()) ||
-        existingInvoiceKeys.has(`INV-${digits.padStart(4, '0')}`.toUpperCase()) ||
-        existingInvoiceKeys.has(`INV-${digits.padStart(3, '0')}`.toUpperCase())
-      )) {
-        return false;
+      if (targetProjectId) {
+        if (invProjId != null && Number(invProjId) > 0) {
+          if (Number(invProjId) !== targetProjectId) return;
+        } else if (targetProjectName && invProjName) {
+          if (!invProjName.includes(targetProjectName) && !targetProjectName.includes(invProjName)) {
+            return;
+          }
+        }
+      } else if (targetProjectName && invProjName) {
+        if (!invProjName.includes(targetProjectName) && !targetProjectName.includes(invProjName)) {
+          return;
+        }
       }
 
-      return true;
+      // Exclude if marked PAID / APPROVED / VERIFIED / COMPLETED directly
+      if (invStatus === "PAID" || invStatus === "APPROVED" || invStatus === "VERIFIED" || invStatus === "COMPLETED") {
+        return;
+      }
+
+      // Exclude if verified paid in payment history
+      if (
+        (invNo && paidInvoiceKeys.has(invNo)) ||
+        (invIdStr && paidInvoiceKeys.has(invIdStr)) ||
+        (digits && paidInvoiceKeys.has(digits))
+      ) {
+        return;
+      }
+
+      // Deduplicate by digits or invoice identifier
+      const uniqueKey = digits || invNo || invIdStr;
+      if (!uniqueKey || seenUnique.has(uniqueKey)) {
+        return;
+      }
+      seenUnique.add(uniqueKey);
+
+      // Attach project details if missing
+      const enrichedInv = {
+        ...inv,
+        project_name: inv.project_name || inv.projectName || inv.project || projectName || newProjectName || "",
+        project_id: inv.project_id || inv.projectId || targetProjectId || undefined,
+      };
+
+      available.push(enrichedInv);
     });
-  }, [pendingInvoices, clientPayments, paymentHistory]);
 
-  // ── Compute live metrics from invoice summary API response or fallback to loaded invoices & payments ──
+    return available;
+  }, [pendingInvoices, invoiceSummary, allInvoices, paymentHistory, projectId, projectName, newProjectId, newProjectName]);
+
+  // ── Compute live metrics directly from invoice summary API response ──
   const invoiceSummaryMetrics = useMemo(() => {
-    // 1. Source invoice list
-    const invoices = Array.isArray(invoiceSummary?.invoices) && invoiceSummary.invoices.length > 0
-      ? invoiceSummary.invoices
-      : (allInvoices.length > 0 ? allInvoices : pendingInvoices);
+    if (invoiceSummary) {
+      const summaryInvoices = Array.isArray(invoiceSummary.invoices) ? invoiceSummary.invoices : [];
+      const totalInvoices = Number(
+        invoiceSummary.total_invoices ??
+        invoiceSummary.totalInvoices ??
+        summaryInvoices.length ??
+        0
+      );
+      const totalAmount = Number(
+        invoiceSummary.total_amount ??
+        invoiceSummary.totalAmount ??
+        invoiceSummary.total_billing ??
+        summaryInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.amount || 0), 0)
+      );
+      const paidAmount = Number(
+        invoiceSummary.paid_amount ??
+        invoiceSummary.paidAmount ??
+        invoiceSummary.amount_paid ??
+        summaryInvoices
+          .filter((inv: any) => String(inv.status || inv.payment_status || "").toLowerCase() === "paid")
+          .reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.paid_amount || 0), 0)
+      );
+      const pendingAmount = Number(
+        invoiceSummary.pending_amount ??
+        invoiceSummary.pendingAmount ??
+        invoiceSummary.amount_pending ??
+        Math.max(0, totalAmount - paidAmount)
+      );
+      const overdueAmount = Number(
+        invoiceSummary.overdue_amount ??
+        invoiceSummary.overdueAmount ??
+        0
+      );
 
+      return {
+        totalInvoices,
+        totalAmount,
+        paidAmount,
+        pendingAmount,
+        overdueAmount,
+      };
+    }
+
+    // Fallback only if invoiceSummary API is not available (null)
+    const invoices = (pendingInvoices.length > 0 ? pendingInvoices : allInvoices);
     const paidInvoices = invoices.filter((inv: any) => {
       const s = String(inv.status || inv.payment_status || "").toLowerCase();
       return s === "paid" || s === "approved" || s === "completed";
     });
-
     const pendingInvoiceList = invoices.filter((inv: any) => {
       const s = String(inv.status || inv.payment_status || "").toLowerCase();
       return s !== "paid" && s !== "cancelled";
     });
-
     const overdueInvoiceList = invoices.filter((inv: any) => {
       const s = String(inv.status || "").toLowerCase();
       return s === "overdue" || inv.is_overdue;
     });
 
-    // Total Invoices count
-    let totalInvoices =
-      invoiceSummary?.total_invoices ??
-      invoiceSummary?.totalInvoices;
-    if (totalInvoices == null || totalInvoices === 0 || totalInvoices === "0") {
-      totalInvoices = invoices.length > 0 ? invoices.length : (clientPayments.length > 0 ? clientPayments.length : "0");
-    }
-
-    // Total Amount
-    let totalAmount =
-      invoiceSummary?.total_amount ??
-      invoiceSummary?.totalAmount ??
-      invoiceSummary?.total_billing;
-    if ((totalAmount == null || Number(totalAmount) === 0) && invoices.length > 0) {
-      totalAmount = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount || inv.amount || 0)), 0);
-    }
-    if ((totalAmount == null || Number(totalAmount) === 0) && clientPayments.length > 0) {
-      totalAmount = clientPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    }
-
-    // Paid Amount
-    let paidAmount =
-      invoiceSummary?.paid_amount ??
-      invoiceSummary?.paidAmount ??
-      invoiceSummary?.amount_paid;
-    if (paidAmount == null || Number(paidAmount) === 0) {
-      const sumPaidFromInvoices = paidInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount || inv.paid_amount || 0)), 0);
-      const sumPaidFromPayments = clientPayments
-        .filter(p => p.status === "PAID" || p.status === "PARTIAL")
-        .reduce((sum, p) => sum + (Number(p.paidAmount || p.amount) || 0), 0);
-      paidAmount = sumPaidFromPayments > 0 ? sumPaidFromPayments : sumPaidFromInvoices;
-    }
-
-    // Pending Amount
-    let pendingAmount =
-      invoiceSummary?.pending_amount ??
-      invoiceSummary?.pendingAmount ??
-      invoiceSummary?.amount_pending;
-    if ((pendingAmount == null || Number(pendingAmount) === 0) && pendingInvoiceList.length > 0) {
-      pendingAmount = pendingInvoiceList.reduce((sum: number, inv: any) => {
-        if (inv.pending_amount != null) return sum + Number(inv.pending_amount);
-        const tot = Number(inv.total_amount || inv.amount || 0);
-        const p = Number(inv.paid_amount || 0);
-        return sum + Math.max(0, tot - p);
-      }, 0);
-    }
-    if ((pendingAmount == null || Number(pendingAmount) === 0) && totalAmount != null && Number(totalAmount) > 0) {
-      pendingAmount = Math.max(0, Number(totalAmount) - Number(paidAmount || 0));
-    }
-
-    // Overdue Amount
-    let overdueAmount =
-      invoiceSummary?.overdue_amount ??
-      invoiceSummary?.overdueAmount;
-    if (overdueAmount == null && overdueInvoiceList.length > 0) {
-      overdueAmount = overdueInvoiceList.reduce((sum: number, inv: any) => sum + Number(inv.pending_amount || inv.total_amount || inv.amount || 0), 0);
-    }
+    const totalInvoices = invoices.length;
+    const totalAmount = invoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.amount || 0), 0);
+    const paidAmount = paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.paid_amount || 0), 0);
+    const pendingAmount = pendingInvoiceList.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.amount || 0), 0);
+    const overdueAmount = overdueInvoiceList.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || inv.amount || 0), 0);
 
     return {
-      totalInvoices: totalInvoices ?? (invoices.length > 0 ? invoices.length : 0),
-      totalAmount: totalAmount != null ? Number(totalAmount) : 0,
-      paidAmount: paidAmount != null ? Number(paidAmount) : 0,
-      pendingAmount: pendingAmount != null ? Number(pendingAmount) : 0,
-      overdueAmount: overdueAmount != null ? Number(overdueAmount) : 0,
+      totalInvoices,
+      totalAmount,
+      paidAmount,
+      pendingAmount,
+      overdueAmount,
     };
-  }, [invoiceSummary, allInvoices, pendingInvoices, clientPayments]);
+  }, [invoiceSummary, allInvoices, pendingInvoices]);
 
-  // ── Compute dynamic Payment Analytics (Monthly Billed vs Received + Status Breakdown) ──
+  // ── Compute dynamic Payment Analytics (Monthly Billed vs Received + Status Breakdown + Methods Table) ──
   const computedAnalytics = useMemo(() => {
-    let monthlyData: Array<{ month: string; billed: number; received: number }> = [];
+    let monthlyData: Array<{ month: string; rawMonth?: number; year?: number; billed: number; received: number }> = [];
 
     // 1. Try to parse from API analytics response
     if (paymentAnalytics) {
       const rawList =
+        paymentAnalytics.monthly_collection ||
+        paymentAnalytics.monthlyCollection ||
         paymentAnalytics.monthlyBilledVsReceived ||
         paymentAnalytics.monthly_billed_vs_received ||
         paymentAnalytics.monthly_data ||
@@ -484,23 +579,46 @@ const ClientPaymentPage = () => {
         paymentAnalytics.monthly_trend ||
         paymentAnalytics.chart_data ||
         paymentAnalytics.chartData ||
+        paymentAnalytics.data?.monthly_collection ||
         paymentAnalytics.data?.monthlyBilledVsReceived ||
         paymentAnalytics.data?.monthly_billed_vs_received ||
         paymentAnalytics.data?.monthly;
 
       if (Array.isArray(rawList) && rawList.length > 0) {
-        monthlyData = rawList.map((m: any) => ({
-          month: String(m.month || m.name || m.label || "Month"),
-          billed: Number(m.billed ?? m.total_billed ?? m.amount ?? m.total_amount ?? 0),
-          received: Number(m.received ?? m.paid ?? m.total_paid ?? m.paid_amount ?? 0),
-        }));
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        monthlyData = rawList.map((m: any) => {
+          let monthLabel = "Month";
+          const monthNum = typeof m.month === "number" ? m.month : parseInt(String(m.month), 10);
+          if (!isNaN(monthNum) && monthNum >= 1 && monthNum <= 12) {
+            monthLabel = monthNames[monthNum - 1];
+          } else if (m.month) {
+            monthLabel = String(m.month);
+          } else if (m.name || m.label) {
+            monthLabel = String(m.name || m.label);
+          }
+
+          if (m.year) {
+            monthLabel = `${monthLabel} '${String(m.year).slice(-2)}`;
+          }
+
+          const receivedAmt = Number(m.total_amount ?? m.received ?? m.paid ?? m.total_paid ?? m.paid_amount ?? 0);
+          const billedAmt = Number(m.billed ?? m.total_billed ?? m.amount ?? (m.total_amount != null && m.billed == null ? m.total_amount : 0));
+
+          return {
+            month: monthLabel,
+            rawMonth: !isNaN(monthNum) ? monthNum : undefined,
+            year: m.year ? Number(m.year) : undefined,
+            billed: billedAmt,
+            received: receivedAmt,
+          };
+        });
       }
     }
 
     // 2. If no monthly list from API, calculate from invoices/payments
     const invoices = (allInvoices.length > 0 ? allInvoices : (pendingInvoices.length > 0 ? pendingInvoices : (Array.isArray(invoiceSummary?.invoices) ? invoiceSummary.invoices : [])));
-    const totalBilled = invoiceSummaryMetrics?.totalAmount || 0;
-    const totalReceived = invoiceSummaryMetrics?.paidAmount || 0;
+    const totalBilled = Number(invoiceSummaryMetrics?.totalAmount || 0);
+    const totalReceived = Number(paymentAnalytics?.total_collection ?? invoiceSummaryMetrics?.paidAmount ?? 0);
 
     if (monthlyData.length === 0) {
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -578,35 +696,70 @@ const ClientPaymentPage = () => {
     let paidCount = 0;
     let pendingCount = 0;
     let overdueCount = 0;
+    let rejectedCount = 0;
 
-    if (invoices.length > 0) {
-      invoices.forEach((inv: any) => {
-        const st = String(inv.status || "").toLowerCase();
-        if (st === "paid" || (Number(inv.paid_amount || 0) >= Number(inv.total_amount || 0) && Number(inv.total_amount || 0) > 0)) {
-          paidCount++;
-        } else if (st === "overdue" || inv.is_overdue) {
-          overdueCount++;
-        } else {
-          pendingCount++;
-        }
-      });
-    } else if (clientPayments.length > 0) {
-      clientPayments.forEach(p => {
-        if (p.status === "PAID") paidCount++;
-        else if (p.status === "OVERDUE") overdueCount++;
-        else pendingCount++;
-      });
+    if (paymentAnalytics) {
+      if (paymentAnalytics.successful_payments != null) paidCount = Number(paymentAnalytics.successful_payments);
+      if (paymentAnalytics.pending_verification != null) pendingCount = Number(paymentAnalytics.pending_verification);
+      if (paymentAnalytics.overdue_invoices != null) overdueCount = Number(paymentAnalytics.overdue_invoices);
+      if (paymentAnalytics.rejected_payments != null) rejectedCount = Number(paymentAnalytics.rejected_payments);
+    }
+
+    if (paidCount === 0 && pendingCount === 0 && overdueCount === 0 && rejectedCount === 0) {
+      if (invoices.length > 0) {
+        invoices.forEach((inv: any) => {
+          const st = String(inv.status || "").toLowerCase();
+          if (st === "paid" || (Number(inv.paid_amount || 0) >= Number(inv.total_amount || 0) && Number(inv.total_amount || 0) > 0)) {
+            paidCount++;
+          } else if (st === "overdue" || inv.is_overdue) {
+            overdueCount++;
+          } else {
+            pendingCount++;
+          }
+        });
+      } else if (clientPayments.length > 0) {
+        clientPayments.forEach(p => {
+          if (p.status === "PAID") paidCount++;
+          else if (p.status === "OVERDUE") overdueCount++;
+          else pendingCount++;
+        });
+      }
     }
 
     const statusShares = [
-      { name: "Paid", value: paidCount, fill: "#10B981" },
+      { name: "Successful", value: paidCount, fill: "#10B981" },
       { name: "Pending", value: pendingCount, fill: "#F59E0B" },
       { name: "Overdue", value: overdueCount, fill: "#EF4444" },
+      ...(rejectedCount > 0 ? [{ name: "Rejected", value: rejectedCount, fill: "#64748B" }] : []),
+    ];
+
+    // 4. Payment Methods Data Table
+    const methodsObj = paymentAnalytics?.payment_methods || {};
+    const totalColl = Number(paymentAnalytics?.total_collection || (Number(methodsObj.cash || 0) + Number(methodsObj.cheque || 0) + Number(methodsObj.upi || 0) + Number(methodsObj.neft || 0) + Number(methodsObj.rtgs || 0) + Number(methodsObj.online || 0)) || 0);
+
+    const calcPct = (val: number) => (totalColl > 0 ? ((val / totalColl) * 100).toFixed(1) + "%" : "0.0%");
+
+    const methodItems = [
+      { name: "UPI", key: "upi", amount: Number(methodsObj.upi || 0), pct: calcPct(Number(methodsObj.upi || 0)), color: "bg-purple-500", badgeColor: "bg-purple-50 text-purple-700 border-purple-100" },
+      { name: "NEFT / RTGS", key: "neft_rtgs", amount: Number(methodsObj.neft || 0) + Number(methodsObj.rtgs || 0), pct: calcPct(Number(methodsObj.neft || 0) + Number(methodsObj.rtgs || 0)), color: "bg-blue-500", badgeColor: "bg-blue-50 text-blue-700 border-blue-100" },
+      { name: "Online / Bank", key: "online", amount: Number(methodsObj.online || 0), pct: calcPct(Number(methodsObj.online || 0)), color: "bg-emerald-500", badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+      { name: "Cheque", key: "cheque", amount: Number(methodsObj.cheque || 0), pct: calcPct(Number(methodsObj.cheque || 0)), color: "bg-amber-500", badgeColor: "bg-amber-50 text-amber-700 border-amber-100" },
+      { name: "Cash", key: "cash", amount: Number(methodsObj.cash || 0), pct: calcPct(Number(methodsObj.cash || 0)), color: "bg-teal-500", badgeColor: "bg-teal-50 text-teal-700 border-teal-100" },
     ];
 
     return {
       monthlyBilledVsReceived: monthlyData,
       statusShares,
+      methodItems,
+      totalCollection: totalColl,
+      averagePayment: Number(paymentAnalytics?.average_payment || 0),
+      highestPayment: Number(paymentAnalytics?.highest_payment || 0),
+      successfulPayments: paidCount,
+      pendingVerification: pendingCount,
+      rejectedPayments: rejectedCount,
+      overdueInvoices: overdueCount,
+      totalInvoicesCount: Number(paymentAnalytics?.total_invoices || 0),
+      hasAnalyticsData: Boolean(paymentAnalytics),
     };
   }, [paymentAnalytics, invoiceSummary, invoiceSummaryMetrics, clientPayments, allInvoices, pendingInvoices, paymentHistory]);
 
@@ -800,22 +953,34 @@ const ClientPaymentPage = () => {
           financeService.getInvoices(200).catch(() => []),
         ]);
 
+        const rawInvoices = Array.isArray(invList) ? invList : (invList as any)?.items || [];
+        const scopedInvoices = activeProjectId
+          ? rawInvoices.filter((i: any) => Number(i.project_id) === Number(activeProjectId))
+          : rawInvoices;
+        setAllInvoices(scopedInvoices);
+
+        const allKnownInvoices = [
+          ...(Array.isArray(summary?.invoices) ? summary.invoices : []),
+          ...(Array.isArray(pending) ? pending : []),
+          ...(Array.isArray(scopedInvoices) ? scopedInvoices : []),
+          ...(Array.isArray(rawInvoices) ? rawInvoices : []),
+        ];
+
         let paidSet = new Set<string>();
         let mappedPayments: ClientPayment[] = [];
         if (historyList && Array.isArray(historyList) && historyList.length > 0) {
-          const processed = processPaymentHistory(historyList);
+          const processed = processPaymentHistory(
+            historyList,
+            availableProjects,
+            allKnownInvoices,
+            projectName !== "Loading..." && projectName !== "All Projects" ? projectName : (user?.project_name || "")
+          );
           paidSet = processed.paidInvoiceIdentifiers;
           mappedPayments = [...processed.mappedPayments];
           setPaymentHistory(historyList);
         } else {
           setPaymentHistory([]);
         }
-
-        const rawInvoices = Array.isArray(invList) ? invList : (invList as any)?.items || [];
-        const scopedInvoices = activeProjectId
-          ? rawInvoices.filter((i: any) => Number(i.project_id) === Number(activeProjectId))
-          : rawInvoices;
-        setAllInvoices(scopedInvoices);
 
         if (summary) {
           setInvoiceSummary(summary);
@@ -825,11 +990,20 @@ const ClientPaymentPage = () => {
 
         if (pending && Array.isArray(pending)) {
           const cleanPending = pending.filter((inv: any) => {
+            if (activeProjectId) {
+              const invPid = inv.project_id ?? inv.projectId;
+              if (invPid != null && Number(invPid) > 0 && Number(invPid) !== Number(activeProjectId)) {
+                return false;
+              }
+            }
             const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
             const invIdStr = String(inv.id || inv.invoice_id || "").trim();
             const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
             const isPaid =
               invStatus === "PAID" ||
+              invStatus === "APPROVED" ||
+              invStatus === "COMPLETED" ||
+              invStatus === "VERIFIED" ||
               paidSet.has(invNo) ||
               paidSet.has(invIdStr) ||
               paidSet.has(`INV-${invIdStr.padStart(6, '0')}`.toUpperCase()) ||
@@ -862,11 +1036,11 @@ const ClientPaymentPage = () => {
           return `${day}/${month}/${year}`;
         };
 
-        const invoiceSources = [
-          ...scopedInvoices,
-          ...(Array.isArray(pending) ? pending : []),
-          ...(Array.isArray(summary?.invoices) ? summary.invoices : [])
-        ];
+        const invoiceSources = Array.isArray(summary?.invoices)
+          ? summary.invoices
+          : (Array.isArray(pending) && pending.length > 0
+              ? pending.filter((inv: any) => !activeProjectId || !inv.project_id || Number(inv.project_id) === Number(activeProjectId))
+              : (activeProjectId ? scopedInvoices : []));
 
         invoiceSources.forEach((inv: any) => {
           const invId = inv.id ?? inv.invoice_id;
@@ -937,7 +1111,7 @@ const ClientPaymentPage = () => {
       }
     };
     fetchApiData();
-  }, [activeTab, projectId]);
+  }, [activeTab, projectId, availableProjects, projectName, user]);
 
   // ── Quotation handlers ──
   const handleApprove = async (id: number) => {
@@ -1088,19 +1262,11 @@ const ClientPaymentPage = () => {
   const rawTotalOverdue = clientPayments.filter(p => p.status === "OVERDUE").reduce((s, p) => s + p.amount, 0);
   const rawTotalBudget = clientPayments.reduce((s, p) => s + p.amount, 0);
 
-  const totalBudget = invoiceSummaryMetrics?.totalAmount != null && invoiceSummaryMetrics.totalAmount > 0
-    ? invoiceSummaryMetrics.totalAmount
-    : (rawTotalBudget > 0 ? rawTotalBudget : (allInvoices.length > 0 ? allInvoices.reduce((s, i) => s + Number(i.total_amount || i.amount || 0), 0) : pendingInvoices.reduce((s, i) => s + Number(i.total_amount || i.amount || 0), 0)));
-  const totalPaid = invoiceSummaryMetrics?.paidAmount != null && invoiceSummaryMetrics.paidAmount > 0
-    ? invoiceSummaryMetrics.paidAmount
-    : (rawTotalPaid + rawTotalPartialPaid);
+  const totalBudget = invoiceSummaryMetrics?.totalAmount ?? 0;
+  const totalPaid = invoiceSummaryMetrics?.paidAmount ?? 0;
   const totalPartialPaid = 0;
-  const totalPending = invoiceSummaryMetrics?.pendingAmount != null && invoiceSummaryMetrics.pendingAmount > 0
-    ? invoiceSummaryMetrics.pendingAmount
-    : (rawTotalPending > 0 ? rawTotalPending : (allInvoices.length > 0 ? allInvoices.filter(i => String(i.status || "").toLowerCase() !== "paid" && String(i.status || "").toLowerCase() !== "cancelled").reduce((s, i) => s + Number(i.total_amount || i.amount || 0), 0) : pendingInvoices.reduce((s, i) => s + Number(i.total_amount || i.amount || 0), 0)));
-  const totalOverdue = invoiceSummaryMetrics?.overdueAmount != null
-    ? invoiceSummaryMetrics.overdueAmount
-    : rawTotalOverdue;
+  const totalPending = invoiceSummaryMetrics?.pendingAmount ?? 0;
+  const totalOverdue = invoiceSummaryMetrics?.overdueAmount ?? 0;
 
   const tabCounts = {
     "All Payments": clientPayments.length,
@@ -1730,20 +1896,46 @@ const ClientPaymentPage = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {pendingInvoices.map((inv: any, i: number) => (
-                          <tr key={i} className="hover:bg-slate-50/60 transition-all">
-                            <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap">{inv.invoice_no ?? inv.invoiceNo ?? inv.invoice_number ?? inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
-                            <td className="px-5 py-4 max-w-[150px] truncate"><p className="text-[11px] font-medium text-slate-600 truncate">{inv.project_name ?? inv.projectName ?? inv.project ?? "—"}</p></td>
-                            <td className="px-5 py-4"><p className="text-[13px] font-black text-slate-900 whitespace-nowrap">₹{Number(inv.amount ?? inv.total_amount ?? 0).toLocaleString()}</p></td>
-                            <td className="px-5 py-4"><p className={`text-[11px] font-bold whitespace-nowrap ${inv.is_overdue || inv.status === 'OVERDUE' ? 'text-rose-600' : 'text-slate-500'}`}>{inv.due_date ?? inv.dueDate ?? "—"}</p></td>
-                            <td className="px-5 py-4">
-                              <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${(inv.status ?? "").toUpperCase() === "OVERDUE" ? "bg-rose-50 text-rose-600" :
-                                  (inv.status ?? "").toUpperCase() === "PARTIAL" ? "bg-blue-50 text-blue-600" :
-                                    "bg-amber-50 text-amber-600"
-                                }`}>{inv.status ?? "Pending"}</span>
-                            </td>
-                          </tr>
-                        ))}
+                        {pendingInvoices.map((inv: any, i: number) => {
+                          const invId = Number(inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : i + 1));
+                          const invNoDisplay = inv.invoice_no || inv.invoiceNo || inv.invoice_number || (invId ? `INV-${String(invId).padStart(6, '0')}` : String(invId));
+                          return (
+                            <tr
+                              key={i}
+                              onClick={() => {
+                                setSelectedInvoiceId(invId);
+                                setNewInvoiceNo(invNoDisplay);
+                                const rawAmt = Number(inv.amount ?? inv.total_amount ?? inv.grand_total ?? inv.balance_amount ?? 0);
+                                setNewAmount(rawAmt > 0 ? (rawAmt % 1 === 0 ? String(rawAmt) : rawAmt.toFixed(2)) : String(inv.amount || inv.total_amount || "0.00"));
+                                const pName = inv.project_name || inv.projectName || inv.project || "";
+                                if (pName) setNewProjectName(pName);
+                                if (inv.project_id || inv.projectId) {
+                                  setNewProjectId(String(inv.project_id || inv.projectId));
+                                } else if (pName && availableProjects.length > 0) {
+                                  const matchProj = availableProjects.find(p =>
+                                    (p.name && p.name.toLowerCase() === pName.toLowerCase()) ||
+                                    (p.project_name && p.project_name.toLowerCase() === pName.toLowerCase())
+                                  );
+                                  if (matchProj) setNewProjectId(String(matchProj.id || matchProj.project_id));
+                                }
+                                setIsCreateModalOpen(true);
+                              }}
+                              className="hover:bg-blue-50/50 cursor-pointer transition-all group"
+                              title="Click to pay this invoice"
+                            >
+                              <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap group-hover:text-blue-600 transition-colors">{inv.invoice_no ?? inv.invoiceNo ?? inv.invoice_number ?? inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
+                              <td className="px-5 py-4 max-w-[150px] truncate"><p className="text-[11px] font-medium text-slate-600 truncate">{inv.project_name ?? inv.projectName ?? inv.project ?? "—"}</p></td>
+                              <td className="px-5 py-4"><p className="text-[13px] font-black text-slate-900 whitespace-nowrap">₹{Number(inv.amount ?? inv.total_amount ?? 0).toLocaleString()}</p></td>
+                              <td className="px-5 py-4"><p className={`text-[11px] font-bold whitespace-nowrap ${inv.is_overdue || inv.status === 'OVERDUE' ? 'text-rose-600' : 'text-slate-500'}`}>{inv.due_date ?? inv.dueDate ?? "—"}</p></td>
+                              <td className="px-5 py-4">
+                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${(inv.status ?? "").toUpperCase() === "OVERDUE" ? "bg-rose-50 text-rose-600" :
+                                    (inv.status ?? "").toUpperCase() === "PARTIAL" ? "bg-blue-50 text-blue-600" :
+                                      "bg-amber-50 text-amber-600"
+                                  }`}>{inv.status ?? "Pending"}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1753,68 +1945,168 @@ const ClientPaymentPage = () => {
 
             {/* Payment Analytics Panel */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
                     <BarChart3 className="w-4 h-4 text-indigo-600" />
                   </div>
                   <div>
                     <p className="text-sm font-black text-slate-800">Payment Analytics</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Billed vs Received &amp; Invoice Status breakdown</p>
+                    <p className="text-[10px] text-slate-400 font-medium">Live data from /client-payments/analytics</p>
                   </div>
+                </div>
+
+                {/* Tab Switcher: Chart vs Analytics Table */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setAnalyticsTab("chart")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      analyticsTab === "chart"
+                        ? "bg-white text-indigo-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    <span>Chart</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnalyticsTab("table")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      analyticsTab === "table"
+                        ? "bg-white text-indigo-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <TableIcon className="w-3.5 h-3.5" />
+                    <span>Analytics Table</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Monthly Billed vs Received Chart */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Billed vs Received</p>
-                  <div className="flex items-center gap-3 text-[10px] font-bold">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500" /> Billed</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Received</span>
-                  </div>
-                </div>
-                <div className="h-[160px] w-full min-w-0 pt-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={computedAnalytics.monthlyBilledVsReceived} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                      <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#94A3B8" }} />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 10, fill: "#94A3B8" }}
-                        tickFormatter={(v) => {
-                          const n = Number(v);
-                          if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
-                          if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-                          if (n >= 1000) return `₹${(n / 1000).toFixed(0)}k`;
-                          return `₹${n}`;
-                        }}
-                      />
-                      <RechartsTooltip
-                        formatter={(val: any) => [`₹${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, ""]}
-                        contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: "12px" }}
-                      />
-                      <Bar dataKey="billed" name="Billed" fill="#6366F1" radius={[4, 4, 0, 0]} maxBarSize={16} />
-                      <Bar dataKey="received" name="Received" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={16} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Invoice Status Breakdown Legend */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Breakdown</span>
-                <div className="flex items-center gap-4">
-                  {computedAnalytics.statusShares.map((item: any, idx: number) => (
-                    <div key={idx} className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
-                      <span className="text-slate-400 font-medium text-[11px]">{item.name}:</span>
-                      <span className="text-slate-800 font-black">{item.value}</span>
+              {analyticsTab === "chart" ? (
+                <>
+                  {/* Monthly Billed vs Received Chart */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Billed vs Received</p>
+                      <div className="flex items-center gap-3 text-[10px] font-bold">
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500" /> Billed</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Received</span>
+                      </div>
                     </div>
-                  ))}
+                    <div className="h-[160px] w-full min-w-0 pt-1">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={computedAnalytics.monthlyBilledVsReceived} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                          <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#94A3B8" }} />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fontSize: 10, fill: "#94A3B8" }}
+                            tickFormatter={(v) => {
+                              const n = Number(v);
+                              if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+                              if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+                              if (n >= 1000) return `₹${(n / 1000).toFixed(0)}k`;
+                              return `₹${n}`;
+                            }}
+                          />
+                          <RechartsTooltip
+                            formatter={(val: any) => [`₹${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, ""]}
+                            contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: "12px" }}
+                          />
+                          <Bar dataKey="billed" name="Billed" fill="#6366F1" radius={[4, 4, 0, 0]} maxBarSize={16} />
+                          <Bar dataKey="received" name="Received" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={16} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Invoice Status Breakdown Legend */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Breakdown</span>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {computedAnalytics.statusShares.map((item: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
+                          <span className="text-slate-400 font-medium text-[11px]">{item.name}:</span>
+                          <span className="text-slate-800 font-black">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Analytics Table View */
+                <div className="space-y-4 pt-1">
+                  {/* KPI Highlights */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-slate-50 p-2.5 rounded-xl">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Avg Payment</p>
+                      <p className="text-xs font-black text-slate-800 tracking-tight mt-0.5">
+                        ₹{Number(computedAnalytics.averagePayment).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Highest Payment</p>
+                      <p className="text-xs font-black text-emerald-600 tracking-tight mt-0.5">
+                        ₹{Number(computedAnalytics.highestPayment).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Total Collection</p>
+                      <p className="text-xs font-black text-indigo-600 tracking-tight mt-0.5">
+                        ₹{Number(computedAnalytics.totalCollection).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Pending Verif.</p>
+                      <p className="text-xs font-black text-amber-600 tracking-tight mt-0.5">
+                        {computedAnalytics.pendingVerification}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment Methods Analytics Table */}
+                  <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="bg-slate-50/75 px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Payment Method Distribution</span>
+                      <span className="text-[9px] text-slate-400 font-bold">5 Methods</span>
+                    </div>
+                    <div className="max-h-[140px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50/50 border-b border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-3 py-2">Method</th>
+                            <th className="px-3 py-2">Amount</th>
+                            <th className="px-3 py-2 text-right">Share</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 text-[11px]">
+                          {computedAnalytics.methodItems.map((m: any) => (
+                            <tr key={m.key} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="px-3 py-2 font-bold text-slate-700 flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${m.color}`} />
+                                {m.name}
+                              </td>
+                              <td className="px-3 py-2 font-bold text-slate-800">
+                                ₹{Number(m.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black border ${m.badgeColor}`}>
+                                  {m.pct}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1887,7 +2179,20 @@ const ClientPaymentPage = () => {
                     <tr key={i} className="hover:bg-slate-50/60 transition-all group">
                       <td className="px-5 py-5"><p className="text-[11px] font-black text-slate-800 tracking-tight whitespace-nowrap">{p.paymentId}</p></td>
                       <td className="px-5 py-5"><p className="text-[11px] font-bold text-slate-600 whitespace-nowrap">{p.invoiceNo}</p></td>
-                      <td className="px-5 py-5 max-w-[140px]"><p className="text-[11px] font-medium text-slate-600 truncate" title={p.projectName}>{p.projectName}</p></td>
+                      <td className="px-5 py-5 max-w-[140px]">
+                        <p
+                          className="text-[11px] font-medium text-slate-600 truncate"
+                          title={
+                            p.projectName && p.projectName !== "—"
+                              ? p.projectName
+                              : (projectName !== "Loading..." && projectName !== "All Projects" ? projectName : (user?.project_name || "Metro City"))
+                          }
+                        >
+                          {p.projectName && p.projectName !== "—"
+                            ? p.projectName
+                            : (projectName !== "Loading..." && projectName !== "All Projects" ? projectName : (user?.project_name || "—"))}
+                        </p>
+                      </td>
                       <td className="px-5 py-5"><p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{p.invoiceDate}</p></td>
                       <td className="px-5 py-5"><p className="text-[13px] font-black text-slate-900 tracking-tight whitespace-nowrap">&#8377;{p.amount.toLocaleString()}</p></td>
                       <td className="px-5 py-5">
@@ -2180,29 +2485,46 @@ const ClientPaymentPage = () => {
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Invoice ID <span className="text-rose-500">*</span></label>
                         <select
-                          value={selectedInvoiceId ? String(selectedInvoiceId) : newInvoiceNo}
+                          value={selectedInvoiceId ? String(selectedInvoiceId) : (newInvoiceNo || "")}
                           onChange={e => {
                             const val = e.target.value;
-                            setNewInvoiceNo(val);
-                            const sel = availablePendingInvoices.find((p: any) =>
-                              String(p.id) === val ||
-                              String(p.invoice_id) === val ||
-                              String(p.invoice_no) === val ||
-                              String(p.invoice_number) === val
-                            );
+                            const sel = availablePendingInvoices.find((p: any) => {
+                              const pId = String(p.id ?? p.invoice_id ?? "");
+                              const pNo = String(p.invoice_no ?? p.invoiceNo ?? p.invoice_number ?? "");
+                              const pDigits = (pNo || pId).replace(/\D/g, "");
+                              const valDigits = val.replace(/\D/g, "");
+                              return (
+                                pId === val ||
+                                pNo === val ||
+                                (pDigits && valDigits && pDigits === valDigits)
+                              );
+                            });
                             if (sel) {
                               const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
+                              const invNoDisplay = sel.invoice_no || sel.invoiceNo || sel.invoice_number || (invId ? `INV-${String(invId).padStart(6, '0')}` : String(invId));
                               setSelectedInvoiceId(invId);
+                              setNewInvoiceNo(invNoDisplay);
                               const rawAmt = Number(sel.amount ?? sel.total_amount ?? sel.grand_total ?? sel.balance_amount ?? 0);
-                              setNewAmount(rawAmt > 0 ? rawAmt.toFixed(2) : String(sel.amount || sel.total_amount || "0.00"));
-                              if (sel.project_name) setNewProjectName(sel.project_name);
-                              if (sel.project_id) setNewProjectId(String(sel.project_id));
+                              setNewAmount(rawAmt > 0 ? (rawAmt % 1 === 0 ? String(rawAmt) : rawAmt.toFixed(2)) : String(sel.amount || sel.total_amount || "0.00"));
+                              const pName = sel.project_name || sel.projectName || sel.project || "";
+                              if (pName) setNewProjectName(pName);
+                              if (sel.project_id || sel.projectId) {
+                                setNewProjectId(String(sel.project_id || sel.projectId));
+                              } else if (pName && availableProjects.length > 0) {
+                                const matchProj = availableProjects.find(p =>
+                                  (p.name && p.name.toLowerCase() === pName.toLowerCase()) ||
+                                  (p.project_name && p.project_name.toLowerCase() === pName.toLowerCase())
+                                );
+                                if (matchProj) setNewProjectId(String(matchProj.id || matchProj.project_id));
+                              }
                             } else {
                               const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
                               if (!isNaN(parsed) && parsed > 0) {
                                 setSelectedInvoiceId(parsed);
+                                setNewInvoiceNo(`INV-${String(parsed).padStart(6, '0')}`);
                               } else {
                                 setSelectedInvoiceId(null);
+                                setNewInvoiceNo("");
                                 setNewAmount("");
                               }
                             }
@@ -2212,9 +2534,12 @@ const ClientPaymentPage = () => {
                           <option value="">Select Invoice ID</option>
                           {availablePendingInvoices.length > 0 ? availablePendingInvoices.map((inv: any, idx: number) => {
                             const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
+                            const invNoDisplay = inv.invoice_no || inv.invoiceNo || inv.invoice_number || (invId ? `INV-${String(invId).padStart(6, '0')}` : `INV #${idx + 1}`);
+                            const invProj = inv.project_name || inv.projectName || inv.project;
+                            const invAmt = Number(inv.amount ?? inv.total_amount ?? inv.grand_total ?? 0);
                             return (
                               <option key={idx} value={String(invId)}>
-                                {invId} {inv.invoice_no ? `(${inv.invoice_no})` : ''}
+                                {invNoDisplay}{invProj ? ` — ${invProj}` : ''}{invAmt > 0 ? ` (₹${invAmt.toLocaleString()})` : ''}
                               </option>
                             );
                           }) : (
@@ -2227,29 +2552,46 @@ const ClientPaymentPage = () => {
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Invoice ID <span className="text-rose-500">*</span></label>
                       <select
-                        value={selectedInvoiceId ? String(selectedInvoiceId) : newInvoiceNo}
+                        value={selectedInvoiceId ? String(selectedInvoiceId) : (newInvoiceNo || "")}
                         onChange={e => {
                           const val = e.target.value;
-                          setNewInvoiceNo(val);
-                          const sel = availablePendingInvoices.find((p: any) =>
-                            String(p.id) === val ||
-                            String(p.invoice_id) === val ||
-                            String(p.invoice_no) === val ||
-                            String(p.invoice_number) === val
-                          );
+                          const sel = availablePendingInvoices.find((p: any) => {
+                            const pId = String(p.id ?? p.invoice_id ?? "");
+                            const pNo = String(p.invoice_no ?? p.invoiceNo ?? p.invoice_number ?? "");
+                            const pDigits = (pNo || pId).replace(/\D/g, "");
+                            const valDigits = val.replace(/\D/g, "");
+                            return (
+                              pId === val ||
+                              pNo === val ||
+                              (pDigits && valDigits && pDigits === valDigits)
+                            );
+                          });
                           if (sel) {
                             const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
+                            const invNoDisplay = sel.invoice_no || sel.invoiceNo || sel.invoice_number || (invId ? `INV-${String(invId).padStart(6, '0')}` : String(invId));
                             setSelectedInvoiceId(invId);
+                            setNewInvoiceNo(invNoDisplay);
                             const rawAmt = Number(sel.amount ?? sel.total_amount ?? sel.grand_total ?? sel.balance_amount ?? 0);
-                            setNewAmount(rawAmt > 0 ? rawAmt.toFixed(2) : String(sel.amount || sel.total_amount || "0.00"));
-                            if (sel.project_name) setNewProjectName(sel.project_name);
-                            if (sel.project_id) setNewProjectId(String(sel.project_id));
+                            setNewAmount(rawAmt > 0 ? (rawAmt % 1 === 0 ? String(rawAmt) : rawAmt.toFixed(2)) : String(sel.amount || sel.total_amount || "0.00"));
+                            const pName = sel.project_name || sel.projectName || sel.project || "";
+                            if (pName) setNewProjectName(pName);
+                            if (sel.project_id || sel.projectId) {
+                              setNewProjectId(String(sel.project_id || sel.projectId));
+                            } else if (pName && availableProjects.length > 0) {
+                              const matchProj = availableProjects.find(p =>
+                                (p.name && p.name.toLowerCase() === pName.toLowerCase()) ||
+                                (p.project_name && p.project_name.toLowerCase() === pName.toLowerCase())
+                              );
+                              if (matchProj) setNewProjectId(String(matchProj.id || matchProj.project_id));
+                            }
                           } else {
                             const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
                             if (!isNaN(parsed) && parsed > 0) {
                               setSelectedInvoiceId(parsed);
+                              setNewInvoiceNo(`INV-${String(parsed).padStart(6, '0')}`);
                             } else {
                               setSelectedInvoiceId(null);
+                              setNewInvoiceNo("");
                               setNewAmount("");
                             }
                           }
@@ -2259,9 +2601,12 @@ const ClientPaymentPage = () => {
                         <option value="">Select Invoice ID</option>
                         {availablePendingInvoices.length > 0 ? availablePendingInvoices.map((inv: any, idx: number) => {
                           const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
+                          const invNoDisplay = inv.invoice_no || inv.invoiceNo || inv.invoice_number || (invId ? `INV-${String(invId).padStart(6, '0')}` : `INV #${idx + 1}`);
+                          const invProj = inv.project_name || inv.projectName || inv.project;
+                          const invAmt = Number(inv.amount ?? inv.total_amount ?? inv.grand_total ?? 0);
                           return (
                             <option key={idx} value={String(invId)}>
-                              {invId} {inv.invoice_no ? `(${inv.invoice_no})` : ''}
+                              {invNoDisplay}{invProj ? ` — ${invProj}` : ''}{invAmt > 0 ? ` (₹${invAmt.toLocaleString()})` : ''}
                             </option>
                           );
                         }) : (
@@ -2297,6 +2642,11 @@ const ClientPaymentPage = () => {
                             </option>
                           );
                         })}
+                        {newProjectId && !availableProjects.some(p => String(p.id || p.project_id) === String(newProjectId)) && (
+                          <option value={newProjectId}>
+                            {newProjectName || `Project ${newProjectId}`}
+                          </option>
+                        )}
                       </select>
                     </div>
                     <div>

@@ -206,7 +206,7 @@ export default function TransferMaterialModal({
                 formData.quantity <= 0 ||
                 formData.quantity > availableStock
               }
-              className="flex-1 px-8 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-amber-600/20 transition-all active:scale-95"
+              className="flex-1 px-8 py-2.5 text-sm font-bold text-white bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               Initiate Transfer
             </button>

@@ -905,8 +905,9 @@ const EquipmentRegistryPage = () => {
             toast.success('Equipment deleted');
             setIsDeleteModalOpen(false);
             fetchData();
-        } catch (err) {
-            toast.error('Failed to delete equipment');
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to delete equipment";
+            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
         } finally {
             setIsLoading(false);
         }

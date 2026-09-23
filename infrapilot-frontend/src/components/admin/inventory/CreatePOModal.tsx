@@ -157,7 +157,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                                 onChange={(e) => {
                                     const mid = Number(e.target.value);
                                     const mat = filteredMaterials.find((m: any) => m.id === mid || m.material_id === mid);
-                                    setFormData({ ...formData, material_id: mid, rate: mat?.purchase_rate || mat?.rate || mat?.avg_rate || 0 });
+                                    setFormData({ ...formData, material_id: mid, rate: mat?.purchase_rate || mat?.avg_rate || 0 });
                                 }}
                                 className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${(!formData.supplier_id || !formData.project_id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
@@ -239,9 +239,9 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                         </div>
 
                         {/* Summary */}
-                        <div className="md:col-span-2 bg-slate-900 rounded-[24px] p-5 flex justify-between items-center shadow-lg">
+                        <div className="md:col-span-2 bg-slate-50 rounded-2xl p-5 flex justify-between items-center border border-slate-100 shadow-sm">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimated Total</span>
-                            <span className="text-xl font-black text-white">₹{(formData.quantity * formData.rate).toLocaleString("en-IN")}</span>
+                            <span className="text-xl font-black text-slate-800">₹{(formData.quantity * formData.rate).toLocaleString("en-IN")}</span>
                         </div>
                     </div>
 

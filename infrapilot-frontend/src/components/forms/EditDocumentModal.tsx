@@ -61,7 +61,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 fd.append("file", selectedFile);
                 await onSubmit(document.id, fd);
             } else {
-                await onSubmit(document.id, { ...formData, remark: formData.remarks });
+                await onSubmit(document.id, formData);
             }
             onClose();
         } catch (error) {

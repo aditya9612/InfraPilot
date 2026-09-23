@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye, FileText, FileSpreadsheet, ChevronDown, Search, Download } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, ChevronDown, ChevronLeft, ChevronRight, Search, Download } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -19,7 +19,7 @@ const ClientProgressPage = () => {
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -528,65 +528,73 @@ const ClientProgressPage = () => {
 
           {/* Pagination Section */}
           {!loadingActivities && totalItems > 0 && (
-            <div className="px-8 py-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50/30">
-              <div className="flex items-center gap-8">
-                <div className="flex items-center gap-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Records per page:</p>
+            <div className="px-8 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter">
+              {/* Left: Records per page */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-slate-500">Records per page:</span>
+                <div className="relative">
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
                       setItemsPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                    className="appearance-none bg-white border border-slate-200 rounded-xl py-2 pl-3.5 pr-8 text-xs font-bold text-slate-700 outline-none hover:border-slate-300 focus:border-blue-500 transition-all cursor-pointer shadow-sm"
                   >
                     {[5, 10, 20, 50].map(v => (
                       <option key={v} value={v}>{v}</option>
                     ))}
                   </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Showing <span className="text-slate-800 font-black">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-slate-800 font-black">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="text-slate-800 font-black">{totalItems}</span> records
-                </p>
               </div>
 
+              {/* Middle: Record count indicator */}
+              <div className="text-xs font-medium text-slate-400">
+                Showing {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} records
+              </div>
+
+              {/* Right: Page numbers and Prev/Next buttons */}
               <div className="flex items-center gap-2">
                 <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center shadow-sm cursor-pointer"
+                  title="Previous Page"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Prev
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <div className="flex items-center gap-1.5 mx-2">
+                <div className="flex items-center gap-1.5">
                   {getPageNumbers().map((p, i) => (
                     typeof p === "number" ? (
                       <button
                         key={i}
+                        type="button"
                         onClick={() => setCurrentPage(p)}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black transition-all active:scale-90 ${currentPage === p ? 'bg-primary text-white shadow-lg shadow-blue-200 border-transparent' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all active:scale-90 cursor-pointer ${
+                          currentPage === p
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                        }`}
                       >
                         {p}
                       </button>
                     ) : (
-                      <span key={i} className="text-slate-300 font-black px-1 text-xs">{p}</span>
+                      <span key={i} className="text-slate-400 font-bold px-1 text-xs select-none">{p}</span>
                     )
                   ))}
                 </div>
 
                 <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                  type="button"
+                  disabled={currentPage >= totalPages || totalPages === 0}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center shadow-sm cursor-pointer"
+                  title="Next Page"
                 >
-                  Next
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                  </svg>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

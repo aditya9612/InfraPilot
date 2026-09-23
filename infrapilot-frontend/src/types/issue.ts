@@ -19,6 +19,8 @@ export interface CreateIssueRequest {
     description: string;
     reported_date: string;
     priority: string;
+    assigned_to?: number | null;
+    resolution?: string | null;
 }
 
 export interface UpdateIssueRequest {

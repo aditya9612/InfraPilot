@@ -93,8 +93,8 @@ export default function MaterialTransactionsModal({ isOpen, onClose, material, p
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50 transition-colors text-sm">
                                             <td className="px-4 py-3 text-slate-600">
-                                                <p className="font-bold text-slate-800">{new Date(log.created_at).toLocaleDateString()}</p>
-                                                <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</p>
+                                                <p className="font-bold text-slate-800">{new Date(log.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}</p>
+                                                <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })}</p>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${log.type?.includes('IN') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>

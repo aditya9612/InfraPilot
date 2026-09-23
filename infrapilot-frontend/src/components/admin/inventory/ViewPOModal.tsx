@@ -99,7 +99,7 @@ const ViewPOModal: React.FC<ViewPOModalProps> = ({ isOpen, po, projectMap, onClo
                 <div className="p-4 border-t border-slate-100 bg-slate-50 mt-auto">
                     <button
                         onClick={onClose}
-                        className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm text-sm"
+                        className="w-full py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 text-sm"
                     >
                         Close Details
                     </button>

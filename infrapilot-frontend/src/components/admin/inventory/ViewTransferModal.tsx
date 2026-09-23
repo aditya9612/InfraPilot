@@ -76,7 +76,6 @@ const ViewTransferModal: React.FC<ViewTransferModalProps> = ({
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Material</p>
                             <p className="text-sm font-bold text-slate-800">{transfer.material.name}</p>
-                            <p className="text-xs text-slate-500 font-medium mt-1">Code: {transfer.material.code}</p>
                         </div>
                     </div>
 
@@ -106,7 +105,7 @@ const ViewTransferModal: React.FC<ViewTransferModalProps> = ({
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
                 <button
                     onClick={onClose}
-                    className="px-6 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                    className="px-6 py-2 bg-primary text-white font-bold text-sm rounded-xl hover:bg-blue-600 transition-all shadow-sm"
                 >
                     Close
                 </button>

@@ -14,13 +14,6 @@ const api = axios.create({
 // Request interceptor for attaching tokens
 api.interceptors.request.use(
   (config) => {
-    // If the data is FormData, remove the global application/json so Axios can auto-set multipart boundary natively
-    if (config.data instanceof FormData) {
-      if (config.headers && config.headers['Content-Type']) {
-        delete config.headers['Content-Type'];
-      }
-    }
-
     const userString = localStorage.getItem("infrapilot_user");
     if (userString) {
       try {
@@ -37,6 +30,10 @@ api.interceptors.request.use(
     // When payload is FormData, remove preset Content-Type so Axios/browser sets multipart boundary
     if (typeof FormData !== "undefined" && config.data instanceof FormData) {
       if (config.headers) {
+        if (typeof (config.headers as any).delete === "function") {
+          (config.headers as any).delete("Content-Type");
+          (config.headers as any).delete("content-type");
+        }
         delete config.headers["Content-Type"];
         delete (config.headers as any)["content-type"];
       }

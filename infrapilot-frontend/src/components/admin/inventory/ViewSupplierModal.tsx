@@ -61,7 +61,7 @@ const ViewSupplierModal: React.FC<ViewSupplierModalProps> = ({ isOpen, onClose, 
                 <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
                     <button
                         onClick={onClose}
-                        className="px-5 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all"
+                        className="px-6 py-2.5 text-sm font-bold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
                     >
                         Close
                     </button>

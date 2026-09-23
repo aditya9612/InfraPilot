@@ -326,8 +326,8 @@ export const equipmentService = {
         }
 
         try {
-            const response = await api.get<MaintenanceItem[]>(`/equipment/maintainance`, { params: queryParams })
-                .catch(() => api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams }));
+            const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams })
+                .catch(() => api.get<MaintenanceItem[]>(`/equipment/maintainance`, { params: queryParams }));
             let data = Array.isArray(response.data) ? response.data : ((response.data as any)?.items || []);
             if (params?.project_id) {
                 data = data.filter((d: any) => d.project_id === params.project_id);
@@ -340,9 +340,9 @@ export const equipmentService = {
 
     async getAllMaintenance(_params?: { project_id?: number }): Promise<MaintenanceItem[]> {
         try {
-            // First fetch the global list without project_id to avoid 422 errors, try both spellings
-            const res = await api.get<any>('/equipment/maintainance', { params: { limit: 500 } })
-                .catch(() => api.get<any>('/equipment/maintenance', { params: { limit: 500 } }))
+            // First fetch the global list without project_id to avoid 422 errors, try correctly-spelled endpoint first
+            const res = await api.get<any>('/equipment/maintenance', { params: { limit: 500 } })
+                .catch(() => api.get<any>('/equipment/maintainance', { params: { limit: 500 } }))
                 .catch(() => ({ data: [] })); // Swallow the 422 or 404 errors so fallback triggers
             let allMaint = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.data || []);
             console.log("[DEBUG] allMaint extracted:", allMaint);
