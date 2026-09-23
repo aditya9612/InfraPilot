@@ -427,7 +427,7 @@ const MachineryPage = () => {
                     const map: Record<number, string> = {};
                     items.forEach((u: any) => { if (u.id) map[u.id] = u.full_name || u.name || u.username || `User #${u.id}`; });
                     setUsersMap(map);
-                }).catch(() => {});
+                }).catch(() => { });
             }
             else if (activeTab === "Reports") {
                 const [avail, util, eqRes, costRes, usageRes] = await Promise.all([
@@ -2277,7 +2277,7 @@ const MachineryPage = () => {
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-red-600">*</span></label>
-                            <div 
+                            <div
                                 className={`flex items-center px-4 py-2.5 border rounded-xl transition-colors ${selectedEquipment?.project_id ? 'bg-emerald-50 border-emerald-100 cursor-pointer hover:bg-emerald-100' : 'bg-slate-50 border-slate-200'}`}
                                 onClick={() => { if (selectedEquipment?.project_id) handleDeallocate(); }}
                             >

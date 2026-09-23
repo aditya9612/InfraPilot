@@ -68,7 +68,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         const fetchProjectData = async () => {
             if (formData.project_id) {
                 const projectIdNum = Number(formData.project_id);
-                
+
                 // Fetch tasks independently
                 try {
                     const tasksRes = await projectService.getTasks(projectIdNum);
@@ -110,11 +110,21 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
     const validate = () => {
         const errs: Record<string, string> = {};
-        if (!selectedFile) errs.photo = "Required";
-        if (!formData.project_id) errs.project_id = "Required";
+        const missingFields: string[] = [];
+
+        if (!selectedFile) {
+            errs.photo = "Required";
+            missingFields.push("Visual Artifact");
+        }
+        if (!formData.project_id) {
+            errs.project_id = "Required";
+            missingFields.push("Project");
+        }
+        
         setErrors(errs);
-        if (Object.keys(errs).length > 0) {
-            setFormNotification({ type: 'error', message: 'Please fill in all mandatory fields correctly.' });
+        
+        if (missingFields.length > 0) {
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}` });
             return false;
         }
         setFormNotification(null);
@@ -207,7 +217,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         </div>
                     </div>
                 )}
-                
+
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact <span className="text-rose-500">*</span></h3>
                     <div

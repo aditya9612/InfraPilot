@@ -288,7 +288,7 @@ const SafetyManagementPage = () => {
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
-        
+
         VIOLATION_TYPES.forEach(type => {
             groups[type] = { total: 0, resolved: 0, unresolved: 0 };
         });
@@ -881,11 +881,10 @@ const SafetyManagementPage = () => {
                 <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
                     {/* Inline Notification Banner */}
                     {formNotification && (
-                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter animate-fade-in ${
-                            formNotification.type === 'error'
+                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter animate-fade-in ${formNotification.type === 'error'
                                 ? 'bg-red-50 border-red-200 text-red-700'
                                 : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        }`}>
+                            }`}>
                             <span className="text-lg leading-none mt-0.5">
                                 {formNotification.type === 'error' ? '⚠️' : '✅'}
                             </span>

@@ -92,6 +92,9 @@ const QCInspectionPage = () => {
         remarks: "",
         report_file: null
     });
+    
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
     // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
@@ -182,11 +185,11 @@ const QCInspectionPage = () => {
     // ──────────────────────────────── INITIALIZATION ────────────────────────────────
 
     const fetchData = useCallback(async () => {
-        if (!projectId) return;
+        if (!projectId) { setIsLoading(false); return; }
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
-            const items = res.items || [];
+            const items = Array.isArray(res) ? res : (res.items || (res as any).data || []);
             const sortedItems = items.sort((a: QcItem, b: QcItem) => Number(b.id) - Number(a.id));
             setQcList(sortedItems);
         } catch (err) {
@@ -207,18 +210,54 @@ const QCInspectionPage = () => {
 
     // ──────────────────────────────── ACTIONS ────────────────────────────────
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        const missingFields: string[] = [];
+
+        if (!formData.project_id) {
+            newErrors.project_id = "Required";
+            missingFields.push("Project");
+        }
+        if (!formData.inspection_type) {
+            newErrors.inspection_type = "Required";
+            missingFields.push("Inspection Type");
+        }
+        if (!formData.test_type) {
+            newErrors.test_type = "Required";
+            missingFields.push("Test Type");
+        }
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
+            newErrors.result = "Required";
+            missingFields.push("Result");
+        }
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
+            newErrors.standard_value = "Required";
+            missingFields.push("Standard Value");
+        }
+        if (!formData.status) {
+            newErrors.status = "Required";
+            missingFields.push("Status");
+        }
+
+        setErrors(newErrors);
+        
+        if (Object.keys(newErrors).length > 0) {
+            const errorMsg = missingFields.length > 0 ? "Mandatory fields required: " + missingFields.join(", ") : "Please fill all required fields";
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg, { id: 'validation' });
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
+    };
+
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
-        const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
-                        formData.result === null || formData.result === undefined || formData.result === "" || 
-                        formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
-                        !formData.status;
+        setFormNotification(null);
+        if (!validate()) return;
 
-        if (missing) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -241,15 +280,9 @@ const QCInspectionPage = () => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
 
-        const missing = !formData.project_id || !formData.inspection_type || !formData.test_type || 
-                        formData.result === null || formData.result === undefined || formData.result === "" || 
-                        formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "" || 
-                        !formData.status;
+        setFormNotification(null);
+        if (!validate()) return;
 
-        if (missing) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -284,7 +317,17 @@ const QCInspectionPage = () => {
         }
     };
 
+
+    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
+    const inputClasses = (error?: string) => `
+        w-full px-4 py-2.5 bg-slate-50 border 
+        ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
+    `;
+
     const resetForm = () => {
+        setFormNotification(null);
+        setErrors({});
         setSelectedFile(null);
         let defaultEngineerName = "";
         try {
@@ -847,15 +890,31 @@ const QCInspectionPage = () => {
                 }
             >
                 <div className="p-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
+                    {formNotification && (
+                        <div className={`flex items-start gap-3 px-4 py-3 mb-4 rounded-xl border text-sm font-semibold font-inter ${formNotification.type === 'error'
+                                ? 'bg-red-50 border-red-200 text-red-700'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            }`}>
+                            <span className="text-lg leading-none mt-0.5">
+                                {formNotification.type === 'error' ? '⚠️' : '✅'}
+                            </span>
+                            <span>{formNotification.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => setFormNotification(null)}
+                                className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
+                            >×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Project <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses(errors.project_id)}
                                     required
                                 >
                                     <option value="">-- Select project --</option>
@@ -865,14 +924,16 @@ const QCInspectionPage = () => {
                                         </option>
                                     ))}
                                 </select>
+                                {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
+                                {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Task</label>
+                                <label className={labelClasses}>Task</label>
                                 <select
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses()}
                                     disabled={isFetchingDeps}
                                 >
                                     <option value="">-- Select task --</option>
@@ -885,11 +946,11 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">DSR</label>
+                                <label className={labelClasses}>DSR</label>
                                 <select
                                     value={formData.dsr_id || ""}
                                     onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses()}
                                     disabled={isFetchingDeps}
                                 >
                                     <option value="">-- Select DSR --</option>
@@ -902,29 +963,33 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Inspection Type <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Inspection Type <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses(errors.inspection_type)}
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
+                                {errors.inspection_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.inspection_type}</p>}
+                                {errors.inspection_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.inspection_type}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Test Type <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Test Type <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses(errors.test_type)}
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
+                                {errors.test_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.test_type}</p>}
+                                {errors.test_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.test_type}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Result <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Result <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -934,12 +999,13 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, result: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className={inputClasses(errors.result)}
                                 />
+                                {errors.result && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.result}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Standard Value <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Standard Value <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -949,12 +1015,13 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, standard_value: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className={inputClasses(errors.standard_value)}
                                 />
+                                {errors.standard_value && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.standard_value}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Status <span className="text-red-600">*</span></label>
+                                <label className={labelClasses}>Status <span className="text-red-600">*</span></label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -963,14 +1030,15 @@ const QCInspectionPage = () => {
                                     <option value="Pass">Pass</option>
                                     <option value="Fail">Fail</option>
                                 </select>
+                                {errors.status && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.status}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Engineer Name</label>
+                                <label className={labelClasses}>Engineer Name</label>
                                 <select
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className={inputClasses()}
                                     required
                                 >
                                     <option value="">Enter auditor name...</option>
@@ -983,7 +1051,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter">Remarks</label>
+                                <label className={labelClasses}>Remarks</label>
                                 <textarea
                                     rows={3}
                                     placeholder="remarks"
@@ -1018,10 +1086,10 @@ const QCInspectionPage = () => {
                                                 Choose File(s)
                                             </label>
                                             <span className="text-sm text-slate-500 font-medium truncate max-w-[300px] font-inter">
-                                                {formData.report_file 
-                                                    ? (Array.isArray(formData.report_file) 
-                                                        ? `${formData.report_file.length} file(s) selected` 
-                                                        : (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name)) 
+                                                {formData.report_file
+                                                    ? (Array.isArray(formData.report_file)
+                                                        ? `${formData.report_file.length} file(s) selected`
+                                                        : (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name))
                                                     : "No file chosen"}
                                             </span>
                                             {formData.report_file && (
@@ -1126,13 +1194,15 @@ const QCInspectionPage = () => {
                                             if (fileUrl) {
                                                 let fileUrls: string[] = [];
                                                 if (typeof fileUrl === 'string') {
-                                                    const regex = /(?:https?:\/\/[^"',;\s\\]+|\/uploads\/[^"',;\s\\]+)/gi;
-                                                    const matches = fileUrl.match(regex);
-                                                    if (matches && matches.length > 0) {
-                                                        fileUrls = Array.from(new Set(matches));
-                                                    } else {
-                                                        // Fallback for unexpected formats
-                                                        fileUrls = [fileUrl];
+                                                    try {
+                                                        const parsed = JSON.parse(fileUrl);
+                                                        if (Array.isArray(parsed)) {
+                                                            fileUrls = parsed;
+                                                        } else {
+                                                            fileUrls = [fileUrl];
+                                                        }
+                                                    } catch {
+                                                        fileUrls = fileUrl.split(',').map(s => s.trim().replace(/^['"\[\]]+|['"\[\]]+$/g, '')).filter(Boolean);
                                                     }
                                                 } else if (Array.isArray(fileUrl)) {
                                                     fileUrls = fileUrl;

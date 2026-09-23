@@ -19,7 +19,8 @@ import {
     Edit3,
     Save,
     X,
-    Eye
+    Eye,
+    AlertTriangle
 } from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
@@ -81,6 +82,7 @@ const ChecklistsPage = () => {
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
     const [editItemText, setEditItemText] = useState("");
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string | React.ReactNode } | null>(null);
 
     // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
@@ -141,9 +143,16 @@ const ChecklistsPage = () => {
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
-            toast.error("Please fill in all mandatory fields");
+            const missingFields = [];
+            if (newErrors.project_id) missingFields.push("Project Context");
+            if (newErrors.name) missingFields.push("Descriptive Title");
+            
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg, { id: 'validation' });
             return;
         }
+        setFormNotification(null);
 
         setIsSubmitting(true);
         try {
@@ -182,6 +191,8 @@ const ChecklistsPage = () => {
             setNewChecklistName("");
             setNewChecklistProjectId("");
             setNewChecklistItems([]);
+            setFormNotification(null);
+            setErrors({});
         } catch (err) {
             toast.error("Failed to create checklist");
         } finally {
@@ -200,9 +211,12 @@ const ChecklistsPage = () => {
 
     const handleUpdateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormNotification(null);
         if (!selectedChecklist) return;
         if (!editChecklistName.trim()) {
-            toast.error("Name is required");
+            const errorMsg = `Mandatory fields required: Descriptive Title`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg, { id: 'validation' });
             return;
         }
 
@@ -240,6 +254,7 @@ const ChecklistsPage = () => {
             await fetchData();
             setIsEditChecklistModalOpen(false);
             setSelectedChecklist(null);
+            setFormNotification(null);
         } catch (err) {
             toast.error("Failed to update checklist");
         } finally {
@@ -860,6 +875,22 @@ const ChecklistsPage = () => {
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
+                    {/* Inline Notification Banner */}
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3 font-inter`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <AlertTriangle className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle2 className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Activity className="w-4 h-4 text-primary" />
@@ -977,6 +1008,22 @@ const ChecklistsPage = () => {
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
+                    {/* Inline Notification Banner */}
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3 font-inter`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <AlertTriangle className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle2 className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Edit3 className="w-4 h-4 text-primary" />

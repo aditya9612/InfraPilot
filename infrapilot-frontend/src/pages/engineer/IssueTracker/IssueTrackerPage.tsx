@@ -84,17 +84,6 @@ const IssueTrackerPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.title.trim()) newErrors.title = "Title is required";
-        if (!formData.category) newErrors.category = "Category is required";
-        if (!formData.priority) newErrors.priority = "Priority is required";
-        if (!formData.reported_date) newErrors.reported_date = "Reported Date is required";
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
     useEffect(() => {
         const initializeProject = async () => {
             try {
@@ -201,35 +190,38 @@ const IssueTrackerPage = () => {
         e.preventDefault();
         setFormNotification(null);
 
-        if (!projectId || !formData.project_id) {
-            setFormNotification({ type: 'error', message: 'Please select a Project first.' });
-            toast.error("Please select a Project first.", { id: 'validation' });
-            return;
-        }
+        const missingFields: string[] = [];
+        const newErrors: Record<string, string> = {};
 
+        if (!projectId || !formData.project_id) {
+            newErrors.project_id = "Project is required";
+            missingFields.push("Project");
+        }
         if (!formData.title.trim()) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Title' });
-            toast.error("Please fill mandatory field: Title", { id: 'validation' });
-            return;
+            newErrors.title = "Title is required";
+            missingFields.push("Title");
         }
         if (!formData.category) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Category' });
-            toast.error("Please fill mandatory field: Category", { id: 'validation' });
-            return;
+            newErrors.category = "Category is required";
+            missingFields.push("Category");
         }
         if (!formData.priority) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Priority' });
-            toast.error("Please fill mandatory field: Priority", { id: 'validation' });
-            return;
+            newErrors.priority = "Priority is required";
+            missingFields.push("Priority");
         }
         if (!formData.reported_date) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Reported Date' });
-            toast.error("Please fill mandatory field: Reported Date", { id: 'validation' });
-            return;
+            newErrors.reported_date = "Reported Date is required";
+            missingFields.push("Reported Date");
         }
 
-        // Also set inline field errors for visual feedback
-        validate();
+        setErrors(newErrors);
+
+        if (missingFields.length > 0) {
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg, { id: 'validation' });
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -700,11 +692,10 @@ const IssueTrackerPage = () => {
                 <form id="issue-form" onSubmit={handleSubmit} noValidate className="space-y-5">
                     {/* Inline Notification Banner */}
                     {formNotification && (
-                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter ${
-                            formNotification.type === 'error'
-                                ? 'bg-red-50 border-red-200 text-red-700'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        }`}>
+                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter ${formNotification.type === 'error'
+                            ? 'bg-red-50 border-red-200 text-red-700'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            }`}>
                             <span className="text-lg leading-none mt-0.5">
                                 {formNotification.type === 'error' ? '⚠️' : '✅'}
                             </span>
