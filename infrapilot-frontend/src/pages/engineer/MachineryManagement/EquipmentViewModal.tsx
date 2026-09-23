@@ -22,7 +22,7 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
     onClose,
     equipment,
     projectsMap = {},
-    onEdit
+
 }) => {
     if (!equipment) return null;
 
@@ -38,16 +38,11 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
             <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+                className="w-full py-3 bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
             >
                 CLOSE
             </button>
-            <button
-                onClick={onEdit}
-                className="flex-1 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all"
-            >
-                EDIT DETAILS
-            </button>
+
         </div>
     );
 

@@ -75,7 +75,7 @@ const QCInspectionPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
-        report_file: File | string | null;
+        report_file: File | File[] | string | null;
     }
 
     // Form States
@@ -995,40 +995,48 @@ const QCInspectionPage = () => {
 
                             {!isEditModalOpen && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter mb-2">Report File</label>
-                                    <div className="flex items-center gap-4">
-                                        <input
-                                            type="file"
-                                            id="report_file"
-                                            accept="image/*,application/pdf"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    toast.success(`Selected: ${file.name}`);
-                                                    setSelectedFile(file);
-                                                    setFormData({ ...formData, report_file: file });
-                                                }
-                                            }}
-                                        />
-                                        <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-900 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
-                                            Choose File
-                                        </label>
-                                        <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
-                                            {formData.report_file ? (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name) : "No file chosen"}
-                                        </span>
-                                        {formData.report_file && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedFile(null);
-                                                    setFormData({ ...formData, report_file: null });
+                                    <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter mb-2">Report File(s)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-4">
+                                            <input
+                                                type="file"
+                                                id="report_file"
+                                                accept="image/*,application/pdf"
+                                                multiple
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length > 0) {
+                                                        toast.success(`Selected ${files.length} file(s)`);
+                                                        // store first file in selectedFile for backwards compat with other uses, if any
+                                                        setSelectedFile(files[0]);
+                                                        setFormData({ ...formData, report_file: files });
+                                                    }
                                                 }}
-                                                className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
+                                            />
+                                            <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-900 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                                Choose File(s)
+                                            </label>
+                                            <span className="text-sm text-slate-500 font-medium truncate max-w-[300px] font-inter">
+                                                {formData.report_file 
+                                                    ? (Array.isArray(formData.report_file) 
+                                                        ? `${formData.report_file.length} file(s) selected` 
+                                                        : (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name)) 
+                                                    : "No file chosen"}
+                                            </span>
+                                            {formData.report_file && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedFile(null);
+                                                        setFormData({ ...formData, report_file: null });
+                                                    }}
+                                                    className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -1111,16 +1119,58 @@ const QCInspectionPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
                                     </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
+                                    <div className="font-inter col-span-2 mt-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 font-inter">Report File Preview</p>
                                         {(() => {
                                             const fileUrl = (selectedQc as any).report_file_url || selectedQc.report_file || (selectedQc as any)['report file'];
-                                            if (fileUrl && typeof fileUrl === 'string') {
-                                                const finalUrl = fileUrl.startsWith('http') ? fileUrl : `${import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'}/${fileUrl.replace(/^\//, '')}`;
+                                            if (fileUrl) {
+                                                let fileUrls: string[] = [];
+                                                if (typeof fileUrl === 'string') {
+                                                    const regex = /(?:https?:\/\/[^"',;\s\\]+|\/uploads\/[^"',;\s\\]+)/gi;
+                                                    const matches = fileUrl.match(regex);
+                                                    if (matches && matches.length > 0) {
+                                                        fileUrls = Array.from(new Set(matches));
+                                                    } else {
+                                                        // Fallback for unexpected formats
+                                                        fileUrls = [fileUrl];
+                                                    }
+                                                } else if (Array.isArray(fileUrl)) {
+                                                    fileUrls = fileUrl;
+                                                }
+
+                                                const baseUrl = import.meta.env.VITE_API_URL
+                                                    ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+                                                    : 'http://127.0.0.1:8000';
+
                                                 return (
-                                                    <a href={finalUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter truncate inline-flex items-center gap-1">
-                                                        <Eye className="w-3.5 h-3.5" /> View Report
-                                                    </a>
+                                                    <div className="flex flex-col gap-4">
+                                                        {fileUrls.map((url, index) => {
+                                                            const finalUrl = url.startsWith('http') ? url : `${baseUrl}/${url.replace(/^\//, '')}`;
+                                                            const isImage = /\.(jpeg|jpg|gif|png|webp|bmp)$/i.test(finalUrl);
+                                                            const isPdf = /\.(pdf)$/i.test(finalUrl);
+
+                                                            return (
+                                                                <div key={index} className="flex flex-col gap-2">
+                                                                    {isImage ? (
+                                                                        <img src={finalUrl} alt={`Report ${index + 1}`} className="w-full max-h-80 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                                                <Eye className="w-5 h-5" />
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-sm font-bold text-slate-800 truncate">Document {index + 1}</p>
+                                                                                <p className="text-xs text-slate-500 uppercase">{isPdf ? 'PDF File' : 'File'}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    <a href={finalUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter inline-flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-xl w-fit transition-colors hover:bg-primary/10">
+                                                                        <Eye className="w-4 h-4" /> {isImage ? `Open Image ${index + 1} Full Size` : `View Document ${index + 1}`}
+                                                                    </a>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 );
                                             }
                                             return <p className="text-sm font-bold text-slate-800 font-inter truncate">N/A</p>;

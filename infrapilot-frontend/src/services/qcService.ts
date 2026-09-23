@@ -26,7 +26,7 @@ export interface CreateQcRequest {
     status?: string | null;      // optional
     engineer_name?: string | null; // optional
     remarks?: string | null;     // optional
-    report_file?: File | string | null; // optional
+    report_file?: File | File[] | string | null; // Support multiple files
 }
 
 export interface UpdateQcRequest {
@@ -40,7 +40,7 @@ export interface UpdateQcRequest {
     status?: string | null;      // optional
     engineer_name?: string | null; // optional
     remarks?: string | null;     // optional
-    report_file?: File | string | null; // optional
+    report_file?: File | File[] | string | null; // Support multiple files
 }
 
 export interface QcResponse {
@@ -54,7 +54,7 @@ export interface QcResponse {
 
 export const qcService = {
     listQc: async (project_id: number, filters?: { task_id?: number; status?: string; inspection_type?: string }): Promise<QcResponse> => {
-        const params: any = { project_id };
+        const params: any = { project_id, limit: 100 };
         if (filters?.task_id) params.task_id = filters.task_id;
         if (filters?.status) params.status = filters.status;
         if (filters?.inspection_type) params.inspection_type = filters.inspection_type;
@@ -89,8 +89,16 @@ export const qcService = {
         if (data.remarks) params.remarks = data.remarks;
 
         const formData = new FormData();
-        if (data.report_file && typeof data.report_file !== 'string') {
-            formData.append("report_file", data.report_file as Blob);
+        if (data.report_file) {
+            if (Array.isArray(data.report_file)) {
+                data.report_file.forEach(file => {
+                    formData.append("report_files", file); // Appending as report_files to match array format (or just report_file depending on backend)
+                    // Let's use report_file since we don't know the backend. Wait, backend usually expects a list. If it accepts multiple files, it might be report_file or report_files. Let's append as 'report_file' since it's the existing key.
+                    formData.append("report_file", file);
+                });
+            } else if (typeof data.report_file !== 'string') {
+                formData.append("report_file", data.report_file as Blob);
+            }
         }
 
         const response = await api.post('/qc', formData, {
@@ -116,14 +124,24 @@ export const qcService = {
         };
 
         // If there's a new file, use multipart; otherwise send JSON
-        if (data.report_file && typeof data.report_file !== 'string') {
+        if (data.report_file) {
             const formData = new FormData();
-            formData.append("report_file", data.report_file as Blob);
-            const response = await api.put(`/qc/${qc_id}`, formData, {
-                params: body,
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            return response.data;
+            if (Array.isArray(data.report_file)) {
+                data.report_file.forEach(file => {
+                    formData.append("report_file", file);
+                });
+            } else if (typeof data.report_file !== 'string') {
+                formData.append("report_file", data.report_file as Blob);
+            }
+            
+            // Only use multipart if we actually appended files
+            if (Array.isArray(data.report_file) || typeof data.report_file !== 'string') {
+                const response = await api.put(`/qc/${qc_id}`, formData, {
+                    params: body,
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                return response.data;
+            }
         }
 
         const response = await api.put(`/qc/${qc_id}`, body, {

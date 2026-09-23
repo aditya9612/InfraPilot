@@ -989,7 +989,7 @@ const LaborDetailsPage = () => {
                                     onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
                                     className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`}
                                 >
-                                    <option value="" disabled></option>
+                                    <option value="" disabled>Select Labour Type</option>
                                     {labourTypes.map((type) => (
                                         <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
                                     ))}
