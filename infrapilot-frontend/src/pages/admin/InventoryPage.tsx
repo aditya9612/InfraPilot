@@ -405,11 +405,13 @@ const InventoryPage = () => {
   const handleCreateOrUpdateMaterial = async (data: any) => {
     try {
       if (selectedMaterial) {
-        const supplier = suppliers.find(s => s.name === data.supplier_name);
-        // Note: some backend APIs don't take all fields in put request, so we pick the relevant ones
+        // Ensure exactly the required fields for PUT payload
         const payload = {
-          ...data,
-          supplier_id: supplier?.id || selectedMaterial.supplier_id,
+          material_master_id: Number(data.material_master_id),
+          supplier_id: Number(data.supplier_id || selectedMaterial.supplier_id),
+          purchase_rate: Number(data.purchase_rate),
+          minimum_stock_level: Number(data.minimum_stock_level),
+          rate_type: data.rate_type
         };
         const updatedMaterial = await materialService.updateMaterial(selectedMaterial.id, payload);
 
@@ -492,16 +494,19 @@ const InventoryPage = () => {
         toast.success("Usage logged successfully!");
 
         // Refresh logs to get the new transaction
-        const newLogs = await materialService.getLogs({});
+        const newLogs = await materialService.getLogs({ project_id: payload.project_id });
         setLogs(Array.isArray(newLogs) ? newLogs : []);
       } else {
-        const payload = {
+        const payload: any = {
           quantity: data.quantity,
           rate: Number(data.rate) || material.purchase_rate || 0,
-          amount_paid: data.payment,
+          amount_paid: Number(data.amount_paid) || 0,
           project_id: data.project_id || material.project_id,
           issue_type: data.issue_type || "PURCHASE"
         };
+        if (data.boq_item_id) {
+          payload.boq_item_id = Number(data.boq_item_id);
+        }
         const updatedMaterial = await materialService.recordPurchase(material.id, payload);
 
         // Also create a formal PO record so it appears in the "Orders" tab
@@ -527,7 +532,7 @@ const InventoryPage = () => {
         toast.success("Purchase added successfully!");
 
         // Refresh logs to get the new transaction
-        const newLogs = await materialService.getLogs({});
+        const newLogs = await materialService.getLogs({ project_id: payload.project_id });
         setLogs(Array.isArray(newLogs) ? newLogs : []);
       }
 
@@ -965,7 +970,7 @@ const InventoryPage = () => {
                         }
                         onDelete={(id) => handleDeleteClick(id, "material")}
                       />
-                      {totalPages > 1 && (
+                      {sortedInventory.length > 0 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                             Showing {materialPage * PAGE_SIZE + 1}–{Math.min((materialPage + 1) * PAGE_SIZE, sortedInventory.length)} of {sortedInventory.length} Materials
@@ -1315,6 +1320,9 @@ const InventoryPage = () => {
           setPos(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
           toast.success("Purchase Order updated successfully!");
         }}
+        suppliers={suppliers}
+        projects={projectList}
+        inventory={inventory}
       />
 
       <ViewPOModal
@@ -1339,8 +1347,10 @@ const InventoryPage = () => {
             await materialService.updateTransferStatus(id, status);
             setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
             toast.success(`Transfer status updated to ${status}!`);
-          } catch {
-            toast.error("Failed to update transfer status");
+          } catch (err: any) {
+            const detail = err?.response?.data?.detail;
+            const message = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail[0]?.msg : err?.message) || "Failed to update transfer status";
+            toast.error(message);
           }
         }}
       />

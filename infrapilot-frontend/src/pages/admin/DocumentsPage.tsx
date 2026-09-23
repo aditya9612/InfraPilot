@@ -323,7 +323,17 @@ const DocumentsPage = () => {
           remarks: data.remarks
         });
       } else {
-        await documentService.updateDocument(id, data);
+        if (!(data instanceof FormData)) {
+          const fd = new FormData();
+          Object.keys(data).forEach(key => {
+            if (data[key] !== undefined && data[key] !== null) {
+              fd.append(key, String(data[key]));
+            }
+          });
+          await documentService.updateDocument(id, fd);
+        } else {
+          await documentService.updateDocument(id, data);
+        }
       }
       toast.success("Details updated successfully", { id: toastId });
       fetchDocs();
@@ -677,7 +687,7 @@ const DocumentsPage = () => {
                               className="cursor-pointer"
                             >
                               <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{doc.title}</p>
-                              {doc.remarks && (
+                              {doc.remarks && mainTab !== "Drawings" && (
                                 <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px]">{doc.remarks}</p>
                               )}
                             </div>
@@ -892,9 +902,9 @@ const DocumentsPage = () => {
           setDocToDelete(null);
         }}
         onConfirm={handleDelete}
-        title="Delete Document"
-        message="Are you sure you want to permanently delete this document? This action cannot be undone and the file will be removed from the repository."
-        confirmText="Delete Document"
+        title={mainTab === "Drawings" ? "Delete Drawing" : "Delete Document"}
+        message={`Are you sure you want to permanently delete this ${mainTab === "Drawings" ? "drawing" : "document"}? This action cannot be undone and the file will be removed from the repository.`}
+        confirmText={mainTab === "Drawings" ? "Delete Drawing" : "Delete Document"}
         type="danger"
       />
 

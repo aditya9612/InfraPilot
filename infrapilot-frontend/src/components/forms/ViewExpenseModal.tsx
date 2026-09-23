@@ -17,7 +17,7 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
   const footer = (
     <button
       onClick={onClose}
-      className="px-8 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+      className="px-8 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
     >
       Close Details
     </button>
@@ -35,7 +35,7 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
         {/* Premium Header */}
         <div className="relative overflow-hidden bg-emerald-600 rounded-2xl p-8 text-white shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-          
+
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
@@ -54,9 +54,7 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <span className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md border bg-white/20 border-white/30 text-white">
-                {expense.expense_type} Expense
-              </span>
+
               <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/30 rounded-full border border-white/20">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
                 <span className="text-[10px] font-bold text-white uppercase tracking-widest">Verified</span>
@@ -76,10 +74,9 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
             title="Expense Breakdown"
           >
             <div className="md:col-span-2">
-                <InfoItem label="Description" value={expense.description} />
+              <InfoItem label="Description" value={expense.description} />
             </div>
             <InfoItem label="Expense Category" value={expense.category} />
-            <InfoItem label="Expense Type" value={`${expense.expense_type} Cost`} />
           </Section>
 
           {/* Payment Info */}
@@ -91,7 +88,6 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
             }
             title="Payment Details"
           >
-            <InfoItem label="Paid By" value={expense.paid_by} />
             <InfoItem label="Payment Mode" value={expense.payment_mode} />
             <InfoItem label="Transaction Date" value={expense.expense_date} />
           </Section>
@@ -115,10 +111,10 @@ const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
               <div className="text-right">
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Status</p>
                 <div className="flex items-center gap-2 justify-end">
-                    <span className="text-sm font-bold text-slate-700">Audit Verified</span>
-                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                    </div>
+                  <span className="text-sm font-bold text-slate-700">Audit Verified</span>
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                  </div>
                 </div>
               </div>
             </div>

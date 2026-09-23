@@ -160,9 +160,9 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto" onMouseDown={onClose}>
             <div className="flex justify-center min-h-full p-4">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8">
+                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8" onMouseDown={(e) => e.stopPropagation()}>
                     <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -346,21 +346,6 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                 )}
                             </div>
 
-                            {/* Notes */}
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Notes
-                                </label>
-                                <textarea
-                                    name="notes"
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                    rows={3}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
-                                    placeholder="Enter any additional notes..."
-                                />
-                            </div>
-
                             {/* Project Name (Dropdown or Read Only) */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
@@ -410,6 +395,21 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                         <option key={boq.id} value={boq.id}>{boq.item_name}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    Notes
+                                </label>
+                                <textarea
+                                    name="notes"
+                                    value={formData.notes}
+                                    onChange={handleChange}
+                                    rows={3}
+                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
+                                    placeholder="Enter any additional notes..."
+                                />
                             </div>
                         </div>
 

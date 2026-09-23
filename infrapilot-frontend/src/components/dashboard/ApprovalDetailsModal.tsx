@@ -2,6 +2,10 @@ import React from "react";
 import Modal from "../common/Modal";
 import { CheckCircle, XCircle, Clock, User, Briefcase, Calendar, Loader2 } from "lucide-react";
 import { boqService } from "../../services/boqService";
+import { userService } from "../../services/userService";
+import { documentService } from "../../services/documentService";
+import { equipmentService } from "../../services/equipmentService";
+import { drawingService } from "../../services/drawingService";
 import type { ApprovalItem } from "../../services/approvalService";
 
 interface ApprovalDetailsModalProps {
@@ -22,27 +26,91 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
   const [entityDetails, setEntityDetails] = React.useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
 
+  const [requestedByName, setRequestedByName] = React.useState<string>("Loading...");
+  const [approvedByName, setApprovedByName] = React.useState<string>("Loading...");
+  const [entityName, setEntityName] = React.useState<string>("Loading...");
+
   React.useEffect(() => {
     const fetchDetails = async () => {
-      if (!approval || !approval.entity_id) return;
+      if (!approval) return;
 
-      if (approval.entity_type?.toLowerCase() === "boq") {
+      // Resolve Entity Name
+      if (approval.entity_id) {
         setIsLoadingDetails(true);
+        const type = approval.entity_type?.toLowerCase();
+        const id = approval.entity_id;
+        let resolvedName = `#${id}`;
+
         try {
-          const detail = await boqService.getBoqById(approval.entity_id);
-          setEntityDetails(detail);
+          if (type === "boq") {
+            const detail = await boqService.getBoqById(id);
+            resolvedName = detail?.item_name || `#${id}`;
+            setEntityDetails(detail); // Keep for backwards compatibility
+          } else if (type === "document") {
+            const res = await documentService.listDocuments({ limit: 1000 });
+            const docs = Array.isArray(res) ? res : (res as any).items || [];
+            const doc = docs.find((d: any) => d.id === id);
+            if (doc) resolvedName = doc.title || `#${id}`;
+          } else if (type === "equipment") {
+            const res = await equipmentService.listEquipment();
+            const equips = Array.isArray(res) ? res : (res as any).items || [];
+            const eq = equips.find((e: any) => e.id === id);
+            if (eq) resolvedName = eq.name || eq.equipment_name || `#${id}`;
+          } else if (type === "drawing") {
+            // Drawings logic since it requires project IDs
+            const { projectService } = await import("../../services/projectService");
+            const pData = await projectService.getProjects(50, 0);
+            const projects = Array.isArray(pData) ? pData : (pData.items || pData.data || []);
+            const allDrawings = await Promise.all(
+              projects.map((p: any) => drawingService.getList({ project_id: p.id, limit: 100 }).catch(() => []))
+            );
+            const flatDrawings = allDrawings.flat();
+            const drw = flatDrawings.find((d: any) => d.id === id);
+            if (drw) resolvedName = drw.drawing_name || drw.title || `#${id}`;
+          } else {
+            // Try fallback string matching from remarks as last resort if unmapped type
+            if (approval.remarks && approval.remarks.toLowerCase().includes(type)) {
+              const match = approval.remarks.match(/:\s*(.+)$/);
+              if (match) resolvedName = match[1];
+            }
+          }
         } catch (error) {
-          console.error("Failed to fetch BOQ details for approval:", error);
+          console.error("Failed to resolve entity name:", error);
         } finally {
+          setEntityName(resolvedName);
           setIsLoadingDetails(false);
         }
       }
+
+      // Resolve Real Names for Requester
+      const resolveName = async (id: any, fallbackName: string | undefined, setter: (val: string) => void) => {
+        if (!id) {
+          setter("—");
+          return;
+        }
+        if (fallbackName && String(fallbackName) !== String(id) && fallbackName !== "—") {
+          setter(fallbackName);
+          return;
+        }
+        try {
+          const user = await userService.getUserById(Number(id));
+          setter(user?.full_name || user?.name || `User ${id}`);
+        } catch {
+          setter(String(id));
+        }
+      };
+
+      resolveName(approval.requested_by, approval.requested_by_name, setRequestedByName);
+      resolveName(approval.approved_by, approval.reviewer_name, setApprovedByName);
     };
 
     if (isOpen) {
       fetchDetails();
     } else {
       setEntityDetails(null);
+      setRequestedByName("");
+      setApprovedByName("");
+      setEntityName("");
     }
   }, [isOpen, approval]);
 
@@ -52,7 +120,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
     <div className="flex gap-3 w-full sm:w-auto">
       <button
         onClick={onClose}
-        className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all"
+        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all"
       >
         Close
       </button>
@@ -123,7 +191,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
               </div>
               <p className="text-white/80 font-medium mt-1 flex items-center gap-2 justify-center md:justify-start">
                 <Calendar size={14} />
-                Submitted on {approval.date}
+                Submitted on {approval?.date || "N/A"}
               </p>
             </div>
           </div>
@@ -132,15 +200,13 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         {/* Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
           <Section icon={<User size={16} />} title="Requester Info">
-            <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "Enterprise Global"} />
+            <InfoItem label="Requested By" value={requestedByName} />
+            <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "N/A"} />
           </Section>
 
           <Section icon={<Briefcase size={16} />} title="Request Details">
-            <InfoItem
-              label="Summary"
-              value={approval.detail || (entityDetails ? `${entityDetails.quantity} ${entityDetails.unit}` : "No specific details")}
-            />
-            <InfoItem label="Entity Reference" value={`#${approval.entity_id} (${approval.entity_type})`} />
+            <InfoItem label="Entity Type" value={approval.entity_type} />
+            <InfoItem label="Entity" value={entityName} />
           </Section>
 
           <Section icon={<CheckCircle size={16} />} title="Workflow History" fullWidth>
@@ -154,10 +220,12 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
                   {approval.status}
                 </span>
               </div>
-              <div className="flex justify-between items-center border-t border-slate-200 pt-4">
-                <span className="text-sm font-bold text-slate-700">Reviewed By</span>
-                <span className="text-sm font-medium text-slate-500">{approval.reviewer_name || "—"}</span>
-              </div>
+              {approvedByName && approvedByName !== "—" && (
+                <div className="flex justify-between items-center border-t border-slate-200 pt-4">
+                  <span className="text-sm font-bold text-slate-700">Approved By</span>
+                  <span className="text-sm font-medium text-slate-500">{approvedByName}</span>
+                </div>
+              )}
               {approval.remarks && (
                 <div className="flex flex-col border-t border-slate-200 pt-4 mt-2">
                   <span className="text-sm font-bold text-slate-700 mb-1">Remarks</span>
