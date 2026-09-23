@@ -93,8 +93,8 @@ const QCInspectionPage = () => {
         report_file: null
     });
     
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
@@ -211,40 +211,38 @@ const QCInspectionPage = () => {
     // ──────────────────────────────── ACTIONS ────────────────────────────────
 
     const validate = () => {
-        const newErrors: Record<string, string> = {};
+        const newErrors: Record<string, boolean> = {};
         const missingFields: string[] = [];
 
         if (!formData.project_id) {
-            newErrors.project_id = "Required";
+            newErrors.project_id = true;
             missingFields.push("Project");
         }
         if (!formData.inspection_type) {
-            newErrors.inspection_type = "Required";
+            newErrors.inspection_type = true;
             missingFields.push("Inspection Type");
         }
         if (!formData.test_type) {
-            newErrors.test_type = "Required";
+            newErrors.test_type = true;
             missingFields.push("Test Type");
         }
         if (formData.result === null || formData.result === undefined || formData.result === "") {
-            newErrors.result = "Required";
+            newErrors.result = true;
             missingFields.push("Result");
         }
         if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
-            newErrors.standard_value = "Required";
+            newErrors.standard_value = true;
             missingFields.push("Standard Value");
         }
         if (!formData.status) {
-            newErrors.status = "Required";
+            newErrors.status = true;
             missingFields.push("Status");
         }
 
         setErrors(newErrors);
         
         if (Object.keys(newErrors).length > 0) {
-            const errorMsg = missingFields.length > 0 ? "Mandatory fields required: " + missingFields.join(", ") : "Please fill all required fields";
-            setFormNotification({ type: 'error', message: errorMsg });
-            toast.error(errorMsg, { id: 'validation' });
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}`, fields: missingFields });
             return false;
         }
         
@@ -319,9 +317,9 @@ const QCInspectionPage = () => {
 
 
     const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
-    const inputClasses = (error?: string) => `
+    const inputClasses = (error?: boolean) => `
         w-full px-4 py-2.5 bg-slate-50 border 
-        ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+        ${error ? 'border-rose-300 focus:ring-rose-200 ring-1 ring-rose-300' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
         rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
     `;
 
@@ -493,6 +491,45 @@ const QCInspectionPage = () => {
 
     return (
         <>
+            {/* Top-Right Floating Toast (matches Drawing/Safety style) */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+                        @keyframes slideDownIn {
+                            from { opacity: 0; transform: translateY(-16px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                    `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5 font-inter"
+                        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                    >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}>
+                            <span className="text-white text-xs font-bold">
+                                {formNotification.type === 'error' ? '×' : '✓'}
+                            </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5 transition-colors">×</button>
+                    </div>
+                </div>
+            )}
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -890,20 +927,28 @@ const QCInspectionPage = () => {
                 }
             >
                 <div className="p-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
-                    {formNotification && (
-                        <div className={`flex items-start gap-3 px-4 py-3 mb-4 rounded-xl border text-sm font-semibold font-inter ${formNotification.type === 'error'
-                                ? 'bg-red-50 border-red-200 text-red-700'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                            }`}>
-                            <span className="text-lg leading-none mt-0.5">
-                                {formNotification.type === 'error' ? '⚠️' : '✅'}
-                            </span>
-                            <span>{formNotification.message}</span>
-                            <button
-                                type="button"
-                                onClick={() => setFormNotification(null)}
-                                className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
-                            >×</button>
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-red-50 border border-red-200">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">
+                                    Mandatory fields required: {(formNotification.fields || []).join(', ')}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none transition-colors">×</button>
+                        </div>
+                    )}
+                    {formNotification && formNotification.type === 'success' && (
+                        <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
                         </div>
                     )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -915,7 +960,6 @@ const QCInspectionPage = () => {
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
                                     className={inputClasses(errors.project_id)}
-                                    required
                                 >
                                     <option value="">-- Select project --</option>
                                     {projects.map(p => (
@@ -924,8 +968,7 @@ const QCInspectionPage = () => {
                                         </option>
                                     ))}
                                 </select>
-                                {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
-                                {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
+                                {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
                             <div>
@@ -971,8 +1014,7 @@ const QCInspectionPage = () => {
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
-                                {errors.inspection_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.inspection_type}</p>}
-                                {errors.inspection_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.inspection_type}</p>}
+                                {errors.inspection_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
                             <div>
@@ -984,8 +1026,7 @@ const QCInspectionPage = () => {
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
-                                {errors.test_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.test_type}</p>}
-                                {errors.test_type && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.test_type}</p>}
+                                {errors.test_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
                             <div>

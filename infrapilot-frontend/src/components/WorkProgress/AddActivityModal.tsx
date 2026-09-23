@@ -3,7 +3,6 @@ import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
-import toast from "react-hot-toast";
 
 interface AddActivityModalProps {
   isOpen: boolean;
@@ -30,6 +29,7 @@ const uniqueById = (arr: any[]) => {
 const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     project_id: "",
@@ -43,6 +43,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [allBoqs, setAllBoqs] = useState<any[]>([]);
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
+  const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
+  const [isWorkOrderDropdownOpen, setIsWorkOrderDropdownOpen] = useState(false);
   const [existingActivities, setExistingActivities] = useState<any[]>([]);
 
   useEffect(() => {
@@ -165,33 +167,46 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   const validate = () => {
     const errs: Record<string, string> = {};
+    const missingFields: string[] = [];
+
     if (!formData.project_id) {
-      errs.project_id = "Project selection is required";
+      errs.project_id = "Required";
+      missingFields.push("Project");
     }
 
     if (!formData.boq_item_id) {
-      errs.boq_item_id = "BOQ Item is required";
+      errs.boq_item_id = "Required";
+      missingFields.push("BOQ Item");
     }
 
-    if (formData.work_order_id !== undefined && formData.work_order_id <= 0) {
+    if (formData.work_order_id && Number(formData.work_order_id) <= 0) {
       errs.work_order_id = "Work Order ID must be greater than 0";
     }
 
-    if (!formData.start_date) errs.start_date = "Start date is required";
-    if (!formData.end_date) errs.end_date = "End date is required";
+    if (!formData.start_date) {
+      errs.start_date = "Required";
+      missingFields.push("Start Date");
+    }
+    if (!formData.end_date) {
+      errs.end_date = "Required";
+      missingFields.push("End Date");
+    }
 
     if (formData.start_date && formData.end_date && new Date(formData.start_date) > new Date(formData.end_date)) {
       errs.end_date = "End date cannot be before start date";
     }
 
     setErrors(errs);
+    if (missingFields.length > 0) {
+      setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(', ')}`, fields: missingFields });
+    }
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setFormNotification(null);
     if (!validate()) {
-      toast.error("Please fill in all required fields.");
       return;
     }
     setIsSubmitting(true);
@@ -279,7 +294,57 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New Activity Registry" footer={modalFooter} maxWidth="max-w-2xl">
+      {/* Top-right floating toast */}
+      {formNotification && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '18px',
+            right: '18px',
+            zIndex: 99999,
+            minWidth: '260px',
+            maxWidth: '380px',
+            animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+          }}
+        >
+          <style>{`
+            @keyframes slideDownIn {
+              from { opacity: 0; transform: translateY(-16px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          <div
+            className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+              formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+            }`}>
+              <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+              {formNotification.type === 'error'
+                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                : formNotification.message}
+            </p>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+          </div>
+        </div>
+      )}
       <form id="add-activity-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Inline Validation Error Banner */}
+        {formNotification && formNotification.type === 'error' && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-red-600">Validation Error</p>
+              <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {(formNotification.fields || []).join(', ')}</p>
+            </div>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+          </div>
+        )}
         {/* Core Identity Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -299,41 +364,141 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                   <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
                 ))}
               </select>
-              {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
+              {errors.project_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.project_id}</p>}
             </div>
 
-            <div>
+            <div className="relative font-inter">
               <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
-              <select
-                name="boq_item_id"
-                className={inputClasses(errors.boq_item_id)}
-                value={formData.boq_item_id}
-                onChange={handleChange}
-              >
-                <option value="">Select BOQ Item</option>
-                {displayedBoqs.map(b => (
-                  <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
-                    {b.item_name || `BOQ #${b.id}`}
-                  </option>
-                ))}
-              </select>
-              {errors.boq_item_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.boq_item_id}</p>}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsBoqDropdownOpen(!isBoqDropdownOpen)}
+                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.boq_item_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center`}
+                >
+                  <span className={formData.boq_item_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                    {formData.boq_item_id
+                      ? (() => { const b = displayedBoqs.find((b: any) => (b.id || b.boq_id) == formData.boq_item_id); return b ? (b.item_name || `BOQ #${b.id || b.boq_id}`) : `BOQ #${formData.boq_item_id}`; })()
+                      : '-- Select BOQ Item --'}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                      isBoqDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isBoqDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleChange({ target: { name: 'boq_item_id', value: '' } } as any);
+                          setIsBoqDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                          !formData.boq_item_id
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        -- Select BOQ Item --
+                      </button>
+                      {displayedBoqs.length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No BOQ Items available</div>
+                      )}
+                      {displayedBoqs.map((b: any) => (
+                        <button
+                          key={b.id || b.boq_id}
+                          type="button"
+                          onClick={() => {
+                            handleChange({ target: { name: 'boq_item_id', value: b.id || b.boq_id } } as any);
+                            setIsBoqDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
+                            (formData.boq_item_id == (b.id || b.boq_id))
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {b.item_name || `BOQ #${b.id || b.boq_id}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {errors.boq_item_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.boq_item_id}</p>}
             </div>
-            <div>
+            <div className="relative font-inter">
               <label className={labelClasses}>Work Order</label>
-              <select
-                name="work_order_id"
-                className={inputClasses(errors.work_order_id)}
-                value={formData.work_order_id}
-                onChange={handleChange}
-              >
-                <option value="">Select Work Order</option>
-                {displayedWorkOrders.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.work_description || w.work_order_number || `Work Order #${w.id}`}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsWorkOrderDropdownOpen(!isWorkOrderDropdownOpen)}
+                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.work_order_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center`}
+                >
+                  <span className={formData.work_order_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                    {formData.work_order_id
+                      ? (() => { const w = displayedWorkOrders.find((w: any) => w.id == formData.work_order_id); return w ? (w.work_description || w.work_order_number || `Work Order #${w.id}`) : `Work Order #${formData.work_order_id}`; })()
+                      : '-- Select Work Order --'}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                      isWorkOrderDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isWorkOrderDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleChange({ target: { name: 'work_order_id', value: '' } } as any);
+                          setIsWorkOrderDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                          !formData.work_order_id
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        -- Select Work Order --
+                      </button>
+                      {displayedWorkOrders.length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No Work Orders available</div>
+                      )}
+                      {displayedWorkOrders.map((w: any) => (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => {
+                            handleChange({ target: { name: 'work_order_id', value: w.id } } as any);
+                            setIsWorkOrderDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
+                            (formData.work_order_id == w.id)
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {w.work_description || w.work_order_number || `Work Order #${w.id}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               {errors.work_order_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.work_order_id}</p>}
             </div>
           </div>
@@ -381,7 +546,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
               />
-              {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
+              {errors.start_date && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.start_date}</p>}
             </div>
             <div>
               <label className={labelClasses}>End Date <span className="text-rose-500">*</span></label>
@@ -389,7 +554,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}
               />
-              {errors.end_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.end_date}</p>}
+              {errors.end_date && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.end_date}</p>}
             </div>
           </div>
         </div>

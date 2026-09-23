@@ -983,46 +983,6 @@ const DSRPage = () => {
                             </div>
                         </div>
 
-                        {/* Site Documentation — read-only, shows photos uploaded at creation */}
-                        <div className="mb-8">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Site Documentation {selectedDsr.photos && selectedDsr.photos.length > 0 ? `(${selectedDsr.photos.length})` : ""}
-                                </p>
-                            </div>
-
-                            {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {selectedDsr.photos.map((photo, idx) => (
-                                        <div key={photo.id ?? idx} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100 aspect-square">
-                                            <img
-                                                src={sitePhotoService.resolveUrl(photo.url) || ""}
-                                                alt={`Documentation ${idx + 1}`}
-                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            />
-                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <a
-                                                    href={sitePhotoService.resolveUrl(photo.url) || ""}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-slate-900 transition-colors shadow-lg"
-                                                >
-                                                    <Eye className="w-5 h-5" />
-                                                </a>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : selectedDsr.dsr_image ? (
-                                <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
-                                    <img src={sitePhotoService.resolveUrl(selectedDsr.dsr_image) || ""} alt="Site Documentation" className="w-full h-full object-cover" />
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-center h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50">
-                                    <p className="text-xs text-slate-400 font-medium">No site photos attached to this report</p>
-                                </div>
-                            )}
-                        </div>
 
                         <div className="space-y-8 mb-10">
                             {/* Operational Intelligence style section */}

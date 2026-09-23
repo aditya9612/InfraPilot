@@ -763,7 +763,7 @@ const TaskManagementPage = () => {
         if (!selectedPassTask || !projectId) return;
 
         if (!passNewUserId) {
-            toast.error("Please select a team member to pass the task to.");
+            toast.error("Please select a team member to pass the task.");
             return;
         }
 

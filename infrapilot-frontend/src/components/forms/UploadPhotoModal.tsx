@@ -31,7 +31,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string; fields?: string[] } | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -124,7 +124,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         setErrors(errs);
         
         if (missingFields.length > 0) {
-            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}` });
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}`, fields: missingFields });
             return false;
         }
         setFormNotification(null);
@@ -198,23 +198,65 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             }
         >
             <form id="site-photo-form" onSubmit={handleFormSubmit} className="space-y-6">
+                {/* Top-right floating toast */}
                 {formNotification && (
-                    <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
-                        <div className="mt-0.5">
-                            {formNotification.type === 'error' ? (
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            ) : (
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            )}
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: '18px',
+                            right: '18px',
+                            zIndex: 99999,
+                            minWidth: '260px',
+                            maxWidth: '380px',
+                            animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                        }}
+                    >
+                        <style>{`
+                            @keyframes slideDownIn {
+                                from { opacity: 0; transform: translateY(-16px); }
+                                to   { opacity: 1; transform: translateY(0); }
+                            }
+                        `}</style>
+                        <div
+                            className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+                            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                        >
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                            }`}>
+                                <span className="text-white text-xs font-bold">
+                                    {formNotification.type === 'error' ? '×' : '✓'}
+                                </span>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                                {formNotification.type === 'error'
+                                    ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                    : formNotification.message}
+                            </p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                         </div>
-                        <div className="flex-1">
-                            <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
-                            <p className="text-xs mt-1">{formNotification.message}</p>
+                    </div>
+                )}
+                {/* Inline Validation Error Banner */}
+                {formNotification && formNotification.type === 'error' && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                        <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-red-600">Validation Error</p>
+                            <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {(formNotification.fields || []).join(', ')}</p>
                         </div>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                    </div>
+                )}
+                {formNotification && formNotification.type === 'success' && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
                     </div>
                 )}
 
@@ -237,7 +279,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             </div>
                         )}
                     </div>
-                    {errors.photo && <p className="text-[10px] text-rose-500 font-bold mt-2 ml-1 uppercase">{errors.photo}</p>}
+                    {errors.photo && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-2 ml-0.5">Required</p>}
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -245,7 +287,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div>
                             <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
+                            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id ? 'err' : '')}>
                                 <option value="">Select Project</option>
                                 {projects.map(p => (
                                     <option key={p.id || p.project_id} value={p.id || p.project_id}>
@@ -253,6 +295,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                     </option>
                                 ))}
                             </select>
+                            {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                         </div>
                         <div>
                             <label className={labelClasses}>Observed Date</label>

@@ -1,8 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, DailyProgressRequest } from "../../types/workProgress";
-import toast from "react-hot-toast";
-
 interface LogProgressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,6 +19,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     remarks: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string, fields?: string[] } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,11 +35,26 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!formData.activity_id) errs.activity_id = "Activity selection is required";
-    if (!formData.entry_date) errs.entry_date = "Date is required";
+    const errorFields: string[] = [];
+
+    if (!formData.activity_id) {
+      errs.activity_id = "Activity selection is required";
+      errorFields.push("Target Activity");
+    }
+    if (!formData.entry_date) {
+      errs.entry_date = "Date is required";
+      errorFields.push("Entry Date");
+    }
     if (!formData.today_progress || formData.today_progress <= 0) {
       errs.today_progress = "Executed quantity must be greater than 0";
+      errorFields.push("Today Progress");
     }
+
+    if (Object.keys(errs).length > 0) {
+      setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: errorFields });
+      setTimeout(() => setFormNotification(null), 5000);
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -48,7 +62,6 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!validate()) {
-      toast.error("Please fill in all required fields.");
       return;
     }
     setIsSubmitting(true);
@@ -110,7 +123,71 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Daily Progress" footer={modalFooter} maxWidth="max-w-2xl">
-      <form id="log-progress-form" onSubmit={handleSubmit} className="space-y-6 p-2 font-inter">
+      <style dangerouslySetInnerHTML={{__html: `
+          @keyframes slideDownIn {
+              from { transform: translateY(-100%); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+          }
+      `}} />
+      
+      {/* Top-right floating toast */}
+      {formNotification && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '18px',
+            right: '18px',
+            zIndex: 99999,
+            minWidth: '260px',
+            maxWidth: '380px',
+            animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+          }}
+        >
+          <style>{`
+            @keyframes slideDownIn {
+              from { opacity: 0; transform: translateY(-16px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          <div
+            className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+              }`}>
+              <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+              {formNotification.type === 'error'
+                ? `Please fill in all mandatory details correctly. \nMissing: ${(formNotification.fields || []).join(', ')}`
+                : formNotification.message}
+            </p>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+          </div>
+        </div>
+      )}
+
+      <form id="log-progress-form" onSubmit={handleSubmit} className="space-y-6 p-2 font-inter relative">
+        {/* Inline Validation Error Banner */}
+        {formNotification && formNotification.type === 'error' && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-red-600">Validation Error</p>
+              <p className="text-xs text-red-500 mt-0.5">Please provide all required information to continue.</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {(formNotification.fields || []).map(field => (
+                  <span key={field} className="px-2 py-1 bg-white border border-red-100 rounded text-[10px] font-bold text-red-600 uppercase tracking-wider">
+                    {field}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+          </div>
+        )}
 
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -137,7 +214,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
                   <option key={a.id} value={a.id}>{a.activity_name}</option>
                 ))}
               </select>
-              {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_id}</p>}
+              {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 uppercase tracking-wider">REQUIRED</p>}
             </div>
           )}
         </div>
@@ -153,7 +230,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
                 className={inputClasses(errors.entry_date)}
                 value={formData.entry_date} onChange={handleChange}
               />
-              {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.entry_date}</p>}
+              {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 uppercase tracking-wider">REQUIRED</p>}
             </div>
             <div>
               <label className={labelClasses}>
@@ -165,7 +242,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
                 value={formData.today_progress} onChange={handleChange}
                 disabled={!!(selectedActivity && selectedActivity.remaining_quantity <= 0)}
               />
-              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.today_progress}</p>}
+              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 uppercase tracking-wider">REQUIRED</p>}
               {selectedActivity && selectedActivity.remaining_quantity <= 0 && (
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">Quantity fully utilized.</p>
               )}

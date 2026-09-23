@@ -11,13 +11,14 @@ import StatCard from "../../components/common/StatCard";
 import Modal from "../../components/common/Modal";
 
 import {
-    Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, ShieldCheck, FileText, ArrowRightLeft, Link2, Wrench, History, QrCode, Check, RefreshCcw
+    Search, Plus, Edit2, Eye, AlertTriangle, Activity, TrendingUp, Download, Trash2, FileText, ArrowRightLeft, Link2, Wrench, History, QrCode, Check, RefreshCcw
 } from "lucide-react";
 import EquipmentFormModal from "../engineer/MachineryManagement/EquipmentFormModal";
 import EquipmentViewModal from "../engineer/MachineryManagement/EquipmentViewModal";
 import TransferEquipmentModal from "../../components/forms/TransferEquipmentModal";
 import CreatePurchaseModal from "../../components/forms/CreatePurchaseModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+
 import { useProject } from "../../context/ProjectContext";
 
 const conditionColors: Record<string, string> = {
@@ -83,7 +84,7 @@ const EquipmentPage = () => {
 
     // Data States
     const [usageReport, setUsageReport] = useState<UsageReport[]>([]);
-    const [maintenanceAlerts, setMaintenanceAlerts] = useState<MaintenanceAlert[]>([]);
+    const [maintenanceAlerts] = useState<MaintenanceAlert[]>([]);
     const [allMaintenance, setAllMaintenance] = useState<any[]>([]);
     const [rentalList, setRentalList] = useState<any[]>([]);
     const [purchaseList, setPurchaseList] = useState<any[]>([]);
@@ -498,7 +499,7 @@ const EquipmentPage = () => {
             const derivedProjectId = formData.project_id || allocationStatus?.project_id || selectedEquipment?.project_id || eqFromList?.project_id || undefined;
 
             if (formData.maintenance_id) {
-                await equipmentService.updateMaintenance(formData.maintenance_id, {
+                await equipmentService.updateMaintenance(formData.equipment_id, formData.maintenance_id, {
                     description: formData.description,
                     maintenance_date: formData.maintenance_date || new Date().toISOString().split('T')[0],
                     cost: Number(formData.cost),
@@ -580,7 +581,7 @@ const EquipmentPage = () => {
         }
     };
 
-    const handleCompleteRental = async (rental_id: number, equipment_id: number) => {
+    const handleCompleteRental = async (rental_id: number) => {
         try {
             await equipmentService.completeRental(rental_id);
             toast.success("Rental marked as completed successfully");
@@ -952,7 +953,7 @@ const EquipmentPage = () => {
                                         }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
                                             <Eye className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleCompleteRental(report.id, report.equipment_id)} disabled={report.status === 'COMPLETED'} className={`p-1.5 rounded ${report.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
+                                        <button onClick={() => handleCompleteRental(report.id)} disabled={report.status === 'COMPLETED'} className={`p-1.5 rounded ${report.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
                                             <Check className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => { setFormData({ ...report, rental_id: report.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
@@ -1580,24 +1581,25 @@ const EquipmentPage = () => {
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-rose-500">*</span></label>
-                            <div className="flex items-center px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                                <input type="checkbox" checked={true} readOnly className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-not-allowed" />
-                                <span className="ml-3 text-sm font-bold text-emerald-700">Set as Allocated</span>
-                            </div>
-                        </div>
+
                         <div className="flex justify-end gap-3 mt-8">
-                            <button
-                                type="button"
-                                onClick={handleDeallocate}
-                                disabled={!(allocationStatus.allocated || Boolean(selectedEquipment?.project_id))}
-                                className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-colors ${(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? 'text-rose-500 hover:bg-rose-50 border border-transparent' : 'text-slate-300 bg-slate-50 border border-slate-200 cursor-not-allowed'}`}
-                            >
-                                Deallocate
-                            </button>
-                            <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                            <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
+                            {(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={handleDeallocate}
+                                        className="px-6 py-2.5 text-sm font-bold rounded-xl transition-colors text-rose-500 hover:bg-rose-50 border border-transparent"
+                                    >
+                                        Deallocate
+                                    </button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
+                                </>
+                            )}
                         </div>
                     </form>
                 </div>
@@ -2053,6 +2055,16 @@ const EquipmentPage = () => {
                     </div>
                 </div>
             </Modal>
+            {/* Delete Equipment Modal */}
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setEquipmentToDelete(null); }}
+                onConfirm={handleDelete}
+                title="Delete Equipment"
+                message="Are you sure you want to delete this equipment? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

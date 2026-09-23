@@ -1099,9 +1099,6 @@ const DrawingsDocumentsPage = () => {
                                                             ) : (
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
                                                             )}
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                                {drawing.file_url || drawing.upload_file || ((drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
-                                                            </span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -1570,7 +1567,7 @@ const DrawingsDocumentsPage = () => {
                     isFolder: viewingDoc.isFolder ?? (viewingDoc.is_folder || false),
                     file_url: viewingDoc.file_url || viewingDoc.blob_url || buildFileUrl(viewingDoc.file_url || viewingDoc.upload_file || ""),
                     contentType: viewingDoc.contentType || viewingDoc.content_type,
-                    uploaded_by: viewingDoc.uploaded_by || usersMap[String(viewingDoc.uploaded_by_user_id || viewingDoc.uploaded_by)] || viewingDoc.uploaded_by_name || "—",
+                    uploaded_by: usersMap[String(viewingDoc.uploaded_by_user_id || viewingDoc.uploaded_by)] || viewingDoc.uploaded_by_name || viewingDoc.uploaded_by || "—",
                     isDrawing: viewingDoc.isDrawing ?? (viewingDoc.type === "Drawing" || !!viewingDoc.drawing_name)
                 } : null}
                 onDownload={handleDownloadDocument}

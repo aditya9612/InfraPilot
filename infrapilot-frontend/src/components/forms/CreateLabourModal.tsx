@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateLabourModalProps {
@@ -27,6 +26,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     useEffect(() => {
         if (initialData) {
@@ -55,19 +55,22 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setFormNotification(null);
         const newErrors: Record<string, string> = {};
+        const missingFields: string[] = [];
 
-        if (!formData.name.trim()) newErrors.name = "Labour type name is required.";
-        if (!formData.category.trim()) newErrors.category = "Category is required.";
-        if (!formData.skill_category) newErrors.skill_category = "Skill category is required.";
+        if (!formData.name.trim()) { newErrors.name = "Required"; missingFields.push("Labour Type Name"); }
+        if (!formData.category.trim()) { newErrors.category = "Required"; missingFields.push("Category"); }
+        if (!formData.skill_category) { newErrors.skill_category = "Required"; missingFields.push("Skill Category"); }
 
-        if (formData.default_daily_wage === "" || Number(formData.default_daily_wage) < 0) newErrors.default_daily_wage = "Daily wage is required and cannot be negative.";
-        if (formData.default_ot_rate_per_hour === "" || Number(formData.default_ot_rate_per_hour) < 0) newErrors.default_ot_rate_per_hour = "OT rate is required and cannot be negative.";
-        if (formData.default_working_hours === "" || Number(formData.default_working_hours) <= 0) newErrors.default_working_hours = "Working hours are required and must be positive.";
+        if (formData.default_daily_wage === "" || Number(formData.default_daily_wage) < 0) { newErrors.default_daily_wage = "Required/Invalid"; missingFields.push("Daily Wage"); }
+        if (formData.default_ot_rate_per_hour === "" || Number(formData.default_ot_rate_per_hour) < 0) { newErrors.default_ot_rate_per_hour = "Required/Invalid"; missingFields.push("OT Rate / Hour"); }
+        if (formData.default_working_hours === "" || Number(formData.default_working_hours) <= 0) { newErrors.default_working_hours = "Required/Invalid"; missingFields.push("Working Hours"); }
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
-            toast.error("Please fill in all required fields.");
+            setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: missingFields });
+            setTimeout(() => setFormNotification(null), 5000);
             return;
         }
 
@@ -101,7 +104,63 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
             title={initialData ? "Edit Labour Type" : "Create Labour Type"}
             footer={modalFooter}
         >
+            {/* Top-right floating toast */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+            @keyframes slideDownIn {
+              from { opacity: 0; transform: translateY(-16px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+                        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                    >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                            }`}>
+                            <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Please fill in all mandatory details correctly. \nMissing: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                    </div>
+                </div>
+            )}
             <form id="labour-master-form" onSubmit={handleSubmit} className="space-y-6">
+                {/* Inline Validation Error Banner */}
+                {formNotification && formNotification.type === 'error' && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                        <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-red-600">Validation Error</p>
+                            <p className="text-xs text-red-500 mt-0.5">Please provide all required information to continue.</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {(formNotification.fields || []).map(field => (
+                                    <span key={field} className="px-2 py-1 bg-white border border-red-100 rounded text-[10px] font-bold text-red-600 uppercase tracking-wider">
+                                        {field}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                    </div>
+                )}
                 <div className="space-y-4">
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -114,7 +173,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         />
-                        {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
+                        {errors.name && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                     </div>
 
                     <div className="space-y-1">
@@ -128,7 +187,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                             value={formData.category}
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                         />
-                        {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
+                        {errors.category && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -149,7 +208,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 <option value="Semi Skilled">Semi Skilled</option>
                                 <option value="Skilled">Skilled</option>
                             </select>
-                            {errors.skill_category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.skill_category}</p>}
+                            {errors.skill_category && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -162,7 +221,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 value={formData.default_daily_wage}
                                 onChange={(e) => setFormData({ ...formData, default_daily_wage: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
-                            {errors.default_daily_wage && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_daily_wage}</p>}
+                            {errors.default_daily_wage && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
                     </div>
 
@@ -178,7 +237,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 value={formData.default_working_hours}
                                 onChange={(e) => setFormData({ ...formData, default_working_hours: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
-                            {errors.default_working_hours && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_working_hours}</p>}
+                            {errors.default_working_hours && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -191,7 +250,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 value={formData.default_ot_rate_per_hour}
                                 onChange={(e) => setFormData({ ...formData, default_ot_rate_per_hour: e.target.value === "" ? "" : Number(e.target.value) })}
                             />
-                            {errors.default_ot_rate_per_hour && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_ot_rate_per_hour}</p>}
+                            {errors.default_ot_rate_per_hour && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
                     </div>
 

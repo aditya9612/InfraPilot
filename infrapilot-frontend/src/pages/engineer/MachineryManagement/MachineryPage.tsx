@@ -2275,25 +2275,18 @@ const MachineryPage = () => {
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">ALLOCATION STATUS <span className="text-red-600">*</span></label>
-                            <div
-                                className={`flex items-center px-4 py-2.5 border rounded-xl transition-colors ${selectedEquipment?.project_id ? 'bg-emerald-50 border-emerald-100 cursor-pointer hover:bg-emerald-100' : 'bg-slate-50 border-slate-200'}`}
-                                onClick={() => { if (selectedEquipment?.project_id) handleDeallocate(); }}
-                            >
-                                <input type="checkbox" checked={!!selectedEquipment?.project_id} readOnly className={`w-4 h-4 rounded ${selectedEquipment?.project_id ? 'text-emerald-500 focus:ring-emerald-500 cursor-pointer' : 'text-slate-300 focus:ring-slate-300'}`} />
-                                <span className={`ml-3 text-sm font-bold ${selectedEquipment?.project_id ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                    {selectedEquipment?.project_id ? "Allocated (Click to Deallocate)" : "Available to Allocate"}
-                                </span>
-                            </div>
-                        </div>
-
                         <div className="flex justify-end gap-3 mt-8">
-                            {allocationStatus.allocated && (
-                                <button type="button" onClick={handleDeallocate} className="px-6 py-2.5 text-sm font-bold text-red-600 hover:bg-rose-50 rounded-xl transition-colors">Deallocate</button>
+                            {allocationStatus.allocated ? (
+                                <>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="button" onClick={handleDeallocate} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">Deallocate</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
+                                </>
                             )}
-                            <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                            <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
                         </div>
                     </form>
                 </div>

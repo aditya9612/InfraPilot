@@ -120,7 +120,9 @@ const SafetyManagementPage = () => {
         safety_checklist_status: "pending",
         ppe_compliance: true
     });
-    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+    const [formFieldErrors, setFormFieldErrors] = useState<Record<string, boolean>>({});
+    const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -363,6 +365,10 @@ const SafetyManagementPage = () => {
         const { name, value, type } = e.target;
         const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
         setFormData((prev: CreateSafetyRequest) => ({ ...prev, [name]: val }));
+        // Clear field error on change
+        if (formFieldErrors[name]) {
+            setFormFieldErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
     // Alpha-only handler for responsible_person field
@@ -375,22 +381,40 @@ const SafetyManagementPage = () => {
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
         setFormNotification(null);
+        setFormFieldErrors({});
 
-        // Field-level validation with specific messages
-        if (!formData.project_id) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Project' });
-            toast.error("Please fill mandatory field: Project", { id: 'validation' });
-            return;
-        }
-        if (!formData.date) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Date' });
-            toast.error("Please fill mandatory field: Date", { id: 'validation' });
+        // Collect ALL missing mandatory fields at once
+        const missingFields: string[] = [];
+        const fieldErrors: Record<string, boolean> = {};
+        if (!formData.project_id) { missingFields.push('Project'); fieldErrors['project_id'] = true; }
+        if (!formData.date) { missingFields.push('Date'); fieldErrors['date'] = true; }
+        if (!formData.ppe_compliance) { missingFields.push('PPE Compliance Checked'); fieldErrors['ppe_compliance'] = true; }
+
+        if (missingFields.length > 0) {
+            const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
+            setFormNotification({ type: 'error', message: msg, fields: missingFields });
+            setFormFieldErrors(fieldErrors);
+            toast.error(msg, { id: 'validation' });
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const newIncident = await safetyService.createIncident({ ...formData, project_id: formData.project_id || projectId || 0 });
+            // Build payload ensuring string defaults for required backend string fields (avoiding 422 validation errors)
+            const payload: CreateSafetyRequest = {
+                ...formData,
+                project_id: Number(formData.project_id) || projectId || 0,
+                task_id: formData.task_id ? Number(formData.task_id) : null,
+                description: formData.description?.trim() || "No description provided",
+                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                injury_details: formData.injury_details?.trim() || "None",
+                action_taken: formData.action_taken?.trim() || "None",
+                violation_type: formData.violation_type || "No Helmet",
+                safety_checklist_status: formData.safety_checklist_status || "pending",
+                ppe_compliance: !!formData.ppe_compliance
+            };
+
+            const newIncident = await safetyService.createIncident(payload);
             setFormNotification({ type: 'success', message: activeTab === "Incident Report" ? 'Incident reported successfully!' : 'Safety audit saved successfully!' });
             toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety audit saved successfully!");
             setIsNewModalOpen(false);
@@ -409,11 +433,20 @@ const SafetyManagementPage = () => {
                 action_taken: "",
                 responsible_person: "",
                 safety_checklist_status: "pending",
-                ppe_compliance: activeTab === "Incident Report" ? true : false
+                ppe_compliance: true
             });
         } catch (error: any) {
-            const msg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || null;
-            const errMsg = msg ? `Error: ${msg}` : (activeTab === "Incident Report" ? "Failed to report incident" : "Failed to save safety audit");
+            let errMsg = activeTab === "Incident Report" ? "Failed to report incident" : "Failed to save safety audit";
+            const detail = error?.response?.data?.detail;
+            if (Array.isArray(detail)) {
+                errMsg = detail.map((d: any) => `${d.loc ? d.loc.join(' -> ') + ': ' : ''}${d.msg || d}`).join(' | ');
+            } else if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (error?.response?.data?.message) {
+                errMsg = error.response.data.message;
+            } else if (error?.message) {
+                errMsg = error.message;
+            }
             setFormNotification({ type: 'error', message: errMsg });
             toast.error(errMsg);
         } finally {
@@ -456,30 +489,56 @@ const SafetyManagementPage = () => {
         if (e) e.preventDefault();
         if (!selectedIncident) return;
         setFormNotification(null);
+        setFormFieldErrors({});
 
-        // Field-level validation for edit
-        if (!formData.project_id) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Project' });
-            toast.error("Please fill mandatory field: Project", { id: 'validation' });
-            return;
-        }
-        if (!formData.date) {
-            setFormNotification({ type: 'error', message: 'Please fill mandatory field: Date' });
-            toast.error("Please fill mandatory field: Date", { id: 'validation' });
+        // Collect ALL missing mandatory fields at once
+        const missingFields: string[] = [];
+        const fieldErrors: Record<string, boolean> = {};
+        if (!formData.project_id) { missingFields.push('Project'); fieldErrors['project_id'] = true; }
+        if (!formData.date) { missingFields.push('Date'); fieldErrors['date'] = true; }
+        if (!formData.ppe_compliance) { missingFields.push('PPE Compliance Checked'); fieldErrors['ppe_compliance'] = true; }
+
+        if (missingFields.length > 0) {
+            const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
+            setFormNotification({ type: 'error', message: msg, fields: missingFields });
+            setFormFieldErrors(fieldErrors);
+            toast.error(msg, { id: 'validation' });
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await safetyService.updateIncident(selectedIncident.id, formData);
+            const payload: CreateSafetyRequest = {
+                ...formData,
+                project_id: Number(formData.project_id),
+                task_id: formData.task_id ? Number(formData.task_id) : null,
+                description: formData.description?.trim() || "No description provided",
+                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                injury_details: formData.injury_details?.trim() || "None",
+                action_taken: formData.action_taken?.trim() || "None",
+                violation_type: formData.violation_type || "No Helmet",
+                safety_checklist_status: formData.safety_checklist_status || "pending",
+                ppe_compliance: !!formData.ppe_compliance
+            };
+
+            await safetyService.updateIncident(selectedIncident.id, payload);
             setFormNotification({ type: 'success', message: 'Safety record updated successfully!' });
             toast.success("Safety record updated successfully!");
             setIsEditModalOpen(false);
             setFormNotification(null);
             fetchData();
         } catch (error: any) {
-            const msg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || null;
-            const errMsg = msg ? `Error: ${msg}` : "Failed to update safety record";
+            let errMsg = "Failed to update safety record";
+            const detail = error?.response?.data?.detail;
+            if (Array.isArray(detail)) {
+                errMsg = detail.map((d: any) => `${d.loc ? d.loc.join(' -> ') + ': ' : ''}${d.msg || d}`).join(' | ');
+            } else if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (error?.response?.data?.message) {
+                errMsg = error.response.data.message;
+            } else if (error?.message) {
+                errMsg = error.message;
+            }
             setFormNotification({ type: 'error', message: errMsg });
             toast.error(errMsg);
         } finally {
@@ -501,6 +560,56 @@ const SafetyManagementPage = () => {
 
     return (
         <>
+            {/* ── Top-Right Floating Toast (matches Drawing/Site Evidence style) ─── */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+                        @keyframes slideDownIn {
+                            from { opacity: 0; transform: translateY(-16px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                    `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5 font-inter"
+                        style={{
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.13)',
+                            border: '1px solid #f1f5f9',
+                        }}
+                    >
+                        {/* Red circle X icon */}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}>
+                            <span className="text-white text-xs font-bold">
+                                {formNotification.type === 'error' ? '×' : '✓'}
+                            </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setFormNotification(null)}
+                            className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5 transition-colors"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", activeTab === "Safety Checklist" ? "Checklist Vault" : "Incident Logs"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -879,21 +988,34 @@ const SafetyManagementPage = () => {
                 }
             >
                 <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
-                    {/* Inline Notification Banner */}
-                    {formNotification && (
-                        <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold font-inter animate-fade-in ${formNotification.type === 'error'
-                                ? 'bg-red-50 border-red-200 text-red-700'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                            }`}>
-                            <span className="text-lg leading-none mt-0.5">
-                                {formNotification.type === 'error' ? '⚠️' : '✅'}
-                            </span>
-                            <span>{formNotification.message}</span>
+                    {/* ── Inline Validation Error Banner (like Drawing/Site Evidence style) ── */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">
+                                    Mandatory fields required: {(formNotification.fields || []).join(', ')}
+                                </p>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => setFormNotification(null)}
-                                className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
-                            >×</button>
+                                className="text-red-300 hover:text-red-500 text-base leading-none transition-colors"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
+                    {formNotification && formNotification.type === 'success' && (
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
                         </div>
                     )}
                     {/* Basic Info */}
@@ -907,9 +1029,11 @@ const SafetyManagementPage = () => {
                                 <select
                                     name="project_id"
                                     value={formData.project_id}
-                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }))}
-                                    className={inputClasses}
-                                    required
+                                    onChange={(e) => {
+                                        setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }));
+                                        if (formFieldErrors['project_id']) setFormFieldErrors(prev => ({ ...prev, project_id: false }));
+                                    }}
+                                    className={`${inputClasses}${formFieldErrors['project_id'] ? ' border-red-400 focus:ring-red-200 ring-1 ring-red-400' : (!formData.project_id ? ' border-slate-300' : '')}`}
                                 >
                                     <option value="">-- Select Project --</option>
                                     {projects.map((p: any) => (
@@ -918,22 +1042,98 @@ const SafetyManagementPage = () => {
                                         </option>
                                     ))}
                                 </select>
+                                {formFieldErrors['project_id'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
+                                )}
                             </div>
                             <div className="md:col-span-2 font-inter">
                                 <label className={labelClasses}>Task</label>
-                                <select
-                                    name="task_id"
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
-                                    className={inputClasses}
-                                >
-                                    <option value="">-- Select Task --</option>
-                                    {tasks.map((t: any) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.title || `Task #${t.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                {/* Custom styled dropdown like Pass Task modal */}
+                                <div className="relative w-full">
+                                    {/* Trigger button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setTaskDropdownOpen(o => !o)}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-sm font-inter transition-all ${
+                                            taskDropdownOpen
+                                                ? 'border-2 border-primary ring-4 ring-primary/10'
+                                                : 'border border-slate-200 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <span className={formData.task_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                                            {formData.task_id
+                                                ? (() => { const t = tasks.find((t: any) => Number(t.id) === Number(formData.task_id)); return t ? (t.title || `Task #${t.id}`) : `Task #${formData.task_id}`; })()
+                                                : '-- Select Task --'}
+                                        </span>
+                                        <svg
+                                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                                                taskDropdownOpen ? 'rotate-180' : ''
+                                            }`}
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Dropdown panel */}
+                                    {taskDropdownOpen && (
+                                        <div
+                                            className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden"
+                                            style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                                        >
+                                            {/* Header row */}
+                                            <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Tasks</span>
+                                            </div>
+                                            {/* Scrollable list */}
+                                            <div className="max-h-48 overflow-y-auto">
+                                                {/* Clear option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setFormData((prev: any) => ({ ...prev, task_id: 0 })); setTaskDropdownOpen(false); }}
+                                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                                                        !formData.task_id
+                                                            ? 'bg-primary/5 text-primary font-semibold'
+                                                            : 'text-slate-400 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    -- Select Task --
+                                                </button>
+                                                {tasks.length === 0 && (
+                                                    <div className="px-4 py-3 text-xs text-slate-400 text-center">No tasks available for this project</div>
+                                                )}
+                                                {tasks.map((t: any) => (
+                                                    <button
+                                                        key={t.id}
+                                                        type="button"
+                                                        onClick={() => { setFormData((prev: any) => ({ ...prev, task_id: t.id })); setTaskDropdownOpen(false); }}
+                                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${
+                                                            Number(formData.task_id) === Number(t.id)
+                                                                ? 'bg-primary/5 text-primary font-semibold'
+                                                                : 'text-slate-700 hover:bg-slate-50 font-medium'
+                                                        }`}
+                                                    >
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0"></span>
+                                                        <span className="truncate">{t.title || `Task #${t.id}`}</span>
+                                                        {t.status && (
+                                                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-slate-400 flex-shrink-0">
+                                                                {t.status}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Click-outside overlay */}
+                                    {taskDropdownOpen && (
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setTaskDropdownOpen(false)}
+                                        />
+                                    )}
+                                </div>
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
@@ -942,9 +1142,11 @@ const SafetyManagementPage = () => {
                                     type="date"
                                     value={formData.date}
                                     onChange={handleInputChange}
-                                    className={inputClasses}
-                                    required
+                                    className={`${inputClasses}${formFieldErrors['date'] ? ' border-red-400 ring-1 ring-red-400' : ''}`}
                                 />
+                                {formFieldErrors['date'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
+                                )}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Responsible Person (Optional)</label>
@@ -1032,18 +1234,26 @@ const SafetyManagementPage = () => {
                                 />
                             </div>
 
-                            <div className="md:col-span-2 font-inter flex items-center gap-3 mt-2">
-                                <input
-                                    type="checkbox"
-                                    name="ppe_compliance"
-                                    id="ppe_compliance"
-                                    checked={formData.ppe_compliance}
-                                    onChange={handleInputChange}
-                                    className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
-                                />
-                                <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700">
-                                    PPE Compliance Checked
-                                </label>
+                            <div className={`md:col-span-2 font-inter flex flex-col gap-1 mt-2 p-3 rounded-xl border transition-all ${formFieldErrors['ppe_compliance'] ? 'border-red-400 bg-red-50' : 'border-transparent'}`}>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        name="ppe_compliance"
+                                        id="ppe_compliance"
+                                        checked={formData.ppe_compliance}
+                                        onChange={handleInputChange}
+                                        className={`w-4 h-4 text-primary rounded focus:ring-primary cursor-pointer ${formFieldErrors['ppe_compliance'] ? 'border-red-400' : 'border-slate-300'}`}
+                                    />
+                                    <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700 cursor-pointer">
+                                        PPE Compliance Checked <span className="text-red-600">*</span>
+                                    </label>
+                                </div>
+                                {formFieldErrors['ppe_compliance'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-0.5 ml-7">Required</p>
+                                )}
+                                {!formFieldErrors['ppe_compliance'] && !formData.ppe_compliance && (
+                                    <p className="text-[10px] text-red-500 font-semibold ml-7">Please check PPE compliance before submitting.</p>
+                                )}
                             </div>
                         </div>
                     </div>
