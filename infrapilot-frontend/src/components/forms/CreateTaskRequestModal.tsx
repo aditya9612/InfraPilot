@@ -1,7 +1,9 @@
 import { useState, type FormEvent, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Modal from "../common/Modal";
+import { UserCircle } from "lucide-react";
+import { CustomSelect } from "../common/CustomDropdown";
 
-import { labourService } from "../../services/labourService";
 import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
 
@@ -44,13 +46,16 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
   }, [isOpen]);
 
   useEffect(() => {
-    // Fetch all labourers globally or filtered by project if one is selected
-    labourService.getLabours(formData.project_id ? Number(formData.project_id) : undefined, { limit: 100 })
-      .then((data: any) => {
-        const members = Array.isArray(data) ? data : (data?.items || data?.data || []);
-        setUsers(members);
-      })
-      .catch(() => setUsers([]));
+    if (formData.project_id && isOpen) {
+      projectService.getProjectMembers(Number(formData.project_id))
+        .then((data: any) => {
+          const members = Array.isArray(data) ? data : (data?.items || data?.data || []);
+          setUsers(members);
+        })
+        .catch(() => setUsers([]));
+    } else {
+      setUsers([]);
+    }
   }, [formData.project_id, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -130,7 +135,7 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Task Request" footer={modalFooter} maxWidth="max-w-xl">
       {/* Top-right floating toast */}
-      {formNotification && (
+      {formNotification && createPortal(
         <div
           style={{
             position: 'fixed',
@@ -164,7 +169,8 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
             </p>
             <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       <form id="create-task-request-form" onSubmit={handleSubmit} className="space-y-4 font-inter">
         {/* Inline Validation Error Banner */}
@@ -240,24 +246,28 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className={labelClasses}>Assigned To</label>
-            <select
-              name="assigned_to"
-              value={formData.assigned_to}
-              onChange={handleChange}
-              className={inputClasses(errors.assigned_to)}
-            >
-              <option value="">Unassigned</option>
-              {users.map((u: any) => {
-                const user = u.user || u;
-                return (
-                  <option key={user.id || user.user_id} value={user.id || user.user_id}>
-                    {user.full_name || user.name || user.labour_name || `User ${user.id || user.user_id}`}
-                  </option>
-                );
-              })}
-            </select>
+          <div className="relative">
+            <CustomSelect
+                label="Assigned To"
+                icon={UserCircle}
+                value={formData.assigned_to || ""}
+                onChange={(val: any) => setFormData(prev => ({ ...prev, assigned_to: val }))}
+                options={[
+                    { id: '', label: 'Unassigned' },
+                    ...users.map((u: any) => {
+                        const user = u.user || u;
+                        return {
+                            id: user.id || user.user_id,
+                            label: user.full_name || user.name || user.labour_name || `User ${user.id || user.user_id}`,
+                            badge: user.skill_type || user.role || 'GENERAL',
+                            searchKey: `${user.worker_code || ''} ${user.id || ''} ${user.role || ''} ${user.name || ''}`
+                        };
+                    })
+                ]}
+                placeholder="Select User"
+                placement="top"
+            />
+            {errors.assigned_to && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.assigned_to}</p>}
           </div>
 
           <div>

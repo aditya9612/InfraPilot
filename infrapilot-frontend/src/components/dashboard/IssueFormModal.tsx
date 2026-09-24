@@ -1,6 +1,6 @@
 import React from "react";
 import Modal from "../common/Modal";
-
+import { CustomSelect } from "../common/CustomDropdown";
 interface IssueFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -63,45 +63,37 @@ const IssueFormModal: React.FC<IssueFormModalProps> = ({
                                 {errors.title && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.title}</p>}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Classification Category <span className="text-rose-500">*</span></label>
-                                    <div className="relative font-inter">
-                                        <select
-                                            name="category"
-                                            value={formData.category}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10 font-inter ${errors.category ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                        >
-                                            <option value="Material">Material Delay / Shortage</option>
-                                            <option value="Labor">Labor Disruption / Conflict</option>
-                                            <option value="Design">Architectural / Design Clarification</option>
-                                            <option value="Delay">Planning / Execution Delay</option>
-                                            <option value="Quality">Quality / Inspection Issue</option>
-                                            <option value="Safety">Safety / Compliance Alert</option>
-                                        </select>
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                        </span>
-                                    </div>
+                                <div className="flex flex-col gap-1.5 font-inter z-[66] relative">
+                                    <CustomSelect
+                                        label="Classification Category"
+                                        required
+                                        value={formData.category}
+                                        onChange={(val) => handleInputChange({ target: { name: 'category', value: val } } as any)}
+                                        options={[
+                                            { id: 'Material', label: 'Material Delay / Shortage' },
+                                            { id: 'Labor', label: 'Labor Disruption / Conflict' },
+                                            { id: 'Design', label: 'Architectural / Design Clarification' },
+                                            { id: 'Delay', label: 'Planning / Execution Delay' },
+                                            { id: 'Quality', label: 'Quality / Inspection Issue' },
+                                            { id: 'Safety', label: 'Safety / Compliance Alert' }
+                                        ]}
+                                        error={!!errors.category}
+                                    />
                                     {errors.category && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.category}</p>}
                                 </div>
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Priority Matrix <span className="text-rose-500">*</span></label>
-                                    <div className="relative font-inter">
-                                        <select
-                                            name="priority"
-                                            value={formData.priority}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10 font-inter ${errors.priority ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                        >
-                                            <option value="Low">Low Priority</option>
-                                            <option value="Medium">Medium Priority</option>
-                                            <option value="High">Critical Priority</option>
-                                        </select>
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                        </span>
-                                    </div>
+                                <div className="flex flex-col gap-1.5 font-inter z-[65] relative">
+                                    <CustomSelect
+                                        label="Priority Matrix"
+                                        required
+                                        value={formData.priority}
+                                        onChange={(val) => handleInputChange({ target: { name: 'priority', value: val } } as any)}
+                                        options={[
+                                            { id: 'Low', label: 'Low Priority' },
+                                            { id: 'Medium', label: 'Medium Priority' },
+                                            { id: 'High', label: 'Critical Priority' }
+                                        ]}
+                                        error={!!errors.priority}
+                                    />
                                     {errors.priority && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.priority}</p>}
                                 </div>
                             </div>
@@ -158,22 +150,16 @@ const IssueFormModal: React.FC<IssueFormModalProps> = ({
                                     />
                                     {errors.assigned_to && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.assigned_to}</p>}
                                 </div>
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Current Status</label>
-                                    <div className="relative font-inter">
-                                        <select
-                                            name="status"
-                                            value={formData.status}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none appearance-none cursor-pointer pr-10 font-inter"
-                                        >
-                                            <option value="Open">Registry Open</option>
-                                            <option value="Closed">Resolved & Closed</option>
-                                        </select>
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                        </span>
-                                    </div>
+                                <div className="flex flex-col gap-1.5 font-inter z-[64] relative">
+                                    <CustomSelect
+                                        label="Current Status"
+                                        value={formData.status}
+                                        onChange={(val) => handleInputChange({ target: { name: 'status', value: val } } as any)}
+                                        options={[
+                                            { id: 'Open', label: 'Registry Open' },
+                                            { id: 'Closed', label: 'Resolved & Closed' }
+                                        ]}
+                                    />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1.5 font-inter">

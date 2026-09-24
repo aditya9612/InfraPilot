@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Modal from '../common/Modal';
+import { CustomSelect } from '../common/CustomDropdown';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -285,16 +286,19 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Contextual Metadata</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                        <div>
-                            <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id ? 'err' : '')}>
-                                <option value="">Select Project</option>
-                                {projects.map(p => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="z-[66] relative">
+                            <CustomSelect
+                                label="Project Context"
+                                required
+                                value={formData.project_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, project_id: val }))}
+                                options={projects.map((p: any) => ({
+                                    id: (p.id || p.project_id).toString(),
+                                    label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                }))}
+                                placeholder="Select Project"
+                                error={!!errors.project_id}
+                            />
                             {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                         </div>
                         <div>
@@ -303,42 +307,54 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                        <div>
-                            <label className={labelClasses}>Task <span className="normal-case text-slate-300">(optional)</span></label>
-                            <select name="task_id" value={formData.task_id} onChange={handleChange} className={inputClasses(errors.task_id)}>
-                                <option value="">Select Task...</option>
-                                {tasks.map(t => (
-                                    <option key={t.id} value={t.id}>{t.title || `Task #${t.id}`}</option>
-                                ))}
-                            </select>
+                        <div className="z-[65] relative">
+                            <CustomSelect
+                                label={<span>Task <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                value={formData.task_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, task_id: val }))}
+                                options={tasks.map((t: any) => ({
+                                    id: t.id.toString(),
+                                    label: t.title || `Task #${t.id}`
+                                }))}
+                                placeholder="Select Task..."
+                            />
                         </div>
-                        <div>
-                            <label className={labelClasses}>DSR <span className="normal-case text-slate-300">(optional)</span></label>
-                            <select name="dsr_id" value={formData.dsr_id} onChange={handleChange} className={inputClasses(errors.dsr_id)}>
-                                <option value="">Select DSR...</option>
-                                {dsrs.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {`DSR #${d.id}`}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="z-[64] relative">
+                            <CustomSelect
+                                label={<span>DSR <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                value={formData.dsr_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, dsr_id: val }))}
+                                options={dsrs.map((d: any) => ({
+                                    id: d.id.toString(),
+                                    label: `DSR #${d.id}`
+                                }))}
+                                placeholder="Select DSR..."
+                            />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        <div>
-                            <label className={labelClasses}>Activity Tag</label>
-                            <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>
-                                <option value="">Select Activity</option>
-                                {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                        <div className="z-[63] relative">
+                            <CustomSelect
+                                label="Activity Tag"
+                                value={formData.activity_tag}
+                                onChange={(val) => setFormData(prev => ({ ...prev, activity_tag: val }))}
+                                options={[
+                                    { id: '', label: 'Select Activity' },
+                                    ...ACTIVITY_TAGS.map(t => ({ id: t, label: t }))
+                                ]}
+                            />
                         </div>
-                        <div>
-                            <label className={labelClasses}>Location Zone</label>
-                            <select name="location_tag" value={formData.location_tag} onChange={handleChange} className={inputClasses(errors.location_tag)}>
-                                <option value="">Select Location</option>
-                                {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                        <div className="z-[62] relative">
+                            <CustomSelect
+                                label="Location Zone"
+                                value={formData.location_tag}
+                                onChange={(val) => setFormData(prev => ({ ...prev, location_tag: val }))}
+                                options={[
+                                    { id: '', label: 'Select Location' },
+                                    ...LOCATION_TAGS.map(t => ({ id: t, label: t }))
+                                ]}
+                            />
                         </div>
                     </div>
                 </div>

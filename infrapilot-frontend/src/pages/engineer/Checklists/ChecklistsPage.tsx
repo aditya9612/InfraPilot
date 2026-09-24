@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
@@ -897,20 +898,19 @@ const ChecklistsPage = () => {
                             Protocol Intelligence Profile
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select
-                                    value={newChecklistProjectId}
-                                    onChange={(e) => setNewChecklistProjectId(e.target.value)}
-                                    className={inputClasses}
-                                >
-                                    <option value="">Select Project</option>
-                                    {projects.map(p => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={newChecklistProjectId?.toString() || ""}
+                                    onChange={(val) => setNewChecklistProjectId(val)}
+                                    options={projects.map(p => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                    error={!!errors.project_id}
+                                />
                                 {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
                             </div>
                             <div className="font-inter">
@@ -924,17 +924,18 @@ const ChecklistsPage = () => {
                                 />
                                 {errors.name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.name}</p>}
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Domain Category</label>
-                                <select
+                            <div className="font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Domain Category"
                                     value={newChecklistType}
-                                    onChange={(e) => setNewChecklistType(e.target.value)}
-                                    className={inputClasses}
-                                >
-                                    <option value="">Select Category</option>
-                                    <option value="Daily Checklist">Daily Checklist</option>
-                                    <option value="Activity Checklist">Activity Checklist</option>
-                                </select>
+                                    onChange={(val) => setNewChecklistType(val)}
+                                    options={[
+                                        { id: 'Daily Checklist', label: 'Daily Checklist' },
+                                        { id: 'Activity Checklist', label: 'Activity Checklist' }
+                                    ]}
+                                    placeholder="Select Category"
+                                    error={!!errors.type}
+                                />
                                 {errors.type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.type}</p>}
                             </div>
                         </div>
@@ -1030,20 +1031,18 @@ const ChecklistsPage = () => {
                             Update Intelligence Profile
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select
-                                    value={editChecklistProjectId}
-                                    onChange={(e) => setEditChecklistProjectId(e.target.value)}
-                                    className={inputClasses}
-                                >
-                                    <option value="">Select Project</option>
-                                    {projects.map(p => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={editChecklistProjectId?.toString() || ""}
+                                    onChange={(val) => setEditChecklistProjectId(val)}
+                                    options={projects.map(p => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                />
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
@@ -1065,16 +1064,16 @@ const ChecklistsPage = () => {
                                     className={inputClasses + " resize-none"}
                                 />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Status</label>
-                                <select
+                            <div className="font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Status"
                                     value={editChecklistIsActive ? "true" : "false"}
-                                    onChange={(e) => setEditChecklistIsActive(e.target.value === "true")}
-                                    className={inputClasses}
-                                >
-                                    <option value="true">Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
+                                    onChange={(val) => setEditChecklistIsActive(val === "true")}
+                                    options={[
+                                        { id: 'true', label: 'Active' },
+                                        { id: 'false', label: 'Inactive' }
+                                    ]}
+                                />
                             </div>
                         </div>
                     </div>

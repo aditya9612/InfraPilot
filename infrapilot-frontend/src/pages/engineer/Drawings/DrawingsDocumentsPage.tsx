@@ -4,6 +4,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
     Loader2,
@@ -1288,16 +1289,19 @@ const DrawingsDocumentsPage = () => {
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
-                                <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>Project Name <span className="text-rose-500">*</span></label>
-                                    <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
-                                        <option value="">Select Project</option>
-                                        {projects.map(p => (
-                                            <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                                {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="font-inter md:col-span-2 z-[66] relative">
+                                    <CustomSelect
+                                        label="Project Name"
+                                        required
+                                        value={formData.project_id?.toString() || ""}
+                                        onChange={(val) => handleInputChange({ target: { name: 'project_id', value: val } } as any)}
+                                        options={projects.map((p: any) => ({
+                                            id: (p.id || p.project_id).toString(),
+                                            label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                        }))}
+                                        placeholder="Select Project"
+                                        error={!!errors.project_id}
+                                    />
                                     {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                                 </div>
                             )}
@@ -1614,13 +1618,17 @@ const DrawingsDocumentsPage = () => {
                                 <label className={labelClasses}>Document Type</label>
                                 <input type="text" className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Status</label>
-                                <select className={inputClasses()} value={docEditFormData.status} onChange={e => setDocEditFormData({ ...docEditFormData, status: e.target.value })}>
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="APPROVED">APPROVED</option>
-                                    <option value="REJECTED">REJECTED</option>
-                                </select>
+                            <div className="font-inter z-[66] relative">
+                                <CustomSelect
+                                    label="Status"
+                                    value={docEditFormData.status}
+                                    onChange={(val) => setDocEditFormData({ ...docEditFormData, status: val })}
+                                    options={[
+                                        { id: 'PENDING', label: 'PENDING' },
+                                        { id: 'APPROVED', label: 'APPROVED' },
+                                        { id: 'REJECTED', label: 'REJECTED' }
+                                    ]}
+                                />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Version</label>
@@ -1678,16 +1686,18 @@ const DrawingsDocumentsPage = () => {
                             Core Document Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select required className={inputClasses()} value={docCreateFormData.project_id} onChange={e => setDocCreateFormData({ ...docCreateFormData, project_id: Number(e.target.value) })}>
-                                    <option value="">Select Project</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={docCreateFormData.project_id?.toString() || ""}
+                                    onChange={(val) => setDocCreateFormData({ ...docCreateFormData, project_id: Number(val) })}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
@@ -1743,16 +1753,18 @@ const DrawingsDocumentsPage = () => {
                             Core Folder Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select required className={inputClasses()} value={drawingFolderFormData.project_id} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, project_id: Number(e.target.value) })}>
-                                    <option value="">Select Project</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={drawingFolderFormData.project_id?.toString() || ""}
+                                    onChange={(val) => setDrawingFolderFormData({ ...drawingFolderFormData, project_id: Number(val) })}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                />
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>

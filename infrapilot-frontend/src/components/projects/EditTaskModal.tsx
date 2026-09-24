@@ -7,8 +7,9 @@ import { projectService } from "../../services/projectService";
 import { masterService } from "../../services/masterService";
 import type { BoqItem } from "../../types/boq";
 import type { Task, TaskStatus, ProjectMember } from "../../types/project";
-import { Mic, Square, Trash } from "lucide-react";
+import { Mic, Square, Trash, Briefcase, ListTodo, UserCircle, Activity, FileText, Check } from "lucide-react";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { CustomSelect } from "../common/CustomDropdown";
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -197,6 +198,22 @@ const EditTaskModal = ({
       });
     }
   };
+
+  const handleSelectChange = (name: string, value: string | number) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: ["priority", "assigned_user_id", "completion_percentage", "boq_id", "milestone_id", "activity_type_id"].includes(name)
+        ? (value ? (name === "priority" ? sanitizePriority(value) : parseInt(value as string)) : "")
+        : value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -456,22 +473,21 @@ const EditTaskModal = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Priority <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
+              <div className="flex-1">
+                <CustomSelect
+                  label="Priority"
+                  icon={Briefcase}
                   required
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value={4}>Low</option>
-                  <option value={3}>Medium</option>
-                  <option value={2}>High</option>
-                  <option value={1}>Critical</option>
-                </select>
+                  value={formData.priority}
+                  onChange={(val) => handleSelectChange('priority', val)}
+                  options={[
+                    { id: 4, label: 'Low' },
+                    { id: 3, label: 'Medium' },
+                    { id: 2, label: 'High' },
+                    { id: 1, label: 'Critical' },
+                  ]}
+                  error={errors.priority}
+                />
               </div>
 
               <div>
@@ -500,90 +516,75 @@ const EditTaskModal = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Status
-                </label>
-                <select
-                  name="status"
+              <div className="flex-1">
+                <CustomSelect
+                  label="Status"
+                  icon={Activity}
                   value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="Planned">Planned</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
+                  onChange={(val) => handleSelectChange('status', val)}
+                  options={[
+                    { id: 'Planned', label: 'Planned' },
+                    { id: 'In Progress', label: 'In Progress' },
+                    { id: 'Completed', label: 'Completed' },
+                    { id: 'Cancelled', label: 'Cancelled' },
+                  ]}
+                />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Assigned User <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  name="assigned_user_id"
-                  value={formData.assigned_user_id}
-                  onChange={handleChange}
+              <div className="flex-1">
+                <CustomSelect
+                  label="Assigned User"
+                  icon={UserCircle}
+                  required
                   disabled
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-not-allowed opacity-70"
-                >
-                  <option value="">Select User</option>
-                  {members.map((m) => (
-                    <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
-                  ))}
-                </select>
+                  placeholder="Select User"
+                  value={formData.assigned_user_id}
+                  onChange={(val) => handleSelectChange('assigned_user_id', val)}
+                  options={members.map((m) => ({ id: m.user_id, label: m.full_name }))}
+                  error={errors.assigned_user_id}
+                />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Activity Type
-                </label>
-                <select
-                  name="activity_type_id"
+              <div className="flex-1">
+                <CustomSelect
+                  label="Activity Type"
+                  icon={ListTodo}
+                  placeholder="None"
                   value={formData.activity_type_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">None</option>
-                  {activityTypes.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.activity_name || a.name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => handleSelectChange('activity_type_id', val)}
+                  options={[
+                    { id: '', label: 'None' },
+                    ...activityTypes.map((a: any) => ({ id: a.id, label: a.activity_name || a.name }))
+                  ]}
+                />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Milestone
-                </label>
-                <select
-                  name="milestone_id"
+              <div className="flex-1">
+                <CustomSelect
+                  label="Milestone"
+                  icon={Check}
+                  placeholder="None"
                   value={formData.milestone_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">None</option>
-                  {milestones.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.title || m.name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => handleSelectChange('milestone_id', val)}
+                  options={[
+                    { id: '', label: 'None' },
+                    ...milestones.map((m: any) => ({ id: m.id, label: m.title || m.name }))
+                  ]}
+                />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  BOQ Link
-                </label>
-                <select
-                  name="boq_id"
+              <div className="flex-1">
+                <CustomSelect
+                  label="BOQ Link"
+                  icon={FileText}
+                  placeholder="None"
                   value={formData.boq_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">None</option>
-                  {boqItems.map((b: any) => (
-                    <option key={b.id} value={b.id}>{b.item_name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => handleSelectChange('boq_id', val)}
+                  options={[
+                    { id: '', label: 'None' },
+                    ...boqItems.map((b: any) => ({ id: b.id, label: b.item_name }))
+                  ]}
+                />
               </div>
 
               <div className="col-span-1 md:col-span-2">

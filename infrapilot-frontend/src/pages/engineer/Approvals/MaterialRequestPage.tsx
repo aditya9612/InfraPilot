@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
     Search,
@@ -708,36 +709,35 @@ const MaterialRequestPage = () => {
                             Requisition Core Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter">
-                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
-                                <select
-                                    name="project_id"
-                                    value={formData.project_id}
-                                    onChange={handleInputChange}
-                                    className={inputClasses(errors.project_id)}
-                                >
-                                    <option value="">-- Select Project --</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter z-[66] relative">
+                                <CustomSelect
+                                    label="Project"
+                                    required
+                                    value={formData.project_id?.toString() || ""}
+                                    onChange={(val) => handleInputChange({ target: { name: 'project_id', value: val } } as any)}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="-- Select Project --"
+                                    error={!!errors.project_id}
+                                />
                                 {errors.project_id && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Resource Classification <span className="text-rose-500">*</span></label>
-                                <select
-                                    name="request_type"
+                            <div className="font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Resource Classification"
+                                    required
                                     value={formData.request_type}
-                                    onChange={handleInputChange}
-                                    className={inputClasses(errors.request_type)}
-                                >
-                                    <option value="Material">Material</option>
-                                    <option value="Equipment">Equipment</option>
-                                    <option value="Labour">Labour</option>
-                                    <option value="Work">Work</option>
-                                </select>
+                                    onChange={(val) => handleInputChange({ target: { name: 'request_type', value: val } } as any)}
+                                    options={[
+                                        { id: 'Material', label: 'Material' },
+                                        { id: 'Equipment', label: 'Equipment' },
+                                        { id: 'Labour', label: 'Labour' },
+                                        { id: 'Work', label: 'Work' }
+                                    ]}
+                                    error={!!errors.request_type}
+                                />
                                 {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}
                             </div>
                         </div>

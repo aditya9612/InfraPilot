@@ -4,6 +4,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
     Search,
@@ -954,78 +955,73 @@ const QCInspectionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
-                                <select
-                                    value={formData.project_id}
-                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
-                                    className={inputClasses(errors.project_id)}
-                                >
-                                    <option value="">-- Select project --</option>
-                                    {projects.map(p => (
-                                        <option key={p.project_id || p.id} value={p.project_id || p.id}>
-                                            {p.project_name || p.name}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="z-[66]">
+                                <CustomSelect
+                                    label="Project"
+                                    required
+                                    value={formData.project_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, project_id: Number(val) })}
+                                    options={projects.map(p => ({
+                                        id: (p.project_id || p.id).toString(),
+                                        label: p.project_name || p.name
+                                    }))}
+                                    placeholder="-- Select project --"
+                                    error={!!errors.project_id}
+                                />
                                 {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>Task</label>
-                                <select
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
-                                    className={inputClasses()}
+                            <div className="z-[65]">
+                                <CustomSelect
+                                    label="Task"
+                                    value={formData.task_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, task_id: val ? Number(val) : null })}
+                                    options={availableTasks.map(t => ({
+                                        id: t.id.toString(),
+                                        label: t.title || t.name || `Task #${t.id}`
+                                    }))}
+                                    placeholder="-- Select task --"
                                     disabled={isFetchingDeps}
-                                >
-                                    <option value="">-- Select task --</option>
-                                    {availableTasks.map(t => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.title || t.name || `Task #${t.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>DSR</label>
-                                <select
-                                    value={formData.dsr_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
-                                    className={inputClasses()}
+                            <div className="z-[64]">
+                                <CustomSelect
+                                    label="DSR"
+                                    value={formData.dsr_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, dsr_id: val ? Number(val) : null })}
+                                    options={availableDsrs.map(d => ({
+                                        id: d.id.toString(),
+                                        label: `DSR - ${d.report_date ? new Date(d.report_date).toLocaleDateString() : (d.date || d.id)}`
+                                    }))}
+                                    placeholder="-- Select DSR --"
                                     disabled={isFetchingDeps}
-                                >
-                                    <option value="">-- Select DSR --</option>
-                                    {availableDsrs.map(d => (
-                                        <option key={d.id} value={d.id}>
-                                            DSR - {d.report_date ? new Date(d.report_date).toLocaleDateString() : (d.date || d.id)}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>Inspection Type <span className="text-red-600">*</span></label>
-                                <select
+                            <div className="z-[63]">
+                                <CustomSelect
+                                    label="Inspection Type"
+                                    required
                                     value={formData.inspection_type}
-                                    onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
-                                    className={inputClasses(errors.inspection_type)}
-                                >
-                                    {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, inspection_type: val })}
+                                    options={INSPECTION_TYPES.map(t => ({ id: t, label: t }))}
+                                    error={!!errors.inspection_type}
+                                    placeholder="-- Select type --"
+                                />
                                 {errors.inspection_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>Test Type <span className="text-red-600">*</span></label>
-                                <select
+                            <div className="z-[62]">
+                                <CustomSelect
+                                    label="Test Type"
+                                    required
                                     value={formData.test_type}
-                                    onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
-                                    className={inputClasses(errors.test_type)}
-                                >
-                                    {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, test_type: val })}
+                                    options={TEST_TYPES.map(t => ({ id: t, label: t }))}
+                                    error={!!errors.test_type}
+                                    placeholder="-- Select test --"
+                                />
                                 {errors.test_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
@@ -1061,34 +1057,34 @@ const QCInspectionPage = () => {
                                 {errors.standard_value && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.standard_value}</p>}
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>Status <span className="text-red-600">*</span></label>
-                                <select
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="Status"
+                                    required
                                     value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer focus:ring-2 ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700 focus:ring-emerald-500/20' : 'bg-rose-50 border-rose-100 text-rose-700 focus:ring-rose-500/20'}`}
-                                >
-                                    <option value="Pass">Pass</option>
-                                    <option value="Fail">Fail</option>
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, status: val })}
+                                    options={[
+                                        { id: "Pass", label: "Pass" },
+                                        { id: "Fail", label: "Fail" }
+                                    ]}
+                                    error={!!errors.status}
+                                    placeholder="-- Select status --"
+                                />
                                 {errors.status && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.status}</p>}
                             </div>
 
-                            <div>
-                                <label className={labelClasses}>Engineer Name</label>
-                                <select
-                                    value={formData.engineer_name}
-                                    onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
-                                    className={inputClasses()}
+                            <div className="z-[58]">
+                                <CustomSelect
+                                    label="Engineer Name"
                                     required
-                                >
-                                    <option value="">Enter auditor name...</option>
-                                    {availableEngineers.map(eng => (
-                                        <option key={eng.user_id || eng.id} value={eng.full_name || eng.name}>
-                                            {eng.full_name || eng.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    value={formData.engineer_name}
+                                    onChange={(val) => setFormData({ ...formData, engineer_name: val })}
+                                    options={availableEngineers.map(eng => ({
+                                        id: eng.full_name || eng.name,
+                                        label: eng.full_name || eng.name
+                                    }))}
+                                    placeholder="Enter auditor name..."
+                                />
                             </div>
 
                             <div className="md:col-span-2">

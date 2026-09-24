@@ -4,6 +4,7 @@ import Navbar from "../../../components/common/Navbar";
 
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import {
     Search,
     Eye,
@@ -710,16 +711,19 @@ const IssueTrackerPage = () => {
                     {/* Project */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Project</h3>
-                        <div>
-                            <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
-                            <select name="project_id" value={formData.project_id} onChange={(e) => setFormData(prev => ({ ...prev, project_id: Number(e.target.value) }))} className={inputClasses(errors.project_id)}>
-                                <option value="">-- Select Project --</option>
-                                {projects.map((p: any) => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="z-[66] relative">
+                            <CustomSelect
+                                label="Project"
+                                required
+                                value={formData.project_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, project_id: Number(val) }))}
+                                options={projects.map((p: any) => ({
+                                    id: (p.id || p.project_id).toString(),
+                                    label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                }))}
+                                placeholder="-- Select Project --"
+                                error={!!errors.project_id}
+                            />
                             {errors.project_id && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.project_id}</p>}
                         </div>
                     </div>
@@ -733,24 +737,35 @@ const IssueTrackerPage = () => {
                                 <input name="title" value={formData.title} onChange={handleInputChange} className={inputClasses(errors.title)} />
                                 {errors.title && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.title}</p>}
                             </div>
-                            <div>
-                                <label className={labelClasses}>Category <span className="text-red-600">*</span></label>
-                                <select name="category" value={formData.category} onChange={handleInputChange} className={inputClasses(errors.category)}>
-                                    <option value="Material">Material</option>
-                                    <option value="Safety">Safety</option>
-                                    <option value="Delay">Delay</option>
-
-                                </select>
+                            <div className="z-[65] relative">
+                                <CustomSelect
+                                    label="Category"
+                                    required
+                                    value={formData.category}
+                                    onChange={(val) => handleInputChange({ target: { name: 'category', value: val } } as any)}
+                                    options={[
+                                        { id: 'Material', label: 'Material' },
+                                        { id: 'Safety', label: 'Safety' },
+                                        { id: 'Delay', label: 'Delay' }
+                                    ]}
+                                    error={!!errors.category}
+                                />
                                 {errors.category && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.category}</p>}
                             </div>
-                            <div>
-                                <label className={labelClasses}>Priority <span className="text-red-600">*</span></label>
-                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses(errors.priority)}>
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                    <option value="Critical">Critical</option>
-                                </select>
+                            <div className="z-[64] relative">
+                                <CustomSelect
+                                    label="Priority"
+                                    required
+                                    value={formData.priority}
+                                    onChange={(val) => handleInputChange({ target: { name: 'priority', value: val } } as any)}
+                                    options={[
+                                        { id: 'Low', label: 'Low' },
+                                        { id: 'Medium', label: 'Medium' },
+                                        { id: 'High', label: 'High' },
+                                        { id: 'Critical', label: 'Critical' }
+                                    ]}
+                                    error={!!errors.priority}
+                                />
                                 {errors.priority && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.priority}</p>}
                             </div>
                             <div>
@@ -758,16 +773,19 @@ const IssueTrackerPage = () => {
                                 <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
                                 {errors.reported_date && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.reported_date}</p>}
                             </div>
-                            <div>
-                                <label className={labelClasses}>Assigned To</label>
-                                <select name="assigned_to" value={formData.assigned_to || ""} onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value ? Number(e.target.value) : null }))} className={inputClasses()}>
-                                    <option value="">-- Unassigned --</option>
-                                    {projectMembers.map((member: any) => (
-                                        <option key={member.id || member.user_id} value={member.user?.id || member.user_id || member.id}>
-                                            {member.user?.full_name || member.name || member.full_name || `User #${member.user?.id || member.user_id || member.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="z-[63] relative">
+                                <CustomSelect
+                                    label="Assigned To"
+                                    value={formData.assigned_to?.toString() || ""}
+                                    onChange={(val) => setFormData(prev => ({ ...prev, assigned_to: val ? Number(val) : null }))}
+                                    options={[
+                                        { id: '', label: '-- Unassigned --' },
+                                        ...projectMembers.map((member: any) => ({
+                                            id: (member.user?.id || member.user_id || member.id).toString(),
+                                            label: member.user?.full_name || member.name || member.full_name || `User #${member.user?.id || member.user_id || member.id}`
+                                        }))
+                                    ]}
+                                />
                             </div>
                         </div>
                     </div>

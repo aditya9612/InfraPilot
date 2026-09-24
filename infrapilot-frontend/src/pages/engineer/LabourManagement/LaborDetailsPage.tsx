@@ -611,17 +611,6 @@ const LaborDetailsPage = () => {
 
 
 
-                {/* Skill Summary Pills (GET /labour/summary/skill) */}
-                {skillSummary.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest self-center">Skill Summary:</span>
-                        {skillSummary.map((s: any, i: number) => (
-                            <span key={i} className="px-3 py-1.5 bg-primary/5 text-primary border border-primary/10 rounded-full text-xs font-bold">
-                                {s.skill_type || s.skill || `Skill ${i + 1}`}: <span className="font-extrabold">{s.count}</span>
-                            </span>
-                        ))}
-                    </div>
-                )}
 
                 {/* Main Container */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">

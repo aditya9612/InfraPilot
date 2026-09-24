@@ -3,6 +3,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
@@ -837,49 +838,51 @@ const WorkApprovalPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Authorization Identity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-inter">
-                            <div>
-                                <label className={labelClasses}>Entity Type <span className="text-rose-500">*</span></label>
-                                <select name="entity_type" value={formData.entity_type} onChange={handleInputChange} className={inputClasses(errors.entity_type)}>
-                                    <option value="material">Material</option>
-                                    <option value="labour">Labour</option>
-                                    <option value="equipment">Equipment</option>
-                                    <option value="drawing">Drawing</option>
-                                    <option value="document">Document</option>
-                                    <option value="qc">QC</option>
-                                    <option value="safety">Safety</option>
-                                </select>
+                            <div className="z-[66] relative">
+                                <CustomSelect
+                                    label="Entity Type"
+                                    required
+                                    value={formData.entity_type}
+                                    onChange={(val) => handleInputChange({ target: { name: 'entity_type', value: val } } as any)}
+                                    options={[
+                                        { id: 'material', label: 'Material' },
+                                        { id: 'labour', label: 'Labour' },
+                                        { id: 'equipment', label: 'Equipment' },
+                                        { id: 'drawing', label: 'Drawing' },
+                                        { id: 'document', label: 'Document' },
+                                        { id: 'qc', label: 'QC' },
+                                        { id: 'safety', label: 'Safety' }
+                                    ]}
+                                    error={!!errors.entity_type}
+                                />
                                 {errors.entity_type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entity_type}</p>}
                             </div>
-                            <div>
-                                <label className={labelClasses}>Entity ID <span className="text-rose-500">*</span></label>
-                                <div className="relative">
-                                    <select
-                                        name="entity_id"
-                                        value={formData.entity_id}
-                                        onChange={handleInputChange}
-                                        className={inputClasses(errors.entity_id)}
-                                        disabled={isFetchingEntities || availableEntities.length === 0}
-                                    >
-                                        <option value="">{isFetchingEntities ? "Loading..." : (availableEntities.length === 0 ? "No pending items" : "Select an item")}</option>
-                                        {availableEntities.map((item, idx) => {
-                                            const id = item.id || item.labour_id || item.material_id || item.equipment_id || item.drawing_id || item.document_id || item.qc_id || item.safety_id || item.incident_id || idx;
-                                            let name = item.name || item.title || item.drawing_name || item.material_name || item.labour_name || item.equipment_name || item.item_name || item.description || "";
-                                            if (formData.entity_type === 'qc') name = item.inspection_type || item.test_type || name;
-                                            if (formData.entity_type === 'safety') name = item.incident_type || item.description || name;
-                                            return (
-                                                <option key={id} value={id}>
-                                                    {name ? name : `#${id}`}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                    {isFetchingEntities && (
-                                        <div className="absolute right-10 top-1/2 -translate-y-1/2">
-                                            <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
+                            <div className="z-[65] relative">
+                                <CustomSelect
+                                    label="Entity ID"
+                                    required
+                                    value={formData.entity_id?.toString() || ""}
+                                    onChange={(val) => handleInputChange({ target: { name: 'entity_id', value: val } } as any)}
+                                    options={availableEntities.map((item, idx) => {
+                                        const id = item.id || item.labour_id || item.material_id || item.equipment_id || item.drawing_id || item.document_id || item.qc_id || item.safety_id || item.incident_id || idx;
+                                        let name = item.name || item.title || item.drawing_name || item.material_name || item.labour_name || item.equipment_name || item.item_name || item.description || "";
+                                        if (formData.entity_type === 'qc') name = item.inspection_type || item.test_type || name;
+                                        if (formData.entity_type === 'safety') name = item.incident_type || item.description || name;
+                                        return {
+                                            id: id.toString(),
+                                            label: name ? name : `#${id}`
+                                        };
+                                    })}
+                                    placeholder={isFetchingEntities ? "Loading..." : (availableEntities.length === 0 ? "No pending items" : "Select an item")}
+                                    error={!!errors.entity_id}
+                                    disabled={isFetchingEntities || availableEntities.length === 0}
+                                />
                                 {errors.entity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entity_id}</p>}
+                                {isFetchingEntities && (
+                                    <div className="absolute right-10 top-[28px] -translate-y-1/2 z-[70]">
+                                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

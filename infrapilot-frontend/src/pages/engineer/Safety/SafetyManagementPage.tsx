@@ -4,6 +4,7 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import {
     Search,
     Eye,
@@ -122,7 +123,6 @@ const SafetyManagementPage = () => {
     });
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
     const [formFieldErrors, setFormFieldErrors] = useState<Record<string, boolean>>({});
-    const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -1024,116 +1024,38 @@ const SafetyManagementPage = () => {
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Project <span className="text-red-600">*</span></label>
-                                <select
-                                    name="project_id"
-                                    value={formData.project_id}
-                                    onChange={(e) => {
-                                        setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }));
+                            <div className="md:col-span-2 font-inter z-[66] relative">
+                                <CustomSelect
+                                    label="Project"
+                                    required
+                                    value={formData.project_id?.toString() || ""}
+                                    onChange={(val) => {
+                                        setFormData((prev: any) => ({ ...prev, project_id: Number(val), task_id: 0 }));
                                         if (formFieldErrors['project_id']) setFormFieldErrors(prev => ({ ...prev, project_id: false }));
                                     }}
-                                    className={`${inputClasses}${formFieldErrors['project_id'] ? ' border-red-400 focus:ring-red-200 ring-1 ring-red-400' : (!formData.project_id ? ' border-slate-300' : '')}`}
-                                >
-                                    <option value="">-- Select Project --</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="-- Select Project --"
+                                    error={!!formFieldErrors['project_id']}
+                                />
                                 {formFieldErrors['project_id'] && (
                                     <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
                                 )}
                             </div>
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task</label>
-                                {/* Custom styled dropdown like Pass Task modal */}
-                                <div className="relative w-full">
-                                    {/* Trigger button */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setTaskDropdownOpen(o => !o)}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-sm font-inter transition-all ${
-                                            taskDropdownOpen
-                                                ? 'border-2 border-primary ring-4 ring-primary/10'
-                                                : 'border border-slate-200 hover:border-slate-300'
-                                        }`}
-                                    >
-                                        <span className={formData.task_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
-                                            {formData.task_id
-                                                ? (() => { const t = tasks.find((t: any) => Number(t.id) === Number(formData.task_id)); return t ? (t.title || `Task #${t.id}`) : `Task #${formData.task_id}`; })()
-                                                : '-- Select Task --'}
-                                        </span>
-                                        <svg
-                                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                                                taskDropdownOpen ? 'rotate-180' : ''
-                                            }`}
-                                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-
-                                    {/* Dropdown panel */}
-                                    {taskDropdownOpen && (
-                                        <div
-                                            className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden"
-                                            style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-                                        >
-                                            {/* Header row */}
-                                            <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Tasks</span>
-                                            </div>
-                                            {/* Scrollable list */}
-                                            <div className="max-h-48 overflow-y-auto">
-                                                {/* Clear option */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setFormData((prev: any) => ({ ...prev, task_id: 0 })); setTaskDropdownOpen(false); }}
-                                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                                                        !formData.task_id
-                                                            ? 'bg-primary/5 text-primary font-semibold'
-                                                            : 'text-slate-400 hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    -- Select Task --
-                                                </button>
-                                                {tasks.length === 0 && (
-                                                    <div className="px-4 py-3 text-xs text-slate-400 text-center">No tasks available for this project</div>
-                                                )}
-                                                {tasks.map((t: any) => (
-                                                    <button
-                                                        key={t.id}
-                                                        type="button"
-                                                        onClick={() => { setFormData((prev: any) => ({ ...prev, task_id: t.id })); setTaskDropdownOpen(false); }}
-                                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${
-                                                            Number(formData.task_id) === Number(t.id)
-                                                                ? 'bg-primary/5 text-primary font-semibold'
-                                                                : 'text-slate-700 hover:bg-slate-50 font-medium'
-                                                        }`}
-                                                    >
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0"></span>
-                                                        <span className="truncate">{t.title || `Task #${t.id}`}</span>
-                                                        {t.status && (
-                                                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-slate-400 flex-shrink-0">
-                                                                {t.status}
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Click-outside overlay */}
-                                    {taskDropdownOpen && (
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setTaskDropdownOpen(false)}
-                                        />
-                                    )}
-                                </div>
+                            <div className="md:col-span-2 font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Task"
+                                    value={formData.task_id?.toString() || ""}
+                                    onChange={(val) => setFormData((prev: any) => ({ ...prev, task_id: val ? Number(val) : 0 }))}
+                                    options={tasks.map((t: any) => ({
+                                        id: t.id.toString(),
+                                        label: t.title || `Task #${t.id}`,
+                                        badge: t.status
+                                    }))}
+                                    placeholder="-- Select Task --"
+                                />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
@@ -1170,32 +1092,30 @@ const SafetyManagementPage = () => {
                             Observation Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="font-inter">
-                                <label className={labelClasses}>Safety Checklist Status <span className="text-red-600">*</span></label>
-                                <select
-                                    name="safety_checklist_status"
-                                    value={formData.safety_checklist_status}
-                                    onChange={handleInputChange}
-                                    className={inputClasses}
+                            <div className="font-inter z-[64] relative">
+                                <CustomSelect
+                                    label="Safety Checklist Status"
                                     required
-                                >
-                                    <option value="pending">Pending</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="failed">Failed</option>
-                                </select>
+                                    value={formData.safety_checklist_status}
+                                    onChange={(val) => handleInputChange({ target: { name: 'safety_checklist_status', value: val } } as any)}
+                                    options={[
+                                        { id: 'pending', label: 'Pending' },
+                                        { id: 'completed', label: 'Completed' },
+                                        { id: 'failed', label: 'Failed' }
+                                    ]}
+                                />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Violation Type (Optional)</label>
-                                <select
-                                    name="violation_type"
+                            <div className="font-inter z-[63] relative">
+                                <CustomSelect
+                                    label="Violation Type (Optional)"
                                     value={formData.violation_type}
-                                    onChange={handleInputChange}
-                                    className={inputClasses}
-                                >
-                                    {VIOLATION_TYPES.map(vt => (
-                                        <option key={vt} value={vt}>{vt}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => handleInputChange({ target: { name: 'violation_type', value: val } } as any)}
+                                    options={[
+                                        { id: '', label: '-- None --' },
+                                        ...VIOLATION_TYPES.map(vt => ({ id: vt, label: vt }))
+                                    ]}
+                                    placeholder="-- Select Type --"
+                                />
                             </div>
 
                             <div className="md:col-span-2 font-inter">

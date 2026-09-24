@@ -253,6 +253,61 @@ const MachineryPage = () => {
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
     const [createPurchaseForm, setCreatePurchaseForm] = useState<any>({});
 
+    // ─── Form Notification State & Helpers ──────────────────────────────
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
+
+    const getMissingFields = (form: HTMLFormElement) => {
+        const invalidElements = Array.from(form.elements).filter(
+            (element) => (element as HTMLInputElement).validity?.valid === false
+        );
+
+        return invalidElements.map(element => {
+            const el = element as HTMLInputElement;
+            if (el.labels && el.labels.length > 0) {
+                return el.labels[0].innerText.replace('*', '').trim();
+            }
+            const prev = el.previousElementSibling;
+            if (prev && prev.tagName.toLowerCase() === 'label') {
+                return (prev as HTMLLabelElement).innerText.replace('*', '').trim();
+            }
+            let name = el.name || el.id;
+            if (name) {
+                return name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+            return 'Unknown Field';
+        });
+    };
+
+    const renderFormNotification = () => {
+        if (!formNotification || formNotification.type !== 'error') return null;
+        return (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-red-600">Validation Error</p>
+                    <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                </div>
+                <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+            </div>
+        );
+    };
+
+    const renderFloatingToast = () => {
+        if (!formNotification) return null;
+        return (
+            <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
+                <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                </div>
+            </div>
+        );
+    };
+
     // View and Delete Purchase Modals
     const [isViewPurchaseModalOpen, setIsViewPurchaseModalOpen] = useState(false);
     const [viewPurchaseData, setViewPurchaseData] = useState<any>(null);
@@ -559,9 +614,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
         if (!selectedEquipment) return;
         try {
             const result = await equipmentService.allocateEquipment(selectedEquipment.id, formData.project_id || selectedProjectId);
@@ -569,7 +626,7 @@ const MachineryPage = () => {
             // The API returns a batch response — check if allocation actually succeeded
             if (result.success_count === 0 || (result.failed && result.failed.length > 0)) {
                 const reason = result.failed?.[0]?.reason || "Equipment could not be allocated";
-                toast.error(`Allocation failed: ${reason}`);
+                setFormNotification({ type: 'error', message: `Allocation failed: ${reason}` });
                 return;
             }
 
@@ -609,9 +666,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
         if (!formData.equipment_id || !formData.project_id) return;
         try {
             await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
@@ -619,8 +678,8 @@ const MachineryPage = () => {
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
             setEquipmentList(res.items || []);
-        } catch (error) {
-            toast.error("Failed to transfer equipment");
+        } catch (error: any) {
+            setFormNotification({ type: 'error', message: error.message || "Failed to transfer equipment" });
         }
     };
 
@@ -629,9 +688,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
         try {
             const payload = {
                 ...createPurchaseForm,
@@ -646,8 +707,8 @@ const MachineryPage = () => {
             }
             setIsCreatePurchaseModalOpen(false);
             setRefreshTrigger(prev => prev + 1);
-        } catch (error) {
-            toast.error("Failed to save purchase");
+        } catch (error: any) {
+            setFormNotification({ type: 'error', message: error.message || "Failed to save purchase" });
         }
     };
 
@@ -669,9 +730,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
         try {
             if (formData.usage_id) {
                 await equipmentService.updateUsage(formData.usage_id, {
@@ -699,8 +762,8 @@ const MachineryPage = () => {
                     setSelectedEquipmentLogs(prev => ({ ...prev, usage: logs }));
                 }
             }
-        } catch (error) {
-            toast.error(formData.usage_id ? "Failed to update usage" : "Failed to log usage");
+        } catch (error: any) {
+            setFormNotification({ type: 'error', message: error.message || (formData.usage_id ? "Failed to update usage" : "Failed to log usage") });
         }
     };
 
@@ -769,9 +832,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
 
         // Normalize dates: strip time part if stored as ISO datetime (e.g. "2026-09-22T00:00:00" → "2026-09-22")
         // Also handles DD-MM-YYYY → converts to YYYY-MM-DD for the backend
@@ -818,8 +883,8 @@ const MachineryPage = () => {
                     setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
                 }
             }
-        } catch (error) {
-            toast.error("Failed to save maintenance");
+        } catch (error: any) {
+            setFormNotification({ type: 'error', message: error.message || "Failed to save maintenance" });
         }
     };
 
@@ -828,9 +893,11 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         if (!form.checkValidity()) {
-            toast.error("Please fill mandatory field", { id: 'validation' });
+            const missingFields = getMissingFields(form);
+            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+        setFormNotification(null);
         try {
             const today = new Date();
             const tomorrow = new Date(today);
@@ -866,12 +933,12 @@ const MachineryPage = () => {
                 const details = error.response.data?.detail;
                 if (Array.isArray(details)) {
                     const messages = details.map((d: any) => `${d.loc?.[d.loc.length - 1] || 'Field'}: ${d.msg}`).join(', ');
-                    toast.error(`Validation failed: ${messages}`);
+                    setFormNotification({ type: 'error', message: `Validation failed: ${messages}` });
                     return;
                 }
             }
             const errorMsg = error.response?.data?.detail || "Failed to add rental";
-            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+            setFormNotification({ type: 'error', message: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) });
         }
     };
 
@@ -2125,6 +2192,7 @@ const MachineryPage = () => {
 
     return (
         <>
+            {renderFloatingToast()}
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", activeTab]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -2254,9 +2322,10 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 4. Allocate Equipment */}
-            <Modal isOpen={isAllocateModalOpen} onClose={() => setIsAllocateModalOpen(false)} title="Allocate Equipment" maxWidth="max-w-md">
+            <Modal isOpen={isAllocateModalOpen} onClose={() => { setFormNotification(null); setIsAllocateModalOpen(false); }} title="Allocate Equipment" maxWidth="max-w-md">
                 <div className="p-6 font-inter">
                     <form onSubmit={handleAllocate} noValidate className="space-y-5">
+                        {renderFormNotification()}
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-red-600">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
@@ -2267,13 +2336,14 @@ const MachineryPage = () => {
                                 required
                                 value={formData.project_id || ''}
                                 onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             >
                                 <option value="">-- Select project to allocate --</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                 ))}
                             </select>
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div className="flex justify-end gap-3 mt-8">
                             {allocationStatus.allocated ? (
@@ -2293,28 +2363,33 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 5. Log Usage */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title={formData.usage_id ? "Edit Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
+            <Modal isOpen={isUsageModalOpen} onClose={() => { setFormNotification(null); setIsUsageModalOpen(false); }} title={formData.usage_id ? "Edit Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveUsage} noValidate className="p-6 font-inter space-y-4">
+                    {renderFormNotification()}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours <span className="text-red-600">*</span></label>
-                            <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
+                            <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'WORKING HOURS') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'WORKING HOURS') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-red-600">*</span></label>
-                            <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
+                            <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'FUEL USED (L)') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'FUEL USED (L)') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Usage Date <span className="text-red-600">*</span></label>
-                        <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
+                        <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item (Optional)</label>
@@ -2335,23 +2410,27 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 6. Schedule Maintenance */}
-            <Modal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} title={formData.id ? "Edit Schedule" : "Schedule Maintenance"} maxWidth="max-w-md">
+            <Modal isOpen={isMaintenanceModalOpen} onClose={() => { setFormNotification(null); setIsMaintenanceModalOpen(false); }} title={formData.id ? "Edit Schedule" : "Schedule Maintenance"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveMaintenance} noValidate className="p-6 font-inter space-y-4">
+                    {renderFormNotification()}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="">-- Choose equipment --</option>
                             {modalEquipmentList.filter(eq => eq.project_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-red-600">*</span></label>
-                        <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-red-600">*</span></label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} onFocus={(e) => { if (!formData.maintenance_date) setFormData((prev: any) => ({ ...prev, maintenance_date: e.target.value })); }} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} onFocus={(e) => { if (!formData.maintenance_date) setFormData((prev: any) => ({ ...prev, maintenance_date: e.target.value })); }} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'MAINTENANCE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">COST (₹)</label>
@@ -2360,14 +2439,16 @@ const MachineryPage = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE <span className="text-red-600">*</span></label>
-                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'NEXT MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'NEXT MAINTENANCE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT <span className="text-red-600">*</span></label>
-                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="">-- Select Project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
@@ -2385,27 +2466,32 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 7. Add Rental */}
-            <Modal isOpen={isRentalModalOpen} onClose={() => setIsRentalModalOpen(false)} title={formData.id ? "Edit Rental" : "Add Rental Record"} maxWidth="max-w-md">
+            <Modal isOpen={isRentalModalOpen} onClose={() => { setFormNotification(null); setIsRentalModalOpen(false); }} title={formData.id ? "Edit Rental" : "Add Rental Record"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} noValidate className="p-6 font-inter space-y-4">
+                    {renderFormNotification()}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="">-- Choose equipment --</option>
                             {equipmentList.filter(eq => (!eq.project_id && (eq as any).status?.toUpperCase() !== 'MAINTENANCE') || eq.id === formData.equipment_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-red-600">*</span></label>
-                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'RENTAL COST (₹)') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'RENTAL COST (₹)') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">START DATE <span className="text-red-600">*</span></label>
-                            <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'START DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'START DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">END DATE <span className="text-red-600">*</span></label>
-                            <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input type="date" required value={formData.end_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'END DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'END DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                     </div>
                     <div>
@@ -2680,25 +2766,28 @@ const MachineryPage = () => {
             </Modal>
 
             {/* Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment" maxWidth="max-w-md">
+            <Modal isOpen={isTransferModalOpen} onClose={() => { setFormNotification(null); setIsTransferModalOpen(false); }} title="Transfer Equipment" maxWidth="max-w-md">
                 <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5">
+                    {renderFormNotification()}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="" disabled>-- Choose equipment --</option>
                             {equipmentList.filter(eq => eq.project_id).map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.equipment_name} - {eq.equipment_code}</option>
                             ))}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
-                        <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                        <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className={`w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
                             <option value="" disabled>-- Select target project --</option>
                             {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                             ))}
                         </select>
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         <p className="text-[10px] text-slate-400 mt-2 ml-1">Equipment will be moved to the selected project.</p>
                     </div>
                     <div className="flex justify-end gap-3 mt-8">
@@ -2744,8 +2833,9 @@ const MachineryPage = () => {
             </Modal>
 
             {/* Create Purchase Modal */}
-            <Modal isOpen={isCreatePurchaseModalOpen} onClose={() => setIsCreatePurchaseModalOpen(false)} title={createPurchaseForm.id ? "Edit Purchase" : "Create Purchase"} maxWidth="max-w-2xl">
+            <Modal isOpen={isCreatePurchaseModalOpen} onClose={() => { setFormNotification(null); setIsCreatePurchaseModalOpen(false); }} title={createPurchaseForm.id ? "Edit Purchase" : "Create Purchase"} maxWidth="max-w-2xl">
                 <form onSubmit={handleSavePurchase} noValidate className="p-6 font-inter bg-slate-50 flex flex-col gap-6">
+                    {renderFormNotification()}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Type <span className="text-red-600">*</span></label>
@@ -2753,12 +2843,13 @@ const MachineryPage = () => {
                                 required
                                 value={createPurchaseForm.purchase_type || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_type: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'PURCHASE TYPE') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             >
                                 <option value="">Select Type</option>
                                 <option value="NEW">NEW</option>
                                 <option value="USED">USED</option>
                             </select>
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'PURCHASE TYPE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Equipment (Asset)</label>
@@ -2779,13 +2870,14 @@ const MachineryPage = () => {
                                 required
                                 value={createPurchaseForm.project_id || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             >
                                 <option value="">Select Project</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                 ))}
                             </select>
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">BOQ Item</label>
@@ -2808,8 +2900,9 @@ const MachineryPage = () => {
                                 type="date"
                                 value={createPurchaseForm.warranty_end_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, warranty_end_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'WARRANTY END DATE') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'WARRANTY END DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Purchase Date <span className="text-red-600">*</span></label>
@@ -2818,8 +2911,9 @@ const MachineryPage = () => {
                                 type="date"
                                 value={createPurchaseForm.purchase_date || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, purchase_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'PURCHASE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'PURCHASE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Vendor Name <span className="text-red-600">*</span></label>
@@ -2828,8 +2922,9 @@ const MachineryPage = () => {
                                 type="text"
                                 value={createPurchaseForm.vendor_name || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, vendor_name: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'VENDOR NAME') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'VENDOR NAME') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Invoice Number <span className="text-red-600">*</span></label>
@@ -2838,8 +2933,9 @@ const MachineryPage = () => {
                                 type="text"
                                 value={createPurchaseForm.invoice_number || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'INVOICE NUMBER') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'INVOICE NUMBER') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Quantity <span className="text-red-600">*</span></label>
@@ -2849,8 +2945,9 @@ const MachineryPage = () => {
                                 min="1"
                                 value={createPurchaseForm.quantity || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value), total_amount: parseInt(e.target.value) * (createPurchaseForm.unit_price || 0) })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'QUANTITY') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'QUANTITY') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Unit Price <span className="text-red-600">*</span></label>
@@ -2861,8 +2958,9 @@ const MachineryPage = () => {
                                 min="0"
                                 value={createPurchaseForm.unit_price || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value), total_amount: (createPurchaseForm.quantity || 0) * parseFloat(e.target.value) })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'UNIT PRICE') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'UNIT PRICE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Total Amount</label>
