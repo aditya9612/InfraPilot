@@ -55,6 +55,56 @@ export interface RentalItem {
     duration: number;
     per_day_cost: number;
     created_at: string;
+    client_id?: number | null;
+    invoice_id?: number | null;
+    project_id?: number | null;
+    boq_item_id?: number | null;
+    is_completed?: boolean;
+}
+
+export interface CreateRentalRequest {
+    start_date: string;
+    end_date: string;
+    rental_cost: number;
+    client_id?: number | null;
+    client_name: string;
+    notes?: string;
+    expected_end_date?: string;
+    actual_return_date?: string;
+    is_received?: boolean;
+    is_returned?: boolean;
+    project_id?: number | null;
+    boq_item_id?: number | null;
+}
+
+export interface ReturnInspectionRequest {
+    rental_id: number;
+    inspection_date: string;
+    condition: string;
+    damage_description?: string;
+    repair_cost?: number;
+    remarks?: string;
+}
+
+export interface PurchaseRequest {
+    purchase_type: string;
+    asset_id: number;
+    purchase_date: string;
+    supplier_id: number;
+    vendor_name: string;
+    invoice_number: string;
+    quantity: number;
+    unit_price: number;
+    total_amount: number;
+    warranty_end_date?: string;
+    notes?: string;
+    start_date?: string;
+    expected_end_date?: string;
+    actual_return_date?: string;
+    is_received?: boolean;
+    is_returned?: boolean;
+    project_id?: number | null;
+    boq_item_id?: number | null;
 }
 
 export interface AllocationStatus {
@@ -369,17 +419,8 @@ export const equipmentService = {
     // ==========================================
     // 5. Rental
     // ==========================================
-    async createRental(equipment_id: number, data: { start_date: string, end_date: string, rental_cost: number, client_name: string, notes?: string, project_id?: number, boq_item_id?: number }): Promise<RentalItem> {
-        const payload = {
-            start_date: data.start_date,
-            end_date: data.end_date,
-            rental_cost: data.rental_cost,
-            client_name: data.client_name,
-            notes: data.notes,
-            project_id: data.project_id || undefined,
-            boq_item_id: data.boq_item_id || null
-        };
-        const response = await api.post<RentalItem>(`/equipment/${equipment_id}/rental`, payload);
+    async createRental(equipment_id: number, data: CreateRentalRequest): Promise<RentalItem> {
+        const response = await api.post<RentalItem>(`/equipment/${equipment_id}/rental`, data);
         return response.data;
     },
 
@@ -453,6 +494,26 @@ export const equipmentService = {
         return new Blob([response.data as any]);
     },
 
+    async createReturnInspection(equipment_id: number, data: ReturnInspectionRequest): Promise<any> {
+        const response = await api.post(`/equipment/${equipment_id}/return-inspection`, data);
+        return response.data;
+    },
+
+    async returnRentalIn(equipment_id: number, purchase_id: number): Promise<any> {
+        const response = await api.post(`/equipment/${equipment_id}/rental-in/${purchase_id}/return`);
+        return response.data;
+    },
+
+    async generateRentalInVendorBill(equipment_id: number, purchase_id: number): Promise<any> {
+        const response = await api.post(`/equipment/${equipment_id}/rental-in/${purchase_id}/vendor-bill`);
+        return response.data;
+    },
+
+    async generateRentalOutInvoice(equipment_id: number, rental_id: number): Promise<any> {
+        const response = await api.post(`/equipment/${equipment_id}/rental-out/${rental_id}/invoice`);
+        return response.data;
+    },
+
     async getCostReport(params?: { equipment_id?: number, date_from?: string, date_to?: string, limit?: number, offset?: number, project_id?: number }): Promise<CostReport[]> {
         const response = await api.get<any>('/equipment/cost/report', { params });
         const data = response.data;
@@ -462,7 +523,7 @@ export const equipmentService = {
     // ==========================================
     // 6. Purchases & Transfer
     // ==========================================
-    async createPurchase(data: any): Promise<any> {
+    async createPurchase(data: PurchaseRequest): Promise<any> {
         const response = await api.post('/equipment/purchase', data);
         return response.data;
     },
