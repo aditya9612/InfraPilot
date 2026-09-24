@@ -327,6 +327,8 @@ const ClientsPage = () => {
                   <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                       <th className="px-6 py-4">Client & Company</th>
+                      <th className="px-6 py-4">Phone Number</th>
+                      <th className="px-6 py-4">Email Address</th>
                       <th className="px-6 py-4">PAN No.</th>
                       <th className="px-6 py-4">Aadhar No.</th>
                       <th className="px-6 py-4">Joining Date</th>
@@ -338,7 +340,7 @@ const ClientsPage = () => {
                   <tbody className="divide-y divide-slate-50">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                        <td colSpan={9} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                           <div className="flex items-center justify-center gap-2">
                             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                             Loading clients...
@@ -347,7 +349,7 @@ const ClientsPage = () => {
                       </tr>
                     ) : filteredClients.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                        <td colSpan={9} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                           No clients found.
                         </td>
                       </tr>
@@ -375,9 +377,14 @@ const ClientsPage = () => {
                                   {c.name}
                                 </p>
                                 <p className="text-slate-500 text-xs font-semibold">{c.company}</p>
-                                <p className="text-slate-400 text-[10px]">{c.mobile} | {c.email}</p>
                               </div>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                            {c.mobile || "—"}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                            {c.email || "—"}
                           </td>
                           <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">
                             {c.pan_number}

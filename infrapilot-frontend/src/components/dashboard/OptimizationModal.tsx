@@ -67,12 +67,12 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({
               <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Analyzing budget performance...</p>
             </div>
           ) : !projectId ? (
-             <div className="text-center py-10">
-               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                 <AlertTriangle className="w-8 h-8 text-slate-300" />
-               </div>
-               <p className="text-slate-500 font-bold">Please select a project to analyze</p>
-             </div>
+            <div className="text-center py-10">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-slate-500 font-bold">Please select a project to analyze</p>
+            </div>
           ) : suggestions.length === 0 ? (
             <div className="text-center py-10 bg-emerald-50 rounded-[24px] border border-emerald-100 p-8">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-sm">
@@ -122,7 +122,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="px-6 py-2.5 bg-slate-800 text-white rounded-2xl text-xs font-bold hover:bg-slate-900 transition-all shadow-lg shadow-slate-200"
+            className="px-6 py-2.5 bg-primary text-white rounded-2xl text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20"
           >
             Close Analysis
           </button>

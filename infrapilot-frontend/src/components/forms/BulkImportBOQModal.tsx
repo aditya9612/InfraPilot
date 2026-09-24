@@ -30,6 +30,18 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const [isLoadingBoqs, setIsLoadingBoqs] = useState(false);
   const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
   const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string>("");
+  const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
+  const boqDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (boqDropdownRef.current && !boqDropdownRef.current.contains(event.target as Node)) {
+        setIsBoqDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (isOpen && projectId) {
@@ -240,36 +252,74 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                       <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                     )}
                   </div>
-                  <div className="relative group">
-                    <select
-                      value={isCreatingNew ? "__new__" : selectedBoqId}
-                      onChange={(e) => {
-                        if (e.target.value === "__new__") {
-                          setIsCreatingNew(true);
-                          setSelectedBoqId("");
-                        } else {
-                          setIsCreatingNew(false);
-                          setSelectedBoqId(e.target.value);
-                        }
-                      }}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none pr-10 cursor-pointer"
+                  <div className="relative group" ref={boqDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsBoqDropdownOpen(!isBoqDropdownOpen)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all flex justify-between items-center text-left hover:bg-slate-100"
                     >
-                      {availableBoqs.length === 0 && !isLoadingBoqs && (
-                        <option value="__new__">➕ No BOQs found — Create new group</option>
-                      )}
-                      {availableBoqs.map((boq) => {
-                          const gid = (boq as any).true_group_id ?? boq.boq_group_id ?? boq.id;
-                          return (
-                            <option key={gid} value={String(gid)}>
-                              {boq.item_name}
-                            </option>
-                          );
-                        })}
-                      <option value="__new__">➕ Create new BOQ group...</option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
+                      <span className="truncate">
+                        {isCreatingNew
+                          ? "➕ Create new BOQ group..."
+                          : (() => {
+                            const selected = availableBoqs.find((b) => String((b as any).true_group_id ?? b.boq_group_id ?? b.id) === selectedBoqId);
+                            return selected ? selected.item_name : (availableBoqs.length === 0 && !isLoadingBoqs ? "➕ No BOQs found — Create new group" : "Select a BOQ Group");
+                          })()
+                        }
+                      </span>
+                      <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isBoqDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isBoqDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col max-h-[300px]">
+                        <div className="overflow-y-auto w-full min-h-0">
+                          {availableBoqs.length === 0 && !isLoadingBoqs && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCreatingNew(true);
+                                setSelectedBoqId("");
+                                setIsBoqDropdownOpen(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm font-bold text-primary hover:bg-slate-50 transition-colors"
+                            >
+                              ➕ No BOQs found — Create new group
+                            </button>
+                          )}
+                          {availableBoqs.map((boq) => {
+                            const gid = (boq as any).true_group_id ?? boq.boq_group_id ?? boq.id;
+                            const isSelected = String(gid) === selectedBoqId && !isCreatingNew;
+                            return (
+                              <button
+                                key={gid}
+                                type="button"
+                                onClick={() => {
+                                  setIsCreatingNew(false);
+                                  setSelectedBoqId(String(gid));
+                                  setIsBoqDropdownOpen(false);
+                                }}
+                                className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors border-b border-slate-50 last:border-b-0 ${isSelected ? 'bg-primary/5 text-primary' : 'text-slate-700 hover:bg-slate-50'}`}
+                              >
+                                {boq.item_name}
+                              </button>
+                            );
+                          })}
+                          <div className="sticky bottom-0 p-2 border-t border-slate-100 bg-white/95 backdrop-blur-sm">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCreatingNew(true);
+                                setSelectedBoqId("");
+                                setIsBoqDropdownOpen(false);
+                              }}
+                              className={`w-full px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-colors flex items-center gap-2 ${isCreatingNew ? 'bg-primary text-white shadow-md' : 'text-primary hover:bg-slate-50'} `}
+                            >
+                              ➕ Create new BOQ group...
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {isCreatingNew && (
                     <input

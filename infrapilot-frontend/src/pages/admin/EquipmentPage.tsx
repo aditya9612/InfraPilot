@@ -98,15 +98,15 @@ const EquipmentPage = () => {
     const [transferList, setTransferList] = useState<any[]>([]);
 
     // Reports Pagination
-    const [utilizationPage, setUtilizationPage] = useState(1);
+    const [utilizationPage, setUtilizationPage] = useState(0);
     const [utilizationItemsPerPage, setUtilizationItemsPerPage] = useState(10);
-    const [costPage, setCostPage] = useState(1);
+    const [costPage, setCostPage] = useState(0);
     const [costItemsPerPage, setCostItemsPerPage] = useState(10);
-    const [usagePage, setUsagePage] = useState(1);
+    const [usagePage, setUsagePage] = useState(0);
     const [usageItemsPerPage, setUsageItemsPerPage] = useState(10);
-    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchasePage, setPurchasePage] = useState(0);
     const [purchaseItemsPerPage, setPurchaseItemsPerPage] = useState(10);
-    const [availabilityPage, setAvailabilityPage] = useState(1);
+    const [availabilityPage, setAvailabilityPage] = useState(0);
     const [availabilityItemsPerPage, setAvailabilityItemsPerPage] = useState(10);
 
     // Reports Filters
@@ -1064,11 +1064,11 @@ const EquipmentPage = () => {
     );
 
     const renderReports = () => {
-        const paginatedUtilization = utilizationReport.slice((utilizationPage - 1) * utilizationItemsPerPage, utilizationPage * utilizationItemsPerPage);
-        const paginatedCost = costReport.slice((costPage - 1) * costItemsPerPage, costPage * costItemsPerPage);
-        const paginatedUsage = usageReport.slice((usagePage - 1) * usageItemsPerPage, usagePage * usageItemsPerPage);
-        const paginatedPurchase = purchaseReport.slice((purchasePage - 1) * purchaseItemsPerPage, purchasePage * purchaseItemsPerPage);
-        const paginatedAvailability = availability.slice((availabilityPage - 1) * availabilityItemsPerPage, availabilityPage * availabilityItemsPerPage);
+        const paginatedUtilization = utilizationReport.slice(utilizationPage * utilizationItemsPerPage, (utilizationPage + 1) * utilizationItemsPerPage);
+        const paginatedCost = costReport.slice(costPage * costItemsPerPage, (costPage + 1) * costItemsPerPage);
+        const paginatedUsage = usageReport.slice(usagePage * usageItemsPerPage, (usagePage + 1) * usageItemsPerPage);
+        const paginatedPurchase = purchaseReport.slice(purchasePage * purchaseItemsPerPage, (purchasePage + 1) * purchaseItemsPerPage);
+        const paginatedAvailability = availability.slice(availabilityPage * availabilityItemsPerPage, (availabilityPage + 1) * availabilityItemsPerPage);
 
         return (
             <div className="space-y-6 pt-2">
