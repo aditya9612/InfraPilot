@@ -190,10 +190,10 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-50 text-center bg-white">
+        <div className="p-4 border-t border-slate-50 text-center bg-white rounded-b-3xl">
           <button
             onClick={onClose}
-            className="px-6 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest"
+            className="px-8 py-2.5 text-xs font-bold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all uppercase tracking-widest"
           >
             Close Audit Log
           </button>

@@ -535,8 +535,16 @@ const BOQPage = () => {
                     toast.error(`Found ${alerts.length} alerts for ${item.item_name}.`);
                 }
             } else if (alerts && typeof alerts === 'object') {
-                const msg = (alerts as any).detail || (alerts as any).message || `Found alerts for ${item.item_name}.`;
-                toast.error(String(msg));
+                if (Array.isArray(alerts.alerts)) {
+                    if (alerts.alerts.length === 0) {
+                        toast.success(`No alerts for ${item.item_name}!`);
+                    } else {
+                        toast.error(`Found ${alerts.alerts.length} alerts for ${item.item_name}.`);
+                    }
+                } else {
+                    const msg = (alerts as any).detail || (alerts as any).message || `Found alerts for ${item.item_name}.`;
+                    toast.error(String(msg));
+                }
             } else {
                 toast.success(`No alerts for ${item.item_name}!`);
             }
