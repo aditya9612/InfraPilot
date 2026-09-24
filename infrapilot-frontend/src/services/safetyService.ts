@@ -122,36 +122,16 @@ export const safetyService = {
 
     createIncident: async (data: CreateIncidentRequest): Promise<IncidentItem> => {
         console.log("POST /api/v1/safety - Request Payload:", data);
-        try {
-            const response = await api.post('/safety', data);
-            console.log("POST /api/v1/safety - 200 Success Response:", response.data);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success: Bypassing Error for Create Incident`, error?.message);
-            const virtualResponse: IncidentItem = {
-                ...data,
-                id: Math.floor(Math.random() * 10000) + 500
-            };
-            console.log("POST /api/v1/safety - Simulated 200 Success:", virtualResponse);
-            return virtualResponse;
-        }
+        const response = await api.post('/safety', data);
+        console.log("POST /api/v1/safety - 200 Success Response:", response.data);
+        return response.data;
     },
 
     updateIncident: async (id: number, data: UpdateIncidentRequest): Promise<IncidentItem> => {
         console.log(`PUT /api/v1/safety/${id} - Request Payload:`, data);
-        try {
-            const response = await api.put(`/safety/${id}`, data);
-            console.log(`PUT /api/v1/safety/${id} - 200 Success Response:`, response.data);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success: Bypassing Error for Update Incident ${id}`, error?.message);
-            const virtualResponse: IncidentItem = {
-                ...data,
-                id: id
-            };
-            console.log(`PUT /api/v1/safety/${id} - Simulated 200 Success:`, virtualResponse);
-            return virtualResponse;
-        }
+        const response = await api.put(`/safety/${id}`, data);
+        console.log(`PUT /api/v1/safety/${id} - 200 Success Response:`, response.data);
+        return response.data;
     },
 
     deleteIncident: async (id: number): Promise<{ message: string }> => {

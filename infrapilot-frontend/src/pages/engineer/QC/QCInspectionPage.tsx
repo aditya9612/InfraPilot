@@ -4,9 +4,9 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
-    Plus,
     Search,
     Eye,
     Edit2,
@@ -76,7 +76,7 @@ const QCInspectionPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
-        report_file: string;
+        report_file: File | File[] | string | null;
     }
 
     // Form States
@@ -91,8 +91,11 @@ const QCInspectionPage = () => {
         status: "Pass",
         engineer_name: "",
         remarks: "",
-        report_file: ""
+        report_file: null
     });
+    
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
@@ -183,11 +186,11 @@ const QCInspectionPage = () => {
     // ──────────────────────────────── INITIALIZATION ────────────────────────────────
 
     const fetchData = useCallback(async () => {
-        if (!projectId) return;
+        if (!projectId) { setIsLoading(false); return; }
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
-            const items = res.items || [];
+            const items = Array.isArray(res) ? res : (res.items || (res as any).data || []);
             const sortedItems = items.sort((a: QcItem, b: QcItem) => Number(b.id) - Number(a.id));
             setQcList(sortedItems);
         } catch (err) {
@@ -208,23 +211,52 @@ const QCInspectionPage = () => {
 
     // ──────────────────────────────── ACTIONS ────────────────────────────────
 
+    const validate = () => {
+        const newErrors: Record<string, boolean> = {};
+        const missingFields: string[] = [];
+
+        if (!formData.project_id) {
+            newErrors.project_id = true;
+            missingFields.push("Project");
+        }
+        if (!formData.inspection_type) {
+            newErrors.inspection_type = true;
+            missingFields.push("Inspection Type");
+        }
+        if (!formData.test_type) {
+            newErrors.test_type = true;
+            missingFields.push("Test Type");
+        }
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
+            newErrors.result = true;
+            missingFields.push("Result");
+        }
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
+            newErrors.standard_value = true;
+            missingFields.push("Standard Value");
+        }
+        if (!formData.status) {
+            newErrors.status = true;
+            missingFields.push("Status");
+        }
+
+        setErrors(newErrors);
+        
+        if (Object.keys(newErrors).length > 0) {
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}`, fields: missingFields });
+            return false;
+        }
+        
+        setFormNotification(null);
+        return true;
+    };
+
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
-        if (!formData.engineer_name.trim()) {
-            toast.error("Please enter the Engineer In-Charge name");
-            return;
-        }
+        setFormNotification(null);
+        if (!validate()) return;
 
-        if (formData.result === null || formData.result === undefined || formData.result === "") {
-            toast.error("Please enter the observed value");
-            return;
-        }
-
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
-            toast.error("Please enter the standard threshold");
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -247,20 +279,9 @@ const QCInspectionPage = () => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
 
-        if (!formData.engineer_name.trim()) {
-            toast.error("Please enter the Engineer In-Charge name");
-            return;
-        }
+        setFormNotification(null);
+        if (!validate()) return;
 
-        if (formData.result === null || formData.result === undefined || formData.result === "") {
-            toast.error("Please enter the observed value");
-            return;
-        }
-
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
-            toast.error("Please enter the standard threshold");
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -295,7 +316,17 @@ const QCInspectionPage = () => {
         }
     };
 
+
+    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
+    const inputClasses = (error?: boolean) => `
+        w-full px-4 py-2.5 bg-slate-50 border 
+        ${error ? 'border-rose-300 focus:ring-rose-200 ring-1 ring-rose-300' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
+    `;
+
     const resetForm = () => {
+        setFormNotification(null);
+        setErrors({});
         setSelectedFile(null);
         let defaultEngineerName = "";
         try {
@@ -319,7 +350,7 @@ const QCInspectionPage = () => {
             status: "Pass",
             engineer_name: defaultEngineerName,
             remarks: "",
-            report_file: ""
+            report_file: null
         });
     };
 
@@ -461,6 +492,45 @@ const QCInspectionPage = () => {
 
     return (
         <>
+            {/* Top-Right Floating Toast (matches Drawing/Safety style) */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+                        @keyframes slideDownIn {
+                            from { opacity: 0; transform: translateY(-16px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                    `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5 font-inter"
+                        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                    >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}>
+                            <span className="text-white text-xs font-bold">
+                                {formNotification.type === 'error' ? '×' : '✓'}
+                            </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5 transition-colors">×</button>
+                    </div>
+                </div>
+            )}
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -478,7 +548,6 @@ const QCInspectionPage = () => {
                             onClick={() => { resetForm(); setIsNewModalOpen(true); }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             Log QC Entry
                         </button>
                     </div>
@@ -504,7 +573,7 @@ const QCInspectionPage = () => {
                             title: "Failed Tests",
                             value: stats.failed.toString(),
                             sub: "Failed Tests",
-                            accent: "text-rose-500",
+                            accent: "text-red-600",
                             status: "Failed",
                         },
                         {
@@ -520,7 +589,7 @@ const QCInspectionPage = () => {
                             onClick={() => s.status && setActiveStatFilter(s.status as any)}
                             className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
                         >
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
                                 {s.title}
                             </p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
@@ -550,8 +619,8 @@ const QCInspectionPage = () => {
 
                 {activeTab === "Inspection" && (
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                            <div className="relative flex-1 max-w-md font-inter">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
+                            <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                     <Search className="w-4 h-4" />
                                 </span>
@@ -582,7 +651,7 @@ const QCInspectionPage = () => {
                                     <option value="Fail">Fail</option>
                                 </select>
                                 {activeStatFilter !== "All" && (
-                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
+                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-red-600 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
                                         <RotateCcw className="w-4 h-4" />
                                     </button>
                                 )}
@@ -621,7 +690,7 @@ const QCInspectionPage = () => {
                                             paginatedList.map((qc) => (
                                                 <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                     <td className="px-6 py-4">
-                                                        <span className="text-sm font-bold text-slate-700 font-inter">
+                                                        <span className="text-sm font-bold text-slate-900 font-inter">
                                                             {projects.find(p => Number(p.id) === Number(qc.project_id))?.project_name ||
                                                                 projects.find(p => Number(p.id) === Number(qc.project_id))?.name ||
                                                                 `Project #${qc.project_id}`}
@@ -634,7 +703,7 @@ const QCInspectionPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col max-w-xs font-inter">
-                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter">{qc.test_type}</span>
+                                                            <span className="text-xs font-bold text-slate-900 truncate font-inter">{qc.test_type}</span>
                                                             <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter truncate">
                                                                 <Activity className="w-3 h-3" />
                                                                 <span className="truncate font-inter">{qc.remarks || "No additional remarks"}</span>
@@ -702,14 +771,14 @@ const QCInspectionPage = () => {
 
                         {/* ─── Pagination ─────────────────────────────────── */}
                         {!isLoading && filteredList.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-900 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                     >
                                         <option value={10}>10</option>
                                         <option value={20}>20</option>
@@ -853,90 +922,111 @@ const QCInspectionPage = () => {
                             disabled={isSubmitting}
                             className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Update Inspection" : "Commit Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Edit Qc" : "Save Qc")}
                         </button>
                     </>
                 }
             >
                 <div className="p-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-red-50 border border-red-200">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">
+                                    Mandatory fields required: {(formNotification.fields || []).join(', ')}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none transition-colors">×</button>
+                        </div>
+                    )}
+                    {formNotification && formNotification.type === 'success' && (
+                        <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
-                                <select
-                                    value={formData.project_id}
-                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                            <div className="z-[66]">
+                                <CustomSelect
+                                    label="Project"
                                     required
-                                >
-                                    <option value="">-- Select project --</option>
-                                    {projects.map(p => (
-                                        <option key={p.project_id || p.id} value={p.project_id || p.id}>
-                                            {p.project_name || p.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    value={formData.project_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, project_id: Number(val) })}
+                                    options={projects.map(p => ({
+                                        id: (p.project_id || p.id).toString(),
+                                        label: p.project_name || p.name
+                                    }))}
+                                    placeholder="-- Select project --"
+                                    error={!!errors.project_id}
+                                />
+                                {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Task</label>
-                                <select
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                            <div className="z-[65]">
+                                <CustomSelect
+                                    label="Task"
+                                    value={formData.task_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, task_id: val ? Number(val) : null })}
+                                    options={availableTasks.map(t => ({
+                                        id: t.id.toString(),
+                                        label: t.title || t.name || `Task #${t.id}`
+                                    }))}
+                                    placeholder="-- Select task --"
                                     disabled={isFetchingDeps}
-                                >
-                                    <option value="">-- Select task --</option>
-                                    {availableTasks.map(t => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.title || t.name || `Task #${t.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">DSR</label>
-                                <select
-                                    value={formData.dsr_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                            <div className="z-[64]">
+                                <CustomSelect
+                                    label="DSR"
+                                    value={formData.dsr_id?.toString() || ""}
+                                    onChange={(val) => setFormData({ ...formData, dsr_id: val ? Number(val) : null })}
+                                    options={availableDsrs.map(d => ({
+                                        id: d.id.toString(),
+                                        label: `DSR - ${d.report_date ? new Date(d.report_date).toLocaleDateString() : (d.date || d.id)}`
+                                    }))}
+                                    placeholder="-- Select DSR --"
                                     disabled={isFetchingDeps}
-                                >
-                                    <option value="">-- Select DSR --</option>
-                                    {availableDsrs.map(d => (
-                                        <option key={d.id} value={d.id}>
-                                            DSR - {d.report_date ? new Date(d.report_date).toLocaleDateString() : (d.date || d.id)}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Inspection Type <span className="text-rose-500">*</span></label>
-                                <select
+                            <div className="z-[63]">
+                                <CustomSelect
+                                    label="Inspection Type"
+                                    required
                                     value={formData.inspection_type}
-                                    onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
-                                >
-                                    {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, inspection_type: val })}
+                                    options={INSPECTION_TYPES.map(t => ({ id: t, label: t }))}
+                                    error={!!errors.inspection_type}
+                                    placeholder="-- Select type --"
+                                />
+                                {errors.inspection_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Test Type <span className="text-rose-500">*</span></label>
-                                <select
+                            <div className="z-[62]">
+                                <CustomSelect
+                                    label="Test Type"
+                                    required
                                     value={formData.test_type}
-                                    onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
-                                >
-                                    {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, test_type: val })}
+                                    options={TEST_TYPES.map(t => ({ id: t, label: t }))}
+                                    error={!!errors.test_type}
+                                    placeholder="-- Select test --"
+                                />
+                                {errors.test_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Result <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Result <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -946,12 +1036,13 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, result: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className={inputClasses(errors.result)}
                                 />
+                                {errors.result && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.result}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Standard Value <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Standard Value <span className="text-red-600">*</span></label>
                                 <input
                                     type="number"
                                     min="0"
@@ -961,41 +1052,43 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, standard_value: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className={inputClasses(errors.standard_value)}
+                                />
+                                {errors.standard_value && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.standard_value}</p>}
+                            </div>
+
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="Status"
+                                    required
+                                    value={formData.status}
+                                    onChange={(val) => setFormData({ ...formData, status: val })}
+                                    options={[
+                                        { id: "Pass", label: "Pass" },
+                                        { id: "Fail", label: "Fail" }
+                                    ]}
+                                    error={!!errors.status}
+                                    placeholder="-- Select status --"
+                                />
+                                {errors.status && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.status}</p>}
+                            </div>
+
+                            <div className="z-[58]">
+                                <CustomSelect
+                                    label="Engineer Name"
+                                    required
+                                    value={formData.engineer_name}
+                                    onChange={(val) => setFormData({ ...formData, engineer_name: val })}
+                                    options={availableEngineers.map(eng => ({
+                                        id: eng.full_name || eng.name,
+                                        label: eng.full_name || eng.name
+                                    }))}
+                                    placeholder="Enter auditor name..."
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Status <span className="text-rose-500">*</span></label>
-                                <select
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer focus:ring-2 ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700 focus:ring-emerald-500/20' : 'bg-rose-50 border-rose-100 text-rose-700 focus:ring-rose-500/20'}`}
-                                >
-                                    <option value="Pass">Pass</option>
-                                    <option value="Fail">Fail</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Engineer Name <span className="text-rose-500">*</span></label>
-                                <select
-                                    value={formData.engineer_name}
-                                    onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
-                                    required
-                                >
-                                    <option value="">Enter auditor name...</option>
-                                    {availableEngineers.map(eng => (
-                                        <option key={eng.user_id || eng.id} value={eng.full_name || eng.name}>
-                                            {eng.full_name || eng.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Remarks</label>
+                                <label className={labelClasses}>Remarks</label>
                                 <textarea
                                     rows={3}
                                     placeholder="remarks"
@@ -1007,40 +1100,48 @@ const QCInspectionPage = () => {
 
                             {!isEditModalOpen && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter mb-2">Report File</label>
-                                    <div className="flex items-center gap-4">
-                                        <input
-                                            type="file"
-                                            id="report_file"
-                                            accept="image/*,application/pdf"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    toast.success(`Selected: ${file.name}`);
-                                                    setSelectedFile(file);
-                                                    setFormData({ ...formData, report_file: file.name });
-                                                }
-                                            }}
-                                        />
-                                        <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
-                                            Choose File
-                                        </label>
-                                        <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
-                                            {formData.report_file || "No file chosen"}
-                                        </span>
-                                        {formData.report_file && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedFile(null);
-                                                    setFormData({ ...formData, report_file: "" });
+                                    <label className="block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter mb-2">Report File(s)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-4">
+                                            <input
+                                                type="file"
+                                                id="report_file"
+                                                accept="image/*,application/pdf"
+                                                multiple
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length > 0) {
+                                                        toast.success(`Selected ${files.length} file(s)`);
+                                                        // store first file in selectedFile for backwards compat with other uses, if any
+                                                        setSelectedFile(files[0]);
+                                                        setFormData({ ...formData, report_file: files });
+                                                    }
                                                 }}
-                                                className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
+                                            />
+                                            <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-900 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                                Choose File(s)
+                                            </label>
+                                            <span className="text-sm text-slate-500 font-medium truncate max-w-[300px] font-inter">
+                                                {formData.report_file
+                                                    ? (Array.isArray(formData.report_file)
+                                                        ? `${formData.report_file.length} file(s) selected`
+                                                        : (typeof formData.report_file === 'string' ? formData.report_file : formData.report_file.name))
+                                                    : "No file chosen"}
+                                            </span>
+                                            {formData.report_file && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedFile(null);
+                                                        setFormData({ ...formData, report_file: null });
+                                                    }}
+                                                    className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -1115,7 +1216,7 @@ const QCInspectionPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
-                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-red-600'}`}>
                                             {selectedQc.status}
                                         </p>
                                     </div>
@@ -1123,9 +1224,68 @@ const QCInspectionPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
                                     </div>
+                                    <div className="font-inter col-span-2 mt-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 font-inter">Report File Preview</p>
+                                        {(() => {
+                                            const fileUrl = (selectedQc as any).report_file_url || selectedQc.report_file || (selectedQc as any)['report file'];
+                                            if (fileUrl) {
+                                                let fileUrls: string[] = [];
+                                                if (typeof fileUrl === 'string') {
+                                                    try {
+                                                        const parsed = JSON.parse(fileUrl);
+                                                        if (Array.isArray(parsed)) {
+                                                            fileUrls = parsed;
+                                                        } else {
+                                                            fileUrls = [fileUrl];
+                                                        }
+                                                    } catch {
+                                                        fileUrls = fileUrl.split(',').map(s => s.trim().replace(/^['"\[\]]+|['"\[\]]+$/g, '')).filter(Boolean);
+                                                    }
+                                                } else if (Array.isArray(fileUrl)) {
+                                                    fileUrls = fileUrl;
+                                                }
+
+                                                const baseUrl = import.meta.env.VITE_API_URL
+                                                    ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+                                                    : 'http://127.0.0.1:8000';
+
+                                                return (
+                                                    <div className="flex flex-col gap-4">
+                                                        {fileUrls.map((url, index) => {
+                                                            const finalUrl = url.startsWith('http') ? url : `${baseUrl}/${url.replace(/^\//, '')}`;
+                                                            const isImage = /\.(jpeg|jpg|gif|png|webp|bmp)$/i.test(finalUrl);
+                                                            const isPdf = /\.(pdf)$/i.test(finalUrl);
+
+                                                            return (
+                                                                <div key={index} className="flex flex-col gap-2">
+                                                                    {isImage ? (
+                                                                        <img src={finalUrl} alt={`Report ${index + 1}`} className="w-full max-h-80 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                                                <Eye className="w-5 h-5" />
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-sm font-bold text-slate-800 truncate">Document {index + 1}</p>
+                                                                                <p className="text-xs text-slate-500 uppercase">{isPdf ? 'PDF File' : 'File'}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    <a href={finalUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline font-inter inline-flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-xl w-fit transition-colors hover:bg-primary/10">
+                                                                        <Eye className="w-4 h-4" /> {isImage ? `Open Image ${index + 1} Full Size` : `View Document ${index + 1}`}
+                                                                    </a>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                );
+                                            }
+                                            return <p className="text-sm font-bold text-slate-800 font-inter truncate">N/A</p>;
+                                        })()}
+                                    </div>
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
-                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || 'null'}</p>
+                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks && selectedQc.remarks !== 'null' ? selectedQc.remarks : 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>

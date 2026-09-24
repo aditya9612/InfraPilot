@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -352,6 +352,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
   const [formData, setFormData] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>(propProjects || []);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (expense) setFormData({ ...expense });
@@ -375,8 +376,42 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.expense_date) newErrors.expense_date = "Date is required";
+    if (!formData.payment_mode) newErrors.payment_mode = "Payment Mode is required";
+    if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     const { project_id, ...putData } = formData;
     onSubmit(putData);
+  };
+
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 bg-white border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    let parsedValue: any = value;
+    if (type === 'number' || name.endsWith('_id')) {
+      parsedValue = value === "" ? (name === 'boq_item_id' ? null : "") : Number(value);
+    }
+    setFormData((prev: any) => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors((prev: any) => ({ ...prev, [name]: "" }));
+    }
   };
 
   return (
@@ -385,7 +420,7 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
-            <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
               {projects.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project ${p.id || p.project_id}`}</option>
                 ))}
@@ -393,33 +428,37 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
                   <option value={formData.project_id}>{expense?.project?.project_name || expense?.project?.name || expense?.project_name || `Project ${formData.project_id}`}</option>
                 )}
             </select>
+            {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Category <span className="text-rose-500">*</span></label>
-            <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <select name="category" value={formData.category} onChange={handleChange} className={inputClasses(errors.category)}>
               <option value="Construction">Construction</option>
               <option value="Maintenance">Maintenance</option>
               <option value="Fuel">Fuel</option>
               <option value="Travel">Travel</option>
               <option value="Material">Material</option>
             </select>
+            {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Date <span className="text-rose-500">*</span></label>
-            <input type="date" value={formData.expense_date} onChange={e => setFormData({ ...formData, expense_date: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+            <input type="date" name="expense_date" value={formData.expense_date} onChange={handleChange} className={inputClasses(errors.expense_date)} />
+            {errors.expense_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.expense_date}</p>}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Payment Mode <span className="text-rose-500">*</span></label>
-            <select value={formData.payment_mode} onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+            <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className={inputClasses(errors.payment_mode)}>
               <option value="Cash">Cash</option>
               <option value="Online">Online</option>
               <option value="Cheque">Cheque</option>
               <option value="auto">Auto Payment</option>
             </select>
+            {errors.payment_mode && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_mode}</p>}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">BOQ Item</label>
-            <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : null })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+            <select name="boq_item_id" value={formData.boq_item_id || ""} onChange={handleChange} className={inputClasses()}>
               <option value="">None</option>
               {boqItems.map((b: any) => (
                 <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
@@ -434,11 +473,13 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Amount <span className="text-rose-500">*</span></label>
-            <input type="number" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+            <input type="number" name="amount" step="0.01" value={formData.amount} onChange={handleChange} className={inputClasses(errors.amount)} />
+            {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Description <span className="text-rose-500">*</span></label>
-            <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" rows={2} required />
+            <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} />
+            {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
           </div>
         </div>
         <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
@@ -454,6 +495,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
   const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: undefined, amount: 0, description: "" });
   const [projects, setProjects] = useState<any[]>([]);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -473,6 +515,21 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.expense_date) newErrors.expense_date = "Date is required";
+    if (!formData.payment_mode) newErrors.payment_mode = "Payment Mode is required";
+    if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
+    if (!formData.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     try {
       await expenseService.createExpense(formData);
       toast.success("Expense created successfully!");
@@ -480,6 +537,25 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
       onClose();
     } catch (err) {
       toast.error("Failed to create expense");
+    }
+  };
+
+  const inputClasses = (error?: string) => 
+    `w-full px-4 py-2.5 bg-white border rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    let parsedValue: any = value;
+    if (type === 'number' || name.endsWith('_id')) {
+      parsedValue = value === "" ? (name === 'boq_item_id' ? undefined : "") : Number(value);
+    }
+    setFormData((prev: any) => ({ ...prev, [name]: parsedValue }));
+    if (errors[name]) {
+      setErrors((prev: any) => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -494,38 +570,42 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
-              <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 {projects.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.projectName || p.name || p.title || p.project?.name || p.project?.project_name || `Project ${p.id || p.project_id}`}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Category <span className="text-rose-500">*</span></label>
-              <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <select name="category" value={formData.category} onChange={handleChange} className={inputClasses(errors.category)}>
                 <option value="Construction">Construction</option>
                 <option value="Maintenance">Maintenance</option>
                 <option value="Fuel">Fuel</option>
                 <option value="Travel">Travel</option>
                 <option value="Material">Material</option>
               </select>
+              {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Date <span className="text-rose-500">*</span></label>
-              <input type="date" onChange={e => setFormData({ ...formData, expense_date: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary text-slate-600" required />
+              <input type="date" name="expense_date" value={formData.expense_date} onChange={handleChange} className={inputClasses(errors.expense_date)} />
+              {errors.expense_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.expense_date}</p>}
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Payment Mode <span className="text-rose-500">*</span></label>
-              <select onChange={e => setFormData({ ...formData, payment_mode: e.target.value })} value={formData.payment_mode} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              <select name="payment_mode" onChange={handleChange} value={formData.payment_mode} className={inputClasses(errors.payment_mode)}>
                 <option value="Cash">Cash</option>
                 <option value="Online">Online</option>
                 <option value="Cheque">Cheque</option>
                 <option value="auto">Auto Payment</option>
               </select>
+              {errors.payment_mode && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_mode}</p>}
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">BOQ Item</label>
-              <select value={formData.boq_item_id || ""} onChange={e => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+              <select name="boq_item_id" value={formData.boq_item_id || ""} onChange={handleChange} className={inputClasses()}>
                 <option value="">None</option>
                 {boqItems.map(b => (
                   <option key={b.id || b.boq_id} value={b.id || b.boq_id}>{b.item_name || b.description || `BOQ Item #${b.id || b.boq_id}`}</option>
@@ -540,11 +620,13 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Amount <span className="text-rose-500">*</span></label>
-              <input type="number" step="0.01" onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+              <input type="number" name="amount" step="0.01" value={formData.amount} onChange={handleChange} className={inputClasses(errors.amount)} />
+              {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div className="col-span-2">
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Description <span className="text-rose-500">*</span></label>
-              <textarea onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" rows={2} required />
+              <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} />
+              {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
             </div>
           </div>
         </div>
@@ -836,7 +918,7 @@ const ExpenseListSection = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select
@@ -1003,7 +1085,7 @@ const ProjectCostAllocationSection = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select
@@ -1134,7 +1216,7 @@ const ExpenseLedgerSection = () => {
           )}
         </div>
         {!loading && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -1253,7 +1335,7 @@ const BOQComparisonSection = () => {
 
   return (
     <div className="space-y-6 mt-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
         <div>
           <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Expenses</p>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight uppercase">BOQ Comparison</h2>
@@ -1351,7 +1433,7 @@ const BOQComparisonSection = () => {
           )}
         </div>
         {!loadingBoq && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
               <select
@@ -1526,7 +1608,7 @@ const ExpensesPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Expenses</h1>
             <p className="text-slate-500 text-sm mt-1">Manage and track your expense records, ledgers, and BOQ comparisons.</p>

@@ -201,9 +201,8 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
               </select>
             </div>
             <div>
-              <label className={labelClasses}>Work Order <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Work Order</label>
               <select
-                required
                 name="work_order_id"
                 className={inputClasses()}
                 value={formData.work_order_id || ""}
@@ -227,9 +226,8 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className={labelClasses}>Assigned Site Engineer <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Assigned Site Engineer</label>
               <select
-                required
                 name="engineer_id"
                 className={inputClasses()}
                 value={formData.engineer_id || ""}

@@ -32,12 +32,15 @@ const ClientIssuesPage = () => {
     description: "",
     category: "Material",
     priority: "Medium",
-    reported_date: new Date().toISOString().split('T')[0]
+    reported_date: new Date().toISOString().split('T')[0],
+    assigned_to: "",
+    resolution: ""
   });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [projectName, setProjectName] = useState("Loading...");
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
   const { projectId } = useClientProjectId();
 
@@ -46,6 +49,10 @@ const ClientIssuesPage = () => {
     try {
       const data = await projectService.getProjectById(projectId);
       setProjectName(data.project_name || data.name || (projectId ? `Project ${projectId}` : "Project"));
+
+      const membersRes: any = await projectService.getProjectMembers(projectId).catch(() => []);
+      const memberList = Array.isArray(membersRes) ? membersRes : (membersRes?.items || membersRes?.data || []);
+      setProjectMembers(memberList);
     } catch (error) {
       console.error("Failed to fetch project details:", error);
     }
@@ -232,7 +239,9 @@ const ClientIssuesPage = () => {
         category: newIssue.category,
         priority: newIssue.priority,
         reported_date: newIssue.reported_date,
-        description: newIssue.description?.trim() || ""
+        description: newIssue.description?.trim() || "",
+        assigned_to: newIssue.assigned_to ? Number(newIssue.assigned_to) : null,
+        resolution: newIssue.resolution?.trim() || null
       });
       setIsCreateModalOpen(false);
       setNewIssue({
@@ -240,7 +249,9 @@ const ClientIssuesPage = () => {
         description: "",
         category: "Material",
         priority: "Medium",
-        reported_date: new Date().toISOString().split('T')[0]
+        reported_date: new Date().toISOString().split('T')[0],
+        assigned_to: "",
+        resolution: ""
       });
       toast.success("Issue created successfully.");
       await fetchIssues();
@@ -692,6 +703,23 @@ const ClientIssuesPage = () => {
                     <p className="text-sm font-black text-slate-800">{selectedIssue.business_id || `ISS-#${selectedIssue.id}`}</p>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned To</p>
+                    <p className="text-sm font-black text-slate-800">
+                      {selectedIssue.assigned_to
+                        ? (projectMembers.find(m => (m.user_id || m.id) === selectedIssue.assigned_to)?.full_name ||
+                           projectMembers.find(m => (m.user_id || m.id) === selectedIssue.assigned_to)?.name ||
+                           `User #${selectedIssue.assigned_to}`)
+                        : "Unassigned"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                    <p className="text-sm font-black text-slate-800">{selectedIssue.status?.toUpperCase() || "OPEN"}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Resolution (if exists) */}
@@ -798,18 +826,40 @@ const ClientIssuesPage = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                    REPORTED DATE <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    value={newIssue.reported_date}
-                    max={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setNewIssue({ ...newIssue, reported_date: e.target.value })}
-                    className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none hover:bg-white transition-all font-inter"
-                  />
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                      REPORTED DATE <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      value={newIssue.reported_date}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setNewIssue({ ...newIssue, reported_date: e.target.value })}
+                      className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none hover:bg-white transition-all font-inter"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                      ASSIGNED TO
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={newIssue.assigned_to}
+                        onChange={(e) => setNewIssue({ ...newIssue, assigned_to: e.target.value })}
+                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                      >
+                        <option value="">Unassigned</option>
+                        {projectMembers.map((member) => (
+                          <option key={member.user_id || member.id} value={member.user_id || member.id}>
+                            {member.full_name || member.name || member.username || member.user?.name || member.user?.full_name || `User #${member.user_id || member.id}`} {member.role ? `(${member.role})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -826,6 +876,23 @@ const ClientIssuesPage = () => {
                   value={newIssue.description}
                   onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
                   placeholder="Describe the issue in detail..."
+                  className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter"
+                />
+              </div>
+            </div>
+
+            {/* Resolution Section */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+              <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Resolution</h4>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                  RESOLUTION
+                </label>
+                <textarea
+                  rows={3}
+                  value={newIssue.resolution}
+                  onChange={(e) => setNewIssue({ ...newIssue, resolution: e.target.value })}
+                  placeholder="Details of how the issue will be or was resolved (optional)..."
                   className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter"
                 />
               </div>

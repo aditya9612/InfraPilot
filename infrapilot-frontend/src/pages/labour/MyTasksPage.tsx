@@ -228,7 +228,11 @@ const MyTasksPage: React.FC = () => {
 
 
 const handleTaskClick = (task: Task) => {
-    if (task.status === 'Completed') return;
+    if (task.status === 'Completed') {
+        setSelectedTask(task);
+        setIsDetailModalOpen(true);
+        return;
+    }
     navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || activeProjectId || ''}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
@@ -394,7 +398,7 @@ return (
                                     {filteredTasks.map(task => (
                                         <tr
                                             key={task.id}
-                                            className={`group transition-colors border-b border-slate-50 ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
+                                            className="group transition-colors border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer"
                                             onClick={() => handleTaskClick(task)}
                                         >
                                             {/* PROJECT */}
@@ -552,18 +556,16 @@ return (
                                                     <span className="text-[10px] font-bold text-slate-300 italic uppercase">NULL</span>
                                                 )}
                                             </td>
-
-                                            {/* ACTION — View only */}
-                                            <td className="px-6 py-5 whitespace-nowrap">
-                                                {task.status !== 'Completed' && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                                                        title="View Task Details"
-                                                    >
-                                                        <Eye className="w-5 h-5" />
-                                                    </button>
-                                                )}
+                                            {/* ACTION — View icon only without background */}
+                                            <td className="px-6 py-5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                                    className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                    title="View Task Details"
+                                                >
+                                                    <Eye className="w-5 h-5" />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -575,7 +577,7 @@ return (
                             {filteredTasks.map(task => (
                                 <div
                                     key={task.id}
-                                    className={`bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all group flex flex-col justify-between ${task.status === 'Completed' ? 'cursor-default' : 'hover:shadow-xl hover:shadow-indigo-50 cursor-pointer'}`}
+                                    className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all group flex flex-col justify-between hover:shadow-xl hover:shadow-indigo-50 cursor-pointer"
                                     onClick={() => handleTaskClick(task)}
                                 >
                                     <div className="space-y-4">
@@ -605,16 +607,13 @@ return (
                                                         <Play className="w-3 h-3 fill-current" />
                                                     )}
                                                 </button>
-                                                                                                 {task.status !== 'Completed' && (
-                                                    <button
-                                                     onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
-                                                     className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
-                                                     title="View Task Details"
-                                                 >
-                                                     <Eye className="w-4 h-4" />
-                                                 </button>
-                                                )}
-
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                    title="View Task Details"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
 

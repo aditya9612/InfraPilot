@@ -89,6 +89,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Category</label>
               <select
+                required
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                 value={formData.category}
                 onChange={e => setFormData({ ...formData, category: e.target.value })}
@@ -115,6 +116,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Location / Site</label>
               <input
                 type="text"
+                required
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                 placeholder="e.g. Site Alpha - Mumbai"
                 value={formData.location}
@@ -143,6 +145,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
                   type="number"
                   min="0"
                   max="100"
+                  required
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                   value={formData.depreciation_rate}
                   onChange={e => setFormData({ ...formData, depreciation_rate: parseFloat(e.target.value) || 0 })}

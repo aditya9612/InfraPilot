@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, UserCircle, Briefcase, FileText, Check, Mic, Square, Play, Pause, Trash2, Search, ChevronDown } from 'lucide-react';
+import { createPortal } from "react-dom";
+import { Calendar, UserCircle, Briefcase, FileText, Check, Mic, Square, Play, Pause, Trash2, ListTodo, Activity } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
+import { CustomSelect, CustomMultiSelect } from '../../../components/common/CustomDropdown';
 import { projectService } from '../../../services/projectService';
-import { labourService } from '../../../services/labourService';
 import { boqService } from '../../../services/boqService';
 import { masterService } from '../../../services/masterService';
 import toast from 'react-hot-toast';
@@ -15,6 +16,8 @@ interface CreateTaskModalProps {
 }
 
 const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskModalProps) => {
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState('Medium');
@@ -83,6 +86,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
         if (isOpen) {
             // Reset form state
+            setFormNotification(null);
+            setErrors({});
             setTitle('');
             setDescription('');
             setPriority('Medium');
@@ -118,54 +123,17 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const fetchMembers = async () => {
         if (!targetProjectId) return;
         try {
-            const data = await labourService.getLabours(targetProjectId, { limit: 100 });
-            setEmployees(data.items || []);
+            const data = await projectService.getProjectMembers(targetProjectId);
+            setEmployees(data.items || data || []);
         } catch (error) {
-            console.error("Failed to load labours", error);
+            console.error("Failed to load project members", error);
         }
     };
 
     const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
 
-    // Custom Dropdown State
-    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-    const [userSearchQuery, setUserSearchQuery] = useState('');
-    const dropdownRef = useRef<HTMLDivElement>(null);
+    // Custom Dropdown State handled by CustomMultiSelect
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsUserDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const filteredEmployees = employees.filter((emp: any) => {
-        const s = userSearchQuery.toLowerCase();
-        return (emp.labour_name || emp.name || '').toLowerCase().includes(s) ||
-            (emp.worker_code || '').toLowerCase().includes(s) ||
-            (emp.skill_type || '').toLowerCase().includes(s);
-    });
-
-    const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.id));
-
-    const toggleEmployee = (id: number) => {
-        setSelectedEmployees(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
-    };
-
-    const toggleAllVisible = () => {
-        if (isAllVisibleSelected) {
-            setSelectedEmployees(prev => prev.filter(id => !filteredEmployees.find((e: any) => e.id === id)));
-        } else {
-            const newSelected = [...selectedEmployees];
-            filteredEmployees.forEach((emp: any) => {
-                if (!newSelected.includes(emp.id)) newSelected.push(emp.id);
-            });
-            setSelectedEmployees(newSelected);
-        }
-    };
 
     const startRecording = async () => {
         try {
@@ -242,10 +210,20 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormNotification(null);
+        setErrors({});
 
-        const targetProjectIdVal = project !== 'None' ? Number(project) : projectId;
-        if (!targetProjectIdVal) {
-            toast.error("Please select a project");
+        const newErrors: Record<string, string> = {};
+        const missingFields: string[] = [];
+
+        if (!title.trim()) { newErrors.title = "Required"; missingFields.push("Task Title"); }
+        
+        const targetProjectIdVal = project !== 'None' ? Number(project) : null;
+        if (!targetProjectIdVal) { newErrors.project = "Required"; missingFields.push("Project"); }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(', ')}`, fields: missingFields });
             return;
         }
 
@@ -287,7 +265,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 formData.append('instruction_image', instructionImage);
             }
 
-            await projectService.createTask(targetProjectIdVal, formData);
+            await projectService.createTask(targetProjectIdVal as number, formData);
 
             toast.success("Task created successfully");
             onSuccess();
@@ -299,7 +277,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     };
 
     const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 flex items-center gap-1.5 font-inter";
-    const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300";
+    const getInputClasses = (hasError?: boolean) => `w-full px-4 py-2.5 bg-white border ${hasError ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`;
+    const inputClasses = getInputClasses();
 
     const modalFooter = (
         <>
@@ -328,8 +307,57 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             footer={modalFooter}
             maxWidth="max-w-3xl"
         >
-            <form id="create-task-form" onSubmit={handleSubmit} className="space-y-6">
-
+            {formNotification && createPortal(
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+                        @keyframes slideDownIn {
+                            from { opacity: 0; transform: translateY(-16px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                    `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+                        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                    >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                            }`}>
+                            <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                    </div>
+                </div>,
+                document.body
+            )}
+            <form id="create-task-form" onSubmit={handleSubmit} className="space-y-6 font-inter" noValidate>
+                {formNotification && formNotification.type === 'error' && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                        <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-red-600">Validation Error</p>
+                            <p className="text-xs font-medium text-red-500 mt-0.5">Mandatory fields required: {formNotification.fields?.join(', ')}</p>
+                        </div>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-red-400 hover:text-red-600">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                )}
                 {/* Task Details Section */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                     <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Task Information</h3>
@@ -417,7 +445,27 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 )}
 
                                 {!isRecording && !audioBlob && (
-                                    <span className="text-sm text-slate-400">Click to record a voice note</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => document.getElementById('audio-upload')?.click()}
+                                        className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0"
+                                        title="Upload Audio File"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    </button>
+                                )}
+                                <input 
+                                    type="file" 
+                                    id="audio-upload" 
+                                    className="hidden" 
+                                    accept="audio/*"
+                                    onChange={(e) => {
+                                        if (e.target.files?.[0]) setAudioBlob(e.target.files[0]);
+                                    }}
+                                />
+
+                                {!isRecording && !audioBlob && (
+                                    <span className="text-sm text-slate-400 truncate">Click mic or upload voice note</span>
                                 )}
                             </div>
                         </div>
@@ -437,173 +485,113 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className={labelClasses}>
-                                <Briefcase className="w-3 h-3 text-primary" />
-                                Priority <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                className={inputClasses}
+                            <CustomSelect
+                                label="Priority"
+                                icon={Briefcase}
+                                required
                                 value={priority}
-                                onChange={(e) => setPriority(e.target.value)}
-                                required
-                            >
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium</option>
-                                <option value="High">High</option>
-                                <option value="Critical">Critical</option>
-                            </select>
+                                onChange={setPriority}
+                                options={[
+                                    { id: 'Low', label: 'Low' },
+                                    { id: 'Medium', label: 'Medium' },
+                                    { id: 'High', label: 'High' },
+                                    { id: 'Critical', label: 'Critical' }
+                                ]}
+                                placeholder="Select priority"
+                                searchable={false}
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                <Check className="w-3 h-3 text-primary" />
-                                Status
-                            </label>
-                            <select
-                                className={inputClasses}
+                            <CustomSelect
+                                label="Status"
+                                icon={Check}
                                 value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                            >
-                                <option value="Planned">Planned</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Completed">Completed</option>
-                                <option value="On Hold">On Hold</option>
-                            </select>
+                                onChange={setStatus}
+                                options={[
+                                    { id: 'Planned', label: 'Planned' },
+                                    { id: 'In Progress', label: 'In Progress' },
+                                    { id: 'Completed', label: 'Completed' },
+                                    { id: 'On Hold', label: 'On Hold' }
+                                ]}
+                                placeholder="Select status"
+                                searchable={false}
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                <FileText className="w-3 h-3 text-primary" />
-                                Project <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                className={inputClasses}
-                                value={project}
-                                onChange={(e) => setProject(e.target.value)}
+                            <CustomSelect
+                                label="Project"
+                                icon={FileText}
                                 required
-                            >
-                                <option value="None">None</option>
-                                {assignedProjects.map((p: any) => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
+                                value={project}
+                                onChange={setProject}
+                                options={[
+                                    { id: 'None', label: 'None' },
+                                    ...assignedProjects.map(p => ({ id: p.id || p.project_id, label: p.project_name || p.name }))
+                                ]}
+                                placeholder="Select project"
+                            />
+                            {errors.project && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                <FileText className="w-3 h-3 text-primary" />
-                                Activity Type
-                            </label>
-                            <select
-                                className={inputClasses}
+                            <CustomSelect
+                                label="Activity Type"
+                                icon={Activity}
                                 value={activityTypeId}
-                                onChange={(e) => setActivityTypeId(e.target.value)}
-                            >
-                                <option value="None">None</option>
-                                {activities.map((a: any) => (
-                                    <option key={a.id} value={a.id}>{a.name || a.activity_name || a.title}</option>
-                                ))}
-                            </select>
+                                onChange={setActivityTypeId}
+                                options={[
+                                    { id: 'None', label: 'None' },
+                                    ...activities.map(a => ({ id: a.id, label: a.name || a.activity_name || a.title }))
+                                ]}
+                                placeholder="Select activity type"
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                <FileText className="w-3 h-3 text-primary" />
-                                Milestone
-                            </label>
-                            <select
-                                className={inputClasses}
+                            <CustomSelect
+                                label="Milestone"
+                                icon={ListTodo}
                                 value={milestoneId}
-                                onChange={(e) => setMilestoneId(e.target.value)}
-                            >
-                                <option value="None">None</option>
-                                {milestones.map((m: any) => (
-                                    <option key={m.id} value={m.id}>{m.name}</option>
-                                ))}
-                            </select>
+                                onChange={setMilestoneId}
+                                options={[
+                                    { id: 'None', label: 'None' },
+                                    ...milestones.map(m => ({ id: m.id, label: m.name }))
+                                ]}
+                                placeholder="Select milestone"
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                <FileText className="w-3 h-3 text-primary" />
-                                BOQ
-                            </label>
-                            <select
-                                className={inputClasses}
+                            <CustomSelect
+                                label="BOQ"
+                                icon={FileText}
                                 value={boqId}
-                                onChange={(e) => setBoqId(e.target.value)}
-                            >
-                                <option value="None">None</option>
-                                {boqs.map((b: any) => (
-                                    <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
-                                ))}
-                            </select>
+                                onChange={setBoqId}
+                                options={[
+                                    { id: 'None', label: 'None' },
+                                    ...boqs.map(b => ({ id: b.id, label: b.item_name || b.name || b.item_description || 'BOQ Item' }))
+                                ]}
+                                placeholder="Select BOQ item"
+                            />
                         </div>
 
-                        <div className="relative" ref={dropdownRef}>
-                            <label className={labelClasses}>
-                                <UserCircle className="w-3 h-3 text-primary" />
-                                Assigned User
-                            </label>
-
-                            <div
-                                className={`${inputClasses} flex items-center justify-between cursor-pointer ${isUserDropdownOpen ? 'ring-2 ring-primary/20 border-primary' : ''}`}
-                                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                            >
-                                <span className="text-slate-600 truncate flex-1">
-                                    {selectedEmployees.length === 0
-                                        ? "Select users..."
-                                        : `${selectedEmployees.length} user${selectedEmployees.length > 1 ? 's' : ''} selected`}
-                                </span>
-                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
-                            </div>
-
-                            {isUserDropdownOpen && (
-                                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[300px]">
-                                    <div className="p-2 border-b border-slate-100">
-                                        <div className="relative">
-                                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search employees by name, ID or email..."
-                                                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-                                                value={userSearchQuery}
-                                                onChange={(e) => setUserSearchQuery(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
-                                        <label className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border-b border-slate-100 mb-2">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isAllVisibleSelected ? 'bg-primary border-primary' : 'border-slate-300'}`}>
-                                                {isAllVisibleSelected && <Check className="w-3 h-3 text-white" />}
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-700">Select All Visible</span>
-                                            {/* Invisible checkbox so label works */}
-                                            <input type="checkbox" className="hidden" checked={isAllVisibleSelected} onChange={toggleAllVisible} />
-                                        </label>
-
-                                        {filteredEmployees.map((emp: any) => (
-                                            <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary' : 'border-slate-300'}`}>
-                                                    {selectedEmployees.includes(emp.id) && <Check className="w-3 h-3 text-white" />}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</p>
-                                                </div>
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-1 rounded-md group-hover:bg-white transition-colors border border-slate-200 group-hover:border-slate-300 shadow-sm">
-                                                    {emp.skill_type || 'GENERAL'}
-                                                </span>
-                                                <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} />
-                                            </label>
-                                        ))}
-
-                                        {filteredEmployees.length === 0 && (
-                                            <div className="p-4 text-center text-sm text-slate-500">No employees found</div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                        <div className="relative">
+                            <CustomMultiSelect
+                                label="Assigned User"
+                                icon={UserCircle}
+                                values={selectedEmployees}
+                                onChange={(vals: any[]) => setSelectedEmployees(vals as number[])}
+                                options={employees.map((emp: any) => ({
+                                    id: emp.id || emp.user_id, 
+                                    label: emp.full_name || emp.name || emp.labour_name || `User ${emp.id || emp.user_id}`, 
+                                    badge: emp.skill_type || emp.role || 'GENERAL',
+                                    searchKey: `${emp.worker_code || ''} ${emp.id || ''} ${emp.role || ''} ${emp.full_name || emp.name || ''}`
+                                }))}
+                                placeholder="Select users..."
+                                placement="top"
+                            />
                         </div>
 
                         <div>

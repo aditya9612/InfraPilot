@@ -38,7 +38,7 @@ const initialFormData = {
     labour_type_id: 1,
     custom_daily_wage_rate: "",
     custom_ot_rate_per_hour: "",
-    contractor_id: 1,
+    contractor_id: "" as number | "",
     status: "Active",
     notes: "",
     project_id: "" as number | "",
@@ -70,6 +70,9 @@ const LaborDetailsPage = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedLaborer, setSelectedLaborer] = useState<LabourItem | null>(null);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string, fields?: string[] } | null>(null);
+
+    const inputClasses = (error?: string) => `w-full px-4 py-2.5 bg-white border ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`;
     const [editId, setEditId] = useState<number | null>(null);
     const [formData, setFormData] = useState(initialFormData);
     const [searchTerm, setSearchTerm] = useState("");
@@ -222,6 +225,7 @@ const LaborDetailsPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
+        const errorFields: string[] = [];
         const aadhaarDigits = formData.aadhaar_number.replace(/-/g, "");
 
         if (formData.aadhaar_number.trim()) {
@@ -232,14 +236,18 @@ const LaborDetailsPage = () => {
 
         if (!formData.labour_name.trim()) {
             newErrors.labour_name = "Labour name is required";
+            errorFields.push("Labour Name");
         } else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) {
             newErrors.labour_name = "Name must contain only alphabets";
+            errorFields.push("Labour Name");
         }
 
         if (!formData.mobile_number.trim()) {
             newErrors.mobile_number = "Mobile number is required";
+            errorFields.push("Mobile Number");
         } else if (!/^[6-9]\d{9}$/.test(formData.mobile_number)) {
             newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+            errorFields.push("Mobile Number");
         }
 
         if (formData.pan_number && formData.pan_number.trim()) {
@@ -248,7 +256,15 @@ const LaborDetailsPage = () => {
             }
         }
 
-        if (!formData.labour_type_id) newErrors.labour_type_id = "Labour type is required";
+        if (!formData.labour_type_id) {
+            newErrors.labour_type_id = "Labour type is required";
+            errorFields.push("Labour Type");
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: errorFields });
+            setTimeout(() => setFormNotification(null), 5000);
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -340,7 +356,6 @@ const LaborDetailsPage = () => {
         e.preventDefault();
         setApiError(null);
         if (!validate()) {
-            toast.error("Please correct the errors in the form");
             return;
         }
         setIsSubmitting(true);
@@ -526,7 +541,7 @@ const LaborDetailsPage = () => {
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Workforce Personnel Ledger
@@ -596,21 +611,10 @@ const LaborDetailsPage = () => {
 
 
 
-                {/* Skill Summary Pills (GET /labour/summary/skill) */}
-                {skillSummary.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest self-center">Skill Summary:</span>
-                        {skillSummary.map((s: any, i: number) => (
-                            <span key={i} className="px-3 py-1.5 bg-primary/5 text-primary border border-primary/10 rounded-full text-xs font-bold">
-                                {s.skill_type || s.skill || `Skill ${i + 1}`}: <span className="font-extrabold">{s.count}</span>
-                            </span>
-                        ))}
-                    </div>
-                )}
 
                 {/* Main Container */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center flex-wrap gap-4 bg-white font-inter w-full">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                             <input type="text" placeholder="Search by name, ID or Aadhaar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
@@ -772,7 +776,7 @@ const LaborDetailsPage = () => {
                                                             <QrCode className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setApiError(null); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? "", status: labor.status, notes: labor.notes || "", project_id: "", profile_image: labor.profile_image || "", profile_image_file: null }); setErrors({}); setApiError(null); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -784,7 +788,7 @@ const LaborDetailsPage = () => {
 
                         {/* ── Pagination Controls ── */}
                         {!isLoading && filteredLaborers.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -897,6 +901,12 @@ const LaborDetailsPage = () => {
             </Modal>
 
             {/* ── Form Modal ── */}
+            <style dangerouslySetInnerHTML={{__html: `
+                @keyframes slideDownIn {
+                    from { transform: translateY(-100%); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            `}} />
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -923,7 +933,47 @@ const LaborDetailsPage = () => {
                     </div>
                 }
             >
-                <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
+                {/* Form Notification Toast */}
+                {formNotification && (
+                    <div className={`fixed top-4 right-4 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${formNotification.type === 'error' ? 'bg-white border-rose-200 text-rose-700' : 'bg-white border-emerald-200 text-emerald-700'}`} style={{ animation: 'slideDownIn 0.3s ease-out' }}>
+                        <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {formNotification.type === 'error' ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            )}
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm">{formNotification.message}</p>
+                            {formNotification.fields && formNotification.fields.length > 0 && (
+                                <p className="text-xs opacity-80 mt-0.5">Missing: {formNotification.fields.join(', ')}</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6 relative">
+                    {formNotification?.type === 'error' && (
+                        <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
+                            <div className="p-2 bg-rose-100 rounded-lg shrink-0">
+                                <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-rose-800">Validation Error</h3>
+                                <p className="text-xs font-semibold text-rose-600 mt-0.5">Please provide all required information to continue.</p>
+                                {formNotification.fields && formNotification.fields.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {formNotification.fields.map(field => (
+                                            <span key={field} className="px-2 py-1 bg-white border border-rose-100 text-rose-600 text-[10px] uppercase tracking-wider font-bold rounded-md">
+                                                {field}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {apiError && (
                         <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm mb-4">
                             <div className="flex items-center gap-3">
@@ -956,15 +1006,19 @@ const LaborDetailsPage = () => {
                             {/* labour_name * */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
-                                {errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}
+                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses(errors.labour_name)} />
+                                {errors.labour_name ? (
+                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>
+                                ) : (
+                                    <p className="text-[10px] text-slate-400 font-bold mt-1 ml-1">Full legal name of the labourer</p>
+                                )}
                             </div>
 
                             {/* mobile_number * */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Mobile Number <span className="text-rose-500">*</span></label>
-                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`} required />
-                                {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
+                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses(errors.mobile_number)} />
+                                {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
 
                             {/* email */}
@@ -987,14 +1041,14 @@ const LaborDetailsPage = () => {
                                 <select
                                     value={formData.labour_type_id || ""}
                                     onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
-                                    className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`}
+                                    className={inputClasses(errors.labour_type_id)}
                                 >
-                                    <option value="" disabled></option>
+                                    <option value="" disabled>Select Labour Type</option>
                                     {labourTypes.map((type) => (
                                         <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
                                     ))}
                                 </select>
-                                {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
+                                {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
 
                             {/* custom_daily_wage_rate */}
@@ -1012,7 +1066,7 @@ const LaborDetailsPage = () => {
                             {/* contractor_id */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Contractor ID</label>
-                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: e.target.value ? Number(e.target.value) : "" })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter" />
                             </div>
 
                             {/* project_id (only on create) */}
@@ -1021,10 +1075,10 @@ const LaborDetailsPage = () => {
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Project</label>
                                     <select
                                         value={formData.project_id || ""}
-                                        onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                                        onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : "" })}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all font-inter"
                                     >
-                                        <option value="" disabled>-- Select Project --</option>
+                                        <option value="">-- No Project (Optional) --</option>
                                         {projects.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                         ))}

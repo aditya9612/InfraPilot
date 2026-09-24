@@ -37,7 +37,7 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
         </table>
       </div>
       {data.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
             <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
@@ -69,6 +69,15 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+        error 
+            ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white' 
+            : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+    }`;
+
   useEffect(() => {
     if (isOpen) {
       projectService.getProjects().then(res => {
@@ -99,11 +108,27 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
       const val = name === "project_id" ? Number(value) : value;
       setFormData(prev => ({ ...prev, [name]: val }));
     }
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return toast.error("Asset name is required");
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.name) newErrors.name = "Asset name is required";
+    if (formData.purchase_value <= 0) newErrors.purchase_value = "Valid purchase value is required";
+    if (!formData.purchase_date) newErrors.purchase_date = "Purchase date is required";
+    if (formData.depreciation_rate <= 0) newErrors.depreciation_rate = "Valid depreciation rate is required";
+    if (!formData.project_id) newErrors.project_id = "Project is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     setLoading(true);
     try {
       await accountingService.createAsset(formData);
@@ -139,28 +164,33 @@ const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClos
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Name <span className="text-rose-500">*</span></label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Asset name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <input type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="Asset name" className={inputClasses(errors.name)} />
+              {errors.name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.name}</p>}
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Value <span className="text-rose-500">*</span></label>
-              <input type="number" name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <input type="number" required name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className={inputClasses(errors.purchase_value)} />
+              {errors.purchase_value && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.purchase_value}</p>}
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Date <span className="text-rose-500">*</span></label>
-              <input type="date" name="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <input type="date" required name="purchase_date" value={formData.purchase_date} onChange={handleChange} className={inputClasses(errors.purchase_date)} />
+              {errors.purchase_date && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.purchase_date}</p>}
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Depreciation Rate (%) <span className="text-rose-500">*</span></label>
-              <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+              <input type="number" required name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className={inputClasses(errors.depreciation_rate)} />
+              {errors.depreciation_rate && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.depreciation_rate}</p>}
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project ID <span className="text-rose-500">*</span></label>
-              <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <select name="project_id" required value={formData.project_id || ""} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 <option value="" disabled>Select Project</option>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.project_id}</p>}
             </div>
           </div>
         </div>
@@ -247,8 +277,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   const [assets, setAssets] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filterProject, setFilterProject] = useState("");
-  const [filterPurchaseDate, setFilterPurchaseDate] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState({ project: "", purchaseDate: "" });
+  const [filterPurchaseDate, setFilterPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
 
   const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }];
 
@@ -272,8 +301,10 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   }, [activeSubTab]);
 
   const filteredAssets = assets.filter(a => {
-    if (appliedFilters.project && String(a.project_id) !== String(appliedFilters.project)) return false;
-    if (appliedFilters.purchaseDate && a.purchase_date !== appliedFilters.purchaseDate) return false;
+    if (filterProject) {
+      if (String(a.project_id) !== String(filterProject)) return false;
+    }
+    if (filterPurchaseDate && a.purchase_date && !String(a.purchase_date).startsWith(filterPurchaseDate)) return false;
     return true;
   });
 
@@ -301,7 +332,6 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
             </div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option value="">All</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" value={filterPurchaseDate} onChange={(e) => setFilterPurchaseDate(e.target.value)} className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
-            <button onClick={() => setAppliedFilters({ project: filterProject, purchaseDate: filterPurchaseDate })} className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5 hover:bg-slate-700 transition-colors">Apply</button>
           </div>
           <PaginatedTableSection 
             title="Asset List" 
@@ -312,7 +342,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
               `₹${Number(a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
               a.purchase_date ? String(a.purchase_date).split("T")[0] : "N/A",
               `₹${Number(a.current_value || a.purchase_value || a.cost || 0).toLocaleString("en-IN")}`,
-              a.project_name || a.location || a.site_location || "Head Office",
+              a.project_name || a.location || a.site_location || "-",
               <div key={a.id} className="flex gap-2">
                 <button title="View" onClick={() => setViewAssetId(a.id)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Eye size={14}/></button>
                 <button title="QR Code" onClick={async () => {
@@ -458,7 +488,7 @@ const FixedAssetsPage = () => {
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
         {/* ── Section Header ─────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>

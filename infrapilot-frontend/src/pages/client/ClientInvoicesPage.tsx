@@ -226,14 +226,31 @@ const ClientInvoicesPage = () => {
     (currentPage + 1) * PAGE_SIZE
   );
 
-  const handleDownloadPDF = (invoice: Invoice) => {
+  const handleDownloadPDF = async (invoice: Invoice) => {
+    const toastId = toast.loading(`Downloading Invoice INV-${String(invoice.id).padStart(3, "0")}...`);
     try {
-      const proj = projects.find((p) => Number(p.id) === Number(invoice.project_id));
-      generateInvoicePDF(invoice, proj);
-      toast.success(`Invoice INV-${String(invoice.id).padStart(3, "0")} downloaded`);
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      toast.error("Failed to generate PDF");
+      // Call GET /api/v1/invoices/{id}/pdf
+      const blob = await financeService.getInvoicePdf(invoice.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Invoice_INV-${String(invoice.id).padStart(3, "0")}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Invoice INV-${String(invoice.id).padStart(3, "0")} downloaded successfully!`, { id: toastId });
+    } catch (err: any) {
+      console.warn("Backend PDF download failed, trying client-side generator:", err);
+      // Fallback to client-side generator if server PDF endpoint fails
+      try {
+        const proj = projects.find((p) => Number(p.id) === Number(invoice.project_id));
+        generateInvoicePDF(invoice, proj);
+        toast.success(`Invoice INV-${String(invoice.id).padStart(3, "0")} downloaded`, { id: toastId });
+      } catch (fallbackErr) {
+        console.error("PDF generation failed:", fallbackErr);
+        toast.error("Failed to generate PDF", { id: toastId });
+      }
     }
   };
 
@@ -568,35 +585,77 @@ const ClientInvoicesPage = () => {
               </table>
             </div>
 
-            {/* Pagination Controls */}
-            {filteredInvoices.length > PAGE_SIZE && (
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-400">
-                  Showing {currentPage * PAGE_SIZE + 1}–
-                  {Math.min((currentPage + 1) * PAGE_SIZE, filteredInvoices.length)} of{" "}
-                  {filteredInvoices.length} Invoices
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                    disabled={currentPage === 0}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-xs font-bold text-slate-700 px-2">
-                    {currentPage + 1} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={currentPage >= totalPages - 1}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-                  >
-                    Next
-                  </button>
-                </div>
+            {/* Pagination Footer */}
+            <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs font-bold text-slate-400">
+                Showing{" "}
+                <span className="text-slate-600">
+                  {filteredInvoices.length === 0
+                    ? "0"
+                    : `${currentPage * PAGE_SIZE + 1}–${Math.min((currentPage + 1) * PAGE_SIZE, filteredInvoices.length)}`}
+                </span>{" "}
+                of <span className="text-slate-600">{filteredInvoices.length}</span> invoice
+                {filteredInvoices.length !== 1 ? "s" : ""}
+              </p>
+
+              <div className="flex items-center gap-1.5">
+                {/* Prev */}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm text-xs font-bold cursor-pointer"
+                >
+                  ‹
+                </button>
+
+                {/* Page number buttons */}
+                {Array.from({ length: totalPages }, (_, i) => i).map((page) => {
+                  const show =
+                    totalPages <= 7 ||
+                    page === 0 ||
+                    page === totalPages - 1 ||
+                    Math.abs(page - currentPage) <= 1;
+                  const isEllipsisBefore =
+                    page === 1 && currentPage > 3 && totalPages > 7;
+                  const isEllipsisAfter =
+                    page === totalPages - 2 &&
+                    currentPage < totalPages - 4 &&
+                    totalPages > 7;
+
+                  if (isEllipsisBefore || isEllipsisAfter) {
+                    return (
+                      <span key={`ellipsis-${page}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-xs font-bold">
+                        …
+                      </span>
+                    );
+                  }
+                  if (!show) return null;
+
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-xl border text-xs font-black transition-all shadow-sm cursor-pointer ${
+                        page === currentPage
+                          ? "bg-primary border-primary text-white shadow-primary/20"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {page + 1}
+                    </button>
+                  );
+                })}
+
+                {/* Next */}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm text-xs font-bold cursor-pointer"
+                >
+                  ›
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 

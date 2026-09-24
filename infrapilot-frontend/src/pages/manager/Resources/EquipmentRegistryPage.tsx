@@ -760,7 +760,7 @@ const EquipmentRegistryPage = () => {
     const handleDeleteMaintenanceConfirm = async () => {
         if (!maintenanceToDelete) return;
         try {
-            await equipmentService.deleteMaintenance(maintenanceToDelete.id);
+            await equipmentService.deleteMaintenance(maintenanceToDelete.equipment_id, maintenanceToDelete.id);
             toast.success("Maintenance record deleted");
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: effectiveProjectId || undefined });
@@ -794,7 +794,7 @@ const EquipmentRegistryPage = () => {
                 boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : undefined
             };
             if (formData.id) {
-                await equipmentService.updateMaintenance(formData.id, payload);
+                await equipmentService.updateMaintenance(equipmentId, formData.id, payload);
                 toast.success('Maintenance updated');
             } else {
                 await equipmentService.createMaintenance(equipmentId, payload);
@@ -1795,16 +1795,23 @@ const EquipmentRegistryPage = () => {
 
 
                         <div className="flex justify-end gap-3 mt-8">
-                            <button
-                                type="button"
-                                onClick={handleDeallocate}
-                                disabled={!(allocationStatus.allocated || Boolean(selectedEquipment?.project_id))}
-                                className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-colors ${(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? 'text-rose-500 hover:bg-rose-50 border border-transparent' : 'text-slate-300 bg-slate-50 border border-slate-200 cursor-not-allowed'}`}
-                            >
-                                Deallocate
-                            </button>
-                            <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                            <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
+                            {(allocationStatus.allocated || Boolean(selectedEquipment?.project_id)) ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={handleDeallocate}
+                                        className="px-6 py-2.5 text-sm font-bold rounded-xl transition-colors text-rose-500 hover:bg-rose-50 border border-transparent"
+                                    >
+                                        Deallocate
+                                    </button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
+                                </>
+                            )}
                         </div>
                     </form>
                 </div>

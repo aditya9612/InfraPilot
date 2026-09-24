@@ -167,7 +167,7 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, projectId = 0, checkInAddres
         if (!validate()) return;
         setIsLoading(true);
         try {
-            const payload: CheckOutRequest = {
+            const payload: any = {
                 latitude,
                 longitude,
                 location_address: resolvedAddress,
@@ -178,6 +178,7 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, projectId = 0, checkInAddres
                 work_summary: workSummary,
                 task_deadline_reason: taskDeadlineReason,
                 check_out_image: capturedImage,
+                work_report_pdf: pdfFile || undefined,
                 out_time: outTime,
             };
             await onSubmit(payload);

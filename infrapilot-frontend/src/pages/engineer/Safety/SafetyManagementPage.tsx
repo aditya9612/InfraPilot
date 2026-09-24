@@ -4,8 +4,8 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import {
-    Plus,
     Search,
     Eye,
     Edit2,
@@ -121,6 +121,8 @@ const SafetyManagementPage = () => {
         safety_checklist_status: "pending",
         ppe_compliance: true
     });
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+    const [formFieldErrors, setFormFieldErrors] = useState<Record<string, boolean>>({});
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -288,7 +290,7 @@ const SafetyManagementPage = () => {
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
-        
+
         VIOLATION_TYPES.forEach(type => {
             groups[type] = { total: 0, resolved: 0, unresolved: 0 };
         });
@@ -363,6 +365,10 @@ const SafetyManagementPage = () => {
         const { name, value, type } = e.target;
         const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
         setFormData((prev: CreateSafetyRequest) => ({ ...prev, [name]: val }));
+        // Clear field error on change
+        if (formFieldErrors[name]) {
+            setFormFieldErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
     // Alpha-only handler for responsible_person field
@@ -374,16 +380,45 @@ const SafetyManagementPage = () => {
 
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
-        if (!formData.date || !formData.violation_type || !formData.description || !formData.action_taken || !formData.responsible_person) {
-            toast.error("Please fill all required fields");
+        setFormNotification(null);
+        setFormFieldErrors({});
+
+        // Collect ALL missing mandatory fields at once
+        const missingFields: string[] = [];
+        const fieldErrors: Record<string, boolean> = {};
+        if (!formData.project_id) { missingFields.push('Project'); fieldErrors['project_id'] = true; }
+        if (!formData.date) { missingFields.push('Date'); fieldErrors['date'] = true; }
+        if (!formData.ppe_compliance) { missingFields.push('PPE Compliance Checked'); fieldErrors['ppe_compliance'] = true; }
+
+        if (missingFields.length > 0) {
+            const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
+            setFormNotification({ type: 'error', message: msg, fields: missingFields });
+            setFormFieldErrors(fieldErrors);
+            toast.error(msg, { id: 'validation' });
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const newIncident = await safetyService.createIncident({ ...formData, project_id: formData.project_id || projectId || 0 });
-            toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety incident created successfully!");
+            // Build payload ensuring string defaults for required backend string fields (avoiding 422 validation errors)
+            const payload: CreateSafetyRequest = {
+                ...formData,
+                project_id: Number(formData.project_id) || projectId || 0,
+                task_id: formData.task_id ? Number(formData.task_id) : null,
+                description: formData.description?.trim() || "No description provided",
+                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                injury_details: formData.injury_details?.trim() || "None",
+                action_taken: formData.action_taken?.trim() || "None",
+                violation_type: formData.violation_type || "No Helmet",
+                safety_checklist_status: formData.safety_checklist_status || "pending",
+                ppe_compliance: !!formData.ppe_compliance
+            };
+
+            const newIncident = await safetyService.createIncident(payload);
+            setFormNotification({ type: 'success', message: activeTab === "Incident Report" ? 'Incident reported successfully!' : 'Safety audit saved successfully!' });
+            toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety audit saved successfully!");
             setIsNewModalOpen(false);
+            setFormNotification(null);
 
             setIncidentList(prev => [newIncident, ...prev]);
 
@@ -398,10 +433,22 @@ const SafetyManagementPage = () => {
                 action_taken: "",
                 responsible_person: "",
                 safety_checklist_status: "pending",
-                ppe_compliance: activeTab === "Incident Report" ? true : false
+                ppe_compliance: true
             });
-        } catch (error) {
-            toast.error(activeTab === "Incident Report" ? "Failed to report incident" : "Failed to create safety incident");
+        } catch (error: any) {
+            let errMsg = activeTab === "Incident Report" ? "Failed to report incident" : "Failed to save safety audit";
+            const detail = error?.response?.data?.detail;
+            if (Array.isArray(detail)) {
+                errMsg = detail.map((d: any) => `${d.loc ? d.loc.join(' -> ') + ': ' : ''}${d.msg || d}`).join(' | ');
+            } else if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (error?.response?.data?.message) {
+                errMsg = error.response.data.message;
+            } else if (error?.message) {
+                errMsg = error.message;
+            }
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -441,15 +488,59 @@ const SafetyManagementPage = () => {
     const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
         if (!selectedIncident) return;
+        setFormNotification(null);
+        setFormFieldErrors({});
+
+        // Collect ALL missing mandatory fields at once
+        const missingFields: string[] = [];
+        const fieldErrors: Record<string, boolean> = {};
+        if (!formData.project_id) { missingFields.push('Project'); fieldErrors['project_id'] = true; }
+        if (!formData.date) { missingFields.push('Date'); fieldErrors['date'] = true; }
+        if (!formData.ppe_compliance) { missingFields.push('PPE Compliance Checked'); fieldErrors['ppe_compliance'] = true; }
+
+        if (missingFields.length > 0) {
+            const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
+            setFormNotification({ type: 'error', message: msg, fields: missingFields });
+            setFormFieldErrors(fieldErrors);
+            toast.error(msg, { id: 'validation' });
+            return;
+        }
 
         setIsSubmitting(true);
         try {
-            await safetyService.updateIncident(selectedIncident.id, formData);
-            toast.success("Updated successfully!");
+            const payload: CreateSafetyRequest = {
+                ...formData,
+                project_id: Number(formData.project_id),
+                task_id: formData.task_id ? Number(formData.task_id) : null,
+                description: formData.description?.trim() || "No description provided",
+                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                injury_details: formData.injury_details?.trim() || "None",
+                action_taken: formData.action_taken?.trim() || "None",
+                violation_type: formData.violation_type || "No Helmet",
+                safety_checklist_status: formData.safety_checklist_status || "pending",
+                ppe_compliance: !!formData.ppe_compliance
+            };
+
+            await safetyService.updateIncident(selectedIncident.id, payload);
+            setFormNotification({ type: 'success', message: 'Safety record updated successfully!' });
+            toast.success("Safety record updated successfully!");
             setIsEditModalOpen(false);
+            setFormNotification(null);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to update");
+        } catch (error: any) {
+            let errMsg = "Failed to update safety record";
+            const detail = error?.response?.data?.detail;
+            if (Array.isArray(detail)) {
+                errMsg = detail.map((d: any) => `${d.loc ? d.loc.join(' -> ') + ': ' : ''}${d.msg || d}`).join(' | ');
+            } else if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (error?.response?.data?.message) {
+                errMsg = error.response.data.message;
+            } else if (error?.message) {
+                errMsg = error.message;
+            }
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -457,7 +548,7 @@ const SafetyManagementPage = () => {
 
     // ─── RENDER HELPERS ─────────────────────────────────────────────────
 
-    const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-sm font-bold text-slate-900 mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
 
     const statCardsData = [
@@ -469,6 +560,56 @@ const SafetyManagementPage = () => {
 
     return (
         <>
+            {/* ── Top-Right Floating Toast (matches Drawing/Site Evidence style) ─── */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999,
+                        minWidth: '260px',
+                        maxWidth: '380px',
+                        animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                    }}
+                >
+                    <style>{`
+                        @keyframes slideDownIn {
+                            from { opacity: 0; transform: translateY(-16px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                    `}</style>
+                    <div
+                        className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5 font-inter"
+                        style={{
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.13)',
+                            border: '1px solid #f1f5f9',
+                        }}
+                    >
+                        {/* Red circle X icon */}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}>
+                            <span className="text-white text-xs font-bold">
+                                {formNotification.type === 'error' ? '×' : '✓'}
+                            </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                            {formNotification.type === 'error'
+                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                : formNotification.message}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setFormNotification(null)}
+                            className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5 transition-colors"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", activeTab === "Safety Checklist" ? "Checklist Vault" : "Incident Logs"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -503,7 +644,6 @@ const SafetyManagementPage = () => {
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            <Plus className="w-4 h-4" />
                             {activeTab === "Safety Checklist" ? "Log Audit Entry" : "Log Incident Report"}
                         </button>
                     </div>
@@ -547,7 +687,7 @@ const SafetyManagementPage = () => {
                 {activeTab === "Safety Checklist" && (
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                         {/* Integrated Filter Bar */}
-                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
                             <div className="relative flex-1 max-w-md font-inter">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                                     <Search className="w-4 h-4 font-inter" />
@@ -637,12 +777,12 @@ const SafetyManagementPage = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
                                                             {item.violation_type}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
                                                             item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
                                                                 item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
                                                                     'bg-slate-100 text-slate-600'
@@ -823,82 +963,115 @@ const SafetyManagementPage = () => {
 
             <Modal
                 isOpen={isNewModalOpen || isEditModalOpen}
-                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); setFormNotification(null); }}
                 title={isEditModalOpen ? (activeTab === "Incident Report" ? "Modify Incident Report" : "Modify Safety Intelligence") : (activeTab === "Incident Report" ? "Log New Incident Report" : "Record New Safety Audit")}
                 maxWidth="max-w-2xl"
                 footer={
                     <>
                         <button
                             type="button"
-                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); setFormNotification(null); }}
                             disabled={isSubmitting}
                             className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
-                            type="button"
-                            onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
+                            type="submit"
+                            form="audit-form"
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
                         >
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : (activeTab === "Incident Report" ? "Create Report" : "Create Audit Entry"))}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Edit Safety" : (activeTab === "Incident Report" ? "Create Report" : "Save Safety Audit"))}
                         </button>
                     </>
                 }
             >
                 <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
+                    {/* ── Inline Validation Error Banner (like Drawing/Site Evidence style) ── */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">
+                                    Mandatory fields required: {(formNotification.fields || []).join(', ')}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setFormNotification(null)}
+                                className="text-red-300 hover:text-red-500 text-base leading-none transition-colors"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
+                    {formNotification && formNotification.type === 'success' && (
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     {/* Basic Info */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
-                                <select
-                                    name="project_id"
-                                    value={formData.project_id}
-                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }))}
-                                    className={inputClasses}
-                                >
-                                    <option value="">-- Select Project --</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Task <span className="text-rose-500">*</span></label>
-                                <select
+                            <div className="md:col-span-2 font-inter z-[66] relative">
+                                <CustomSelect
+                                    label="Project"
                                     required
-                                    name="task_id"
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
-                                    className={inputClasses}
-                                >
-                                    <option value="">-- Select Task --</option>
-                                    {tasks.map((t: any) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.title || `Task #${t.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                    value={formData.project_id?.toString() || ""}
+                                    onChange={(val) => {
+                                        setFormData((prev: any) => ({ ...prev, project_id: Number(val), task_id: 0 }));
+                                        if (formFieldErrors['project_id']) setFormFieldErrors(prev => ({ ...prev, project_id: false }));
+                                    }}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="-- Select Project --"
+                                    error={!!formFieldErrors['project_id']}
+                                />
+                                {formFieldErrors['project_id'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
+                                )}
+                            </div>
+                            <div className="md:col-span-2 font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Task"
+                                    value={formData.task_id?.toString() || ""}
+                                    onChange={(val) => setFormData((prev: any) => ({ ...prev, task_id: val ? Number(val) : 0 }))}
+                                    options={tasks.map((t: any) => ({
+                                        id: t.id.toString(),
+                                        label: t.title || `Task #${t.id}`,
+                                        badge: t.status
+                                    }))}
+                                    placeholder="-- Select Task --"
+                                />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Date <span className="text-red-600">*</span></label>
                                 <input
                                     name="date"
                                     type="date"
                                     value={formData.date}
                                     onChange={handleInputChange}
-                                    className={inputClasses}
+                                    className={`${inputClasses}${formFieldErrors['date'] ? ' border-red-400 ring-1 ring-red-400' : ''}`}
                                 />
+                                {formFieldErrors['date'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
+                                )}
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Responsible Person (Optional)</label>
                                 <input
                                     name="responsible_person"
                                     value={formData.responsible_person}
@@ -907,7 +1080,7 @@ const SafetyManagementPage = () => {
                                     className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:ring-rose-200" : ""}`}
                                 />
                                 {/\d/.test(formData.responsible_person) && (
-                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed.</p>
+                                    <p className="text-[10px] text-red-600 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed.</p>
                                 )}
                             </div>
                         </div>
@@ -919,35 +1092,34 @@ const SafetyManagementPage = () => {
                             Observation Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="font-inter">
-                                <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
-                                <select
-                                    name="safety_checklist_status"
+                            <div className="font-inter z-[64] relative">
+                                <CustomSelect
+                                    label="Safety Checklist Status"
+                                    required
                                     value={formData.safety_checklist_status}
-                                    onChange={handleInputChange}
-                                    className={inputClasses}
-                                >
-                                    <option value="pending">Pending</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="failed">Failed</option>
-                                </select>
+                                    onChange={(val) => handleInputChange({ target: { name: 'safety_checklist_status', value: val } } as any)}
+                                    options={[
+                                        { id: 'pending', label: 'Pending' },
+                                        { id: 'completed', label: 'Completed' },
+                                        { id: 'failed', label: 'Failed' }
+                                    ]}
+                                />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                                <select
-                                    name="violation_type"
+                            <div className="font-inter z-[63] relative">
+                                <CustomSelect
+                                    label="Violation Type (Optional)"
                                     value={formData.violation_type}
-                                    onChange={handleInputChange}
-                                    className={inputClasses}
-                                >
-                                    {VIOLATION_TYPES.map(vt => (
-                                        <option key={vt} value={vt}>{vt}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => handleInputChange({ target: { name: 'violation_type', value: val } } as any)}
+                                    options={[
+                                        { id: '', label: '-- None --' },
+                                        ...VIOLATION_TYPES.map(vt => ({ id: vt, label: vt }))
+                                    ]}
+                                    placeholder="-- Select Type --"
+                                />
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Description (Optional)</label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
@@ -971,7 +1143,7 @@ const SafetyManagementPage = () => {
                             </div>
 
                             <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Action Taken (Optional)</label>
                                 <textarea
                                     name="action_taken"
                                     value={formData.action_taken}
@@ -982,18 +1154,26 @@ const SafetyManagementPage = () => {
                                 />
                             </div>
 
-                            <div className="md:col-span-2 font-inter flex items-center gap-3 mt-2">
-                                <input
-                                    type="checkbox"
-                                    name="ppe_compliance"
-                                    id="ppe_compliance"
-                                    checked={formData.ppe_compliance}
-                                    onChange={handleInputChange}
-                                    className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
-                                />
-                                <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700">
-                                    PPE Compliance Checked
-                                </label>
+                            <div className={`md:col-span-2 font-inter flex flex-col gap-1 mt-2 p-3 rounded-xl border transition-all ${formFieldErrors['ppe_compliance'] ? 'border-red-400 bg-red-50' : 'border-transparent'}`}>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        name="ppe_compliance"
+                                        id="ppe_compliance"
+                                        checked={formData.ppe_compliance}
+                                        onChange={handleInputChange}
+                                        className={`w-4 h-4 text-primary rounded focus:ring-primary cursor-pointer ${formFieldErrors['ppe_compliance'] ? 'border-red-400' : 'border-slate-300'}`}
+                                    />
+                                    <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700 cursor-pointer">
+                                        PPE Compliance Checked <span className="text-red-600">*</span>
+                                    </label>
+                                </div>
+                                {formFieldErrors['ppe_compliance'] && (
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-0.5 ml-7">Required</p>
+                                )}
+                                {!formFieldErrors['ppe_compliance'] && !formData.ppe_compliance && (
+                                    <p className="text-[10px] text-red-500 font-semibold ml-7">Please check PPE compliance before submitting.</p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1049,7 +1229,7 @@ const SafetyManagementPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">PPE Compliance</p>
-                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.ppe_compliance ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.ppe_compliance ? 'text-emerald-500' : 'text-red-600'}`}>
                                             {selectedIncident.ppe_compliance ? 'Compliant' : 'Non-Compliant'}
                                         </p>
                                     </div>

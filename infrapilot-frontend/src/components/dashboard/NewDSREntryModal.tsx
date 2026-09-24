@@ -41,6 +41,8 @@ const NewDSREntryModal = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
+  const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "capturing" | "captured" | "error"
   >("idle");
@@ -152,34 +154,38 @@ const NewDSREntryModal = ({
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!formData.report_date) errs.report_date = "Report Date is required";
-    if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done is required";
+    const missingFields: string[] = [];
+    if (!formData.report_date) {
+      errs.report_date = "Required";
+      missingFields.push("Report Date");
+    }
+    if (!formData.work_done || !formData.work_done.trim()) {
+      errs.work_done = "Required";
+      missingFields.push("Work Done");
+    }
 
     setErrors(errs);
+    if (missingFields.length > 0) {
+      setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(', ')}`, fields: missingFields });
+    }
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormNotification(null);
     if (!validate()) {
-      toast.error("Please fill in all required fields correctly.");
       return;
     }
     setIsLoading(true);
     const tid = toast.loading(photoFile ? "Creating DSR with photo..." : "Creating DSR...");
     try {
-      // Create DSR first
-      const payload = { ...formData };
-      const dsr = await dsrService.createDsr(payload);
-      
-      // Upload photo if present
-      if (photoFile && dsr && dsr.id) {
-          try {
-              await dsrService.uploadDsrPhoto(dsr.id, photoFile, formData.project_id);
-          } catch (photoErr) {
-              console.error("Photo upload failed, but DSR was created", photoErr);
-          }
+      // Create DSR with photo included in payload
+      const payload: any = { ...formData };
+      if (photoFile) {
+        payload.dsr_image = photoFile;
       }
+      await dsrService.createDsr(payload);
 
       toast.success(
         photoFile ? "DSR entry created with photo!" : "DSR entry created successfully!",
@@ -219,7 +225,57 @@ const NewDSREntryModal = ({
         </>
       }
     >
+      {/* Top-right floating toast */}
+      {formNotification && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '18px',
+            right: '18px',
+            zIndex: 99999,
+            minWidth: '260px',
+            maxWidth: '380px',
+            animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+          }}
+        >
+          <style>{`
+            @keyframes slideDownIn {
+              from { opacity: 0; transform: translateY(-16px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          <div
+            className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+              formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+            }`}>
+              <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+              {formNotification.type === 'error'
+                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                : formNotification.message}
+            </p>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+          </div>
+        </div>
+      )}
       <form id="dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
+        {/* Inline Validation Error Banner */}
+        {formNotification && formNotification.type === 'error' && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-red-600">Validation Error</p>
+              <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {(formNotification.fields || []).join(', ')}</p>
+            </div>
+            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+          </div>
+        )}
 
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -233,19 +289,94 @@ const NewDSREntryModal = ({
                 ))}
               </select>
             </div>
-            <div>
+            <div className="relative font-inter">
               <label className={labelClasses}>Task</label>
-              <select name="task_id" value={formData.task_id || ""} onChange={handleChange} className={inputClasses(errors.task_id)}>
-                <option value="">Select Task (Optional)</option>
-                {tasks.map(t => (
-                  <option key={t.id} value={t.id}>{t.task_name || t.title}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTaskDropdownOpen(o => !o)}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-sm font-inter transition-all ${
+                    taskDropdownOpen
+                      ? 'border-2 border-primary ring-4 ring-primary/10'
+                      : 'border border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <span className={formData.task_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                    {formData.task_id
+                      ? (() => { const t = tasks.find((t: any) => Number(t.id) === Number(formData.task_id)); return t ? (t.task_name || t.title) : `Task #${formData.task_id}`; })()
+                      : '-- Select Task --'}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                      taskDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown panel */}
+                {taskDropdownOpen && (
+                  <div
+                    className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden"
+                    style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                  >
+                    <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Tasks</span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      <button
+                        type="button"
+                        onClick={() => { setFormData(prev => ({ ...prev, task_id: 0 })); setTaskDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                          !formData.task_id
+                            ? 'bg-primary/5 text-primary font-semibold'
+                            : 'text-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        -- Select Task --
+                      </button>
+                      {tasks.length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No tasks available</div>
+                      )}
+                      {tasks.map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => { setFormData(prev => ({ ...prev, task_id: t.id })); setTaskDropdownOpen(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${
+                            Number(formData.task_id) === Number(t.id)
+                              ? 'bg-primary/5 text-primary font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50 font-medium'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0"></span>
+                          <span className="truncate">{t.task_name || t.title}</span>
+                          {t.status && (
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-slate-400 flex-shrink-0">
+                              {t.status}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Click-outside overlay */}
+                {taskDropdownOpen && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setTaskDropdownOpen(false)}
+                  />
+                )}
+              </div>
             </div>
             <div>
               <label className={labelClasses}>Report Date <span className="text-rose-500">*</span></label>
-              <input required type="date" name="report_date" value={formData.report_date} onChange={handleChange} className={inputClasses(errors.report_date)} />
-              {errors.report_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.report_date}</p>}
+              <input type="date" name="report_date" value={formData.report_date} onChange={handleChange} className={inputClasses(errors.report_date)} />
+              {errors.report_date && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
             </div>
             <div>
               <label className={labelClasses}>Contractor ID</label>
@@ -303,7 +434,8 @@ const NewDSREntryModal = ({
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Work Done Today <span className="text-rose-500">*</span></label>
-              <textarea required name="work_done" value={formData.work_done} onChange={handleChange} placeholder="Describe work completed today..." rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
+              <textarea name="work_done" value={formData.work_done} onChange={handleChange} placeholder="Describe work completed today..." rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
+              {errors.work_done && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
             </div>
             <div>
               <label className={labelClasses}>Work Planned for Tomorrow</label>

@@ -148,9 +148,9 @@ function App() {
         <AuthProvider>
           <ChatProvider>
             <AppRoutes />
-            <Toaster 
-              position="top-right" 
-              reverseOrder={false} 
+            <Toaster
+              position="top-right"
+              reverseOrder={false}
               containerStyle={{ zIndex: 999999 }}
             />
           </ChatProvider>

@@ -359,11 +359,11 @@ const PaymentsPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setIsExportMenuOpen(prev => !prev)}
-                            className="bg-[#111827] hover:bg-slate-800 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg shadow-blue-500/25 transition-all active:scale-95 cursor-pointer"
                         >
-                            <Download className="w-4 h-4 text-indigo-400" />
+                            <Download className="w-4 h-4 text-white" />
                             <span>DOWNLOAD</span>
-                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 text-blue-100 transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isExportMenuOpen && (
@@ -443,7 +443,15 @@ const PaymentsPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-4 ml-auto">
-                            <button onClick={() => setShowDateFilter(!showDateFilter)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
+                            <button
+                                type="button"
+                                onClick={() => setShowDateFilter(!showDateFilter)}
+                                className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer ${
+                                    showDateFilter
+                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25'
+                                        : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
+                                }`}
+                            >
                                 <Calendar className="w-4 h-4" /> Date
                             </button>
                         </div>

@@ -10,6 +10,7 @@ import {
 import { materialService, type InventoryItem, type Transfer, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 import { boqService } from "../../../services/boqService";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 
 
 type TabType = "Usage" | "Transfers" | "Transactions";
@@ -40,6 +41,7 @@ const MaterialConsumptionPage = () => {
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // Data
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -69,7 +71,7 @@ const MaterialConsumptionPage = () => {
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
     const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
-    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string }>>({ from_project_id: projectId });
+    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string; transport_mode: string; vehicle_number: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
     // Fetch methods
@@ -196,32 +198,83 @@ const MaterialConsumptionPage = () => {
 
     // Handlers
     const handleUsageSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedInventory) return; setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!usageForm.project_id) missingFields.push("Project");
+        if (!usageForm.issue_type) missingFields.push("Issue Type");
+        if (!usageForm.quantity || usageForm.quantity <= 0) missingFields.push("Quantity");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        if (!selectedInventory) return;
+        setIsSubmitting(true);
         try {
             const payload = { ...usageForm, issue_type: usageForm.issue_type as IssueType };
             if (!payload.task_id) delete payload.task_id;
             if (!payload.boq_item_id) delete payload.boq_item_id;
-            await materialService.recordUsage(selectedInventory.material_id, payload);
-            toast.success("Usage recorded!"); setIsUsageModalOpen(false); fetchInventory();
-        } catch (e) { toast.error("Failed to record usage"); }
+            const res = await materialService.recordUsage(selectedInventory.material_id, payload);
+            setFormNotification({ type: 'success', message: (res as any)?.message || "Usage recorded!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsUsageModalOpen(false); fetchInventory();
+        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to record usage" }); }
         finally { setIsSubmitting(false); }
     };
 
     const handleTransferSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!transferForm.material_id) missingFields.push("Material");
+        if (!transferForm.from_project_id) missingFields.push("From Project");
+        if (!transferForm.to_project_id) missingFields.push("To Project");
+        if (!transferForm.quantity || transferForm.quantity <= 0) missingFields.push("Quantity");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            await materialService.createTransfer({ ...transferForm } as any);
-            toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to create transfer"); }
+            const res = await materialService.createTransfer({ ...transferForm } as any);
+            setFormNotification({ type: 'success', message: (res as any)?.message || "Transfer initiated!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsTransferModalOpen(false); fetchTransfers();
+        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to create transfer" }); }
         finally { setIsSubmitting(false); }
     };
 
     const handleUpdateTransfer = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedTransfer) return; setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        if (!updateTransferForm.status) {
+            setFormNotification({ type: 'error', message: 'Please select a status', fields: ["Status"] });
+            return;
+        }
+
+        if (!selectedTransfer) return;
+        setIsSubmitting(true);
         try {
-            await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
-            toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
-        } catch (e) { toast.error("Failed to update transfer"); }
+            const res = await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
+            setFormNotification({ type: 'success', message: (res as any)?.message || "Transfer updated!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsUpdateTransferOpen(false); fetchTransfers();
+        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to update transfer" }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -248,7 +301,7 @@ const MaterialConsumptionPage = () => {
         }
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky bottom-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -279,10 +332,41 @@ const MaterialConsumptionPage = () => {
 
     return (
         <>
+            {/* Top-right floating toast */}
+            {formNotification && !formNotification.fields && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999999,
+                        padding: '16px 20px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        minWidth: '320px',
+                        maxWidth: '400px',
+                        border: `1px solid ${formNotification.type === 'error' ? '#fecaca' : '#a7f3d0'}`
+                    }}
+                    className="animate-fade-in-up"
+                >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                        <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                        {formNotification.message}
+                    </p>
+                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                </div>
+            )}
+
             <Navbar title="Material Consumption" breadcrumb={["Engineer", "Material Management", "Consumption"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Consumption & Logistics
@@ -299,7 +383,7 @@ const MaterialConsumptionPage = () => {
                 </div>
 
                 {/* Tabs & Project Filter */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
                     <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto scrollbar-none">
                         {(["Usage", "Transfers", "Transactions"] as TabType[]).map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
@@ -385,7 +469,7 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-sm text-slate-600">{t.to_project?.name || `Project #${t.to_project?.id}`}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{t.quantity}</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
+                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : t.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">
                                                     {t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
@@ -417,44 +501,177 @@ const MaterialConsumptionPage = () => {
 
             {/* Modals */}
             {/* Usage Modal */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
-                <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
+            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Save Usage"}</button></>}>
+                {/* Top-right floating toast */}
+                {formNotification && (
+                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
+                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                        </div>
+                    </div>
+                )}
+                <form id="usage-form" noValidate onSubmit={handleUsageSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div>
-                                <label className={labelClasses}>Task Name</label>
-                                <select value={usageForm.task_id || ""} onChange={e => setUsageForm({ ...usageForm, task_id: Number(e.target.value) || 0 })} className={inputClasses}>
-                                    <option value="">Select Task (Optional)</option>
-                                    {tasksList.map(t => <option key={t.id} value={t.id}>{t.title || t.task_name || t.name || `Task #${t.id}`}</option>)}
-                                </select>
+                            <div className="z-[61]">
+                                <CustomSelect
+                                    label="Project"
+                                    required
+                                    value={usageForm.project_id?.toString() || ""}
+                                    onChange={(val) => setUsageForm({ ...usageForm, project_id: Number(val) })}
+                                    options={projectsList.map(p => ({
+                                        id: p.id.toString(),
+                                        label: p.project_name || `Project #${p.id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                    error={formNotification?.fields?.includes("Project")}
+                                />
+                                {formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div>
-                                <label className={labelClasses}>BOQ Item</label>
-                                <select value={usageForm.boq_item_id || ""} onChange={e => setUsageForm({ ...usageForm, boq_item_id: Number(e.target.value) || 0 })} className={inputClasses}>
-                                    <option value="">Select BOQ (Optional)</option>
-                                    {boqsList.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}
-                                </select>
+                            <div className="z-[60]">
+                                <CustomSelect
+                                    label="Task Name"
+                                    value={usageForm.task_id || ""}
+                                    onChange={val => setUsageForm({ ...usageForm, task_id: Number(val) || 0 })}
+                                    options={[
+                                        { id: "", label: "Select Task (Optional)" },
+                                        ...tasksList.map(t => ({
+                                            id: t.id?.toString(),
+                                            label: t.title || t.task_name || t.name || `Task #${t.id}`,
+                                            searchKey: t.title || t.task_name || t.name
+                                        }))
+                                    ]}
+                                    placeholder="Select Task (Optional)"
+                                />
                             </div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={inputClasses} max={selectedInventory?.remaining_stock} /></div>
-                            <div className="md:col-span-2"><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="BOQ Item"
+                                    value={usageForm.boq_item_id || ""}
+                                    onChange={val => setUsageForm({ ...usageForm, boq_item_id: Number(val) || 0 })}
+                                    options={[
+                                        { id: "", label: "Select BOQ (Optional)" },
+                                        ...boqsList.map(b => ({
+                                            id: (b.id || b.boq_item_id)?.toString(),
+                                            label: b.item_name || b.description || `BOQ Item #${b.id}`,
+                                            searchKey: b.item_name || b.description
+                                        }))
+                                    ]}
+                                    placeholder="Select BOQ (Optional)"
+                                />
+                            </div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} max={selectedInventory?.remaining_stock} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div className="md:col-span-2 z-[58]">
+                                <CustomSelect
+                                    label="Issue Type"
+                                    required
+                                    value={usageForm.issue_type}
+                                    onChange={(val) => setUsageForm({ ...usageForm, issue_type: val })}
+                                    options={ISSUE_TYPES.map(i => ({ id: i, label: i }))}
+                                    placeholder="Select Issue Type"
+                                    error={formNotification?.fields?.includes("Issue Type")}
+                                />
+                                {formNotification?.fields?.includes("Issue Type") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
                         </div>
                     </div>
                 </form>
             </Modal>
 
             {/* Create Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Create Transfer"}</button></>}>
-                <form id="transfer-form" onSubmit={handleTransferSubmit} className="space-y-6">
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
+                {/* Top-right floating toast */}
+                {formNotification && (
+                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
+                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                        </div>
+                    </div>
+                )}
+                <form id="transfer-form" noValidate onSubmit={handleTransferSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Material <span className="text-rose-500">*</span></label><select required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}</select></div>
-                            <div><label className={labelClasses}>From Project <span className="text-rose-500">*</span></label><select required value={transferForm.from_project_id || ""} onChange={e => setTransferForm({ ...transferForm, from_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Origin</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>To Project <span className="text-rose-500">*</span></label><select required value={transferForm.to_project_id || ""} onChange={e => setTransferForm({ ...transferForm, to_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Destination</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div className="z-[61]">
+                                <CustomSelect
+                                    label="Material"
+                                    required
+                                    value={transferForm.material_id?.toString() || ""}
+                                    onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
+                                    options={inventory.map(i => ({
+                                        id: i.material_id.toString(),
+                                        label: i.material_name
+                                    }))}
+                                    placeholder="Select Material"
+                                    error={formNotification?.fields?.includes("Material")}
+                                />
+                                {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="z-[60]">
+                                <CustomSelect
+                                    label="From Project"
+                                    required
+                                    value={transferForm.from_project_id?.toString() || ""}
+                                    onChange={(val) => setTransferForm({ ...transferForm, from_project_id: Number(val) })}
+                                    options={projectsList.map(p => ({
+                                        id: p.id.toString(),
+                                        label: p.project_name || `Project #${p.id}`
+                                    }))}
+                                    placeholder="Select Origin"
+                                    error={formNotification?.fields?.includes("From Project")}
+                                />
+                                {formNotification?.fields?.includes("From Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="To Project"
+                                    required
+                                    value={transferForm.to_project_id?.toString() || ""}
+                                    onChange={(val) => setTransferForm({ ...transferForm, to_project_id: Number(val) })}
+                                    options={projectsList.map(p => ({
+                                        id: p.id.toString(),
+                                        label: p.project_name || `Project #${p.id}`
+                                    }))}
+                                    placeholder="Select Destination"
+                                    error={formNotification?.fields?.includes("To Project")}
+                                />
+                                {formNotification?.fields?.includes("To Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div className="md:col-span-2 hidden"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
                         </div>
                     </div>
@@ -462,14 +679,49 @@ const MaterialConsumptionPage = () => {
             </Modal>
 
             {/* Update Transfer Modal */}
-            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Update"}</button></>}>
-                <form id="update-transfer-form" onSubmit={handleUpdateTransfer} className="space-y-6">
+            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Edit Transfer Status"}</button></>}>
+                {/* Top-right floating toast */}
+                {formNotification && (
+                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
+                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                        </div>
+                    </div>
+                )}
+                <form id="update-transfer-form" noValidate onSubmit={handleUpdateTransfer} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
                         <div className="space-y-4">
                             <div><label className={labelClasses}>Transfer Name <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.material?.name || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
                             <div><label className={labelClasses}>Transfer ID <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
-                            <div><label className={labelClasses}>Status <span className="text-rose-500">*</span></label><select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                            <div className="z-[60]">
+                                <CustomSelect
+                                    label="Status"
+                                    required
+                                    value={updateTransferForm.status}
+                                    onChange={(val) => setUpdateTransferForm({ ...updateTransferForm, status: val as TransferStatus })}
+                                    options={TRANSFER_STATUSES.map(s => ({ id: s, label: s }))}
+                                    placeholder="Select Status"
+                                    error={formNotification?.fields?.includes("Status")}
+                                />
+                                {formNotification?.fields?.includes("Status") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -486,7 +738,7 @@ const MaterialConsumptionPage = () => {
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">To Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.to_project?.name}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p><span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border inline-block ${viewTransferDetails.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : viewTransferDetails.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{viewTransferDetails.status}</span></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p><span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border inline-block ${viewTransferDetails.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : viewTransferDetails.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : viewTransferDetails.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{viewTransferDetails.status}</span></div>
                         </div>
                     </div>
                 )}

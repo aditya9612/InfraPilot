@@ -5,6 +5,7 @@ export interface DsrItem {
   site_location: string;
   contractor_id: number;
   contractor_name?: string;
+  task_id?: number;
   weather: string;
   work_done: string;
   work_planned: string;

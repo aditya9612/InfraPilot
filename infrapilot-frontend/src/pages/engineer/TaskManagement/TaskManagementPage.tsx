@@ -6,13 +6,14 @@ import {
     Filter, Search, Eye, Calendar, User,
     CheckCircle, Clock, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle, Briefcase, UserCircle, Activity as ActivityIcon, ListTodo
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import CreateTaskRequestModal from "../../../components/forms/CreateTaskRequestModal";
 import AudioRecordModal from './AudioRecordModal';
 import EditTaskRequestModal from './EditTaskRequestModal';
+import { CustomSelect } from '../../../components/common/CustomDropdown';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
@@ -53,8 +54,24 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" | "CR
 const getFullUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') : 'http://127.0.0.1:8000';
-    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+    
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    try {
+        const parsed = new URL(baseUrl, window.location.origin);
+        baseUrl = parsed.origin;
+    } catch {
+        baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    }
+    if (!baseUrl) baseUrl = 'http://127.0.0.1:8000';
+
+    let cleanPath = path;
+    if (!cleanPath.startsWith('/') && !cleanPath.startsWith('uploads/') && !cleanPath.startsWith('static/')) {
+        cleanPath = `/uploads/${cleanPath}`;
+    } else if (!cleanPath.startsWith('/')) {
+        cleanPath = `/${cleanPath}`;
+    }
+
+    return `${baseUrl}${cleanPath}`;
 };
 const AudioButton = ({ audioData }: { audioData: string }) => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -194,6 +211,32 @@ const TaskManagementPage = () => {
     const [editProjectId, setEditProjectId] = useState<number | null>(null);
     const [editLabours, setEditLabours] = useState<any[]>([]);
 
+    const [editFormState, setEditFormState] = useState({
+        priority: 3,
+        status: '',
+        assigned_user_ids: '',
+        activity_type_id: '',
+        milestone_id: '',
+        boq_id: ''
+    });
+
+    useEffect(() => {
+        if (selectedEditTask) {
+             setEditFormState({
+                 priority: selectedEditTask.priority === "CRITICAL" ? 4 : selectedEditTask.priority === "HIGH" ? 1 : selectedEditTask.priority === "MEDIUM" ? 2 : 3,
+                 status: selectedEditTask.status || '',
+                 assigned_user_ids: selectedEditTask.assigned_user_id?.toString() || '',
+                 activity_type_id: selectedEditTask.activity_type_id?.toString() || '',
+                 milestone_id: selectedEditTask.milestone_id?.toString() || '',
+                 boq_id: selectedEditTask.boq_id?.toString() || ''
+             });
+        }
+    }, [selectedEditTask]);
+
+    const handleSelectChange = (name: string, value: any) => {
+        setEditFormState(prev => ({...prev, [name]: value}));
+    };
+
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
 
@@ -224,7 +267,8 @@ const TaskManagementPage = () => {
     // Pass Task Modal State
     const [isPassModalOpen, setIsPassModalOpen] = useState(false);
     const [selectedPassTask, setSelectedPassTask] = useState<FrontendTask | null>(null);
-    const [passNewUserId, setPassNewUserId] = useState<number | "">("");
+    const [isPassUserDropdownOpen, setIsPassUserDropdownOpen] = useState(false);
+    const [passNewUserId, setPassNewUserId] = useState<number | ''>('');
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
     const [projectLabours, setProjectLabours] = useState<any[]>([]);
@@ -540,8 +584,8 @@ const TaskManagementPage = () => {
 
     useEffect(() => {
         if (isEditModalOpen && editProjectId) {
-            labourService.getLabours(editProjectId, { limit: 100 }).then((data: any) => {
-                setEditLabours(data.items || []);
+            projectService.getProjectMembers(editProjectId).then((data: any) => {
+                setEditLabours(data.items || data || []);
             }).catch((err: any) => {
                 console.error("Failed to load labours for edit modal", err);
             });
@@ -743,7 +787,12 @@ const TaskManagementPage = () => {
 
     const handlePassTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPassTask || !projectId || !passNewUserId) return;
+        if (!selectedPassTask || !projectId) return;
+
+        if (!passNewUserId) {
+            toast.error("Please select a team member to pass the task.");
+            return;
+        }
 
         try {
             await projectService.passTask(projectId, selectedPassTask.id, {
@@ -753,8 +802,12 @@ const TaskManagementPage = () => {
             toast.success("Task passed successfully!");
             setIsPassModalOpen(false);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to pass task.");
+        } catch (error: any) {
+            if (error?.response?.status === 422) {
+                toast.error(error.response?.data?.detail || error.response?.data?.message || "Validation failed.");
+            } else {
+                toast.error("Failed to pass task.");
+            }
         }
     };
 
@@ -865,7 +918,7 @@ const TaskManagementPage = () => {
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Task Management
@@ -1078,7 +1131,7 @@ const TaskManagementPage = () => {
                     {activeTab === "All Tasks" ? (
                         <>
                             {/* All Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1408,7 +1461,7 @@ const TaskManagementPage = () => {
 
                             {/* Pagination Block */}
                             {filteredTasks.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                         <select
@@ -1477,7 +1530,7 @@ const TaskManagementPage = () => {
                     ) : activeTab === "Project Tasks" ? (
                         <>
                             {/* Project Tasks Filters Toolbar */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex flex-wrap items-center gap-6 text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
@@ -1723,7 +1776,7 @@ const TaskManagementPage = () => {
                     ) : (
                         <>
                             {/* Task Requests Content */}
-                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
                                         <AlertCircle className="w-4 h-4" />
@@ -1770,80 +1823,110 @@ const TaskManagementPage = () => {
                                         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
                                 ) : taskRequests.length > 0 ? (
-                                    <>
-                                        <table className="w-full text-left font-inter min-w-[1200px] block md:table">
-                                            <thead className="hidden md:table-header-group">
-                                                <tr className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200">
-                                                    <th className="p-4 whitespace-nowrap">Title</th>
-                                                    <th className="p-4 whitespace-nowrap">Category</th>
-                                                    <th className="p-4 whitespace-nowrap">Project Name</th>
-                                                    <th className="p-4 whitespace-nowrap">Priority</th>
-                                                    <th className="p-4 whitespace-nowrap">Description</th>
-                                                    <th className="p-4 whitespace-nowrap">Attachment URL</th>
-                                                    <th className="p-4 whitespace-nowrap">Assigned Name</th>
-                                                    <th className="p-4 whitespace-nowrap">Status</th>
-                                                    <th className="p-4 whitespace-nowrap">Is Deleted</th>
-                                                    <th className="p-4 whitespace-nowrap">Created At</th>
-                                                    <th className="p-4 whitespace-nowrap">Updated At</th>
-                                                    <th className="p-4 whitespace-nowrap text-center">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="block md:table-row-group">
-                                                {(() => {
-                                                    const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
-                                                    const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
-                                                    const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
-                                                    return paginatedRequests.map((req, idx) => {
-                                                        const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
-                                                        const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                                        <div className="overflow-x-auto rounded-t-xl custom-scrollbar border-b border-slate-100 flex-1">
+                                            <table className="w-full text-left font-inter min-w-[1200px] block md:table">
+                                                <thead className="hidden md:table-header-group">
+                                                    <tr className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200">
+                                                        <th className="p-4 whitespace-nowrap">Title</th>
+                                                        <th className="p-4 whitespace-nowrap">Category</th>
+                                                        <th className="p-4 whitespace-nowrap">Project Name</th>
+                                                        <th className="p-4 whitespace-nowrap">Priority</th>
+                                                        <th className="p-4 whitespace-nowrap">Description</th>
+                                                        <th className="p-4 whitespace-nowrap">Attachment URL</th>
+                                                        <th className="p-4 whitespace-nowrap">Assigned Name</th>
+                                                        <th className="p-4 whitespace-nowrap">Status</th>
+                                                        <th className="p-4 whitespace-nowrap">Is Deleted</th>
+                                                        <th className="p-4 whitespace-nowrap">Created At</th>
+                                                        <th className="p-4 whitespace-nowrap">Updated At</th>
+                                                        <th className="p-4 whitespace-nowrap text-center">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="block md:table-row-group">
+                                                    {(() => {
+                                                        const startIndex = (taskReqCurrentPage - 1) * itemsPerPage;
+                                                        const sortedRequests = [...taskRequests].sort((a, b) => b.id - a.id);
+                                                        const paginatedRequests = sortedRequests.slice(startIndex, startIndex + itemsPerPage);
+                                                        return paginatedRequests.map((req, idx) => {
+                                                            const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
+                                                            const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
 
-                                                        return (
-                                                            <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
-                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
-                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
-                                                                <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
-                                                                <td className="p-4 block md:table-cell">
-                                                                    <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
-                                                                        {req.priority || 'NORMAL'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
-                                                                <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
-                                                                    {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
-                                                                        <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
-                                                                    ) : '-'}
-                                                                </td>
-                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
-                                                                <td className="p-4 block md:table-cell">
-                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                        {req.status || 'PENDING'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
-                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
-                                                                <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
-                                                                <td className="p-4 block md:table-cell text-center">
-                                                                    <div className="flex items-center justify-center gap-2">
-                                                                        <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
-                                                                            <Edit2 className="w-4 h-4" />
-                                                                        </button>
-                                                                        <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    });
-                                                })()}
-                                            </tbody>
-                                        </table>
+                                                            return (
+                                                                <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
+                                                                    <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
+                                                                    <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
+                                                                    <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
+                                                                    <td className="p-4 block md:table-cell">
+                                                                        <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
+                                                                            {req.priority || 'NORMAL'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
+                                                                    <td className="p-4 text-xs block md:table-cell">
+                                                                        {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (() => {
+                                                                            const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                                            return (
+                                                                                <button onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    window.open(getFullUrl(req.attachment_url) || '', '_blank', 'noopener,noreferrer');
+                                                                                }} className="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors group text-left max-w-[200px]" title={fileName}>
+                                                                                    <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                                                        <Paperclip className="w-4 h-4 text-indigo-500" />
+                                                                                    </div>
+                                                                                    <span className="truncate font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
+                                                                                        {fileName}
+                                                                                    </span>
+                                                                                </button>
+                                                                            );
+                                                                        })() : (
+                                                                            <span className="text-slate-400 font-medium px-2">-</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
+                                                                    <td className="p-4 block md:table-cell">
+                                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                            {req.status || 'PENDING'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
+                                                                    <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
+                                                                    <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
+                                                                    <td className="p-4 block md:table-cell text-center">
+                                                                        <div className="flex items-center justify-center gap-2">
+                                                                            <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
+                                                                                <Edit2 className="w-4 h-4" />
+                                                                            </button>
+                                                                            <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        });
+                                                    })()}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                         {taskRequests.length > 0 && (
-                                            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4">
-                                                <div className="text-sm font-medium text-slate-500">
-                                                    Showing <span className="font-bold text-slate-800">{Math.min((taskReqCurrentPage - 1) * itemsPerPage + 1, taskRequests.length)}</span> to <span className="font-bold text-slate-800">{Math.min(taskReqCurrentPage * itemsPerPage, taskRequests.length)}</span> of <span className="font-bold text-slate-800">{taskRequests.length}</span> requests
-                                                </div>
+                                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter rounded-b-2xl mt-auto">
                                                 <div className="flex items-center gap-2">
+                                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                                    <select
+                                                        value={itemsPerPage}
+                                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setTaskReqCurrentPage(1); }}
+                                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                                    >
+                                                        <option value={10}>10</option>
+                                                        <option value={20}>20</option>
+                                                        <option value={50}>50</option>
+                                                        <option value={100}>100</option>
+                                                    </select>
+                                                </div>
+                                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                                    Showing {(taskReqCurrentPage - 1) * itemsPerPage + 1} - {Math.min(taskReqCurrentPage * itemsPerPage, taskRequests.length)} of {taskRequests.length} records
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
                                                     <button
                                                         onClick={() => setTaskReqCurrentPage(prev => Math.max(1, prev - 1))}
                                                         disabled={taskReqCurrentPage === 1}
@@ -1852,30 +1935,43 @@ const TaskManagementPage = () => {
                                                         <ChevronLeft className="w-4 h-4" />
                                                     </button>
                                                     {(() => {
-                                                        const totalPages = Math.ceil(taskRequests.length / itemsPerPage);
-                                                        return Array.from({ length: totalPages }).map((_, idx) => {
-                                                            const page = idx + 1;
-                                                            if (page === 1 || page === totalPages || (page >= taskReqCurrentPage - 1 && page <= taskReqCurrentPage + 1)) {
-                                                                return (
-                                                                    <button
-                                                                        key={page}
-                                                                        onClick={() => setTaskReqCurrentPage(page)}
-                                                                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all shadow-sm ${taskReqCurrentPage === page
-                                                                            ? 'bg-primary text-white border-primary'
-                                                                            : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-primary bg-white'
-                                                                            }`}
-                                                                    >
-                                                                        {page}
-                                                                    </button>
-                                                                );
-                                                            } else if (page === taskReqCurrentPage - 2 || page === taskReqCurrentPage + 2) {
-                                                                return <span key={page} className="text-slate-400 text-xs px-1">...</span>;
+                                                        const totalItems = taskRequests.length;
+                                                        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                                        const pages = [];
+                                                        if (totalPages <= 5) {
+                                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                                        } else {
+                                                            if (taskReqCurrentPage <= 3) {
+                                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                                            } else if (taskReqCurrentPage >= totalPages - 2) {
+                                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                                            } else {
+                                                                pages.push(1, '...', taskReqCurrentPage - 1, taskReqCurrentPage, taskReqCurrentPage + 1, '...', totalPages);
                                                             }
-                                                            return null;
+                                                        }
+                                                        return pages.map((page, index) => {
+                                                            if (page === '...') return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                                            const pageNum = page as number;
+                                                            const isActive = taskReqCurrentPage === pageNum;
+                                                            return (
+                                                                <button
+                                                                    key={`page-${pageNum}`}
+                                                                    onClick={() => setTaskReqCurrentPage(pageNum)}
+                                                                    className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-all shadow-sm flex items-center justify-center ${isActive
+                                                                        ? 'bg-primary text-white border border-primary shadow-primary/20'
+                                                                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                                                        }`}
+                                                                >
+                                                                    {pageNum}
+                                                                </button>
+                                                            );
                                                         });
                                                     })()}
                                                     <button
-                                                        onClick={() => setTaskReqCurrentPage(prev => Math.min(Math.ceil(taskRequests.length / itemsPerPage), prev + 1))}
+                                                        onClick={() => {
+                                                            const maxPage = Math.ceil(taskRequests.length / itemsPerPage);
+                                                            setTaskReqCurrentPage(prev => Math.min(maxPage, prev + 1));
+                                                        }}
                                                         disabled={taskReqCurrentPage === Math.max(1, Math.ceil(taskRequests.length / itemsPerPage))}
                                                         className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                                     >
@@ -1884,7 +1980,7 @@ const TaskManagementPage = () => {
                                                 </div>
                                             </div>
                                         )}
-                                    </>
+                                    </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-20 text-center">
                                         <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
@@ -2478,20 +2574,22 @@ const TaskManagementPage = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Priority <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                    name="priority"
+                                <CustomSelect
+                                    label="Priority"
+                                    icon={Briefcase}
                                     required
-                                    defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value={4}>Critical</option>
-                                    <option value={1}>High</option>
-                                    <option value={2}>Medium</option>
-                                    <option value={3}>Low</option>
-                                </select>
+                                    value={editFormState.priority}
+                                    onChange={(val: any) => handleSelectChange('priority', val)}
+                                    options={[
+                                        { id: 4, label: 'Critical' },
+                                        { id: 1, label: 'High' },
+                                        { id: 2, label: 'Medium' },
+                                        { id: 3, label: 'Low' }
+                                    ]}
+                                    placeholder="Select Priority"
+                                    searchable={false}
+                                />
+                                <input type="hidden" name="priority" value={editFormState.priority} />
                             </div>
 
                             <div>
@@ -2519,85 +2617,101 @@ const TaskManagementPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Status
-                                </label>
-                                <select
-                                    name="status"
-                                    defaultValue={selectedEditTask?.status}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value="Planned">Planned</option>
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                </select>
+                                <CustomSelect
+                                    label="Status"
+                                    icon={CheckCircle}
+                                    value={editFormState.status}
+                                    onChange={(val: any) => handleSelectChange('status', val)}
+                                    options={[
+                                        { id: 'Planned', label: 'Planned' },
+                                        { id: 'In Progress', label: 'In Progress' },
+                                        { id: 'Completed', label: 'Completed' },
+                                        { id: 'Cancelled', label: 'Cancelled' }
+                                    ]}
+                                    placeholder="Select Status"
+                                    searchable={false}
+                                />
+                                <input type="hidden" name="status" value={editFormState.status} />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Assigned User
-                                </label>
-                                <select
-                                    name="assigned_user_ids"
-                                    defaultValue={selectedEditTask?.assigned_user_id || ""}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value="">Select User</option>
-                                    {editLabours.map((l: any) => (
-                                        <option key={`l_${l.id}`} value={l.id}>
-                                            {l.labour_name || l.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <CustomSelect
+                                    label="Assigned User"
+                                    icon={UserCircle}
+                                    value={editFormState.assigned_user_ids}
+                                    onChange={(val: any) => handleSelectChange('assigned_user_ids', val)}
+                                    options={[
+                                        { id: '', label: 'Select User' },
+                                        ...editLabours.map((emp: any) => ({
+                                            id: (emp.id || emp.user_id)?.toString(),
+                                            label: emp.full_name || emp.name || emp.labour_name || `User ${emp.id || emp.user_id}`,
+                                            badge: emp.skill_type || emp.role || 'GENERAL',
+                                            searchKey: `${emp.full_name || emp.name || emp.labour_name || ''} ${emp.skill_type || emp.role || ''} ${emp.worker_code || ''}`
+                                        }))
+                                    ]}
+                                    placeholder="Select User"
+                                />
+                                <input type="hidden" name="assigned_user_ids" value={editFormState.assigned_user_ids} />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Activity Type ID
-                                </label>
-                                <select
-                                    name="activity_type_id"
-                                    defaultValue={selectedEditTask?.activity_type_id || ""}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value="">None</option>
-                                    {projectActivities.map((a: any) => (
-                                        <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
-                                    ))}
-                                </select>
+                                <CustomSelect
+                                    label="Activity Type ID"
+                                    icon={ActivityIcon}
+                                    value={editFormState.activity_type_id}
+                                    onChange={(val: any) => handleSelectChange('activity_type_id', val)}
+                                    options={[
+                                        { id: '', label: 'None' },
+                                        ...projectActivities.map((a: any) => ({
+                                            id: a.id?.toString(),
+                                            label: a.activity_name || a.title,
+                                            searchKey: a.activity_name || a.title
+                                        }))
+                                    ]}
+                                    placeholder="None"
+                                    placement="top"
+                                />
+                                <input type="hidden" name="activity_type_id" value={editFormState.activity_type_id} />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Milestone ID
-                                </label>
-                                <select
-                                    name="milestone_id"
-                                    defaultValue={selectedEditTask?.milestone_id || ""}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value="">None</option>
-                                    {projectMilestones.map((m: any) => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
-                                    ))}
-                                </select>
+                                <CustomSelect
+                                    label="Milestone ID"
+                                    icon={CheckCircle}
+                                    value={editFormState.milestone_id}
+                                    onChange={(val: any) => handleSelectChange('milestone_id', val)}
+                                    options={[
+                                        { id: '', label: 'None' },
+                                        ...projectMilestones.map((m: any) => ({
+                                            id: m.id?.toString(),
+                                            label: m.name,
+                                            searchKey: m.name
+                                        }))
+                                    ]}
+                                    placeholder="None"
+                                    placement="top"
+                                />
+                                <input type="hidden" name="milestone_id" value={editFormState.milestone_id} />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    BOQ ID
-                                </label>
-                                <select
-                                    name="boq_id"
-                                    defaultValue={selectedEditTask?.boq_id || ""}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                >
-                                    <option value="">None</option>
-                                    {projectBoqs.map((b: any) => (
-                                        <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
-                                    ))}
-                                </select>
+                                <CustomSelect
+                                    label="BOQ ID"
+                                    icon={ListTodo}
+                                    value={editFormState.boq_id}
+                                    onChange={(val: any) => handleSelectChange('boq_id', val)}
+                                    options={[
+                                        { id: '', label: 'None' },
+                                        ...projectBoqs.map((b: any) => ({
+                                            id: b.id?.toString(),
+                                            label: b.item_name || b.name || b.item_description || `BOQ Item`,
+                                            searchKey: b.item_name || b.name || b.item_description
+                                        }))
+                                    ]}
+                                    placeholder="None"
+                                    placement="top"
+                                />
+                                <input type="hidden" name="boq_id" value={editFormState.boq_id} />
                             </div>
                         </div>
                     </div>
@@ -2649,7 +2763,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handleUpdateProgress}
-                            disabled={!progressRemark.trim()}
+                            
                             className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                         >
                             Save Progress
@@ -2709,8 +2823,7 @@ const TaskManagementPage = () => {
                         </button>
                         <button
                             onClick={handlePassTask}
-                            disabled={!passNewUserId || !passRemark.trim()}
-                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all disabled:opacity-50"
+                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all"
                         >
                             Pass Task
                         </button>
@@ -2721,20 +2834,58 @@ const TaskManagementPage = () => {
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">Select New User <span className="text-rose-500">*</span></label>
                         <div className="relative">
-                            <select
-                                value={passNewUserId}
-                                onChange={(e) => setPassNewUserId(Number(e.target.value))}
-                                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                                required
+                            <button
+                                type="button"
+                                onClick={() => setIsPassUserDropdownOpen(!isPassUserDropdownOpen)}
+                                className="w-full text-left appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 flex justify-between items-center"
                             >
-                                <option value="">-- Select Team Member --</option>
-                                {projectLabours.map(l => (
-                                    <option key={`l_${l.id}`} value={l.id}>{l.labour_name || l.name} (Labour)</option>
-                                ))}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                                <ChevronDown className="w-4 h-4" />
-                            </div>
+                                <span className="truncate pr-2">
+                                    {passNewUserId ? (
+                                        projectMembers.find(m => m.user_id === passNewUserId)?.full_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.labour_name || 
+                                        projectLabours.find(l => l.id === passNewUserId)?.name || 
+                                        'Unknown User'
+                                    ) : '-- Select Team Member --'}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPassUserDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isPassUserDropdownOpen && (
+                                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
+                                    <div
+                                        onClick={() => { setPassNewUserId(''); setIsPassUserDropdownOpen(false); }}
+                                        className="px-4 py-2.5 text-sm text-slate-500 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    >-- Select Team Member --</div>
+                                    
+                                    {projectMembers.length > 0 && (
+                                        <>
+                                            {projectMembers.map(m => (
+                                                <div
+                                                    key={`m_${m.user_id}`}
+                                                    onClick={() => { setPassNewUserId(m.user_id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === m.user_id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {m.full_name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">({m.role || 'Member'})</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {projectLabours.length > 0 && (
+                                        <>
+                                            <div className="px-4 py-1.5 bg-slate-50 border-y border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">Labours</div>
+                                            {projectLabours.map(l => (
+                                                <div
+                                                    key={`l_${l.id}`}
+                                                    onClick={() => { setPassNewUserId(l.id); setIsPassUserDropdownOpen(false); }}
+                                                    className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${passNewUserId === l.id ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700'}`}
+                                                >
+                                                    {l.labour_name || l.name} <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">(Labour)</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div>
@@ -2745,7 +2896,7 @@ const TaskManagementPage = () => {
                             placeholder="e.g. passed to user 2 due to shift end"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            required
+                            
                         />
                     </div>
                 </div>

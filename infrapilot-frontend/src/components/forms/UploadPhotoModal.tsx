@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Modal from '../common/Modal';
+import { CustomSelect } from '../common/CustomDropdown';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,6 +32,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string; fields?: string[] } | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -45,6 +47,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             });
             setSelectedFile(null);
             setErrors({});
+            setFormNotification(null);
         } else {
             if (projectId) {
                 setFormData(prev => ({ ...prev, project_id: String(projectId) }));
@@ -66,7 +69,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         const fetchProjectData = async () => {
             if (formData.project_id) {
                 const projectIdNum = Number(formData.project_id);
-                
+
                 // Fetch tasks independently
                 try {
                     const tasksRes = await projectService.getTasks(projectIdNum);
@@ -108,10 +111,25 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
     const validate = () => {
         const errs: Record<string, string> = {};
-        if (!selectedFile) errs.photo = "Required";
-        if (!formData.project_id) errs.project_id = "Required";
+        const missingFields: string[] = [];
+
+        if (!selectedFile) {
+            errs.photo = "Required";
+            missingFields.push("Visual Artifact");
+        }
+        if (!formData.project_id) {
+            errs.project_id = "Required";
+            missingFields.push("Project");
+        }
+        
         setErrors(errs);
-        return Object.keys(errs).length === 0;
+        
+        if (missingFields.length > 0) {
+            setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(", ")}`, fields: missingFields });
+            return false;
+        }
+        setFormNotification(null);
+        return true;
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
@@ -138,9 +156,13 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
             console.log("Submitting Photo Upload with Project:", projectId);
             await onSubmit(data);
-            onClose();
+            setFormNotification({ type: 'success', message: 'Site photo saved successfully!' });
+            setTimeout(() => {
+                onClose();
+            }, 1500);
         } catch (error) {
             console.error("Upload Form Error:", error);
+            setFormNotification({ type: 'error', message: 'Upload failed. Please try again.' });
             toast.error("Upload failed. Please try again.");
         } finally {
             setIsSubmitting(false);
@@ -171,12 +193,74 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         disabled={isSubmitting}
                         className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
                     >
-                        {isSubmitting ? "Uploading..." : "Upload Evidence"}
+                        {isSubmitting ? "Saving..." : "Save Site Photo"}
                     </button>
                 </>
             }
         >
             <form id="site-photo-form" onSubmit={handleFormSubmit} className="space-y-6">
+                {/* Top-right floating toast */}
+                {formNotification && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: '18px',
+                            right: '18px',
+                            zIndex: 99999,
+                            minWidth: '260px',
+                            maxWidth: '380px',
+                            animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)',
+                        }}
+                    >
+                        <style>{`
+                            @keyframes slideDownIn {
+                                from { opacity: 0; transform: translateY(-16px); }
+                                to   { opacity: 1; transform: translateY(0); }
+                            }
+                        `}</style>
+                        <div
+                            className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
+                            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
+                        >
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                            }`}>
+                                <span className="text-white text-xs font-bold">
+                                    {formNotification.type === 'error' ? '×' : '✓'}
+                                </span>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                                {formNotification.type === 'error'
+                                    ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                                    : formNotification.message}
+                            </p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                        </div>
+                    </div>
+                )}
+                {/* Inline Validation Error Banner */}
+                {formNotification && formNotification.type === 'error' && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                        <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-red-600">Validation Error</p>
+                            <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {(formNotification.fields || []).join(', ')}</p>
+                        </div>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                    </div>
+                )}
+                {formNotification && formNotification.type === 'success' && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p className="text-sm font-bold text-emerald-700 flex-1">{formNotification.message}</p>
+                        <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-300 hover:text-emerald-500 text-base leading-none">×</button>
+                    </div>
+                )}
+
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact <span className="text-rose-500">*</span></h3>
                     <div
@@ -196,22 +280,26 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             </div>
                         )}
                     </div>
-                    {errors.photo && <p className="text-[10px] text-rose-500 font-bold mt-2 ml-1 uppercase">{errors.photo}</p>}
+                    {errors.photo && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-2 ml-0.5">Required</p>}
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Contextual Metadata</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                        <div>
-                            <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
-                                <option value="">Select Project</option>
-                                {projects.map(p => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="z-[66] relative">
+                            <CustomSelect
+                                label="Project Context"
+                                required
+                                value={formData.project_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, project_id: val }))}
+                                options={projects.map((p: any) => ({
+                                    id: (p.id || p.project_id).toString(),
+                                    label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                }))}
+                                placeholder="Select Project"
+                                error={!!errors.project_id}
+                            />
+                            {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                         </div>
                         <div>
                             <label className={labelClasses}>Observed Date</label>
@@ -219,42 +307,54 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                        <div>
-                            <label className={labelClasses}>Task <span className="normal-case text-slate-300">(optional)</span></label>
-                            <select name="task_id" value={formData.task_id} onChange={handleChange} className={inputClasses(errors.task_id)}>
-                                <option value="">Select Task...</option>
-                                {tasks.map(t => (
-                                    <option key={t.id} value={t.id}>{t.title || `Task #${t.id}`}</option>
-                                ))}
-                            </select>
+                        <div className="z-[65] relative">
+                            <CustomSelect
+                                label={<span>Task <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                value={formData.task_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, task_id: val }))}
+                                options={tasks.map((t: any) => ({
+                                    id: t.id.toString(),
+                                    label: t.title || `Task #${t.id}`
+                                }))}
+                                placeholder="Select Task..."
+                            />
                         </div>
-                        <div>
-                            <label className={labelClasses}>DSR <span className="normal-case text-slate-300">(optional)</span></label>
-                            <select name="dsr_id" value={formData.dsr_id} onChange={handleChange} className={inputClasses(errors.dsr_id)}>
-                                <option value="">Select DSR...</option>
-                                {dsrs.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {`DSR #${d.id}`}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="z-[64] relative">
+                            <CustomSelect
+                                label={<span>DSR <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                value={formData.dsr_id?.toString() || ""}
+                                onChange={(val) => setFormData(prev => ({ ...prev, dsr_id: val }))}
+                                options={dsrs.map((d: any) => ({
+                                    id: d.id.toString(),
+                                    label: `DSR #${d.id}`
+                                }))}
+                                placeholder="Select DSR..."
+                            />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        <div>
-                            <label className={labelClasses}>Activity Tag</label>
-                            <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>
-                                <option value="">Select Activity</option>
-                                {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                        <div className="z-[63] relative">
+                            <CustomSelect
+                                label="Activity Tag"
+                                value={formData.activity_tag}
+                                onChange={(val) => setFormData(prev => ({ ...prev, activity_tag: val }))}
+                                options={[
+                                    { id: '', label: 'Select Activity' },
+                                    ...ACTIVITY_TAGS.map(t => ({ id: t, label: t }))
+                                ]}
+                            />
                         </div>
-                        <div>
-                            <label className={labelClasses}>Location Zone</label>
-                            <select name="location_tag" value={formData.location_tag} onChange={handleChange} className={inputClasses(errors.location_tag)}>
-                                <option value="">Select Location</option>
-                                {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                        <div className="z-[62] relative">
+                            <CustomSelect
+                                label="Location Zone"
+                                value={formData.location_tag}
+                                onChange={(val) => setFormData(prev => ({ ...prev, location_tag: val }))}
+                                options={[
+                                    { id: '', label: 'Select Location' },
+                                    ...LOCATION_TAGS.map(t => ({ id: t, label: t }))
+                                ]}
+                            />
                         </div>
                     </div>
                 </div>

@@ -36,7 +36,7 @@ interface Project {
 
 const TaskRequestsPage: React.FC = () => {
     const { user } = useAuth();
-    const { projectId: activeProjectId } = useLabourProjectId();
+    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
 
     const formatDate = (dateStr?: string) => {
         const date = dateStr ? new Date(dateStr) : new Date();
@@ -155,24 +155,48 @@ const TaskRequestsPage: React.FC = () => {
             if (!user) return;
             setLoadingProjects(true);
             try {
-                const res = await projectService.getProjects(100, 0);
-                const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
-                const mapped: Project[] = items.map((p: any) => ({
-                    id: p.id || p.project_id,
-                    name: p.project_name || p.name || `Project ${p.id}`,
-                }));
+                let resolvedProjects: Project[] = [];
 
-                // Fallback to user default project if list is empty
-                if (mapped.length === 0 && user.project_id && user.project_name) {
-                    mapped.push({ id: user.project_id, name: user.project_name });
+                if (activeProjectId) {
+                    let resolvedName = activeProjectName || user.project_name || '';
+                    if (!resolvedName || resolvedName === 'Default Project') {
+                        try {
+                            const res = await projectService.getProjects(100, 0);
+                            const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                            const found = items.find((p: any) => Number(p.id || p.project_id) === Number(activeProjectId));
+                            if (found) {
+                                resolvedName = found.project_name || found.name || `Project ${activeProjectId}`;
+                            }
+                        } catch (_) {}
+                    }
+                    if (!resolvedName) resolvedName = `Project ${activeProjectId}`;
+                    resolvedProjects = [{ id: Number(activeProjectId), name: resolvedName }];
+                    setProject(String(activeProjectId));
+                } else if (user.project_id) {
+                    const pid = Number(user.project_id);
+                    const pName = user.project_name || `Project ${pid}`;
+                    resolvedProjects = [{ id: pid, name: pName }];
+                    setProject(String(pid));
+                } else {
+                    // Fallback to user project list from API if no current project is assigned
+                    const res = await projectService.getProjects(100, 0);
+                    const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                    resolvedProjects = items.map((p: any) => ({
+                        id: p.id || p.project_id,
+                        name: p.project_name || p.name || `Project ${p.id}`,
+                    }));
+                    if (resolvedProjects.length > 0) {
+                        setProject(String(resolvedProjects[0].id));
+                    }
                 }
 
-                setProjects(mapped);
-                const targetPid = activeProjectId ? String(activeProjectId) : (mapped.length > 0 ? String(mapped[0].id) : '');
-                if (targetPid) setProject(targetPid);
+                setProjects(resolvedProjects);
             } catch (err) {
                 console.error('Failed to load projects from API:', err);
-                if (user.project_id && user.project_name) {
+                if (activeProjectId) {
+                    setProjects([{ id: Number(activeProjectId), name: activeProjectName || user.project_name || `Project ${activeProjectId}` }]);
+                    setProject(String(activeProjectId));
+                } else if (user.project_id && user.project_name) {
                     setProjects([{ id: user.project_id, name: user.project_name }]);
                     setProject(String(user.project_id));
                 }
@@ -181,9 +205,11 @@ const TaskRequestsPage: React.FC = () => {
             }
         };
 
-        fetchProjects();
+        if (!isProjectLoading) {
+            fetchProjects();
+        }
         fetchRequests();
-    }, [user, fetchRequests, activeProjectId]);
+    }, [user, fetchRequests, activeProjectId, activeProjectName, isProjectLoading]);
 
     useEffect(() => {
         if (activeProjectId) {
@@ -286,7 +312,15 @@ const TaskRequestsPage: React.FC = () => {
         setDescription(req.description);
         setCategory(req.category);
         setPriority(req.priority as any);
-        setProject(String(req.project_id || ''));
+        if (req.project_id) {
+            setProject(String(req.project_id));
+            setProjects(prev => {
+                if (!prev.some(p => Number(p.id) === Number(req.project_id))) {
+                    return [...prev, { id: Number(req.project_id), name: `Project ${req.project_id}` }];
+                }
+                return prev;
+            });
+        }
         setAttachmentUrl(req.attachment_url || '');
         setAttachmentFile(null);
         if (req.attachment_url) {

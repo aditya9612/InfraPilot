@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 import { projectService } from '../../../services/projectService';
+import { CustomSelect } from '../../../components/common/CustomDropdown'; // force TS server update
+import { UserCircle, Briefcase, Check, Activity } from 'lucide-react';
 
 interface EditTaskRequestModalProps {
     isOpen: boolean;
@@ -38,14 +40,12 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
             setAttachmentFile(null);
 
             if (request.project_id) {
-                import('../../../services/labourService').then(({ labourService }) => {
-                    labourService.getLabours(request.project_id, { limit: 100 })
-                        .then((res: any) => {
-                            const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
-                            setProjectMembers(membersList);
-                        })
-                        .catch(err => console.error("Failed to fetch project members:", err));
-                });
+                projectService.getProjectMembers(request.project_id)
+                    .then((res: any) => {
+                        const membersList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                        setProjectMembers(membersList);
+                    })
+                    .catch((err: any) => console.error("Failed to fetch project members:", err));
             }
         }
     }, [request, isOpen]);
@@ -154,68 +154,59 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                Category <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                name="category"
+                            <CustomSelect
+                                label="Category"
+                                icon={Activity}
+                                required
                                 value={formData.category}
-                                onChange={handleChange}
-                                className={inputClasses}
-                                required
-                            >
-                                <option value="" disabled>Select category</option>
-                                <option value="Civil">Civil</option>
-                                <option value="Electrical">Electrical</option>
-                                <option value="Plumbing">Plumbing</option>
-                                <option value="Safety">Safety</option>
-                                <option value="Material">Material</option>
-                                <option value="General">General</option>
-                                <option value="Other">Other</option>
-                            </select>
+                                onChange={(val: any) => setFormData(prev => ({ ...prev, category: val }))}
+                                options={[
+                                    { id: 'Civil', label: 'Civil' },
+                                    { id: 'Electrical', label: 'Electrical' },
+                                    { id: 'Plumbing', label: 'Plumbing' },
+                                    { id: 'Safety', label: 'Safety' },
+                                    { id: 'Material', label: 'Material' },
+                                    { id: 'General', label: 'General' },
+                                    { id: 'Other', label: 'Other' }
+                                ]}
+                                placeholder="Select category"
+                                searchable={false}
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                Priority <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                name="priority"
+                            <CustomSelect
+                                label="Priority"
+                                icon={Briefcase}
+                                required
                                 value={formData.priority}
-                                onChange={handleChange}
-                                className={inputClasses}
-                                required
-                            >
-                                <option value="" disabled>Select priority</option>
-                                <option value="LOW">LOW</option>
-                                <option value="MEDIUM">MEDIUM</option>
-                                <option value="HIGH">HIGH</option>
-                                <option value="CRITICAL">CRITICAL</option>
-                            </select>
+                                onChange={(val: any) => setFormData(prev => ({ ...prev, priority: val }))}
+                                options={[
+                                    { id: 'LOW', label: 'LOW' },
+                                    { id: 'MEDIUM', label: 'MEDIUM' },
+                                    { id: 'HIGH', label: 'HIGH' },
+                                    { id: 'CRITICAL', label: 'CRITICAL' }
+                                ]}
+                                placeholder="Select priority"
+                                searchable={false}
+                            />
                         </div>
 
                         <div>
-                            <label className={labelClasses}>
-                                Status <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                name="status"
-                                value={formData.status}
-                                onChange={handleChange}
-                                className={inputClasses}
+                            <CustomSelect
+                                label="Status"
+                                icon={Check}
                                 required
-                            >
-                                <option value="" disabled>Select status</option>
-                                <option value="PENDING">PENDING</option>
-                                <option value="OPEN">OPEN</option>
-                                <option value="IN_PROGRESS">IN PROGRESS</option>
-                                <option value="APPROVED">APPROVED</option>
-                                <option value="REJECTED">REJECTED</option>
-                                <option value="RESOLVED">RESOLVED</option>
-                                <option value="COMPLETED">COMPLETED</option>
-                                <option value="CLOSED">CLOSED</option>
-                                <option value="CANCELLED">CANCELLED</option>
-                            </select>
+                                value={formData.status}
+                                onChange={(val: any) => setFormData(prev => ({ ...prev, status: val }))}
+                                options={[
+                                    { id: 'PENDING', label: 'PENDING' },
+                                    { id: 'APPROVED', label: 'APPROVED' },
+                                    { id: 'REJECTED', label: 'REJECTED' }
+                                ]}
+                                placeholder="Select status"
+                                searchable={false}
+                            />
                         </div>
                     </div>
                 </div>
@@ -239,26 +230,26 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className={labelClasses}>
-                                    Assigned To <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                    name="assigned_to"
-                                    value={formData.assigned_to || ""}
-                                    onChange={handleChange}
-                                    className={inputClasses}
-                                    required
-                                >
-                                    <option value="" disabled>Select User</option>
-                                    <option value="0">Unassigned</option>
-                                    {projectMembers.map(m => (
-                                        <option key={m.id || m.user_id} value={m.user_id || m.id}>
-                                            {m.labour_name || m.full_name || m.name || `User ${m.user_id || m.id}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div>
+                            <CustomSelect
+                                label="Assigned To"
+                                icon={UserCircle}
+                                required
+                                value={formData.assigned_to || 0}
+                                onChange={(val: any) => setFormData(prev => ({ ...prev, assigned_to: Number(val) }))}
+                                options={[
+                                    { id: 0, label: 'Unassigned' },
+                                    ...projectMembers.map(m => ({
+                                        id: m.user_id || m.id,
+                                        label: m.labour_name || m.full_name || m.name || `User ${m.user_id || m.id}`,
+                                        badge: m.skill_type || m.role || 'GENERAL',
+                                        searchKey: `${m.worker_code || ''} ${m.id || ''} ${m.role || ''} ${m.name || ''}`
+                                    }))
+                                ]}
+                                placeholder="Select User"
+                                placement="top"
+                            />
+                        </div>
 
                             <div>
                                 <label className={labelClasses}>
@@ -270,11 +261,6 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                     onChange={handleFileChange}
                                     className={`${inputClasses} cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20`}
                                 />
-                                {request.attachment_url && !attachmentFile && (
-                                    <p className="text-xs text-primary mt-1 truncate">
-                                        Current: <a href={request.attachment_url} target="_blank" rel="noreferrer" className="underline hover:text-blue-600">{request.attachment_url}</a>
-                                    </p>
-                                )}
                             </div>
                         </div>
 

@@ -4,13 +4,13 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
     Loader2,
     FileText,
     Layers,
     Search,
-    Plus,
     Eye,
     RefreshCcw,
     Edit2,
@@ -73,6 +73,7 @@ const DrawingsDocumentsPage = () => {
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -277,8 +278,22 @@ const DrawingsDocumentsPage = () => {
         if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
         if (!formData.version?.trim()) newErrors.version = "Required";
         if (!isEditMode && !formData.project_id) newErrors.project_id = "Required";
-        if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
+        if (!isEditMode && !photoFile && !formData.file) newErrors.file = "Blueprint file is required";
+        
         setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            const missingFields = [];
+            if (newErrors.project_id) missingFields.push("Project ID");
+            if (newErrors.drawing_name) missingFields.push("Drawing Name");
+            if (newErrors.version) missingFields.push("Version");
+            if (newErrors.file) missingFields.push("File");
+
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -310,11 +325,15 @@ const DrawingsDocumentsPage = () => {
                         remarks: formData.remarks || ""
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
-                    toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
-                    setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData);
+                    setFormNotification({ type: 'success', message: 'Drawing updated successfully!' });
+                    toast.success("Drawing updated successfully", { id: toastId, duration: 3000 });
+                    setTimeout(() => {
+                        setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData);
+                    }, 1500);
                 } catch (error) {
+                    setFormNotification({ type: 'error', message: 'Update failed. Please try again.' });
                     toast.error("Update Failed", { id: toastId });
                 }
                 setIsSubmitting(false);
@@ -322,6 +341,7 @@ const DrawingsDocumentsPage = () => {
             } else {
                 try {
                     newRecord = await drawingService.uploadDrawing(payload);
+                    setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                     toast.success("Successful", { id: toastId, duration: 3000 });
                 } catch (error: any) {
                     if (error.response?.status === 403) {
@@ -330,6 +350,7 @@ const DrawingsDocumentsPage = () => {
                             ...payload,
                             upload_file: "VIRTUAL_SYNC.pdf"
                         };
+                        setFormNotification({ type: 'success', message: 'Asset registered successfully!' });
                         toast.success("Successful", { id: toastId, duration: 3000 });
                     } else {
                         throw error;
@@ -337,18 +358,21 @@ const DrawingsDocumentsPage = () => {
                 }
 
                 if (newRecord) {
-                    if (projectId !== payload.project_id) {
-                        setSelectedProjectId(payload.project_id);
-                    }
-                    setDrawingData(prev => [newRecord, ...prev]);
-                    setIsFormModalOpen(false);
-                    setFormData(initialFormData); // Reset form
-                    setPhotoFile(null); // Clear file
-                    setPhotoPreview(null); // Clear photo
-                    setErrors({}); // Clear errors
+                    setTimeout(() => {
+                        if (projectId !== payload.project_id) {
+                            setSelectedProjectId(payload.project_id);
+                        }
+                        setDrawingData(prev => [newRecord, ...prev]);
+                        setIsFormModalOpen(false);
+                        setFormData(initialFormData); // Reset form
+                        setPhotoFile(null); // Clear file
+                        setPhotoPreview(null); // Clear photo
+                        setErrors({}); // Clear errors
+                    }, 1500);
                 }
             }
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to register asset. Please try again.' });
             toast.error("Failed to register asset", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -434,6 +458,7 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
+        setFormNotification(null);
         if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
             setDocEditFormData({
                 id: Number(drawing.id),
@@ -478,10 +503,14 @@ const DrawingsDocumentsPage = () => {
             if (docEditFormData.file) formData.append("file", docEditFormData.file);
 
             await documentService.updateDocument(docEditFormData.id, formData);
+            setFormNotification({ type: 'success', message: 'Document updated successfully!' });
             toast.success("Document updated successfully", { id: toastId });
-            setIsDocEditModalOpen(false);
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocEditModalOpen(false);
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to update document. Please try again.' });
             toast.error("Failed to update document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -490,10 +519,18 @@ const DrawingsDocumentsPage = () => {
 
     const handleDocCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!docCreateFormData.file) {
-            toast.error("Please select a file to upload.");
+        
+        const missingFields = [];
+        if (!docCreateFormData.title?.trim()) missingFields.push("Title");
+        if (!docCreateFormData.file) missingFields.push("File");
+
+        if (missingFields.length > 0) {
+            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
             return;
         }
+
         setIsSubmitting(true);
         const toastId = toast.loading("Creating document...");
         try {
@@ -505,11 +542,15 @@ const DrawingsDocumentsPage = () => {
                 remarks: docCreateFormData.remarks,
                 file: docCreateFormData.file
             });
+            setFormNotification({ type: 'success', message: 'Document created successfully!' });
             toast.success("Document created successfully", { id: toastId });
-            setIsDocCreateModalOpen(false);
-            setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
-            fetchDrawings();
+            setTimeout(() => {
+                setIsDocCreateModalOpen(false);
+                setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
+                fetchDrawings();
+            }, 1500);
         } catch (error) {
+            setFormNotification({ type: 'error', message: 'Failed to create document. Please try again.' });
             toast.error("Failed to create document", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -568,7 +609,8 @@ const DrawingsDocumentsPage = () => {
             }
 
             const originalUrl = drawing.file_url || drawing.upload_file;
-            await drawingService.downloadDocument(drawing.id, drawing.drawing_name, originalUrl);
+            const drawingId = drawing.id || (drawing as any).drawing_id || (drawing as any).document_id;
+            await drawingService.downloadDocument(drawingId, drawing.drawing_name, originalUrl);
             toast.success("Download successful", { id: toastId });
         } catch (error) {
             toast.error("Failed to download document", { id: toastId });
@@ -733,11 +775,11 @@ const DrawingsDocumentsPage = () => {
                                             remarks: "",
                                             file: null
                                         });
+                                        setFormNotification(null);
                                         setIsDocCreateModalOpen(true);
                                     }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
                                     Upload Document
                                 </button>
                             </>
@@ -754,11 +796,10 @@ const DrawingsDocumentsPage = () => {
                                     Create Folder
                                 </button> */}
                                 <button
-                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setFormNotification(null); setIsFormModalOpen(true); }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Plus className="w-4 h-4" />
-                                    Upload Drawing
+                                    Upload Drawings
                                 </button>
                             </>
                         )}
@@ -833,9 +874,9 @@ const DrawingsDocumentsPage = () => {
 
                 {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter">
                         {/* Search */}
-                        <div className="relative flex-1 max-w-md font-inter">
+                        <div className="relative w-full lg:w-auto flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
@@ -924,8 +965,18 @@ const DrawingsDocumentsPage = () => {
                                                     <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.version}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                            {drawing.status || drawing.approval_status}
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
+                                                            }`}>
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
@@ -1049,9 +1100,6 @@ const DrawingsDocumentsPage = () => {
                                                             ) : (
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
                                                             )}
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                                {drawing.file_url || drawing.upload_file || ((drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
-                                                            </span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -1060,15 +1108,18 @@ const DrawingsDocumentsPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4 font-inter">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
-                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                            : drawing.approval_status === "Pending"
-                                                                ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                : drawing.approval_status === "UNDER_REVIEW"
-                                                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
+                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
+                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
+                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
+                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
                                                             }`}>
-                                                            {drawing.approval_status ? drawing.approval_status.replace("_", " ") : "Pending"}
+                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -1115,7 +1166,7 @@ const DrawingsDocumentsPage = () => {
 
                     {/* ──────────────── Pagination ──────────────── */}
                     {!isLoading && filteredDrawings.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
@@ -1205,63 +1256,81 @@ const DrawingsDocumentsPage = () => {
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                        <button onClick={() => setIsFormModalOpen(false)} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
                             Cancel
                         </button>
                         <button
                             form="drawing-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : (isEditMode ? "Update Asset" : "Register Asset")}
+                            {isSubmitting ? "Saving..." : (isEditMode ? "Edit Drawings" : "Save Drawings")}
                         </button>
                     </div>
                 }
             >
                 <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-6 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             {!isEditMode && (
-                                <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
-                                    <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
-                                        <option value="">Select Project</option>
-                                        {projects.map(p => (
-                                            <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                                {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="font-inter md:col-span-2 z-[66] relative">
+                                    <CustomSelect
+                                        label="Project Name"
+                                        required
+                                        value={formData.project_id?.toString() || ""}
+                                        onChange={(val) => handleInputChange({ target: { name: 'project_id', value: val } } as any)}
+                                        options={projects.map((p: any) => ({
+                                            id: (p.id || p.project_id).toString(),
+                                            label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                        }))}
+                                        placeholder="Select Project"
+                                        error={!!errors.project_id}
+                                    />
                                     {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                                 </div>
                             )}
 
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
-                                <label className={labelClasses}>drawing_name <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
                                 <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
 
                             <div className="font-inter">
-                                <label className={labelClasses}>version <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
                                 <input name="version" value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
 
                             <div className="font-inter">
-                                <label className={labelClasses}>date</label>
+                                <label className={labelClasses}>Date</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
                             </div>
 
                             <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>remarks</label>
+                                <label className={labelClasses}>Remarks</label>
                                 <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
                             </div>
 
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
-                                    <label className={labelClasses}>parent_id</label>
+                                    <label className={labelClasses}>Parent ID</label>
                                     <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} />
                                 </div>
                             )}
@@ -1269,7 +1338,7 @@ const DrawingsDocumentsPage = () => {
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2 mt-4">
                                     <div className="flex items-center justify-between mb-2">
-                                        <label className={labelClasses}>file <span className="text-rose-500">*</span></label>
+                                        <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
                                         {photoPreview && (
                                             <button
                                                 type="button"
@@ -1502,7 +1571,7 @@ const DrawingsDocumentsPage = () => {
                     isFolder: viewingDoc.isFolder ?? (viewingDoc.is_folder || false),
                     file_url: viewingDoc.file_url || viewingDoc.blob_url || buildFileUrl(viewingDoc.file_url || viewingDoc.upload_file || ""),
                     contentType: viewingDoc.contentType || viewingDoc.content_type,
-                    uploaded_by: viewingDoc.uploaded_by || usersMap[String(viewingDoc.uploaded_by_user_id || viewingDoc.uploaded_by)] || viewingDoc.uploaded_by_name || "—",
+                    uploaded_by: usersMap[String(viewingDoc.uploaded_by_user_id || viewingDoc.uploaded_by)] || viewingDoc.uploaded_by_name || viewingDoc.uploaded_by || "—",
                     isDrawing: viewingDoc.isDrawing ?? (viewingDoc.type === "Drawing" || !!viewingDoc.drawing_name)
                 } : null}
                 onDownload={handleDownloadDocument}
@@ -1512,14 +1581,29 @@ const DrawingsDocumentsPage = () => {
             <Modal isOpen={isDocEditModalOpen} onClose={() => setIsDocEditModalOpen(false)} title="Update Document" maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Document"}
+                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Edit Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-edit-form" onSubmit={handleDocEditSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />
@@ -1534,13 +1618,17 @@ const DrawingsDocumentsPage = () => {
                                 <label className={labelClasses}>Document Type</label>
                                 <input type="text" className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Status</label>
-                                <select className={inputClasses()} value={docEditFormData.status} onChange={e => setDocEditFormData({ ...docEditFormData, status: e.target.value })}>
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="APPROVED">APPROVED</option>
-                                    <option value="REJECTED">REJECTED</option>
-                                </select>
+                            <div className="font-inter z-[66] relative">
+                                <CustomSelect
+                                    label="Status"
+                                    value={docEditFormData.status}
+                                    onChange={(val) => setDocEditFormData({ ...docEditFormData, status: val })}
+                                    options={[
+                                        { id: 'PENDING', label: 'PENDING' },
+                                        { id: 'APPROVED', label: 'APPROVED' },
+                                        { id: 'REJECTED', label: 'REJECTED' }
+                                    ]}
+                                />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Version</label>
@@ -1569,30 +1657,47 @@ const DrawingsDocumentsPage = () => {
             <Modal isOpen={isDocCreateModalOpen} onClose={() => setIsDocCreateModalOpen(false)} title="Upload Document" maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload Document"}
+                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Document"}
                         </button>
                     </div>
                 }
             >
                 <form id="doc-create-form" onSubmit={handleDocCreateSubmit} className="p-6 space-y-8 font-inter">
+                    {formNotification && (
+                        <div className={`p-4 rounded-xl border ${formNotification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} flex items-start gap-3`}>
+                            <div className="mt-0.5">
+                                {formNotification.type === 'error' ? (
+                                    <XIcon className="w-5 h-5" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold">{formNotification.type === 'error' ? 'Validation Error' : 'Success'}</h4>
+                                <p className="text-xs mt-1">{formNotification.message}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                             <Layers className="w-4 h-4 text-primary" />
                             Core Document Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select required className={inputClasses()} value={docCreateFormData.project_id} onChange={e => setDocCreateFormData({ ...docCreateFormData, project_id: Number(e.target.value) })}>
-                                    <option value="">Select Project</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={docCreateFormData.project_id?.toString() || ""}
+                                    onChange={(val) => setDocCreateFormData({ ...docCreateFormData, project_id: Number(val) })}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
@@ -1648,16 +1753,18 @@ const DrawingsDocumentsPage = () => {
                             Core Folder Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select required className={inputClasses()} value={drawingFolderFormData.project_id} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, project_id: Number(e.target.value) })}>
-                                    <option value="">Select Project</option>
-                                    {projects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="font-inter md:col-span-2 z-[66] relative">
+                                <CustomSelect
+                                    label="Project Context"
+                                    required
+                                    value={drawingFolderFormData.project_id?.toString() || ""}
+                                    onChange={(val) => setDrawingFolderFormData({ ...drawingFolderFormData, project_id: Number(val) })}
+                                    options={projects.map((p: any) => ({
+                                        id: (p.id || p.project_id).toString(),
+                                        label: p.name || p.project_name || `Project #${p.id || p.project_id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                />
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>

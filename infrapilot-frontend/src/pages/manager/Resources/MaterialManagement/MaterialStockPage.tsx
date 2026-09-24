@@ -25,6 +25,7 @@ const MaterialStockPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // Data States
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -183,13 +184,31 @@ const MaterialStockPage = () => {
     };
 
     const handleAdjustmentSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!adjustmentForm.material_id) missingFields.push("Material");
+        if (adjustmentForm.new_stock === undefined || adjustmentForm.new_stock < 0) missingFields.push("New Stock");
+        if (!adjustmentForm.reason?.trim()) missingFields.push("Reason");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            await materialService.adjustInventory(adjustmentForm);
-            toast.success("Inventory adjusted!");
+            await materialService.adjustInventory({ ...adjustmentForm, project_id: projectId });
+            setFormNotification({ type: 'success', message: "Inventory adjusted!" });
+            setTimeout(() => setFormNotification(null), 3000);
             setIsAdjustmentModalOpen(false);
             fetchAdjustments(); fetchStock();
-        } catch (e) { toast.error("Failed to adjust inventory"); }
+        } catch (error: any) { setFormNotification({ type: 'error', message: error.response?.data?.message || "Failed to adjust inventory" }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -237,6 +256,39 @@ const MaterialStockPage = () => {
 
     return (
         <>
+            {/* Top-right floating toast */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999999,
+                        padding: '16px 20px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        minWidth: '320px',
+                        maxWidth: '400px',
+                        border: `1px solid ${formNotification.type === 'error' ? '#fecaca' : '#a7f3d0'}`
+                    }}
+                    className="animate-fade-in-up"
+                >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                        <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                        {formNotification.type === 'error'
+                            ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                            : formNotification.message}
+                    </p>
+                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                </div>
+            )}
+
             <Navbar title="Material Stock" breadcrumb={["Manager", "Material Management", "Stock & Inventory"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
@@ -585,6 +637,19 @@ const MaterialStockPage = () => {
             {/* Adjustment Modal */}
             <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
                 <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
                         <div className="space-y-4">

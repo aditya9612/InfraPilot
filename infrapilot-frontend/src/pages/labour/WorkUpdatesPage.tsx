@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
@@ -13,10 +13,22 @@ import {
     ChevronDown,
     FileText,
     Download,
-    FileDown,
     Edit,
     Trash2,
-    Plus
+    Plus,
+    Search,
+    History,
+    Eye,
+    CheckCircle2,
+    AlertCircle,
+    RefreshCw,
+    ChevronLeft,
+    ChevronRight,
+    Printer,
+    Check,
+    FolderKanban,
+    Timer,
+    Camera
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -25,10 +37,13 @@ import { masterService, type MasterEntity } from '../../services/masterService';
 import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import type { 
     CreateWorkUpdatePayload, 
-    SubmitWorkUpdatePayload 
+    SubmitWorkUpdatePayload,
+    WorkUpdateItem
 } from '../../services/workUpdateService';
 import { workUpdateService } from '../../services/workUpdateService';
 import { safeSetItem, compressImageFile } from '../../utils/storageUtils';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ACTIVITY_TYPE_MAP: Record<string, number> = {
     "reinforcement": 1,
@@ -57,6 +72,94 @@ const ACTIVITY_TYPE_NAMES: Record<number, string> = {
     9: "Plumbing",
     10: "Carpentry",
     11: "Waterproofing",
+};
+
+const getActivityBadgeClass = (categoryName?: string): string => {
+    const cat = (categoryName || '').toLowerCase();
+    if (cat.includes('reinforce')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    if (cat.includes('concrete')) return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (cat.includes('mason') || cat.includes('brick')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (cat.includes('excavat')) return 'bg-sky-50 text-sky-700 border-sky-200';
+    if (cat.includes('plaster')) return 'bg-purple-50 text-purple-700 border-purple-200';
+    if (cat.includes('paint')) return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (cat.includes('floor')) return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (cat.includes('electr')) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (cat.includes('plumb')) return 'bg-teal-50 text-teal-700 border-teal-200';
+    if (cat.includes('carpent')) return 'bg-stone-100 text-stone-700 border-stone-200';
+    if (cat.includes('waterproof')) return 'bg-blue-50 text-blue-700 border-blue-200';
+    return 'bg-blue-50 text-blue-700 border-blue-200';
+};
+
+const getStatusBadgeClass = (status?: string): string => {
+    const s = (status || '').toLowerCase();
+    if (s === 'completed' || s === 'done' || s === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (s === 'submitted') return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (s === 'in progress' || s === 'in_progress') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (s === 'rejected' || s === 'failed') return 'bg-rose-50 text-rose-700 border-rose-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+};
+
+const getFullUrl = (path: string | null | undefined): string => {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) return path;
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+        : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+};
+
+const extractUpdateImages = (item: any): { before: string[]; after: string[] } => {
+    const before: string[] = [];
+    const after: string[] = [];
+
+    // 1. Array of image objects
+    if (Array.isArray(item.images)) {
+        item.images.forEach((img: any) => {
+            const rawUrl = img?.image_url || img?.url || img?.path || (typeof img === 'string' ? img : '');
+            const url = getFullUrl(rawUrl);
+            if (!url) return;
+            const type = String(img?.image_type || img?.type || '').toLowerCase();
+            if (type === 'before') before.push(url);
+            else if (type === 'after') after.push(url);
+            else before.push(url);
+        });
+    }
+
+    // 2. before_images
+    if (Array.isArray(item.before_images)) {
+        item.before_images.forEach((img: any) => {
+            const rawUrl = typeof img === 'string' ? img : img?.image_url || img?.url || img?.path;
+            const url = getFullUrl(rawUrl);
+            if (url && !before.includes(url)) before.push(url);
+        });
+    }
+
+    // 3. after_images
+    if (Array.isArray(item.after_images)) {
+        item.after_images.forEach((img: any) => {
+            const rawUrl = typeof img === 'string' ? img : img?.image_url || img?.url || img?.path;
+            const url = getFullUrl(rawUrl);
+            if (url && !after.includes(url)) after.push(url);
+        });
+    }
+
+    // 4. before_photos / after_photos
+    if (Array.isArray(item.before_photos)) {
+        item.before_photos.forEach((img: any) => {
+            const rawUrl = typeof img === 'string' ? img : img?.url;
+            const url = getFullUrl(rawUrl);
+            if (url && !before.includes(url)) before.push(url);
+        });
+    }
+    if (Array.isArray(item.after_photos)) {
+        item.after_photos.forEach((img: any) => {
+            const rawUrl = typeof img === 'string' ? img : img?.url;
+            const url = getFullUrl(rawUrl);
+            if (url && !after.includes(url)) after.push(url);
+        });
+    }
+
+    return { before, after };
 };
 
 const resolveActivityTypeId = (
@@ -119,8 +222,6 @@ const calculateTotalHoursNumber = (startStr: string | undefined, endStr: string 
 
 const formatApiErrorMessage = (error: any, fallbackMessage = "An error occurred"): string => {
     if (!error) return fallbackMessage;
-    
-    // Plain string error
     if (typeof error === 'string') return error;
 
     const resData = error?.response?.data;
@@ -198,7 +299,27 @@ const WorkUpdatesPage: React.FC = () => {
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
     const queryProjectId = query.get('projectId');
-    const projectId = queryProjectId || (activeProjectId ? String(activeProjectId) : '');
+
+    // Project resolution: query param -> useLabourProjectId -> localStorage -> user.project_id
+    const currentProjectId = useMemo(() => {
+        const pid = queryProjectId ||
+            (activeProjectId ? String(activeProjectId) : '') ||
+            localStorage.getItem("client_selected_project_id") ||
+            localStorage.getItem("infrapilot_selected_project_id") ||
+            (user as any)?.project_id ||
+            '';
+        return pid ? Number(pid) : 0;
+    }, [queryProjectId, activeProjectId, user]);
+
+    const currentProjectName = useMemo(() => {
+        return activeProjectName ||
+            localStorage.getItem("client_selected_project_name") ||
+            localStorage.getItem("infrapilot_selected_project_name") ||
+            (user as any)?.project_name ||
+            '';
+    }, [activeProjectName, user]);
+
+    const projectId = currentProjectId ? String(currentProjectId) : '';
     const taskName = query.get('taskName');
     const taskCategory = query.get('taskCategory');
 
@@ -208,7 +329,7 @@ const WorkUpdatesPage: React.FC = () => {
     // Current date for default
     const today = new Date().toISOString().split('T')[0];
 
-    // State matching the screenshot fields
+    // Form state
     const [description, setDescription] = useState(taskName ? `Working on: ${taskName}` : '');
     const [beforePhotos, setBeforePhotos] = useState<string[]>([]);
     const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
@@ -226,38 +347,76 @@ const WorkUpdatesPage: React.FC = () => {
     const [tasks, setTasks] = useState<any[]>([]);
     const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
-    const [showDownloadMenu, setShowDownloadMenu] = useState(false);
     const [myUpdates, setMyUpdates] = useState<any[]>([]);
     const [timeline, setTimeline] = useState<any[]>([]);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
 
-    // Filter tasks assigned to current user (e.g. Ramesh Sharma) and exclude completed tasks
+    // History Table States
+    const [historySearch, setHistorySearch] = useState('');
+    const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL');
+    const [historyDateFilter, setHistoryDateFilter] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(8);
+    const [isHistoryRefreshing, setIsHistoryRefreshing] = useState(false);
+
+    // Modal States
+    const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+    const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+
+    // Persistence helpers for completed task IDs
+    const getPersistedCompletedTaskIds = (): string[] => {
+        try {
+            const raw = localStorage.getItem('infrapilot_completed_task_ids');
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    };
+
+    const persistCompletedTaskId = (tId: string | number) => {
+        if (!tId) return;
+        const idStr = String(tId);
+        safeSetItem(`task_status_${idStr}`, 'Completed');
+        try {
+            const currentList = getPersistedCompletedTaskIds();
+            if (!currentList.includes(idStr)) {
+                currentList.push(idStr);
+                localStorage.setItem('infrapilot_completed_task_ids', JSON.stringify(currentList));
+            }
+        } catch (e) {
+            console.warn('Error persisting completed task ID:', e);
+        }
+    };
+
+    // Filter tasks for CURRENT PROJECT, strictly excluding completed tasks
     const displayTasks = useMemo(() => {
         const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
         const currentUserId = user?.id ? Number(user.id) : null;
 
+        // 1. Is task completed? (Strictly check rawStatus, localStatus, is_completed, and progress)
         const isNotCompleted = (t: any) => {
-            const localStatus = localStorage.getItem(`task_status_${t.id}`);
-            const statusStr = String(localStatus || t.status || t.task_status || '').trim().toLowerCase();
+            const rawStatus = String(t.status || t.task_status || '').trim().toLowerCase();
+            const localStatus = String(localStorage.getItem(`task_status_${t.id}`) || '').trim().toLowerCase();
+            
             if (
-                statusStr === 'completed' ||
-                statusStr === 'done' ||
-                statusStr === 'closed' ||
-                statusStr === 'finished' ||
-                statusStr === 'complete'
+                rawStatus === 'completed' ||
+                rawStatus === 'done' ||
+                rawStatus === 'closed' ||
+                rawStatus === 'finished' ||
+                rawStatus === 'approved' ||
+                localStatus === 'completed' ||
+                localStatus === 'done'
             ) {
                 return false;
             }
-            if (Number(t.completion_percentage) >= 100 || Number(t.progress) >= 100) {
+            if (t.is_completed === true || Number(t.completion_percentage) >= 100 || Number(t.progress) >= 100) {
                 return false;
             }
             return true;
         };
 
-        const filtered = tasks.filter((t: any) => {
-            // Exclude completed tasks
-            if (!isNotCompleted(t)) return false;
-
+        // 2. User Assignment filter
+        const isAssignedToUser = (t: any) => {
             const assignedText = String(
                 t.assignedTo ||
                 t.assigned_to_name ||
@@ -278,72 +437,253 @@ const WorkUpdatesPage: React.FC = () => {
             );
 
             return isNameMatch || isIdMatch;
-        });
+        };
 
-        if (filtered.length > 0) return filtered;
+        const activeTasks = tasks.filter(isNotCompleted);
+        const userActiveTasks = activeTasks.filter(isAssignedToUser);
 
-        // If no user-specific matches, show all non-completed tasks
-        return tasks.filter(isNotCompleted);
+        // 1st priority: active tasks assigned to current user
+        if (userActiveTasks.length > 0) {
+            return userActiveTasks;
+        }
+
+        // 2nd priority: other active tasks in the project
+        return activeTasks;
     }, [tasks, user]);
 
-    // Fetch tasks, activity types, my work updates, and project timeline
-    useEffect(() => {
-        if (!projectId && isProjectLoading) return;
-        const fetchInitialData = async () => {
-            const numericPid = Number(projectId || activeProjectId || 0);
-            try {
-                const response = numericPid ? await projectService.getTasks(numericPid) : [];
-                const items = Array.isArray(response) ? response : (response.items || []);
-                const mappedItems = items.map((t: any) => {
-                    const localStatus = localStorage.getItem(`task_status_${t.id}`);
-                    return {
-                        ...t,
-                        status: localStatus || t.status || 'Planned'
-                    };
-                });
-                setTasks(mappedItems);
-                
-                // If we have a taskName/taskId from query, try to find it in the list to sync category
-                if (taskId && mappedItems.length > 0) {
-                    const currentTask = mappedItems.find((t: any) => String(t.id) === String(taskId));
-                    if (currentTask && !category) {
-                        setCategory(currentTask.category || currentTask.description?.split('|')[0]?.trim() || '');
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to fetch tasks:", error);
-            }
+    // Fetch initial data
+    const fetchInitialData = useCallback(async (showToast = false) => {
+        if (!activeProjectId && isProjectLoading) return;
+        const pId = currentProjectId || activeProjectId || (user as any)?.project_id || 2;
+        if (showToast) setIsHistoryRefreshing(true);
 
-            // Fetch Master Activity Types (GET /api/v1/master/activity-types)
-            try {
-                const actTypes = await masterService.getEntities("activity-types");
-                if (Array.isArray(actTypes) && actTypes.length > 0) {
-                    setActivityTypes(actTypes);
-                }
-            } catch (err) {
-                console.warn("Failed to fetch master activity types:", err);
-            }
+        const assignedUserId = user?.id ? Number(user.id) : 8;
 
-            // Fetch My Work Updates (GET /api/v1/work-updates/my)
-            try {
-                const updates = await workUpdateService.getMyWorkUpdates(numericPid ? { project_id: numericPid } : {});
-                setMyUpdates(updates);
-            } catch (err) {
-                console.warn("Failed to fetch my work updates:", err);
-            }
+        try {
+            // GET /api/v1/projects/{projectId}/tasks?limit=10&offset=0&assigned_user_id={assigned_user_id}
+            const params: any = { 
+                limit: 10, 
+                offset: 0,
+                assigned_user_id: assignedUserId
+            };
+            const response = await projectService.getTasks(pId, params);
+            let items = Array.isArray(response) ? response : (response.items || response.data || []);
 
-            // Fetch Project Work-Update Timeline (GET /api/v1/work-updates/project/{project_id}/timeline)
-            if (numericPid) {
+            // Fallback: If no tasks returned with assigned_user_id filter, fetch without assigned_user_id
+            if (items.length === 0) {
                 try {
-                    const timelineData = await workUpdateService.getProjectTimeline(numericPid);
-                    setTimeline(timelineData);
-                } catch (err) {
-                    console.warn("Failed to fetch project timeline:", err);
+                    const fallbackRes = await projectService.getTasks(pId, { limit: 10, offset: 0 });
+                    const fallbackItems = Array.isArray(fallbackRes) ? fallbackRes : (fallbackRes.items || fallbackRes.data || []);
+                    if (fallbackItems.length > 0) {
+                        items = fallbackItems;
+                    }
+                } catch (_) {}
+            }
+
+            // Fallback: If still no tasks returned for pId, try fetching first available project's tasks
+            if (items.length === 0 && (!pId || pId === 0)) {
+                try {
+                    const projectsRes = await projectService.getProjects(10, 0);
+                    const projs = Array.isArray(projectsRes) ? projectsRes : (projectsRes?.items || projectsRes?.data || []);
+                    if (projs.length > 0) {
+                        const fallbackPid = projs[0].id || projs[0].project_id;
+                        if (fallbackPid) {
+                            const fallbackTasks = await projectService.getTasks(fallbackPid, { limit: 10, offset: 0, assigned_user_id: assignedUserId });
+                            items = Array.isArray(fallbackTasks) ? fallbackTasks : (fallbackTasks.items || []);
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            const mappedItems = items.map((t: any) => {
+                const assignee = t.assigned_users && t.assigned_users.length > 0
+                    ? t.assigned_users.map((u: any) => u.full_name || u.name || u.username).join(', ')
+                    : (t.assignedTo || t.assigned_to_name || t.assigned_user_name || 'Unassigned');
+
+                const rawStatus = t.status || t.task_status || 'Planned';
+                const localStatus = localStorage.getItem(`task_status_${t.id}`);
+
+                if ((rawStatus === 'Planned' || rawStatus === 'Pending' || rawStatus === 'In Progress') && localStatus === 'Completed') {
+                    localStorage.removeItem(`task_status_${t.id}`);
+                }
+
+                const effectiveStatus = localStorage.getItem(`task_status_${t.id}`) || rawStatus;
+
+                return {
+                    ...t,
+                    id: String(t.id),
+                    name: t.title || t.name || `Task #${t.id}`,
+                    title: t.title || t.name || `Task #${t.id}`,
+                    project: t.project_name || t.project?.name || t.project?.title || currentProjectName,
+                    project_id: t.project_id || pId,
+                    assignedTo: assignee,
+                    status: effectiveStatus
+                };
+            });
+            setTasks(mappedItems);
+            
+            if (taskId && mappedItems.length > 0) {
+                const currentTask = mappedItems.find((t: any) => String(t.id) === String(taskId));
+                if (currentTask && !category) {
+                    setCategory(currentTask.category || currentTask.activity_type || currentTask.description?.split('|')[0]?.trim() || '');
                 }
             }
-        };
+        } catch (error) {
+            console.error("Failed to fetch tasks for project", pId, error);
+        }
+
+        // Fetch Master Activity Types (GET /api/v1/master/activity-types)
+        try {
+            const actTypes = await masterService.getEntities("activity-types");
+            if (Array.isArray(actTypes) && actTypes.length > 0) {
+                setActivityTypes(actTypes);
+            }
+        } catch (err) {
+            console.warn("Failed to fetch master activity types:", err);
+        }
+
+        // Fetch My Work Updates (GET /api/v1/work-updates/my)
+        try {
+            const updates = await workUpdateService.getMyWorkUpdates(pId ? { project_id: pId } : {});
+            setMyUpdates(updates);
+        } catch (err) {
+            console.warn("Failed to fetch my work updates:", err);
+        }
+
+        // Fetch Project Work-Update Timeline (GET /api/v1/work-updates/project/{project_id}/timeline)
+        if (pId) {
+            try {
+                const timelineData = await workUpdateService.getProjectTimeline(pId);
+                setTimeline(timelineData);
+            } catch (err) {
+                console.warn("Failed to fetch project timeline:", err);
+            }
+        }
+
+        if (showToast) {
+            setIsHistoryRefreshing(false);
+            toast.success("Work updates history refreshed");
+        }
+    }, [activeProjectId, currentProjectId, currentProjectName, isProjectLoading, user?.id, taskId, category]);
+
+    useEffect(() => {
         fetchInitialData();
-    }, [projectId, taskId, activeProjectId, isProjectLoading]);
+    }, [fetchInitialData]);
+
+    // Unified History List
+    const allHistoryUpdates = useMemo(() => {
+        const map = new Map<number | string, any>();
+
+        // 1. Add myUpdates
+        myUpdates.forEach(item => {
+            if (item && item.id) {
+                const taskObj = tasks.find(t => String(t.id) === String(item.task_id));
+                const { before, after } = extractUpdateImages(item);
+                const actName = item.activity_type_id 
+                    ? (activityTypes.find(a => a.id === item.activity_type_id)?.name || ACTIVITY_TYPE_NAMES[item.activity_type_id] || `Activity #${item.activity_type_id}`)
+                    : (item.category || item.activity_type || 'General');
+
+                map.set(item.id, {
+                    ...item,
+                    task_title: item.task_name || item.task_title || taskObj?.title || taskObj?.name || (item.task_id ? `Task #${item.task_id}` : 'General Work Update'),
+                    project_name: item.project_name || taskObj?.project || currentProjectName || `Project #${item.project_id || currentProjectId}`,
+                    activity_name: actName,
+                    before_images_list: before,
+                    after_images_list: after,
+                    total_images_count: before.length + after.length,
+                    display_status: item.status || 'Submitted',
+                    raw_hours: typeof item.total_hours === 'number' ? item.total_hours : calculateTotalHoursNumber(item.start_time, item.end_time)
+                });
+            }
+        });
+
+        // 2. Add Timeline entries if not already present
+        timeline.forEach(item => {
+            if (item && item.id && !map.has(item.id)) {
+                const taskObj = tasks.find(t => String(t.id) === String(item.task_id));
+                const { before, after } = extractUpdateImages(item);
+                const actName = item.activity_type_id 
+                    ? (activityTypes.find(a => a.id === item.activity_type_id)?.name || ACTIVITY_TYPE_NAMES[item.activity_type_id] || `Activity #${item.activity_type_id}`)
+                    : (item.category || item.activity_type || 'General');
+
+                map.set(item.id, {
+                    ...item,
+                    task_title: item.task_name || item.task_title || taskObj?.title || taskObj?.name || (item.task_id ? `Task #${item.task_id}` : 'Site Work Update'),
+                    project_name: item.project_name || taskObj?.project || currentProjectName || `Project #${item.project_id || currentProjectId}`,
+                    activity_name: actName,
+                    before_images_list: before,
+                    after_images_list: after,
+                    total_images_count: before.length + after.length,
+                    display_status: item.status || 'Completed',
+                    raw_hours: typeof item.total_hours === 'number' ? item.total_hours : calculateTotalHoursNumber(item.start_time, item.end_time)
+                });
+            }
+        });
+
+        return Array.from(map.values()).sort((a, b) => {
+            const dateA = new Date(a.work_date || a.created_at || 0).getTime();
+            const dateB = new Date(b.work_date || b.created_at || 0).getTime();
+            return dateB - dateA || (b.id - a.id);
+        });
+    }, [myUpdates, timeline, tasks, activityTypes, currentProjectName, currentProjectId]);
+
+    // Filtered History
+    const filteredHistory = useMemo(() => {
+        return allHistoryUpdates.filter(item => {
+            // Search query filter
+            if (historySearch.trim()) {
+                const q = historySearch.toLowerCase().trim();
+                const titleMatch = (item.task_title || '').toLowerCase().includes(q);
+                const descMatch = (item.work_description || item.description || '').toLowerCase().includes(q);
+                const actMatch = (item.activity_name || '').toLowerCase().includes(q);
+                const locMatch = (item.location || '').toLowerCase().includes(q);
+                const remMatch = (item.before_remarks || '').toLowerCase().includes(q) || (item.after_remarks || '').toLowerCase().includes(q);
+                const idMatch = String(item.id).includes(q) || String(item.task_id || '').includes(q);
+                if (!titleMatch && !descMatch && !actMatch && !locMatch && !remMatch && !idMatch) {
+                    return false;
+                }
+            }
+
+            // Status filter
+            if (historyStatusFilter !== 'ALL') {
+                const stat = (item.display_status || '').toLowerCase();
+                if (stat !== historyStatusFilter.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            // Date filter
+            if (historyDateFilter) {
+                const itemDate = (item.work_date || item.created_at || '').split('T')[0];
+                if (itemDate !== historyDateFilter) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }, [allHistoryUpdates, historySearch, historyStatusFilter, historyDateFilter]);
+
+    // Pagination calculations
+    const totalHistoryPages = Math.ceil(filteredHistory.length / pageSize) || 1;
+    const paginatedHistory = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredHistory.slice(start, start + pageSize);
+    }, [filteredHistory, currentPage, pageSize]);
+
+    // Stats calculations
+    const historyStats = useMemo(() => {
+        const totalUpdates = allHistoryUpdates.length;
+        const totalHours = allHistoryUpdates.reduce((acc, curr) => acc + (curr.raw_hours || 0), 0);
+        const totalPhotos = allHistoryUpdates.reduce((acc, curr) => acc + (curr.total_images_count || 0), 0);
+        const completedCount = allHistoryUpdates.filter(u => (u.display_status || '').toLowerCase() === 'completed' || (u.display_status || '').toLowerCase() === 'submitted').length;
+        return {
+            totalUpdates,
+            totalHours: totalHours.toFixed(1),
+            totalPhotos,
+            completedCount
+        };
+    }, [allHistoryUpdates]);
 
     // GET /api/v1/work-updates/{work_update_id}
     const handleLoadWorkUpdate = async (id: number) => {
@@ -366,16 +706,12 @@ const WorkUpdatesPage: React.FC = () => {
             if (data.before_remarks) setBeforeRemarks(data.before_remarks);
             if (data.after_remarks) setAfterRemarks(data.after_remarks);
             
-            if (Array.isArray(data.images) && data.images.length > 0) {
-                const beforeImgs = data.images.filter((img: any) => img.image_type === 'before' || img.type === 'before').map((img: any) => img.image_url || img.url || img.path);
-                const afterImgs = data.images.filter((img: any) => img.image_type === 'after' || img.type === 'after').map((img: any) => img.image_url || img.url || img.path);
-                if (beforeImgs.length > 0) setBeforePhotos(beforeImgs);
-                if (afterImgs.length > 0) setAfterPhotos(afterImgs);
-            }
-            if (Array.isArray(data.before_images) && data.before_images.length > 0) setBeforePhotos(data.before_images);
-            if (Array.isArray(data.after_images) && data.after_images.length > 0) setAfterPhotos(data.after_images);
+            const { before, after } = extractUpdateImages(data);
+            if (before.length > 0) setBeforePhotos(before);
+            if (after.length > 0) setAfterPhotos(after);
             
-            toast.success(`Loaded Work Update #${id}`, { id: loadingToast });
+            toast.success(`Loaded Work Update #${id} into editor form`, { id: loadingToast });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err: any) {
             console.error("Failed to fetch work update:", err);
             toast.error(formatApiErrorMessage(err, "Failed to load work update details"), { id: loadingToast });
@@ -385,12 +721,12 @@ const WorkUpdatesPage: React.FC = () => {
     // DELETE /api/v1/work-updates/{work_update_id}
     const handleDeleteWorkUpdate = async (id: number, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        if (!window.confirm(`Are you sure you want to delete Work Update #${id}?`)) return;
+        if (!window.confirm(`Are you sure you want to delete Work Update #${id}? This action cannot be undone.`)) return;
 
         const loadingToast = toast.loading(`Deleting Work Update #${id}...`);
         try {
             await workUpdateService.deleteWorkUpdate(id);
-            toast.success(`Work Update #${id} deleted`, { id: loadingToast });
+            toast.success(`Work Update #${id} deleted successfully`, { id: loadingToast });
             setMyUpdates(prev => prev.filter(u => u.id !== id));
             setTimeline(prev => prev.filter(t => t.id !== id));
             if (editingUpdateId === id) {
@@ -399,18 +735,16 @@ const WorkUpdatesPage: React.FC = () => {
                 setBeforePhotos([]);
                 setAfterPhotos([]);
             }
+            if (selectedHistoryItem?.id === id) {
+                setSelectedHistoryItem(null);
+            }
         } catch (err: any) {
             console.error("Failed to delete work update:", err);
             toast.error(formatApiErrorMessage(err, "Failed to delete work update"), { id: loadingToast });
         }
     };
 
-    /**
-     * 1. Create Work Update API
-     * POST /api/v1/work-updates
-     * Content-Type: application/json
-     * Payload: project_id, task_id, activity_type_id, work_description, before_remarks, work_date, start_time, location
-     */
+    // 1. Create Work Update API
     const getOrCreateWorkUpdateId = async (): Promise<number | null> => {
         if (editingUpdateId) return editingUpdateId;
 
@@ -454,10 +788,7 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    /**
-     * 3. Upload Before Images
-     * POST /api/v1/work-updates/{work_update_id}/before-image
-     */
+    // Upload Before Images
     const uploadBeforeImagesForUpdate = async (activeUpdateId: number): Promise<{ success: number; failed: number }> => {
         let success = 0;
         let failed = 0;
@@ -477,10 +808,7 @@ const WorkUpdatesPage: React.FC = () => {
         return { success, failed };
     };
 
-    /**
-     * 4. Upload After Images
-     * POST /api/v1/work-updates/{work_update_id}/after-image
-     */
+    // Upload After Images
     const uploadAfterImagesForUpdate = async (activeUpdateId: number): Promise<{ success: number; failed: number }> => {
         let success = 0;
         let failed = 0;
@@ -518,7 +846,6 @@ const WorkUpdatesPage: React.FC = () => {
 
             const { success, failed } = await uploadBeforeImagesForUpdate(activeUpdateId);
 
-            // Update status to "In Progress"
             try {
                 await projectService.updateTaskStatus(Number(projectId), Number(targetTaskId), 'In Progress');
                 safeSetItem(`task_status_${targetTaskId}`, 'In Progress');
@@ -529,6 +856,7 @@ const WorkUpdatesPage: React.FC = () => {
             } else {
                 toast.success(`Work Update #${activeUpdateId} saved. (${success} uploaded, ${failed} failed)`, { id: loadingToast });
             }
+            fetchInitialData();
         } catch (err: any) {
             console.error('[handleSaveBeforePhotos] Error:', err);
             toast.error(formatApiErrorMessage(err, "Failed to save Before Work details"), { id: loadingToast });
@@ -555,17 +883,19 @@ const WorkUpdatesPage: React.FC = () => {
 
             const { success, failed } = await uploadAfterImagesForUpdate(activeUpdateId);
 
-            // Update status to "Completed"
             try {
                 await projectService.updateTaskStatus(Number(projectId), Number(targetTaskId), 'Completed');
-                safeSetItem(`task_status_${targetTaskId}`, 'Completed');
-            } catch (_) {}
+                persistCompletedTaskId(targetTaskId);
+            } catch (_) {
+                persistCompletedTaskId(targetTaskId);
+            }
 
             if (failed === 0) {
                 toast.success(`Work Update #${activeUpdateId} saved with ${success} After image(s)!`, { id: loadingToast });
             } else {
                 toast.success(`Work Update #${activeUpdateId} saved. (${success} uploaded, ${failed} failed)`, { id: loadingToast });
             }
+            fetchInitialData();
         } catch (err: any) {
             console.error('[handleSaveAfterPhotos] Error:', err);
             toast.error(formatApiErrorMessage(err, "Failed to save After Work details"), { id: loadingToast });
@@ -574,12 +904,7 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    /**
-     * 5. Submit Work Update
-     * POST /api/v1/work-updates/{work_update_id}/submit
-     * Content-Type: application/json
-     * Payload: { end_time, after_remarks, total_hours }
-     */
+    // Submit Work Update
     const handleSubmit = async () => {
         if (!selectedTaskId) return toast.error("Please select a task first");
         if (!description.trim()) return toast.error("Work description is required");
@@ -591,20 +916,15 @@ const WorkUpdatesPage: React.FC = () => {
         const loadingToast = toast.loading(editingUpdateId ? `Submitting work update #${editingUpdateId}...` : "Creating and submitting work update...");
 
         try {
-            // 1. Create or get Work Update ID (POST /api/v1/work-updates with application/json)
             const activeUpdateId = await getOrCreateWorkUpdateId();
             if (!activeUpdateId) {
                 toast.dismiss(loadingToast);
                 return;
             }
 
-            // 2. Upload Before Images (POST /api/v1/work-updates/{id}/before-image)
             await uploadBeforeImagesForUpdate(activeUpdateId);
-
-            // 3. Upload After Images (POST /api/v1/work-updates/{id}/after-image)
             await uploadAfterImagesForUpdate(activeUpdateId);
 
-            // 4. Submit Work Update (POST /api/v1/work-updates/{id}/submit with application/json)
             const formattedEndTime = formatTimeToHms(endTime, "17:30:00");
             const numericTotalHours = calculateTotalHoursNumber(startTime, endTime);
             const submitPayload: SubmitWorkUpdatePayload = {
@@ -617,18 +937,18 @@ const WorkUpdatesPage: React.FC = () => {
 
             await workUpdateService.submitWorkUpdate(activeUpdateId, submitPayload);
 
-            // 5. Sync Task Status to Completed
             try {
                 await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'Completed');
-                safeSetItem(`task_status_${selectedTaskId}`, 'Completed');
+                persistCompletedTaskId(selectedTaskId);
             } catch (statusErr) {
                 console.warn("Task status update sync warning:", statusErr);
+                persistCompletedTaskId(selectedTaskId);
             }
 
             toast.success(`Work update #${activeUpdateId} submitted successfully!`, { id: loadingToast });
             setEditingUpdateId(null);
+            setSelectedTaskId('');
 
-            // Clear draft form
             localStorage.removeItem(persistenceKey);
             setDescription('');
             setBeforePhotos([]);
@@ -636,17 +956,7 @@ const WorkUpdatesPage: React.FC = () => {
             setBeforeRemarks('');
             setAfterRemarks('');
 
-            // Refresh My Work Updates & Timeline
-            try {
-                const [refreshedUpdates, refreshedTimeline] = await Promise.all([
-                    workUpdateService.getMyWorkUpdates({ project_id: Number(projectId) }),
-                    workUpdateService.getProjectTimeline(Number(projectId))
-                ]);
-                setMyUpdates(refreshedUpdates);
-                setTimeline(refreshedTimeline);
-            } catch (e) {
-                console.warn("Refresh work updates failed:", e);
-            }
+            await fetchInitialData();
         } catch (err: any) {
             console.error("handleSubmit error:", err);
             const errMsg = formatApiErrorMessage(err, "Failed to submit work update");
@@ -670,15 +980,10 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    // Calculated state
     const [totalHours, setTotalHours] = useState('8h 30m');
-
-    // Persistence keys
     const persistenceKey = taskId ? `work_update_data_${taskId}` : `work_update_data_last_draft`;
 
-    // Persistence: Load data on mount
     useEffect(() => {
-        // Load current update data
         const savedData = localStorage.getItem(persistenceKey);
         if (savedData) {
             const data = JSON.parse(savedData);
@@ -695,7 +1000,6 @@ const WorkUpdatesPage: React.FC = () => {
         }
     }, [persistenceKey]);
 
-    // Persistence: Save data on any change
     useEffect(() => {
         const dataToSave = {
             description, beforePhotos, afterPhotos, workDate, 
@@ -704,15 +1008,12 @@ const WorkUpdatesPage: React.FC = () => {
         safeSetItem(persistenceKey, JSON.stringify(dataToSave));
     }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, beforeRemarks, afterRemarks, persistenceKey]);
 
-    // Handle time calculation
     useEffect(() => {
         if (startTime && endTime) {
             const [sH, sM] = startTime.split(':').map(Number);
             const [eH, eM] = endTime.split(':').map(Number);
-            
             let diff = (eH * 60 + eM) - (sH * 60 + sM);
-            if (diff < 0) diff += 24 * 60; // Handle overnight work if needed
-            
+            if (diff < 0) diff += 24 * 60;
             const h = Math.floor(diff / 60);
             const m = diff % 60;
             setTotalHours(`${h}h ${m}m`);
@@ -725,7 +1026,6 @@ const WorkUpdatesPage: React.FC = () => {
         if (fileArray.length === 0) return;
 
         for (const file of fileArray) {
-            // Validation
             if (!file.type.startsWith('image/')) {
                 toast.error(`${file.name} is not an image file`);
                 continue;
@@ -737,7 +1037,6 @@ const WorkUpdatesPage: React.FC = () => {
 
             try {
                 const base64String = await compressImageFile(file);
-
                 if (type === 'before') {
                     setBeforePhotos(prev => {
                         if (prev.length >= 4) {
@@ -766,80 +1065,104 @@ const WorkUpdatesPage: React.FC = () => {
         else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
-    // ── Export Handlers ────────────────────────────────────────────────────────
-    const handleDownloadPDF = () => {
-        const selectedTask = tasks.find((t: any) => String(t.id) === String(selectedTaskId));
-        const taskLabel = taskName || selectedTask?.title || selectedTask?.name || (selectedTaskId ? `Task #${selectedTaskId}` : 'No Task Selected');
-
+    // Print / PDF Handler for any Work Update item
+    const handlePrintWorkUpdate = (item: any) => {
+        const { before, after } = extractUpdateImages(item);
         const printContent = `
             <html>
             <head>
-                <title>Work Update Report</title>
+                <title>Work Update #${item.id} - ${item.task_title || 'Report'}</title>
                 <style>
-                    @page { margin: 20mm 15mm; }
+                    @page { margin: 15mm; }
                     * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; }
-                    .header { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 24px 28px; border-radius: 10px 10px 0 0; }
-                    .header h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-                    .header p  { font-size: 12px; opacity: 0.8; }
-                    .body { padding: 24px 28px; }
-                    .section { margin-bottom: 20px; }
-                    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-                    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-                    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
-                    .field label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 3px; }
-                    .field span { font-size: 13px; font-weight: 700; color: #1e293b; word-break: break-word; }
-                    .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; min-height: 60px; white-space: pre-wrap; font-size: 13px; color: #334155; line-height: 1.6; }
-                    .photo-badge { display: inline-flex; align-items: center; background: #dbeafe; color: #1d4ed8; border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
-                    .footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 12px; line-height: 1.5; }
+                    .header { background: linear-gradient(135deg, #1d4ed8, #2563eb); color: white; padding: 20px 24px; border-radius: 8px 8px 0 0; }
+                    .header h1 { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+                    .header p { font-size: 11px; opacity: 0.9; }
+                    .body { padding: 20px 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
+                    .section { margin-bottom: 16px; }
+                    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+                    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+                    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; }
+                    .field label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
+                    .field span { font-size: 12px; font-weight: 700; color: #0f172a; word-break: break-word; }
+                    .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; font-size: 12px; color: #334155; }
+                    .photos-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+                    .photo-box { width: 120px; height: 120px; border-radius: 6px; overflow: hidden; border: 1px solid #cbd5e1; background: #000; }
+                    .photo-box img { width: 100%; height: 100%; object-fit: cover; }
+                    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; background: #dbeafe; color: #1e40af; }
+                    .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h1>Work Update Report</h1>
-                    <p>Generated on ${new Date().toLocaleString()} &nbsp;|&nbsp; InfraPilot</p>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h1>InfraPilot &mdash; Work Update Report</h1>
+                            <p>Update ID: #${item.id} &nbsp;|&nbsp; Project: ${item.project_name || currentProjectName} &nbsp;|&nbsp; Task ID: #${item.task_id || 'N/A'}</p>
+                        </div>
+                        <span class="status-badge">${item.display_status || 'Submitted'}</span>
+                    </div>
                 </div>
                 <div class="body">
                     <div class="section">
-                        <div class="section-title">Task Information</div>
+                        <div class="section-title">Task & Activity Details</div>
                         <div class="grid">
-                            <div class="field"><label>Task</label><span>${taskLabel}</span></div>
-                            <div class="field"><label>Category</label><span>${category || '—'}</span></div>
-                            <div class="field"><label>Location / Area</label><span>${location || '—'}</span></div>
-                            <div class="field"><label>Work Date</label><span>${workDate}</span></div>
+                            <div class="field"><label>Task Name</label><span>${item.task_title || 'General Task'}</span></div>
+                            <div class="field"><label>Activity Type</label><span>${item.activity_name || 'General'}</span></div>
+                            <div class="field"><label>Location / Area</label><span>${item.location || '—'}</span></div>
                         </div>
                     </div>
                     <div class="section">
-                        <div class="section-title">Time Details</div>
+                        <div class="section-title">Time & Schedule</div>
                         <div class="grid">
-                            <div class="field"><label>Start Time</label><span>${startTime}</span></div>
-                            <div class="field"><label>End Time</label><span>${endTime}</span></div>
-                            <div class="field"><label>Total Hours</label><span>${totalHours}</span></div>
+                            <div class="field"><label>Work Date</label><span>${item.work_date || today}</span></div>
+                            <div class="field"><label>Working Hours</label><span>${item.start_time || '09:00'} &mdash; ${item.end_time || '17:30'}</span></div>
+                            <div class="field"><label>Total Duration</label><span>${item.raw_hours || 8.5} hours</span></div>
                         </div>
                     </div>
                     <div class="section">
                         <div class="section-title">Work Description</div>
-                        <div class="desc-box">${description || '—'}</div>
+                        <div class="desc-box">${item.work_description || item.description || '—'}</div>
                     </div>
-                    ${beforeRemarks ? `<div class="section"><div class="section-title">Before Work Remarks</div><div class="desc-box">${beforeRemarks}</div></div>` : ''}
-                    ${afterRemarks  ? `<div class="section"><div class="section-title">After Work Remarks</div><div class="desc-box">${afterRemarks}</div></div>` : ''}
-                    <div class="section">
-                        <div class="section-title">Photo Attachments</div>
-                        <div class="grid">
-                            <div class="field"><label>Before Work Photos</label><span class="photo-badge">${beforePhotos.length} / 4 uploaded</span></div>
-                            <div class="field"><label>After Work Photos</label><span class="photo-badge">${afterPhotos.length} / 4 uploaded</span></div>
+                    ${item.before_remarks ? `
+                        <div class="section">
+                            <div class="section-title">Before Work Remarks</div>
+                            <div class="desc-box">${item.before_remarks}</div>
                         </div>
+                    ` : ''}
+                    ${item.after_remarks ? `
+                        <div class="section">
+                            <div class="section-title">After Work Remarks</div>
+                            <div class="desc-box">${item.after_remarks}</div>
+                        </div>
+                    ` : ''}
+                    <div class="section">
+                        <div class="section-title">Before Work Photos (${before.length})</div>
+                        ${before.length > 0 ? `
+                            <div class="photos-container">
+                                ${before.map(url => `<div class="photo-box"><img src="${url}" alt="Before Work" /></div>`).join('')}
+                            </div>
+                        ` : '<p style="color:#94a3b8; font-size:11px;">No before photos attached</p>'}
+                    </div>
+                    <div class="section">
+                        <div class="section-title">After Work Photos (${after.length})</div>
+                        ${after.length > 0 ? `
+                            <div class="photos-container">
+                                ${after.map(url => `<div class="photo-box"><img src="${url}" alt="After Work" /></div>`).join('')}
+                            </div>
+                        ` : '<p style="color:#94a3b8; font-size:11px;">No after photos attached</p>'}
                     </div>
                     <div class="footer">
-                        <span>InfraPilot &mdash; Labour Module</span>
-                        <span>Confidential</span>
+                        <span>Generated on ${new Date().toLocaleString()} by ${user?.name || 'Labour Worker'}</span>
+                        <span>InfraPilot Construction Management System &bull; Confidential</span>
                     </div>
                 </div>
             </body>
             </html>
         `;
 
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        const printWindow = window.open('', '_blank', 'width=900,height=750');
         if (!printWindow) return;
         printWindow.document.write(printContent);
         printWindow.document.close();
@@ -847,90 +1170,153 @@ const WorkUpdatesPage: React.FC = () => {
         setTimeout(() => {
             printWindow.print();
             printWindow.close();
-        }, 400);
+        }, 500);
     };
 
-    const handleExportCSV = async () => {
+    // Export PDF of History
+    const handleExportPDF = async () => {
+        const loadingToast = toast.loading("Generating Work Updates PDF...");
+        const activePid = Number(projectId || currentProjectId || activeProjectId || 2);
+        
+        // 1. Try backend PDF export API (GET /api/v1/work-updates/export?project_id=...&format=pdf)
         try {
-            const data = await workUpdateService.exportWorkUpdates({ project_id: Number(projectId), format: 'csv' });
-            if (data instanceof Blob) {
+            const data = await workUpdateService.exportWorkUpdates({ project_id: activePid, format: 'pdf' });
+            if (data instanceof Blob && data.size > 0 && data.type !== 'application/json') {
                 const url = URL.createObjectURL(data);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `work-updates-${projectId}-${workDate || 'export'}.csv`;
+                link.download = `work-updates-history-${activePid || 'all'}-${workDate || today}.pdf`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
-                toast.success("Exported work updates CSV!");
+                toast.success("Work updates PDF downloaded successfully", { id: loadingToast });
                 return;
             }
         } catch (exportErr) {
-            console.warn("Backend export API call skipped/fallback to client CSV:", exportErr);
+            console.warn("Backend export PDF API fallback to client PDF generator:", exportErr);
         }
 
-        // Client-side CSV generator fallback
-        const selectedTask = tasks.find((t: any) => String(t.id) === String(selectedTaskId));
-        const taskLabel = taskName || selectedTask?.title || selectedTask?.name || (selectedTaskId ? `Task #${selectedTaskId}` : '');
+        // 2. Client-side PDF generation fallback with jsPDF & autoTable
+        try {
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            
+            // Header bar
+            doc.setFillColor(37, 99, 235); // Blue #2563eb
+            doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text("InfraPilot - Work Updates & Progress Report", 14, 15);
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Project: ${currentProjectName || `Project #${activePid}`}  |  Generated on: ${new Date().toLocaleDateString()}  |  Total Records: ${filteredHistory.length}`, doc.internal.pageSize.width - 14, 15, { align: 'right' });
 
-        const escape = (val: string) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+            const tableRows = filteredHistory.map((item, idx) => [
+                idx + 1,
+                item.task_title || `Task #${item.task_id || 'N/A'}`,
+                item.activity_name || item.category || 'General',
+                item.work_date || today,
+                `${item.start_time ? item.start_time.slice(0, 5) : '09:00'} - ${item.end_time ? item.end_time.slice(0, 5) : '17:30'} (${item.raw_hours || 8.5}h)`,
+                item.location || '—',
+                item.work_description || item.description || '—',
+                item.display_status || 'Submitted',
+                `B: ${item.before_images_list?.length || 0}, A: ${item.after_images_list?.length || 0}`
+            ]);
 
-        const headers = [
-            'Task ID', 'Task Name', 'Work Date', 'Start Time', 'End Time', 'Total Hours',
-            'Category', 'Location', 'Work Description', 'Before Work Remarks', 'After Work Remarks',
-            'Before Photos Count', 'After Photos Count', 'Generated At'
-        ];
+            autoTable(doc, {
+                startY: 30,
+                head: [['#', 'Task', 'Activity', 'Date', 'Time & Hours', 'Location', 'Work Summary', 'Status', 'Photos']],
+                body: tableRows,
+                headStyles: {
+                    fillColor: [15, 23, 42], // Slate 900
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 9,
+                },
+                bodyStyles: {
+                    fontSize: 8.5,
+                    textColor: [30, 41, 59],
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 250, 252],
+                },
+                columnStyles: {
+                    0: { cellWidth: 10, halign: 'center' },
+                    1: { cellWidth: 45, fontStyle: 'bold' },
+                    2: { cellWidth: 28 },
+                    3: { cellWidth: 22 },
+                    4: { cellWidth: 35 },
+                    5: { cellWidth: 25 },
+                    6: { cellWidth: 'auto' },
+                    7: { cellWidth: 24, halign: 'center' },
+                    8: { cellWidth: 20, halign: 'center' },
+                },
+                margin: { left: 14, right: 14, bottom: 15 },
+                didDrawPage: (data) => {
+                    const str = `Page ${data.pageNumber} | InfraPilot Construction Management System`;
+                    doc.setFontSize(8);
+                    doc.setTextColor(148, 163, 184);
+                    doc.text(str, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 8, { align: 'center' });
+                }
+            });
 
-        const row = [
-            selectedTaskId || taskId || '',
-            taskLabel,
-            workDate,
-            startTime,
-            endTime,
-            totalHours,
-            category,
-            location,
-            description,
-            beforeRemarks,
-            afterRemarks,
-            String(beforePhotos.length),
-            String(afterPhotos.length),
-            new Date().toLocaleString()
-        ].map(escape);
-
-        const csvContent = [headers.join(','), row.join(',')].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `work-update-${workDate || 'report'}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        toast.success("Downloaded Work Update CSV!");
+            doc.save(`work-updates-history-${activePid || 'report'}-${workDate || today}.pdf`);
+            toast.success("Work updates PDF downloaded successfully", { id: loadingToast });
+        } catch (pdfErr) {
+            console.error("Failed to generate PDF:", pdfErr);
+            toast.error("Failed to export PDF", { id: loadingToast });
+        }
     };
 
     return (
         <>
             <Navbar title="Work Update" breadcrumb={['InfraPilot', 'Labour', 'Daily Update', 'Work Update']} />
-            <PageTransition className="p-6 md:p-8 bg-[#f5f7fb] min-h-screen font-inter pb-20">
-                <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <PageTransition className="p-4 md:p-8 bg-[#f8fafc] min-h-screen font-inter pb-24 space-y-8">
+                
+                {/* ── 1. Top Section: Daily Work Update Submission Form ──────────── */}
+                <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
                     
                     {/* Header Section */}
-                    <div className="p-8 pb-4 flex items-center justify-between gap-5 flex-wrap">
-                        <div className="flex items-center gap-5">
-                            <div className="w-12 h-12 rounded-xl bg-[#2563eb] flex items-center justify-center shadow-lg shadow-blue-100">
-                                <FileText className="w-6 h-6 text-white" />
+                    <div className="p-6 md:p-8 pb-4 flex items-center justify-between gap-5 flex-wrap border-b border-slate-100">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                                <FileText className="w-6 h-6" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800">Update Your Work Progress</h1>
-                                <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
+                                <h1 className="text-xl font-bold text-slate-800">
+                                    {editingUpdateId ? `Edit Work Update #${editingUpdateId}` : 'Update Your Work Progress'}
+                                </h1>
+                                <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photo verification</p>
                             </div>
                         </div>
+
+                        {editingUpdateId && (
+                            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl text-amber-800">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <span className="text-xs font-bold">Editing Existing Update #{editingUpdateId}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingUpdateId(null);
+                                        setDescription('');
+                                        setBeforePhotos([]);
+                                        setAfterPhotos([]);
+                                        setBeforeRemarks('');
+                                        setAfterRemarks('');
+                                        toast.success("Switched to New Update mode");
+                                    }}
+                                    className="ml-2 text-xs font-black text-blue-600 hover:text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-xs"
+                                >
+                                    + New Update
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="p-8 space-y-8">
+                    <div className="p-6 md:p-8 space-y-8">
 
                         {/* Task Selection Section */}
                         <div className="space-y-4">
@@ -940,13 +1326,28 @@ const WorkUpdatesPage: React.FC = () => {
                                     <div className="relative group">
                                         <select 
                                             value={selectedTaskId}
-                                            onChange={(e) => setSelectedTaskId(e.target.value)}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSelectedTaskId(val);
+                                                const found = tasks.find((t: any) => String(t.id) === String(val));
+                                                if (found) {
+                                                    if (!description || description.trim() === '') {
+                                                        setDescription(found.description && found.description !== 'NA' ? found.description : (found.title || found.name || ''));
+                                                    }
+                                                    if (found.category || found.activity_type) {
+                                                        setCategory(found.category || found.activity_type);
+                                                    }
+                                                    if (found.location || found.area || found.site_location) {
+                                                        setLocation(found.location || found.area || found.site_location);
+                                                    }
+                                                }
+                                            }}
                                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
                                         >
-                                            <option value="">Select a Task to Update</option>
+                                            <option value="">{displayTasks.length > 0 ? "Select an Active Task to Update" : "No Active Tasks Available"}</option>
                                             {displayTasks.map(t => (
                                                 <option key={t.id} value={t.id}>
-                                                    {t.id} - {t.title || t.name}
+                                                    #{t.id} - {t.title || t.name}
                                                 </option>
                                             ))}
                                         </select>
@@ -958,7 +1359,7 @@ const WorkUpdatesPage: React.FC = () => {
                                     <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Active Task</label>
                                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
                                                 <FileText className="w-5 h-5" />
                                             </div>
                                             <div>
@@ -966,9 +1367,9 @@ const WorkUpdatesPage: React.FC = () => {
                                                 <p className="text-[10px] font-bold text-blue-600 uppercase">Mission Update in Progress</p>
                                             </div>
                                         </div>
-                                        <div className="px-3 py-1.5 bg-white rounded-lg border border-blue-200 shadow-sm">
+                                        <div className="px-3 py-1.5 bg-white rounded-lg border border-blue-200 shadow-xs">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mr-1">Task ID</span>
-                                            <span className="text-sm font-black text-blue-600">{taskId}</span>
+                                            <span className="text-sm font-black text-blue-600">#{taskId}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -978,15 +1379,14 @@ const WorkUpdatesPage: React.FC = () => {
                         {/* Work Description Section */}
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
-                            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all">
-
+                            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all bg-white">
                                 <textarea 
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
-                                    placeholder="Write a detailed description of the work completed..."
-                                    className="w-full p-4 min-h-[120px] focus:outline-none text-slate-700 text-sm placeholder:text-slate-300"
+                                    placeholder="Write a detailed description of the work completed on site..."
+                                    className="w-full p-4 min-h-[110px] focus:outline-none text-slate-700 text-sm placeholder:text-slate-300 font-medium"
                                 />
-                                <div className="p-2 px-4 bg-slate-50/50 flex justify-end">
+                                <div className="p-2 px-4 bg-slate-50/50 flex justify-end border-t border-slate-100">
                                     <span className="text-[10px] font-bold text-slate-400 tabular-nums">{description.length}/1000</span>
                                 </div>
                             </div>
@@ -1004,7 +1404,7 @@ const WorkUpdatesPage: React.FC = () => {
                                             type="button"
                                             onClick={handleSaveBeforePhotos}
                                             disabled={isUploadingBefore || isCreating || isSubmitting}
-                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isUploadingBefore ? 'Saving...' : 'Save'}
                                         </button>
@@ -1032,15 +1432,15 @@ const WorkUpdatesPage: React.FC = () => {
                                         e.stopPropagation();
                                         if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'before');
                                     }}
-                                    className="w-full py-8 border-2 border-dashed border-blue-100 bg-blue-50/30 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-blue-50/50 hover:border-blue-300 transition-all group cursor-pointer"
+                                    className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform">
+                                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
                                         <Upload className="w-5 h-5" />
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-xs font-bold text-slate-700">Drag & drop images here</p>
-                                        <p className="text-[11px] font-bold text-blue-600">or click to upload</p>
-                                        <p className="text-[10px] text-slate-400 mt-1">JPG, PNG up to 15MB</p>
+                                        <p className="text-xs font-bold text-slate-700">Drag &amp; drop Before photos</p>
+                                        <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
                                     </div>
                                 </div>
                                 
@@ -1050,12 +1450,12 @@ const WorkUpdatesPage: React.FC = () => {
                                         {beforePhotos.length > 0 ? (
                                             <div className="flex flex-wrap gap-3">
                                                 {beforePhotos.map((url, i) => (
-                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white shadow-sm group">
+                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
                                                         <img src={url} alt="Before" className="w-full h-full object-cover" />
                                                         <button 
                                                             type="button"
                                                             onClick={(e) => { e.stopPropagation(); handleRemovePhoto('before', i); }}
-                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                                         >
                                                             <X className="w-4 h-4 text-white" />
                                                         </button>
@@ -1068,14 +1468,14 @@ const WorkUpdatesPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 mt-4">
+                                <div className="space-y-2 mt-3">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Before Work Remarks (Optional)</label>
                                     <div className="relative">
                                         <textarea 
                                             value={beforeRemarks}
                                             onChange={(e) => setBeforeRemarks(e.target.value.slice(0, 500))}
-                                            placeholder="Before work remarks..."
-                                            className="w-full p-3 min-h-[85px] border border-slate-200 rounded-2xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                            placeholder="Remarks on initial site conditions, materials, or preparations..."
+                                            className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
                                         />
                                         <div className="absolute right-3 bottom-2">
                                             <span className="text-[9px] font-bold text-slate-400 tabular-nums">{beforeRemarks.length}/500</span>
@@ -1093,7 +1493,7 @@ const WorkUpdatesPage: React.FC = () => {
                                             type="button"
                                             onClick={handleSaveAfterPhotos}
                                             disabled={isUploadingAfter || isCreating || isSubmitting}
-                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isUploadingAfter ? 'Saving...' : 'Save'}
                                         </button>
@@ -1121,15 +1521,15 @@ const WorkUpdatesPage: React.FC = () => {
                                         e.stopPropagation();
                                         if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'after');
                                     }}
-                                    className="w-full py-8 border-2 border-dashed border-blue-100 bg-blue-50/30 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-blue-50/50 hover:border-blue-300 transition-all group cursor-pointer"
+                                    className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform">
+                                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
                                         <Upload className="w-5 h-5" />
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-xs font-bold text-slate-700">Drag & drop images here</p>
-                                        <p className="text-[11px] font-bold text-blue-600">or click to upload</p>
-                                        <p className="text-[10px] text-slate-400 mt-1">JPG, PNG up to 15MB</p>
+                                        <p className="text-xs font-bold text-slate-700">Drag &amp; drop After photos</p>
+                                        <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
                                     </div>
                                 </div>
 
@@ -1139,12 +1539,12 @@ const WorkUpdatesPage: React.FC = () => {
                                         {afterPhotos.length > 0 ? (
                                             <div className="flex flex-wrap gap-3">
                                                 {afterPhotos.map((url, i) => (
-                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white shadow-sm group">
+                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
                                                         <img src={url} alt="After" className="w-full h-full object-cover" />
                                                         <button 
                                                             type="button"
                                                             onClick={(e) => { e.stopPropagation(); handleRemovePhoto('after', i); }}
-                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                                         >
                                                             <X className="w-4 h-4 text-white" />
                                                         </button>
@@ -1157,14 +1557,14 @@ const WorkUpdatesPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 mt-4">
+                                <div className="space-y-2 mt-3">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">After Work Remarks (Optional)</label>
                                     <div className="relative">
                                         <textarea 
                                             value={afterRemarks}
                                             onChange={(e) => setAfterRemarks(e.target.value.slice(0, 500))}
-                                            placeholder="After work remarks..."
-                                            className="w-full p-3 min-h-[85px] border border-slate-200 rounded-2xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                            placeholder="Remarks on completed quality, finishing, or handover status..."
+                                            className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
                                         />
                                         <div className="absolute right-3 bottom-2">
                                             <span className="text-[9px] font-bold text-slate-400 tabular-nums">{afterRemarks.length}/500</span>
@@ -1215,12 +1615,12 @@ const WorkUpdatesPage: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700">Total Hours</label>
                                 <div className="relative">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Timer className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     <input 
                                         type="text" 
                                         readOnly
                                         value={totalHours}
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 italic"
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600"
                                     />
                                 </div>
                             </div>
@@ -1229,14 +1629,14 @@ const WorkUpdatesPage: React.FC = () => {
                         {/* Dropdowns Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Work Category <span className="text-red-500">*</span></label>
+                                <label className="text-sm font-bold text-slate-700">Activity Type <span className="text-red-500">*</span></label>
                                 <div className="relative group">
                                     <select 
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
                                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
                                     >
-                                        <option value="">Select Category</option>
+                                        <option value="">Select Activity Type</option>
                                         {activityTypes.length > 0 ? (
                                             activityTypes.map((at) => (
                                                 <option key={at.id} value={at.name}>{at.name}</option>
@@ -1269,98 +1669,571 @@ const WorkUpdatesPage: React.FC = () => {
                                         type="text" 
                                         value={location}
                                         onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="Enter work location or area"
+                                        placeholder="e.g. Block B, 2nd Floor, Pillar P14"
                                         className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 transition-all font-medium"
                                     />
                                 </div>
                             </div>
                         </div>
 
-
-
-                        {/* Recent Work Updates & Project Timeline */}
-                        {(myUpdates.length > 0 || timeline.length > 0) && (
-                            <div className="pt-6 border-t border-slate-100 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-sm font-bold text-slate-800">Recent Work Updates &amp; Timeline</h3>
-                                        <p className="text-xs text-slate-400 font-medium">History of submitted work updates for this project</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {editingUpdateId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setEditingUpdateId(null);
-                                                    setDescription('');
-                                                    setBeforePhotos([]);
-                                                    setAfterPhotos([]);
-                                                    toast.success("Switched to New Update mode");
-                                                }}
-                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition-colors"
-                                            >
-                                                <Plus className="w-3 h-3" />
-                                                <span>New Update</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
-                                    {myUpdates.map((item) => (
-                                        <div 
-                                            key={item.id} 
-                                            onClick={() => handleLoadWorkUpdate(item.id)}
-                                            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${editingUpdateId === item.id ? 'bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20' : 'bg-slate-50 hover:bg-slate-100 border-slate-100'}`}
-                                        >
-                                            <div className="flex items-center justify-between font-bold text-slate-800">
-                                                <span className="truncate flex-1 mr-2">{item.work_description || item.description || `Update #${item.id}`}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-slate-400">{item.work_date}</span>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={(e) => handleDeleteWorkUpdate(item.id, e)} 
-                                                        className="text-slate-400 hover:text-red-600 p-0.5"
-                                                        title="Delete this work update"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
-                                                {(item.activity_type_id || item.category) && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded-md font-semibold text-blue-600">{ACTIVITY_TYPE_NAMES[item.activity_type_id] || item.category}</span>}
-                                                {item.location && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded-md text-slate-600">{item.location}</span>}
-                                                {(item.start_time || item.end_time) && <span>{item.start_time || ''} - {item.end_time || ''}</span>}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Footer Buttons */}
-                        <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+                        <div className="flex items-center justify-between pt-6 border-t border-slate-100 flex-wrap gap-4">
                             <button 
                                 type="button"
                                 onClick={handleCancel}
                                 disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
-                                className="px-10 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
+                                className="px-8 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
                             >
-                                Cancel
+                                Reset Form
                             </button>
                             <button 
                                 type="button"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
-                                className="px-10 py-3 bg-[#2563eb] text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 flex items-center gap-3 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                className="px-10 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center gap-3 hover:bg-blue-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
-                                {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Update'}
+                                {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Daily Update'}
                                 <Send className="w-4 h-4" />
                             </button>
                         </div>
 
                     </div>
                 </div>
+
+                {/* ── 2. Bottom Section: Dedicated Previous Tasks & Work Updates History Table ── */}
+                <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                    
+                    {/* Header & Actions Bar */}
+                    <div className="p-6 md:p-8 pb-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md">
+                                <History className="w-6 h-6 text-blue-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
+                                    Previous Tasks &amp; Work Updates History
+                                    <span className="bg-blue-50 text-blue-600 text-xs px-2.5 py-0.5 rounded-full font-black border border-blue-100">
+                                        {filteredHistory.length} Record{filteredHistory.length !== 1 ? 's' : ''}
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                    Review submitted daily progress, past completed tasks, logged hours, and photo verifications
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => fetchInitialData(true)}
+                                disabled={isHistoryRefreshing}
+                                className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-600 transition-all active:scale-95 cursor-pointer"
+                                title="Refresh History Data"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isHistoryRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExportPDF}
+                                className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                            >
+                                <Download className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Export PDF</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Filter & Search Bar */}
+                    <div className="p-6 pb-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-slate-100 bg-white">
+                        <div className="relative flex-1 min-w-[240px]">
+                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search history by task, activity, description, location, or remarks..."
+                                value={historySearch}
+                                onChange={(e) => {
+                                    setHistorySearch(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-blue-400 transition-all"
+                            />
+                            {historySearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setHistorySearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                            {/* Status filter */}
+                            <select
+                                value={historyStatusFilter}
+                                onChange={(e) => {
+                                    setHistoryStatusFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer"
+                            >
+                                <option value="ALL">All Statuses</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Submitted">Submitted</option>
+                                <option value="In Progress">In Progress</option>
+                            </select>
+
+                            {/* Date filter */}
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    value={historyDateFilter}
+                                    onChange={(e) => {
+                                        setHistoryDateFilter(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer"
+                                />
+                            </div>
+
+                            {(historySearch || historyStatusFilter !== 'ALL' || historyDateFilter) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHistorySearch('');
+                                        setHistoryStatusFilter('ALL');
+                                        setHistoryDateFilter('');
+                                        setCurrentPage(1);
+                                    }}
+                                    className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-3 py-2 rounded-xl transition-all border border-rose-100 cursor-pointer"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Table View */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                    <th className="py-4 px-6">Task</th>
+                                    <th className="py-4 px-4">Date &amp; Time</th>
+                                    <th className="py-4 px-4">Photos Proof</th>
+                                    <th className="py-4 px-4 min-w-[200px]">Work Summary</th>
+                                    <th className="py-4 px-4 text-center">Status</th>
+                                    <th className="py-4 px-6 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                                {paginatedHistory.length > 0 ? (
+                                    paginatedHistory.map((item) => {
+                                        const { before, after } = extractUpdateImages(item);
+                                        const isCurrentEditing = editingUpdateId === item.id;
+
+                                        return (
+                                            <tr 
+                                                key={item.id} 
+                                                className={`hover:bg-blue-50/40 transition-colors group ${isCurrentEditing ? 'bg-blue-50/60 font-medium' : ''}`}
+                                            >
+                                                {/* Task Info */}
+                                                <td className="py-4 px-6">
+                                                    <p className="font-bold text-slate-900 hover:text-blue-600 transition-colors cursor-pointer" onClick={() => setSelectedHistoryItem(item)}>
+                                                        {item.task_title || 'Work Update'}
+                                                    </p>
+                                                </td>
+
+                                                {/* Date & Time */}
+                                                <td className="py-4 px-4">
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                                                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                            <span>{item.work_date || today}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold">
+                                                            <span>{item.start_time ? item.start_time.slice(0, 5) : '09:00'} - {item.end_time ? item.end_time.slice(0, 5) : '17:30'}</span>
+                                                            <span className="bg-slate-100 px-1.5 py-0.2 rounded font-bold text-slate-700">
+                                                                {item.raw_hours || 8.5}h
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Photo Proof */}
+                                                <td className="py-4 px-4">
+                                                    <div className="flex items-center gap-2">
+                                                        {before.length > 0 && (
+                                                            <div 
+                                                                onClick={() => setLightboxImage({ url: before[0], title: `Before Photo - Update #${item.id}` })}
+                                                                className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 cursor-pointer group/img hover:border-blue-500 transition-all shadow-xs"
+                                                                title={`Before Work (${before.length} photo${before.length > 1 ? 's' : ''})`}
+                                                            >
+                                                                <img src={before[0]} alt="Before" className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
+                                                                <div className="absolute inset-x-0 bottom-0 bg-slate-900/80 text-white text-[8px] font-black text-center py-0.5">
+                                                                    B ({before.length})
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {after.length > 0 && (
+                                                            <div 
+                                                                onClick={() => setLightboxImage({ url: after[0], title: `After Photo - Update #${item.id}` })}
+                                                                className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 cursor-pointer group/img hover:border-emerald-500 transition-all shadow-xs"
+                                                                title={`After Work (${after.length} photo${after.length > 1 ? 's' : ''})`}
+                                                            >
+                                                                <img src={after[0]} alt="After" className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
+                                                                <div className="absolute inset-x-0 bottom-0 bg-emerald-900/80 text-white text-[8px] font-black text-center py-0.5">
+                                                                    A ({after.length})
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {before.length === 0 && after.length === 0 && (
+                                                            <span className="text-[11px] text-slate-400 font-medium italic">No media</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Work Summary & Remarks */}
+                                                <td className="py-4 px-4">
+                                                    <p className="font-semibold text-slate-700 line-clamp-2 leading-relaxed">
+                                                        {item.work_description || item.description || 'No detailed description provided'}
+                                                    </p>
+                                                    {(item.before_remarks || item.after_remarks) && (
+                                                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                            {item.before_remarks && (
+                                                                <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium truncate max-w-[150px]" title={`Before: ${item.before_remarks}`}>
+                                                                    B: {item.before_remarks}
+                                                                </span>
+                                                            )}
+                                                            {item.after_remarks && (
+                                                                <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium truncate max-w-[150px]" title={`After: ${item.after_remarks}`}>
+                                                                    A: {item.after_remarks}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="py-4 px-4 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusBadgeClass(item.display_status)}`}>
+                                                        {item.display_status === 'Completed' ? (
+                                                            <Check className="w-3 h-3 text-emerald-600" />
+                                                        ) : (
+                                                            <Clock className="w-3 h-3 text-blue-600" />
+                                                        )}
+                                                        {item.display_status || 'Submitted'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Action Buttons */}
+                                                <td className="py-4 px-6 text-right">
+                                                    <div className="flex items-center justify-end">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedHistoryItem(item)}
+                                                            className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer p-1"
+                                                            title="View Full Details"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                                            <div className="flex flex-col items-center justify-center gap-3">
+                                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                                    <FolderKanban className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-700">No work updates match your filter criteria</p>
+                                                    <p className="text-xs text-slate-400 mt-1">Try adjusting the search query or activity filters, or submit a new work update above.</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination Footer */}
+                    <div className="p-5 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500 bg-white">
+                        <div className="flex items-center gap-2">
+                            <span>Showing {filteredHistory.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredHistory.length)} of {filteredHistory.length} entries</span>
+                            <span className="text-slate-300">|</span>
+                            <div className="flex items-center gap-1.5">
+                                <span>Rows per page:</span>
+                                <select
+                                    value={pageSize}
+                                    onChange={(e) => {
+                                        setPageSize(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-slate-700 font-bold focus:outline-none cursor-pointer"
+                                >
+                                    <option value={5}>5</option>
+                                    <option value={8}>8</option>
+                                    <option value={15}>15</option>
+                                    <option value={25}>25</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                disabled={currentPage <= 1}
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-bold text-slate-700 cursor-pointer"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span>Previous</span>
+                            </button>
+                            
+                            <div className="flex items-center gap-1 px-1">
+                                {Array.from({ length: totalHistoryPages }, (_, idx) => idx + 1)
+                                    .filter(p => p === 1 || p === totalHistoryPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                                    .map((pageNum, idx, arr) => (
+                                        <React.Fragment key={pageNum}>
+                                            {idx > 0 && arr[idx - 1] !== pageNum - 1 && (
+                                                <span className="px-1 text-slate-400">...</span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`w-8 h-8 rounded-lg font-bold text-xs transition-all cursor-pointer ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        </React.Fragment>
+                                    ))
+                                }
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={currentPage >= totalHistoryPages}
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-bold text-slate-700 cursor-pointer"
+                            >
+                                <span>Next</span>
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
             </PageTransition>
+
+            {/* ── 3. Work Update Detail Modal ───────────────────────────────────── */}
+            {selectedHistoryItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 shadow-2xl overflow-hidden">
+                        
+                        {/* Modal Header */}
+                        <div className="p-6 bg-slate-900 text-white flex items-center justify-between sticky top-0 z-10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md">
+                                        Update #{selectedHistoryItem.id}
+                                    </span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider bg-white/10 text-slate-300 px-2 py-0.5 rounded-md">
+                                        {selectedHistoryItem.work_date || today}
+                                    </span>
+                                </div>
+                                <h3 className="text-lg font-bold">{selectedHistoryItem.task_title || 'Work Update Details'}</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedHistoryItem(null)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+
+                            {/* Metadata Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Activity Type</p>
+                                    <p className="text-xs font-black text-slate-800 mt-0.5">{selectedHistoryItem.activity_name || 'General'}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Location / Area</p>
+                                    <p className="text-xs font-black text-slate-800 mt-0.5">{selectedHistoryItem.location || 'Site'}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Time &amp; Hours</p>
+                                    <p className="text-xs font-black text-slate-800 mt-0.5">
+                                        {selectedHistoryItem.start_time?.slice(0, 5) || '09:00'} - {selectedHistoryItem.end_time?.slice(0, 5) || '17:30'} ({selectedHistoryItem.raw_hours || 8.5}h)
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Work Description */}
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Work Description</p>
+                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    {selectedHistoryItem.work_description || selectedHistoryItem.description || 'No description provided'}
+                                </div>
+                            </div>
+
+                            {/* Before & After Photos Side-by-Side */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                {/* Before Photos */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                                            Before Work Photos
+                                        </p>
+                                        <span className="text-[10px] font-bold text-slate-400">{selectedHistoryItem.before_images_list?.length || 0} attached</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
+                                        {selectedHistoryItem.before_images_list?.length > 0 ? (
+                                            selectedHistoryItem.before_images_list.map((url: string, i: number) => (
+                                                <div 
+                                                    key={i} 
+                                                    onClick={() => setLightboxImage({ url, title: `Before Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                    className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer group shadow-xs"
+                                                >
+                                                    <img src={url} alt="Before" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No Before photos attached</p>
+                                        )}
+                                    </div>
+                                    {selectedHistoryItem.before_remarks && (
+                                        <p className="text-[11px] text-slate-500 bg-blue-50/50 border border-blue-100 p-2.5 rounded-lg">
+                                            <strong className="text-blue-700">Remarks:</strong> {selectedHistoryItem.before_remarks}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* After Photos */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                            After Work Photos
+                                        </p>
+                                        <span className="text-[10px] font-bold text-slate-400">{selectedHistoryItem.after_images_list?.length || 0} attached</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
+                                        {selectedHistoryItem.after_images_list?.length > 0 ? (
+                                            selectedHistoryItem.after_images_list.map((url: string, i: number) => (
+                                                <div 
+                                                    key={i} 
+                                                    onClick={() => setLightboxImage({ url, title: `After Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                    className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer group shadow-xs"
+                                                >
+                                                    <img src={url} alt="After" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No After photos attached</p>
+                                        )}
+                                    </div>
+                                    {selectedHistoryItem.after_remarks && (
+                                        <p className="text-[11px] text-slate-500 bg-emerald-50/50 border border-emerald-100 p-2.5 rounded-lg">
+                                            <strong className="text-emerald-700">Remarks:</strong> {selectedHistoryItem.after_remarks}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+                            <button
+                                type="button"
+                                onClick={() => handlePrintWorkUpdate(selectedHistoryItem)}
+                                className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+                            >
+                                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Print / Export PDF</span>
+                            </button>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const idToLoad = selectedHistoryItem.id;
+                                        setSelectedHistoryItem(null);
+                                        handleLoadWorkUpdate(idToLoad);
+                                    }}
+                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <Edit className="w-3.5 h-3.5" />
+                                    <span>Load in Editor Form</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedHistoryItem(null)}
+                                    className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {/* ── 4. Image Lightbox Modal ───────────────────────────────────────── */}
+            {lightboxImage && (
+                <div 
+                    onClick={() => setLightboxImage(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+                >
+                    <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col cursor-default"
+                    >
+                        <div className="p-4 bg-slate-900/90 text-white flex items-center justify-between border-b border-slate-800">
+                            <p className="text-xs font-bold truncate max-w-md">{lightboxImage.title}</p>
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={lightboxImage.url}
+                                    download="work-update-photo.jpg"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+                                    title="Open / Download Full Size"
+                                >
+                                    <Download className="w-4 h-4" />
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => setLightboxImage(null)}
+                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors cursor-pointer"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-2 flex items-center justify-center bg-black/50 overflow-auto max-h-[80vh]">
+                            <img 
+                                src={lightboxImage.url} 
+                                alt={lightboxImage.title} 
+                                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg shadow-lg" 
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

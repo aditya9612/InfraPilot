@@ -485,9 +485,16 @@ export const paymentService = {
      * Get Payment Analytics
      * GET /api/v1/client-payments/analytics
      */
-    async getClientPaymentAnalytics(params?: any): Promise<any> {
+    async getClientPaymentAnalytics(projectIdOrParams?: number | string | any, params?: any): Promise<any> {
         try {
-            const queryParams: any = { ...params };
+            let queryParams: any = {};
+            if (typeof projectIdOrParams === "number" || typeof projectIdOrParams === "string") {
+                queryParams = { project_id: projectIdOrParams, ...params };
+            } else if (projectIdOrParams && typeof projectIdOrParams === "object") {
+                queryParams = { ...projectIdOrParams, ...params };
+            } else if (params) {
+                queryParams = { ...params };
+            }
             const response = await api.get("client-payments/analytics", { params: queryParams });
             return response.data;
         } catch (err) {

@@ -14,7 +14,6 @@ import { useProject } from "../../../../context/ProjectContext";
 
 type TabType = "Usage" | "Transfers" | "Transactions";
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
-const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
     const { selectedProjectId: globalProjectId, setSelectedProjectId } = useProject();
@@ -27,6 +26,7 @@ const MaterialConsumptionPage = () => {
     const projectId = Number(globalProjectId) || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // Data
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -58,7 +58,7 @@ const MaterialConsumptionPage = () => {
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
     const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
-    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string }>>({ from_project_id: projectId });
+    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string; transport_mode: string; vehicle_number: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
     // Fetch methods
@@ -191,12 +191,27 @@ const MaterialConsumptionPage = () => {
 
     // Handlers
     const handleUsageSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedInventory) return;
-        if (usageForm.quantity <= 0) {
-            return toast.error("Quantity must be greater than 0");
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!usageForm.issue_type) missingFields.push("Issue Type");
+        if (!usageForm.quantity || usageForm.quantity <= 0) missingFields.push("Quantity");
+        if (!usageForm.issued_to?.trim()) missingFields.push("Issued To");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
         }
+
+        if (!selectedInventory) return;
         if (usageForm.quantity > selectedInventory.remaining_stock) {
-            return toast.error("Quantity cannot exceed available stock");
+            setFormNotification({ type: 'error', message: 'Quantity cannot exceed available stock' });
+            return;
         }
         setIsSubmitting(true);
         try {
@@ -204,31 +219,65 @@ const MaterialConsumptionPage = () => {
             if (!payload.task_id) delete payload.task_id;
             if (!payload.boq_item_id) delete payload.boq_item_id;
             await materialService.recordUsage(selectedInventory.material_id, payload);
-            toast.success("Usage recorded!"); setIsUsageModalOpen(false); fetchInventory();
-        } catch (e) { toast.error("Failed to record usage"); }
+            setFormNotification({ type: 'success', message: "Usage recorded!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsUsageModalOpen(false); fetchInventory();
+        } catch (e) { setFormNotification({ type: 'error', message: "Failed to record usage" }); }
         finally { setIsSubmitting(false); }
     };
 
     const handleTransferSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!transferForm.material_id) missingFields.push("Material");
+        if (!transferForm.quantity || transferForm.quantity <= 0) missingFields.push("Quantity");
+        if (!transferForm.to_project_id) missingFields.push("Destination Project");
+        if (!transferForm.transport_mode?.trim()) missingFields.push("Transport Mode");
+        if (!transferForm.vehicle_number?.trim()) missingFields.push("Vehicle Number");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
             await materialService.createTransfer({ ...transferForm } as any);
-            toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
+            setFormNotification({ type: 'success', message: "Transfer initiated!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsTransferModalOpen(false); fetchTransfers();
         } catch (e: any) {
             const errorMsg = e.response?.data?.detail;
-            toast.error(typeof errorMsg === 'string' ? errorMsg : "Failed to create transfer");
+            setFormNotification({ type: 'error', message: typeof errorMsg === 'string' ? errorMsg : "Failed to create transfer" });
         }
         finally { setIsSubmitting(false); }
     };
 
     const handleUpdateTransfer = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedTransfer) return; setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        if (!updateTransferForm.status) {
+            setFormNotification({ type: 'error', message: 'Please select a status', fields: ["Status"] });
+            return;
+        }
+
+        if (!selectedTransfer) return;
+        setIsSubmitting(true);
         try {
             await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
-            toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
+            setFormNotification({ type: 'success', message: "Transfer updated!" });
+            setTimeout(() => setFormNotification(null), 3000);
+            setIsUpdateTransferOpen(false); fetchTransfers();
         } catch (e: any) {
             const errorMsg = e.response?.data?.detail;
-            toast.error(typeof errorMsg === 'string' ? errorMsg : "Failed to update transfer");
+            setFormNotification({ type: 'error', message: typeof errorMsg === 'string' ? errorMsg : "Failed to update transfer" });
         }
         finally { setIsSubmitting(false); }
     };
@@ -287,6 +336,39 @@ const MaterialConsumptionPage = () => {
 
     return (
         <>
+            {/* Top-right floating toast */}
+            {formNotification && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999999,
+                        padding: '16px 20px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        minWidth: '320px',
+                        maxWidth: '400px',
+                        border: `1px solid ${formNotification.type === 'error' ? '#fecaca' : '#a7f3d0'}`
+                    }}
+                    className="animate-fade-in-up"
+                >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                        <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                        {formNotification.type === 'error'
+                            ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
+                            : formNotification.message}
+                    </p>
+                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                </div>
+            )}
+
             <Navbar title="Material Consumption" breadcrumb={["Engineer", "Material Management", "Consumption"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
@@ -438,6 +520,19 @@ const MaterialConsumptionPage = () => {
             {/* Usage Modal */}
             <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
                 <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
@@ -470,6 +565,19 @@ const MaterialConsumptionPage = () => {
             {/* Create Transfer Modal */}
             <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Create Transfer"}</button></>}>
                 <form id="transfer-form" onSubmit={handleTransferSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -486,6 +594,19 @@ const MaterialConsumptionPage = () => {
             {/* Update Transfer Modal */}
             <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Update"}</button></>}>
                 <form id="update-transfer-form" onSubmit={handleUpdateTransfer} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
                         <div className="space-y-4">

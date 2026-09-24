@@ -11,10 +11,10 @@ interface EquipmentViewModalProps {
 }
 
 const conditionColors: Record<string, string> = {
-    'GOOD': 'bg-emerald-500 text-white',
-    'REPAIR': 'bg-orange-500 text-white',
-    'DAMAGED': 'bg-red-500 text-white',
-    'MAINTENANCE': 'bg-blue-500 text-white',
+    'GOOD': 'bg-emerald-500',
+    'REPAIR': 'bg-orange-500',
+    'DAMAGED': 'bg-rose-500',
+    'MAINTENANCE': 'bg-blue-500',
 };
 
 const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
@@ -22,21 +22,12 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
     onClose,
     equipment,
     projectsMap = {},
-    onEdit
+
 }) => {
     if (!equipment) return null;
 
     const conditionStr = (equipment.condition || "UNKNOWN").toUpperCase();
-    const conditionColorClass = conditionColors[conditionStr] || "bg-slate-500 text-white";
-
-    // For the banner color, use the same base color but maybe slightly customized
-    const getBannerColor = (cond: string) => {
-        if (cond === 'GOOD') return 'bg-emerald-500';
-        if (cond === 'REPAIR') return 'bg-orange-500';
-        if (cond === 'DAMAGED') return 'bg-rose-500';
-        if (cond === 'MAINTENANCE') return 'bg-blue-500';
-        return 'bg-slate-500';
-    };
+    const conditionColorClass = conditionColors[conditionStr] || "bg-slate-500";
 
     const projectName = equipment.project_id
         ? (projectsMap[equipment.project_id] || `Project ${equipment.project_id}`)
@@ -47,16 +38,11 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
             <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+                className="w-full py-3 bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
             >
                 CLOSE
             </button>
-            <button
-                onClick={onEdit}
-                className="flex-1 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all"
-            >
-                EDIT DETAILS
-            </button>
+
         </div>
     );
 
@@ -71,7 +57,7 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
             <div className="flex flex-col gap-5 pb-2">
 
                 {/* Header Banner */}
-                <div className={`${getBannerColor(conditionStr)} rounded-2xl p-6 shadow-sm`}>
+                <div className={`${conditionColorClass} rounded-2xl p-6 shadow-sm`}>
                     <div className="flex items-center gap-3 mb-4">
                         <h2 className="text-2xl font-black text-white">{equipment.equipment_name || "Unknown Asset"}</h2>
                         <span className="px-2.5 py-1 bg-white/20 text-white text-xs font-bold rounded-lg tracking-wider">
@@ -108,6 +94,9 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RENTAL COST</p>
                             <p className="font-bold text-purple-600 font-mono text-base">
                                 {equipment.rental_cost ? `₹${equipment.rental_cost.toLocaleString()}` : "N/A"}
+                                <span className="text-sm text-slate-500 font-sans ml-1">
+                                    {equipment.cost_unit === 'PER_DAY' ? '/ Day' : equipment.cost_unit === 'PER_MONTH' ? '/ Month' : ''}
+                                </span>
                             </p>
                         </div>
                         <div>

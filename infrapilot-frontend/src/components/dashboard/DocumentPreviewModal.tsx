@@ -1,6 +1,6 @@
 import React from "react";
 import Modal from "../common/Modal";
-import { FileText, Download, Info, Calendar, HardDrive } from "lucide-react";
+import { FileText, Info, Calendar, HardDrive } from "lucide-react";
 import ExcelPreview from "./ExcelPreview";
 
 interface DocumentPreviewModalProps {
@@ -115,7 +115,6 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   isOpen,
   onClose,
   document,
-  onDownload,
 }) => {
   const [localUrl, setLocalUrl] = React.useState<string>("");
   const [category, setCategory] = React.useState<FileCategory>("pdf");
@@ -264,20 +263,6 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
   if (!document) return null;
 
-  const handleDownloadClick = () => {
-    if (onDownload) {
-      onDownload(document);
-    } else if (localUrl) {
-      const link = window.document.createElement("a");
-      link.href = localUrl;
-      const ext = category === "pdf" ? ".pdf" : category === "image" ? ".png" : "";
-      const docName = document.name || document.title || document.drawing_name || "document";
-      link.download = docName.includes(".") ? docName : `${docName}${ext}`;
-      window.document.body.appendChild(link);
-      link.click();
-      link.remove();
-    }
-  };
 
   const resolvedUrlForOffice = resolveFileUrl(document.file_url || localUrl);
 
@@ -289,15 +274,6 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       >
         Close
       </button>
-      {!document.isFolder && (
-        <button
-          onClick={handleDownloadClick}
-          className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
-        >
-          <Download size={16} strokeWidth={2.5} />
-          Download File
-        </button>
-      )}
     </div>
   );
 
@@ -343,9 +319,8 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="File Type" value={document.type || document.document_type || (document.isDrawing ? "Drawing" : "Document")} />
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
-              <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.uploaded_by || "—"} />
-              <InfoItem label="Folder Status" value={document.folder_status || (document.isFolder ? "Folder" : "File")} />
               <InfoItem label="Remarks" value={document.remarks || "—"} />
+              <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || `User #${document.uploaded_by_user_id || document.uploaded_by || "Unknown"}`} />
             </Section>
           </div>
 

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -389,7 +389,14 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [payingVendorBill, setPayingVendorBill] = useState<any>(null);
   const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
   const [billItems, setBillItems] = useState<any[]>([{ item_name: "", hsn_sac: "", quantity: 0, rate: 0, amount: 0 }]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const inputClasses = (error?: string) => 
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+      error 
+        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50 focus:bg-white text-slate-700' 
+        : 'border-slate-200 bg-slate-50 text-slate-700 focus:ring-2 focus:ring-primary/20'
+    }`;
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [assignedSuppliers, setAssignedSuppliers] = useState<any[]>([]);
@@ -556,6 +563,23 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     formData.forEach((value, key) => {
       payload[key] = numericFields.includes(key) ? (Number(value) || 0) : value;
     });
+
+    const newErrors: Record<string, string> = {};
+    if (!payload.supplier_id) newErrors.supplier_id = "Supplier is required";
+    if (!payload.project_id) newErrors.project_id = "Project is required";
+    if (!payload.purchase_order_id) newErrors.purchase_order_id = "Purchase Order is required";
+    if (!payload.bill_number) newErrors.bill_number = "Bill Number is required";
+    if (!payload.bill_date) newErrors.bill_date = "Bill Date is required";
+    if (!payload.due_date) newErrors.due_date = "Due Date is required";
+    if (payload.gross_amount === undefined || payload.gross_amount === null || payload.gross_amount.toString() === "") newErrors.gross_amount = "Gross Amount is required";
+    if (payload.total_amount === undefined || payload.total_amount === null || payload.total_amount.toString() === "") newErrors.total_amount = "Total Amount is required";
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     payload.items = billItems.map(item => ({
       item_name: item.item_name || "",
       hsn_sac: item.hsn_sac || "",
@@ -728,7 +752,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
             <h3 className="font-bold text-slate-800 text-lg">Create Vendor Bill</h3>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setActiveSubTab("list")} className="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 border border-slate-200 transition-all">Cancel</button>
+              <button type="button" onClick={() => { setActiveSubTab("list"); setErrors({}); }} className="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 border border-slate-200 transition-all">Cancel</button>
               <button type="submit" className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-blue-600 shadow-md transition-all">
                 {editingBill ? "Update Vendor Bill" : "Save Vendor Bill"}
               </button>
@@ -739,40 +763,66 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             {/* Exactly mapping the JSON sequence */}
 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Supplier <span className="text-rose-500">*</span></label>
-              <select name="supplier_id" defaultValue={editingBill?.supplier_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+              <select name="supplier_id" defaultValue={editingBill?.supplier_id || ""} onChange={() => { if (errors.supplier_id) setErrors({ ...errors, supplier_id: "" }) }} className={inputClasses(errors.supplier_id)}>
                 <option value="">Select Supplier...</option>
                 {assignedSuppliers.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
               </select>
+              {errors.supplier_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.supplier_id}</p>}
             </div>
 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Project <span className="text-rose-500">*</span></label>
-              <select name="project_id" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+              <select name="project_id" value={selectedProjectId} onChange={(e) => { setSelectedProjectId(e.target.value); if (errors.project_id) setErrors({ ...errors, project_id: "" }); }} className={inputClasses(errors.project_id)}>
                 <option value="">Select Project...</option>
                 {assignedProjects.map(p => <option key={p.id} value={p.id}>{p.name || p.title || p.project_name || `Project ${p.id}`}</option>)}
               </select>
+              {errors.project_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.project_id}</p>}
             </div>
 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Purchase Order <span className="text-rose-500">*</span></label>
-              <select name="purchase_order_id" defaultValue={editingBill?.purchase_order_id || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20">
+              <select name="purchase_order_id" defaultValue={editingBill?.purchase_order_id || ""} onChange={() => { if (errors.purchase_order_id) setErrors({ ...errors, purchase_order_id: "" }) }} className={inputClasses(errors.purchase_order_id)}>
                 <option value="">Select PO...</option>
                 {assignedPOs.map(po => <option key={po.id} value={po.id}>{po.name}</option>)}
               </select>
+              {errors.purchase_order_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.purchase_order_id}</p>}
             </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Number <span className="text-rose-500">*</span></label><input type="text" name="bill_number" defaultValue={editingBill?.bill_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Date <span className="text-rose-500">*</span></label><input type="date" name="bill_date" defaultValue={editingBill?.bill_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Due Date <span className="text-rose-500">*</span></label><input type="date" name="due_date" defaultValue={editingBill?.due_date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Number <span className="text-rose-500">*</span></label>
+              <input type="text" name="bill_number" defaultValue={editingBill?.bill_number || ""} placeholder="String" onChange={() => { if (errors.bill_number) setErrors({ ...errors, bill_number: "" }) }} className={inputClasses(errors.bill_number)} />
+              {errors.bill_number && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.bill_number}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Bill Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="bill_date" defaultValue={editingBill?.bill_date || ""} onChange={() => { if (errors.bill_date) setErrors({ ...errors, bill_date: "" }) }} className={inputClasses(errors.bill_date)} />
+              {errors.bill_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.bill_date}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Due Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="due_date" defaultValue={editingBill?.due_date || ""} onChange={() => { if (errors.due_date) setErrors({ ...errors, due_date: "" }) }} className={inputClasses(errors.due_date)} />
+              {errors.due_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.due_date}</p>}
+            </div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GRN Number</label><input type="text" name="grn_number" defaultValue={editingBill?.grn_number || ""} placeholder="String" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Gross Amount <span className="text-rose-500">*</span></label><input type="number" name="gross_amount" defaultValue={editingBill?.gross_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Percent</label><input type="number" name="gst_percent" defaultValue={editingBill?.gst_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GRN Number</label><input type="text" name="grn_number" defaultValue={editingBill?.grn_number || ""} placeholder="String" className={inputClasses()} /></div>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Gross Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="gross_amount" defaultValue={editingBill?.gross_amount || ""} placeholder="0" onChange={() => { if (errors.gross_amount) setErrors({ ...errors, gross_amount: "" }) }} className={inputClasses(errors.gross_amount)} />
+              {errors.gross_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.gross_amount}</p>}
+            </div>
+            
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Percent</label><input type="number" name="gst_percent" defaultValue={editingBill?.gst_percent || ""} placeholder="0" className={inputClasses()} /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingBill?.gst_amount || ""} placeholder="0" onChange={(e) => { const val = Number(e.target.value); const form = e.target.form as any; if (form) { form.cgst.value = val / 2; form.sgst.value = val / 2; form.igst.value = 0; } }} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Percent</label><input type="number" name="tds_percent" defaultValue={editingBill?.tds_percent || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingBill?.tds_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GST Amount</label><input type="number" name="gst_amount" defaultValue={editingBill?.gst_amount || ""} placeholder="0" onChange={(e) => { const val = Number(e.target.value); const form = e.target.form as any; if (form) { form.cgst.value = val / 2; form.sgst.value = val / 2; form.igst.value = 0; } }} className={inputClasses()} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Percent</label><input type="number" name="tds_percent" defaultValue={editingBill?.tds_percent || ""} placeholder="0" className={inputClasses()} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">TDS Amount</label><input type="number" name="tds_amount" defaultValue={editingBill?.tds_amount || ""} placeholder="0" className={inputClasses()} /></div>
 
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Advance Paid</label><input type="number" name="advance_paid" defaultValue={editingBill?.advance_paid || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest text-primary">Total Amount <span className="text-rose-500">*</span></label><input type="number" name="total_amount" defaultValue={editingBill?.total_amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Advance Paid</label><input type="number" name="advance_paid" defaultValue={editingBill?.advance_paid || ""} placeholder="0" className={inputClasses()} /></div>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest text-primary">Total Amount <span className="text-rose-500">*</span></label>
+              <input type="number" name="total_amount" defaultValue={editingBill?.total_amount || ""} placeholder="0" onChange={() => { if (errors.total_amount) setErrors({ ...errors, total_amount: "" }) }} className={inputClasses(errors.total_amount)} />
+              {errors.total_amount && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.total_amount}</p>}
+            </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Vendor Invoice URL</label>
               <div className="relative flex items-center">
@@ -1161,6 +1211,14 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
 
   const [payingBill, setPayingBill] = useState<any>(null);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const inputClasses = (error?: string) =>
+    `w-full px-3 py-2 text-sm border rounded-xl outline-none transition-all ${
+      error
+        ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50"
+        : "border-slate-200 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+    }`;
+
   const handleDelete = (id: number) => {
     setContractorBills(prev => prev.filter(b => b.id !== id));
     toast.success("Contractor bill deleted!");
@@ -1201,6 +1259,21 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
     const formData = new FormData(e.currentTarget);
     const newBill: any = {};
     formData.forEach((value, key) => { newBill[key] = value; });
+
+    const newErrors: Record<string, string> = {};
+    const reqFields = ["contractor", "wo", "bill_no", "date", "amt"];
+    reqFields.forEach((field) => {
+      if (!newBill[field] || String(newBill[field]).trim() === "") {
+        newErrors[field] = "This field is required";
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    setErrors({});
 
     if (editingBill) {
       setContractorBills(prev => prev.map(b => b.id === editingBill.id ? { ...b, ...newBill } : b));
@@ -1330,12 +1403,12 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
                 Contractor Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</label><input type="text" name="contractor" defaultValue={editingBill?.contractor || ""} placeholder="Select contractor…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</label><input type="text" name="contractor" defaultValue={editingBill?.contractor || ""} placeholder="Select contractor…" className={inputClasses(errors.contractor)} onChange={() => setErrors(prev => ({ ...prev, contractor: "" }))} />{errors.contractor && <p className="text-[10px] text-rose-500 font-bold">{errors.contractor}</p>}</div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Type</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name</label><input type="text" placeholder="Select project…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Order Number</label><input type="text" name="wo" defaultValue={editingBill?.wo || ""} placeholder="Select WO…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_no" defaultValue={editingBill?.bill_no || ""} placeholder="Enter Bill No…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="date" defaultValue={editingBill?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Order Number</label><input type="text" name="wo" defaultValue={editingBill?.wo || ""} placeholder="Select WO…" className={inputClasses(errors.wo)} onChange={() => setErrors(prev => ({ ...prev, wo: "" }))} />{errors.wo && <p className="text-[10px] text-rose-500 font-bold">{errors.wo}</p>}</div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_no" defaultValue={editingBill?.bill_no || ""} placeholder="Enter Bill No…" className={inputClasses(errors.bill_no)} onChange={() => setErrors(prev => ({ ...prev, bill_no: "" }))} />{errors.bill_no && <p className="text-[10px] text-rose-500 font-bold">{errors.bill_no}</p>}</div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="date" defaultValue={editingBill?.date || ""} className={inputClasses(errors.date)} onChange={() => setErrors(prev => ({ ...prev, date: "" }))} />{errors.date && <p className="text-[10px] text-rose-500 font-bold">{errors.date}</p>}</div>
               </div>
             </div>
 
@@ -1350,7 +1423,7 @@ export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: stri
                 <div className="grid grid-cols-4 gap-4">
                   <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
                   <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label><input type="text" placeholder="Unit" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" name="amt" defaultValue={editingBill?.amt || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" name="amt" defaultValue={editingBill?.amt || ""} placeholder="0" className={inputClasses(errors.amt)} onChange={() => setErrors(prev => ({ ...prev, amt: "" }))} />{errors.amt && <p className="text-[10px] text-rose-500 font-bold">{errors.amt}</p>}</div>
                   <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Amt</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
                 </div>
               </div>
@@ -1694,7 +1767,7 @@ const PayablesPage = () => {
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 w-full">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payables</h1>
             <p className="text-slate-500 text-sm mt-1">Manage vendor bills, contractor payments, and outstanding liabilities.</p>

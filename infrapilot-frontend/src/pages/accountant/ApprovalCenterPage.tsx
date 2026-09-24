@@ -333,7 +333,7 @@ export default function ApprovalCenterPage() {
         {/* MAIN CONTENT */}
         <div className="flex flex-col gap-6 relative">
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
             <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Pending {activeTab}</h1>
               <p className="text-slate-500 text-sm mt-1">Review and manage pending {activeTab.toLowerCase()} requiring your approval.</p>
@@ -373,7 +373,7 @@ export default function ApprovalCenterPage() {
                 </div>
                 
                 {/* Pagination for History Logs style */}
-                  <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 mt-auto rounded-b-2xl">
+                  <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 mt-auto rounded-b-2xl">
                     {/* Left: Items per page */}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-medium text-slate-500">Records per page:</span>

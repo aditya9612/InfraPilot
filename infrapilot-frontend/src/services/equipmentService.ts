@@ -8,6 +8,7 @@ export interface EquipmentItem {
     operator_name: string;
     condition: string;
     rental_cost: number;
+    cost_unit?: string;
     maintenance_date: string;
     is_deleted: boolean;
     created_at: string;
@@ -110,6 +111,11 @@ export interface AllocationStatus {
     equipment_id: number;
     project_id: number | null;
     allocated: boolean;
+    // Batch response fields from POST /equipment/allocate
+    success_count?: number;
+    failed_count?: number;
+    allocated_ids?: number[];
+    failed?: { equipment_id: number; reason: string }[];
 }
 
 export interface MaintenanceAlert {
@@ -326,7 +332,7 @@ export const equipmentService = {
         return response.data;
     },
 
-    async updateMaintenance(equipment_id: number, maintenance_id: number, data: Partial<MaintenanceItem>): Promise<MaintenanceItem> {
+    async updateMaintenance(_equipment_id: number, maintenance_id: number, data: Partial<MaintenanceItem>): Promise<MaintenanceItem> {
         const payload = {
             description: data.description,
             maintenance_date: data.maintenance_date,
@@ -340,20 +346,18 @@ export const equipmentService = {
         return response.data;
     },
 
-    async completeMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
+    async completeMaintenance(_equipment_id: number, maintenance_id: number): Promise<any> {
         const response = await api.put<any>(`/equipment/maintenance/${maintenance_id}/complete`);
         return response.data;
     },
 
-    async deleteMaintenance(equipment_id: number, maintenance_id: number): Promise<any> {
-        // Backend typo: maintainance
-        const response = await api.delete<any>(`/equipment/maintainance/${maintenance_id}`);
+    async deleteMaintenance(_equipment_id: number, maintenance_id: number): Promise<any> {
+        const response = await api.delete<any>(`/equipment/maintenance/${maintenance_id}`);
         return response.data;
     },
 
-    async getMaintenance(equipment_id: number, maintenance_id: number): Promise<MaintenanceItem> {
-        // Backend typo: maintainance
-        const response = await api.get<MaintenanceItem>(`/equipment/maintainance/${maintenance_id}`);
+    async getMaintenance(_equipment_id: number, maintenance_id: number): Promise<MaintenanceItem> {
+        const response = await api.get<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`);
         return response.data;
     },
 
@@ -390,7 +394,6 @@ export const equipmentService = {
             const res = await api.get<any>('/equipment/maintenance', { params: { limit: 500 } })
                 .catch(() => api.get<any>('/equipment/maintainance', { params: { limit: 500 } }))
                 .catch(() => ({ data: [] })); // Swallow the 422 or 404 errors so fallback triggers
-
             let allMaint = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.data || []);
             console.log("[DEBUG] allMaint extracted:", allMaint);
 

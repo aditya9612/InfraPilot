@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
     Search, RotateCcw, ChevronLeft, ChevronRight,
@@ -24,20 +25,21 @@ const MaterialStockPage = () => {
         try {
             const pid = localStorage.getItem("infrapilot_selected_project_id");
             if (pid && pid !== "null") return Number(pid);
-            
+
             const userStr = localStorage.getItem("infrapilot_user");
             if (userStr) {
                 const parsed = JSON.parse(userStr);
                 const pId = parsed.default_project_id || parsed.project_id;
                 return pId ? Number(pId) : null;
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     });
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // Data States
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -95,7 +97,7 @@ const MaterialStockPage = () => {
 
     // Modals
     const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
-    const [adjustmentForm, setAdjustmentForm] = useState({ material_id: 0, new_stock: 0, reason: "" });
+    const [adjustmentForm, setAdjustmentForm] = useState<{material_id: number; new_stock: number | string; reason: string}>({ material_id: 0, new_stock: "", reason: "" });
     const [selectedInventoryForAdj, setSelectedInventoryForAdj] = useState<InventoryItem | null>(null);
 
     // Filters & Pagination
@@ -202,13 +204,31 @@ const MaterialStockPage = () => {
     };
 
     const handleAdjustmentSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!adjustmentForm.material_id) missingFields.push("Material");
+        if (adjustmentForm.new_stock === "" || adjustmentForm.new_stock === undefined || Number(adjustmentForm.new_stock) < 0) missingFields.push("New Stock");
+        if (!adjustmentForm.reason?.trim()) missingFields.push("Reason");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            await materialService.adjustInventory(adjustmentForm);
-            toast.success("Inventory adjusted!");
+            const res = await materialService.adjustInventory({ ...adjustmentForm, new_stock: Number(adjustmentForm.new_stock), project_id: projectId });
+            setFormNotification({ type: 'success', message: (res as any)?.message || "Inventory adjusted!" });
+            setTimeout(() => setFormNotification(null), 3000);
             setIsAdjustmentModalOpen(false);
             fetchAdjustments(); fetchStock();
-        } catch (e) { toast.error("Failed to adjust inventory"); }
+        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to adjust inventory" }); }
         finally { setIsSubmitting(false); }
     };
 
@@ -225,7 +245,7 @@ const MaterialStockPage = () => {
         }
 
         return (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky bottom-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                     <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
@@ -256,10 +276,41 @@ const MaterialStockPage = () => {
 
     return (
         <>
+            {/* Top-right floating toast */}
+            {formNotification && !formNotification.fields && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: '18px',
+                        right: '18px',
+                        zIndex: 99999999,
+                        padding: '16px 20px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        minWidth: '320px',
+                        maxWidth: '400px',
+                        border: `1px solid ${formNotification.type === 'error' ? '#fecaca' : '#a7f3d0'}`
+                    }}
+                    className="animate-fade-in-up"
+                >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                        <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
+                        {formNotification.message}
+                    </p>
+                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                </div>
+            )}
+
             <Navbar title="Material Stock" breadcrumb={["Engineer", "Material Management", "Stock & Inventory"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Stock & Inventory Management
@@ -279,14 +330,14 @@ const MaterialStockPage = () => {
                         </div>
                     )}
                     {activeTab === "Inventory Adjustment" && (
-                        <button onClick={() => { setAdjustmentForm({ material_id: inventory.length > 0 ? inventory[0].material_id : 0, new_stock: 0, reason: "" }); setSelectedInventoryForAdj(null); setIsAdjustmentModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95">
+                        <button onClick={() => { setAdjustmentForm({ material_id: inventory.length > 0 ? inventory[0].material_id : 0, new_stock: "", reason: "" }); setSelectedInventoryForAdj(null); setIsAdjustmentModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95">
                             <Sliders className="w-4 h-4" /> Audit Adjustment
                         </button>
                     )}
                 </div>
 
                 {/* Tabs & Project Filter */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 w-full">
                     <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit overflow-x-auto max-w-full scrollbar-none">
                         {(["Stock Overview", "Global Inventory", "Reports", "Inventory Adjustment"] as TabType[]).map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
@@ -594,21 +645,53 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
-                <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Audit Adjustment"}</button></>}>
+                {/* Top-right floating toast */}
+                {formNotification && (
+                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
+                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
+                        </div>
+                    </div>
+                )}
+                <form id="adjustment-form" noValidate onSubmit={handleAdjustmentSubmit} className="space-y-6">
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Material <span className="text-rose-500">*</span></label>
-                                <select required value={adjustmentForm.material_id || ""} onChange={e => {
-                                    const val = Number(e.target.value);
-                                    setAdjustmentForm({ ...adjustmentForm, material_id: val });
-                                    setSelectedInventoryForAdj(inventory.find(i => i.material_id === val) || null);
-                                }} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500">
-                                    <option value="">Select Material</option>
-                                    {inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}
-                                </select>
+                            <div className="z-[60]">
+                                <CustomSelect
+                                    label="Material"
+                                    required
+                                    value={adjustmentForm.material_id?.toString() || ""}
+                                    onChange={(val) => {
+                                        const numVal = Number(val);
+                                        setAdjustmentForm({ ...adjustmentForm, material_id: numVal });
+                                        setSelectedInventoryForAdj(inventory.find(i => i.material_id === numVal) || null);
+                                    }}
+                                    options={inventory.map(i => ({
+                                        id: i.material_id.toString(),
+                                        label: i.material_name
+                                    }))}
+                                    placeholder="Select Material"
+                                    error={!!formNotification?.fields?.includes("Material")}
+                                />
+                                {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider ml-0.5">REQUIRED</p>}
                             </div>
                             {selectedInventoryForAdj && (
                                 <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex justify-between items-center">
@@ -618,11 +701,13 @@ const MaterialStockPage = () => {
                             )}
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">New Stock <span className="text-rose-500">*</span></label>
-                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" />
+                                <input type="number" required value={adjustmentForm.new_stock} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: e.target.value === "" ? "" : Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500 ${formNotification?.fields?.includes("New Stock") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                                {formNotification?.fields?.includes("New Stock") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Reason <span className="text-rose-500">*</span></label>
-                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} />
+                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500 ${formNotification?.fields?.includes("Reason") ? "!border-rose-500 !bg-rose-50" : ""}`} rows={3} />
+                                {formNotification?.fields?.includes("Reason") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
                         </div>
                     </div>
