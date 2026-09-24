@@ -1152,7 +1152,7 @@ const ManagerBOQPage = () => {
                                         ))}
 
                                         <div className="pt-4 mt-4 border-t border-slate-100">
-                                            <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl border border-dashed border-slate-300 text-slate-500 font-bold text-sm hover:border-slate-400 hover:text-slate-700 transition-colors bg-white">
+                                            <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl bg-slate-800 text-white font-bold text-sm hover:bg-slate-900 transition-all shadow-md shadow-slate-200">
                                                 Skip & Generate Without Milestone
                                             </button>
                                         </div>

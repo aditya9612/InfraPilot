@@ -83,6 +83,7 @@ const ClientsPage = () => {
             pan_number: (u as any).pan_number || (u as any).pan || "—",
             aadhar_number: (u as any).aadhaar_number || (u as any).aadhar_number || (u as any).aadhar || "—",
             joining_date: (u as any).joining_date || (u as any).created_at || null,
+            address: u.address || "",
           };
         });
 

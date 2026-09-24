@@ -38,6 +38,7 @@ import ProjectManagersPage from "../pages/admin/ProjectManagersPage";
 import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
 import EquipmentPage from "../pages/admin/EquipmentPage";
+import RentalManagementPage from "../pages/admin/RentalManagementPage";
 import FinancePage from "../pages/admin/FinancePage";
 import ApprovalsPage from "../pages/admin/ApprovalsPage";
 import NotificationsPage from "../pages/admin/NotificationsPage";
@@ -269,6 +270,7 @@ function AppRoutes() {
                   element={<InventoryPage />}
                 />
                 <Route path="/admin/equipment" element={<EquipmentPage />} />
+                <Route path="/admin/equipment/rental" element={<RentalManagementPage />} />
                 <Route path="/admin/finance" element={<FinancePage />} />
                 <Route path="/admin/finance/invoices" element={<FinancePage />} />
                 <Route path="/admin/finance/payments" element={<FinancePage />} />

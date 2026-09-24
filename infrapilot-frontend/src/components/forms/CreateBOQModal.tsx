@@ -148,7 +148,9 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   };
 
   const validateAll = () => {
-    const fieldsToCheck = ['project_id', 'item_name', 'activity_type_id', 'quantity', 'unit_cost', 'status'];
+    const fieldsToCheck = initialData
+      ? ['item_name', 'activity_type_id', 'quantity', 'unit_cost', 'status']
+      : ['project_id', 'item_name', 'activity_type_id', 'quantity', 'unit_cost', 'status'];
 
     const newErrors: Record<string, string> = {};
     fieldsToCheck.forEach((key) => {
@@ -165,7 +167,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
       setIsLoading(true);
       try {
         const submissionData: any = {
-          project_id: Number(formData.project_id),
+          ...(initialData ? {} : { project_id: Number(formData.project_id) }),
           item_name: formData.item_name,
           description: formData.description || undefined,
           quantity: formData.quantity ? Number(formData.quantity) : undefined,
@@ -242,19 +244,21 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* Project selector */}
-          <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
-            <select
-              name="project_id"
-              value={formData.project_id}
-              onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.project_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
-            >
-              <option value="">Select a Project</option>
-              {projects?.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
-            </select>
-            {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
-          </div>
+          {!initialData && (
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
+              <select
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className={`w-full px-4 py-2.5 bg-white border ${errors.project_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
+              >
+                <option value="">Select a Project</option>
+                {projects?.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+              </select>
+              {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
+            </div>
+          )}
 
           {/* Item Name */}
           <div className="md:col-span-1">
