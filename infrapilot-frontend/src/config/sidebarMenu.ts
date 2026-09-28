@@ -112,6 +112,10 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           label: "Equipment Management",
           path: "/admin/equipment",
           icon: "tool",
+          subNav: [
+            { label: "All Equipment", path: "/admin/equipment", icon: "grid" },
+            { label: "Rental Management", path: "/admin/equipment/rental", icon: "clock" },
+          ],
         },
       ],
     },

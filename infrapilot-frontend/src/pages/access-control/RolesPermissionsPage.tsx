@@ -360,7 +360,7 @@ const RolesPermissionsPage = () => {
                         <div className="p-4 border-t border-slate-50 bg-slate-50/50">
                             <button onClick={() => setShowAddRoleModal(true)} className="w-full py-2.5 bg-white border border-primary/20 text-primary rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/5 transition flex items-center justify-center gap-2">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                                Add Custom Role
+                                Create Role
                             </button>
                         </div>
                     </div>
@@ -591,7 +591,7 @@ const RolesPermissionsPage = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="font-bold text-lg text-slate-800">Add Custom Role</h3>
+                            <h3 className="font-bold text-lg text-slate-800">Create Role</h3>
                             <button onClick={() => setShowAddRoleModal(false)} className="text-slate-400 hover:text-slate-600 transition">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>

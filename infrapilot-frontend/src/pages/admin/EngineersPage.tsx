@@ -651,14 +651,14 @@ const EngineersPage = () => {
               ) : (
                 dsrLogs.map((dsr) => (
                   <div key={dsr.id} className="bg-slate-50 rounded-2xl p-4 border border-slate-100 hover:border-primary/20 transition-all">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
                         <p className="font-bold text-slate-700 text-sm">DSR #{dsr.id} — {new Date(dsr.report_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         <p className="text-xs text-slate-400 mt-0.5">{dsr.site_location || "Unknown site"} {dsr.contractor_name ? `· ${dsr.contractor_name}` : ""}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${dsr.status === "approved" ? "bg-emerald-100 text-emerald-600"
+                      <span className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${dsr.status === "approved" ? "bg-emerald-100 text-emerald-600"
                         : dsr.status === "submitted" ? "bg-blue-100 text-blue-600"
-                          : "bg-amber-100 text-amber-600"
+                          : "bg-slate-200 text-slate-600"
                         }`}>{dsr.status || "draft"}</span>
                     </div>
                     {dsr.work_done && (

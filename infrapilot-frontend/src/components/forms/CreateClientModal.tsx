@@ -65,7 +65,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
           joining_date: initialData.joining_date || "",
           pan_number: initialData.pan_number || "",
           aadhaar_number: initialData.aadhaar_number || "",
-          address: initialData.address || initialData.project || "",
+          address: initialData.address || "",
           is_active: initialData.is_active ?? (initialData.status === "Active"),
           password: "",
         });
