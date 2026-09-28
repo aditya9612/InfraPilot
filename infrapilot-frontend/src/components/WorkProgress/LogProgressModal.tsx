@@ -21,6 +21,16 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string, fields?: string[] } | null>(null);
 
+  // Auto-hide form notification after 3 seconds
+  useEffect(() => {
+    if (formNotification) {
+      const timer = setTimeout(() => {
+        setFormNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [formNotification]);
+
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -52,7 +62,6 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
     if (Object.keys(errs).length > 0) {
       setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: errorFields });
-      setTimeout(() => setFormNotification(null), 5000);
     }
 
     setErrors(errs);

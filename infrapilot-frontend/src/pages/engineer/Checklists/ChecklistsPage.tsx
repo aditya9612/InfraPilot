@@ -85,6 +85,17 @@ const ChecklistsPage = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string | React.ReactNode } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
 

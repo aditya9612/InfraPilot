@@ -17,6 +17,17 @@ interface CreateTaskModalProps {
 
 const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskModalProps) => {
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');

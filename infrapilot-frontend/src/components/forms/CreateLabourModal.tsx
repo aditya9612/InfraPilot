@@ -28,6 +28,16 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     useEffect(() => {
         if (initialData) {
             setFormData({

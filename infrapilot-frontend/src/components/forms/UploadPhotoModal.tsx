@@ -34,6 +34,16 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string; fields?: string[] } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     useEffect(() => {
         if (!isOpen) {
             setFormData({
@@ -317,6 +327,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                     label: t.title || `Task #${t.id}`
                                 }))}
                                 placeholder="Select Task..."
+                                searchable={false}
                             />
                         </div>
                         <div className="z-[64] relative">
@@ -329,6 +340,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                     label: `DSR #${d.id}`
                                 }))}
                                 placeholder="Select DSR..."
+                                searchable={false}
                             />
                         </div>
                     </div>

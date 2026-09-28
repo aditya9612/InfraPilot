@@ -72,6 +72,17 @@ const LaborDetailsPage = () => {
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string, fields?: string[] } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     const inputClasses = (error?: string) => `w-full px-4 py-2.5 bg-white border ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm font-bold outline-none transition-all font-inter`;
     const [editId, setEditId] = useState<number | null>(null);
     const [formData, setFormData] = useState(initialFormData);

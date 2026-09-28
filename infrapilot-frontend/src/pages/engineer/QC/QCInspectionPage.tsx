@@ -97,6 +97,17 @@ const QCInspectionPage = () => {
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
         const initializeProject = async () => {
@@ -967,6 +978,7 @@ const QCInspectionPage = () => {
                                     }))}
                                     placeholder="-- Select project --"
                                     error={!!errors.project_id}
+                                    searchable={false}
                                 />
                                 {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
@@ -982,6 +994,7 @@ const QCInspectionPage = () => {
                                     }))}
                                     placeholder="-- Select task --"
                                     disabled={isFetchingDeps}
+                                    searchable={false}
                                 />
                             </div>
 
@@ -996,6 +1009,7 @@ const QCInspectionPage = () => {
                                     }))}
                                     placeholder="-- Select DSR --"
                                     disabled={isFetchingDeps}
+                                    searchable={false}
                                 />
                             </div>
 
@@ -1008,6 +1022,7 @@ const QCInspectionPage = () => {
                                     options={INSPECTION_TYPES.map(t => ({ id: t, label: t }))}
                                     error={!!errors.inspection_type}
                                     placeholder="-- Select type --"
+                                    searchable={false}
                                 />
                                 {errors.inspection_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
@@ -1021,6 +1036,7 @@ const QCInspectionPage = () => {
                                     options={TEST_TYPES.map(t => ({ id: t, label: t }))}
                                     error={!!errors.test_type}
                                     placeholder="-- Select test --"
+                                    searchable={false}
                                 />
                                 {errors.test_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                             </div>
@@ -1069,6 +1085,7 @@ const QCInspectionPage = () => {
                                     ]}
                                     error={!!errors.status}
                                     placeholder="-- Select status --"
+                                    searchable={false}
                                 />
                                 {errors.status && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.status}</p>}
                             </div>

@@ -25,6 +25,17 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
     const [projects, setProjects] = useState<any[]>([]);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     useEffect(() => {
         if (isOpen) {
             // If adding new equipment, default the project_id to the currently selected project

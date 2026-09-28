@@ -85,6 +85,17 @@ const IssueTrackerPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     useEffect(() => {
         const initializeProject = async () => {
             try {
@@ -181,6 +192,16 @@ const IssueTrackerPage = () => {
         fetchIssues();
     }, [fetchIssues]);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -194,7 +215,7 @@ const IssueTrackerPage = () => {
         const missingFields: string[] = [];
         const newErrors: Record<string, string> = {};
 
-        if (!projectId || !formData.project_id) {
+        if (!formData.project_id) {
             newErrors.project_id = "Project is required";
             missingFields.push("Project");
         }
@@ -715,6 +736,7 @@ const IssueTrackerPage = () => {
                             <CustomSelect
                                 label="Project"
                                 required
+                                searchable={false}
                                 value={formData.project_id?.toString() || ""}
                                 onChange={(val) => setFormData(prev => ({ ...prev, project_id: Number(val) }))}
                                 options={projects.map((p: any) => ({
@@ -741,6 +763,7 @@ const IssueTrackerPage = () => {
                                 <CustomSelect
                                     label="Category"
                                     required
+                                    searchable={false}
                                     value={formData.category}
                                     onChange={(val) => handleInputChange({ target: { name: 'category', value: val } } as any)}
                                     options={[
@@ -756,6 +779,7 @@ const IssueTrackerPage = () => {
                                 <CustomSelect
                                     label="Priority"
                                     required
+                                    searchable={false}
                                     value={formData.priority}
                                     onChange={(val) => handleInputChange({ target: { name: 'priority', value: val } } as any)}
                                     options={[
@@ -776,6 +800,7 @@ const IssueTrackerPage = () => {
                             <div className="z-[63] relative">
                                 <CustomSelect
                                     label="Assigned To"
+                                    searchable={false}
                                     value={formData.assigned_to?.toString() || ""}
                                     onChange={(val) => setFormData(prev => ({ ...prev, assigned_to: val ? Number(val) : null }))}
                                     options={[

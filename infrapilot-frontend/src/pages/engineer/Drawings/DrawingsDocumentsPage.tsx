@@ -75,6 +75,17 @@ const DrawingsDocumentsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [formData, setFormData] = useState<any>(initialFormData);

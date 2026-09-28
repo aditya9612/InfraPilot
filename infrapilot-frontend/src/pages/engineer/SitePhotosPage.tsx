@@ -156,7 +156,17 @@ const SitePhotosPage = () => {
             // Filter photos from last 7 days
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            data = data.filter(p => new Date(p.date) >= sevenDaysAgo);
+            data = data.filter(p => {
+                if (!p.date) return false;
+                let pd = new Date(p.date);
+                if (isNaN(pd.getTime()) && p.date.includes('-')) {
+                    const parts = p.date.split('-');
+                    if (parts.length === 3 && parts[2].length === 4) {
+                        pd = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    }
+                }
+                return !isNaN(pd.getTime()) && pd >= sevenDaysAgo;
+            });
         } else if (activeStatFilter === "Tasks") {
             // Only show photos with valid activity tags (not empty)
             data = data.filter(p => !!p.activity_tag);
@@ -187,9 +197,17 @@ const SitePhotosPage = () => {
         return {
             total: baseFilteredPhotos.length,
             thisWeek: baseFilteredPhotos.filter(p => {
+                if (!p.date) return false;
                 const sevenDaysAgo = new Date();
                 sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                return new Date(p.date) >= sevenDaysAgo;
+                let pd = new Date(p.date);
+                if (isNaN(pd.getTime()) && p.date.includes('-')) {
+                    const parts = p.date.split('-');
+                    if (parts.length === 3 && parts[2].length === 4) {
+                        pd = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    }
+                }
+                return !isNaN(pd.getTime()) && pd >= sevenDaysAgo;
             }).length,
             activities: baseFilteredPhotos.filter(p => !!p.activity_tag).length,
             locations: baseFilteredPhotos.filter(p => !!p.location_tag).length,

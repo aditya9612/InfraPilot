@@ -43,6 +43,16 @@ const NewDSREntryModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
   const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+
+  // Auto-hide form notification after 2 seconds
+  useEffect(() => {
+    if (formNotification) {
+      const timer = setTimeout(() => {
+        setFormNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [formNotification]);
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "capturing" | "captured" | "error"
   >("idle");
@@ -248,9 +258,8 @@ const NewDSREntryModal = ({
             className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5"
             style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}
           >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-              formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+              }`}>
               <span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span>
             </div>
             <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
@@ -295,11 +304,10 @@ const NewDSREntryModal = ({
                 <button
                   type="button"
                   onClick={() => setTaskDropdownOpen(o => !o)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-sm font-inter transition-all ${
-                    taskDropdownOpen
-                      ? 'border-2 border-primary ring-4 ring-primary/10'
-                      : 'border border-slate-200 hover:border-slate-300'
-                  }`}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-sm font-inter transition-all ${taskDropdownOpen
+                    ? 'border-2 border-primary ring-4 ring-primary/10'
+                    : 'border border-slate-200 hover:border-slate-300'
+                    }`}
                 >
                   <span className={formData.task_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
                     {formData.task_id
@@ -307,9 +315,8 @@ const NewDSREntryModal = ({
                       : '-- Select Task --'}
                   </span>
                   <svg
-                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                      taskDropdownOpen ? 'rotate-180' : ''
-                    }`}
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${taskDropdownOpen ? 'rotate-180' : ''
+                      }`}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -329,11 +336,10 @@ const NewDSREntryModal = ({
                       <button
                         type="button"
                         onClick={() => { setFormData(prev => ({ ...prev, task_id: 0 })); setTaskDropdownOpen(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                          !formData.task_id
-                            ? 'bg-primary/5 text-primary font-semibold'
-                            : 'text-slate-400 hover:bg-slate-50'
-                        }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${!formData.task_id
+                          ? 'bg-primary/5 text-primary font-semibold'
+                          : 'text-slate-400 hover:bg-slate-50'
+                          }`}
                       >
                         -- Select Task --
                       </button>
@@ -345,11 +351,10 @@ const NewDSREntryModal = ({
                           key={t.id}
                           type="button"
                           onClick={() => { setFormData(prev => ({ ...prev, task_id: t.id })); setTaskDropdownOpen(false); }}
-                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${
-                            Number(formData.task_id) === Number(t.id)
-                              ? 'bg-primary/5 text-primary font-semibold'
-                              : 'text-slate-700 hover:bg-slate-50 font-medium'
-                          }`}
+                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${Number(formData.task_id) === Number(t.id)
+                            ? 'bg-primary/5 text-primary font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50 font-medium'
+                            }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0"></span>
                           <span className="truncate">{t.task_name || t.title}</span>

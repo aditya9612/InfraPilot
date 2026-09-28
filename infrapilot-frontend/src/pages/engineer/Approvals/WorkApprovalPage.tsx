@@ -73,6 +73,17 @@ const WorkApprovalPage = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
     const [formNotification, setFormNotification] = useState<{ type: 'success' | 'error', message: string, missingFields?: string[] } | null>(null);
+
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     const { selectedProjectId } = useProject();
 
     useEffect(() => {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Check, X, FileBarChart, CreditCard, BookOpen, AlertTriangle, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
+import { CustomSelect } from '../../components/common/CustomDropdown';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -377,16 +378,18 @@ export default function ApprovalCenterPage() {
                     {/* Left: Items per page */}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                      <select
-                        value={itemsPerPage}
-                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                      >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
+                      <div className="w-[90px] relative z-[60]">
+                        <CustomSelect
+                            value={itemsPerPage.toString()}
+                            onChange={(val: string) => { setItemsPerPage(Number(val)); setCurrentPage(1); }}
+                            options={[
+                                { id: '10', label: '10' },
+                                { id: '20', label: '20' },
+                                { id: '50', label: '50' },
+                                { id: '100', label: '100' }
+                            ]}
+                        />
+                      </div>
                     </div>
 
                     {/* Center: Showing info */}

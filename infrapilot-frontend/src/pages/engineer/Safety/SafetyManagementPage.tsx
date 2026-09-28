@@ -122,6 +122,17 @@ const SafetyManagementPage = () => {
         ppe_compliance: true
     });
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+
+    // Auto-hide form notification after 3 seconds
+    useEffect(() => {
+        if (formNotification) {
+            const timer = setTimeout(() => {
+                setFormNotification(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [formNotification]);
+
     const [formFieldErrors, setFormFieldErrors] = useState<Record<string, boolean>>({});
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
@@ -1039,6 +1050,7 @@ const SafetyManagementPage = () => {
                                     }))}
                                     placeholder="-- Select Project --"
                                     error={!!formFieldErrors['project_id']}
+                                    searchable={false}
                                 />
                                 {formFieldErrors['project_id'] && (
                                     <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
@@ -1051,10 +1063,10 @@ const SafetyManagementPage = () => {
                                     onChange={(val) => setFormData((prev: any) => ({ ...prev, task_id: val ? Number(val) : 0 }))}
                                     options={tasks.map((t: any) => ({
                                         id: t.id.toString(),
-                                        label: t.title || `Task #${t.id}`,
-                                        badge: t.status
+                                        label: t.title || `Task #${t.id}`
                                     }))}
                                     placeholder="-- Select Task --"
+                                    searchable={false}
                                 />
                             </div>
                             <div className="font-inter">
@@ -1103,6 +1115,7 @@ const SafetyManagementPage = () => {
                                         { id: 'completed', label: 'Completed' },
                                         { id: 'failed', label: 'Failed' }
                                     ]}
+                                    searchable={false}
                                 />
                             </div>
                             <div className="font-inter z-[63] relative">
@@ -1115,6 +1128,7 @@ const SafetyManagementPage = () => {
                                         ...VIOLATION_TYPES.map(vt => ({ id: vt, label: vt }))
                                     ]}
                                     placeholder="-- Select Type --"
+                                    searchable={false}
                                 />
                             </div>
 

@@ -17,6 +17,16 @@ interface CreateTaskRequestModalProps {
 export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, projects }: CreateTaskRequestModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+
+  // Auto-hide form notification after 3 seconds
+  useEffect(() => {
+    if (formNotification) {
+      const timer = setTimeout(() => {
+        setFormNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [formNotification]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     project_id: "",
