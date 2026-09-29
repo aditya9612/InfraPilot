@@ -306,6 +306,33 @@ const ProjectDetailsPage = () => {
       }
 
       toast.success("Task updated successfully");
+
+      // Optimistic update for instant UI reflection
+      let updatedAssignedUserId: number | null = null;
+      if (updatedData instanceof FormData) {
+        const auId = updatedData.get("assigned_user_id");
+        if (auId) updatedAssignedUserId = Number(auId);
+      } else {
+        if (updatedData.assigned_user_id) updatedAssignedUserId = Number(updatedData.assigned_user_id);
+      }
+
+      setTasks(prev => prev.map(t => {
+        if (t.id === task_id) {
+          const assignedMember = updatedAssignedUserId ? members.find(m => String(m.user_id) === String(updatedAssignedUserId)) : null;
+          return {
+            ...t,
+            title: payload instanceof FormData ? (payload.get('title') as string || t.title) : (payload.title || t.title),
+            status: payload instanceof FormData ? (payload.get('status') as string || t.status) : (payload.status || t.status),
+            priority: payload instanceof FormData ? (payload.get('priority') as string || t.priority) : (payload.priority || t.priority),
+            start_date: payload instanceof FormData ? (payload.get('start_date') as string || t.start_date) : (payload.start_date || t.start_date),
+            end_date: payload instanceof FormData ? (payload.get('end_date') as string || t.end_date) : (payload.end_date || t.end_date),
+            assigned_user_id: updatedAssignedUserId !== null ? updatedAssignedUserId : t.assigned_user_id,
+            assigned_users: assignedMember ? [{ id: assignedMember.user_id, name: assignedMember.full_name, role: assignedMember.role }] : t.assigned_users,
+          };
+        }
+        return t;
+      }));
+
       fetchProjectData();
     } catch (err: any) {
       console.error("Task update failed", err);
@@ -401,7 +428,6 @@ const ProjectDetailsPage = () => {
     try {
       const { milestone_id, ...data } = updatedData;
       await projectService.updateMilestone(projectId, milestone_id, data);
-      toast.success("Milestone updated");
       fetchProjectData();
     } catch (error) {
       toast.error("Failed to update milestone");

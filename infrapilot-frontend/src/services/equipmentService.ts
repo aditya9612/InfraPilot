@@ -499,6 +499,16 @@ export const equipmentService = {
         return response.data;
     },
 
+    async receiveRentalIn(purchase_id: number, data: { equipment_name: string; equipment_code: string; condition: string; expected_end_date: string }): Promise<any> {
+        const response = await api.post(`/equipment/rental-in/${purchase_id}/receive`, data);
+        return response.data;
+    },
+
+    async receiveRentalInLegacy(equipment_id: number, purchase_id: number): Promise<any> {
+        const response = await api.post(`/equipment/${equipment_id}/rental-in/${purchase_id}/receive`);
+        return response.data;
+    },
+
     async returnRentalIn(equipment_id: number, purchase_id: number): Promise<any> {
         const response = await api.post(`/equipment/${equipment_id}/rental-in/${purchase_id}/return`);
         return response.data;

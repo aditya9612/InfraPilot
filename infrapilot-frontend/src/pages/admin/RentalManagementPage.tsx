@@ -5,24 +5,30 @@ import StatCard from '../../components/common/StatCard';
 import { equipmentService } from '../../services/equipmentService';
 import type { EquipmentItem as Equipment, CreateRentalRequest, ReturnInspectionRequest, RentalItem } from '../../services/equipmentService';
 import toast from 'react-hot-toast';
-import { Search, Plus, RotateCcw, CheckCircle, Download, FileText, ClipboardList, Activity, CheckCircle2, IndianRupee, RefreshCcw, Eye } from 'lucide-react';
+import { Search, Plus, RotateCcw, CheckCircle, Download, FileText, ClipboardList, Activity, CheckCircle2, IndianRupee, RefreshCcw, Eye, Inbox } from 'lucide-react';
 import { useProject } from '../../context/ProjectContext';
 import CreateRentalModal from '../../components/forms/CreateRentalModal';
 import CreateReturnInspectionModal from '../../components/forms/CreateReturnInspectionModal';
 import ViewRentalModal from '../../components/forms/ViewRentalModal';
+import ReceiveRentalModal from '../../components/forms/ReceiveRentalModal';
+import Modal from '../../components/common/Modal';
 
 const RentalManagementPage = () => {
     const { selectedProjectId, assignedProjects } = useProject();
     const [rentals, setRentals] = useState<RentalItem[]>([]);
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+    const [pendingPurchases, setPendingPurchases] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+    const [confirmCompleteRentalId, setConfirmCompleteRentalId] = useState<number | null>(null);
 
     // Track selected item
     const [selectedRental, setSelectedRental] = useState<RentalItem | null>(null);
+    const [selectedPurchaseId, setSelectedPurchaseId] = useState<number | null>(null);
     const [viewedEqName, setViewedEqName] = useState<string>('');
     const [viewedProjName, setViewedProjName] = useState<string>('');
 
@@ -35,6 +41,10 @@ const RentalManagementPage = () => {
         try {
             const data = await equipmentService.getAllRentals({ project_id: selectedProjectId || undefined });
             setRentals(data);
+
+            const pendingRes = await equipmentService.listPurchase({ purchase_type: 'RENT' });
+            const pItems = Array.isArray(pendingRes?.items) ? pendingRes.items : (Array.isArray(pendingRes) ? pendingRes : []);
+            setPendingPurchases(pItems.filter((p: any) => !p.is_received));
 
             // Also fetch basic equipment lookup (Backend limits to 100 max per request)
             let allEq: Equipment[] = [];
@@ -79,11 +89,12 @@ const RentalManagementPage = () => {
         }
     };
 
-    const handleCompleteRental = async (rentalId: number) => {
-        if (!confirm("Are you sure you want to mark this rental as completed?")) return;
+    const handleCompleteRental = async () => {
+        if (!confirmCompleteRentalId) return;
         try {
-            await equipmentService.completeRental(rentalId);
+            await equipmentService.completeRental(confirmCompleteRentalId);
             toast.success("Rental marked as complete!");
+            setConfirmCompleteRentalId(null);
             fetchRentals();
         } catch (error) {
             toast.error("Failed to complete rental");
@@ -107,6 +118,34 @@ const RentalManagementPage = () => {
             fetchRentals();
         } catch (error) {
             toast.error("Failed to generate invoice");
+        }
+    };
+
+    const handleReceiveRentalInLegacy = async (equipmentId: number) => {
+        if (!selectedPurchaseId) return;
+        try {
+            await equipmentService.receiveRentalInLegacy(equipmentId, selectedPurchaseId);
+            toast.success("Equipment successfully linked and received!");
+            setIsReceiveModalOpen(false);
+            setSelectedPurchaseId(null);
+            fetchRentals();
+        } catch (error) {
+            toast.error("Failed to link and receive equipment");
+            throw error;
+        }
+    };
+
+    const handleReceiveRentalInNew = async (data: { equipment_name: string; equipment_code: string; condition: string; expected_end_date: string }) => {
+        if (!selectedPurchaseId) return;
+        try {
+            await equipmentService.receiveRentalIn(selectedPurchaseId, data);
+            toast.success("Equipment created and recorded successfully!");
+            setIsReceiveModalOpen(false);
+            setSelectedPurchaseId(null);
+            fetchRentals();
+        } catch (error) {
+            toast.error("Failed to receive new equipment");
+            throw error;
         }
     };
 
@@ -169,6 +208,57 @@ const RentalManagementPage = () => {
                     <StatCard title="Total Rental Spend" value={`₹${totalSpend.toLocaleString()}`} sub="Cumulative cost" accent="text-indigo-500" icon={<IndianRupee className="w-5 h-5" />} />
                 </div>
 
+                {/* Pending Receptions Section */}
+                {pendingPurchases.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 tracking-tight uppercase">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span> Pending Rental-In Receptions
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <table className="w-full text-left whitespace-nowrap">
+                                <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b">
+                                    <tr>
+                                        <th className="px-6 py-4">PO / Inv #</th>
+                                        <th className="px-6 py-4">Vendor</th>
+                                        <th className="px-6 py-4">Purchase Date</th>
+                                        <th className="px-6 py-4">Quantity / Cost</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {pendingPurchases.map(p => (
+                                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800">PO-{p.id}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5 font-bold">INV: {p.invoice_number || 'N/A'}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800">{p.vendor_name || 'N/A'}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-700">{p.purchase_date}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-emerald-600">₹{p.total_amount}</div>
+                                                <div className="text-[10px] text-emerald-500 mt-0.5 font-bold">Qty: {p.quantity}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button
+                                                    onClick={() => { setSelectedPurchaseId(p.id); setIsReceiveModalOpen(true); }}
+                                                    className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                                    title="Receive Equipment"
+                                                >
+                                                    <Inbox className="w-4 h-4" /> Receive
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Table Section */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1 min-h-[500px]">
                     <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-4">
@@ -220,7 +310,7 @@ const RentalManagementPage = () => {
                                                 {rental.client_id && <div className="text-[10px] text-slate-500 mt-0.5 font-bold">Client ID: #{rental.client_id}</div>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-xs font-bold text-slate-700">{rental.duration} Day(s)</div>
+                                                <div className="text-xs font-bold text-slate-700">{rental.duration} {rental.duration === 1 ? 'Day' : 'Days'}</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-[10px] text-slate-500">{rental.start_date} → <br /> {rental.end_date}</div>
@@ -243,8 +333,8 @@ const RentalManagementPage = () => {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1">
                                                     <button onClick={() => { setSelectedRental(rental); setViewedEqName(eqName); setViewedProjName(projName); setIsViewModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded" title="View details"><Eye className="w-4 h-4" /></button>
-                                                    <button onClick={() => handleCompleteRental(rental.id)} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Complete Rental"><CheckCircle className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedRental(rental); setIsInspectionModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Return Inspection"><RotateCcw className="w-4 h-4" /></button>
+                                                    <button onClick={() => setConfirmCompleteRentalId(rental.id)} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Complete Rental"><CheckCircle className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedRental(rental); setViewedEqName(eqName); setIsInspectionModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Return Inspection"><RotateCcw className="w-4 h-4" /></button>
                                                     <button onClick={() => handleVendorBill(rental.equipment_id, rental.id)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded" title="Vendor Bill (IN)"><FileText className="w-4 h-4" /></button>
                                                     <button onClick={() => handleInvoice(rental.equipment_id, rental.id)} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Invoice (OUT)"><Download className="w-4 h-4" /></button>
                                                 </div>
@@ -299,15 +389,56 @@ const RentalManagementPage = () => {
                 onClose={() => { setIsInspectionModalOpen(false); setSelectedRental(null); }}
                 onSubmit={handleCreateInspection}
                 rentalItem={selectedRental}
+                equipmentName={viewedEqName}
             />
 
             <ViewRentalModal
                 isOpen={isViewModalOpen}
                 onClose={() => { setIsViewModalOpen(false); setSelectedRental(null); }}
-                rental={selectedRental}
+                rentalId={selectedRental?.id || null}
                 equipmentName={viewedEqName}
                 projectName={viewedProjName}
             />
+
+            <ReceiveRentalModal
+                isOpen={isReceiveModalOpen}
+                onClose={() => { setIsReceiveModalOpen(false); setSelectedPurchaseId(null); }}
+                onSubmitLegacy={handleReceiveRentalInLegacy}
+                onSubmitNew={handleReceiveRentalInNew}
+                equipmentList={equipmentList}
+            />
+
+            {/* Custom Confirmation Modal for Completing Rental */}
+            <Modal
+                isOpen={!!confirmCompleteRentalId}
+                onClose={() => setConfirmCompleteRentalId(null)}
+                title="Confirm Completion"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmCompleteRentalId(null)}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCompleteRental}
+                            className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95"
+                        >
+                            Confirm & Complete
+                        </button>
+                    </>
+                }
+                maxWidth="max-w-sm"
+            >
+                <div className="p-2 space-y-4">
+                    <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                        Are you sure you want to mark this rental as completed? This action will formally close the rental period.
+                    </p>
+                </div>
+            </Modal>
         </>
     );
 };

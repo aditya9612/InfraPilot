@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FileText, Calendar, Tag, Package, Activity, Clock, FileDigit, IndianRupee } from "lucide-react";
 import type { RentalItem } from '../../services/equipmentService';
+import { equipmentService } from '../../services/equipmentService';
 
 interface ViewRentalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    rental: RentalItem | null;
+    rentalId: number | null;
     equipmentName: string;
     projectName: string;
 }
@@ -13,11 +14,42 @@ interface ViewRentalModalProps {
 const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
     isOpen,
     onClose,
-    rental,
+    rentalId,
     equipmentName,
     projectName
 }) => {
-    if (!isOpen || !rental) return null;
+    const [rental, setRental] = useState<RentalItem | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchRentalData = async () => {
+            if (!isOpen || !rentalId) return;
+            setIsLoading(true);
+            try {
+                const data = await equipmentService.getRental(rentalId);
+                setRental(data);
+            } catch (error) {
+                console.error("Failed to fetch rental details", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchRentalData();
+    }, [isOpen, rentalId]);
+
+    if (!isOpen) return null;
+
+    if (isLoading || !rental) {
+        return (
+            <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex justify-center items-center">
+                <div className="bg-white p-6 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm font-bold text-slate-500">Loading rental details...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
@@ -32,7 +64,7 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                     Rental Details
                                 </h3>
                                 <p className="text-xs text-slate-500 font-medium">
-                                    View information for Rental #{rental.id}
+                                    View information for {equipmentName} (Rental #{rental.id})
                                 </p>
                             </div>
                         </div>
@@ -111,7 +143,7 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                         <Clock className="w-4 h-4 text-slate-400" />
                                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration</p>
                                     </div>
-                                    <p className="text-sm font-bold text-slate-800">{rental.duration} Day(s)</p>
+                                    <p className="text-sm font-bold text-slate-800">{rental.duration} {rental.duration === 1 ? 'Day' : 'Days'}</p>
                                 </div>
 
                                 {/* Billing Reference */}
@@ -142,6 +174,24 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                         ₹{rental.rental_cost}
                                     </p>
                                 </div>
+
+                                {/* BOQ Item ID */}
+                                <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FileDigit className="w-4 h-4 text-slate-400" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">BOQ Item ID</p>
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-800">{rental.boq_item_id || 'None'}</p>
+                                </div>
+
+                                {/* Client ID */}
+                                <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Tag className="w-4 h-4 text-slate-400" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Client ID</p>
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-800">{rental.client_id || 'None'}</p>
+                                </div>
                             </div>
 
                             {/* Notes */}
@@ -155,10 +205,9 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                 </div>
                             )}
 
-                            {/* Created At */}
                             <div className="text-right mt-2">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                    Record logged: {new Date(rental.created_at || '').toLocaleString()}
+                                    Record logged: {new Date((rental.created_at || '') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium', hour12: true })} IST
                                 </p>
                             </div>
                         </div>

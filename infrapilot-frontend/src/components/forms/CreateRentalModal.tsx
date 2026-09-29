@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
+import { boqService } from '../../services/boqService';
 import type { CreateRentalRequest } from '../../services/equipmentService';
 
 interface CreateRentalModalProps {
@@ -20,6 +21,8 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [equipmentId, setEquipmentId] = useState<number | ''>('');
+    const [boqItems, setBoqItems] = useState<any[]>([]);
+    const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
 
     // Core payload
     const [formData, setFormData] = useState<CreateRentalRequest>({
@@ -32,6 +35,7 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
         is_received: false,
         is_returned: false,
         project_id: null,
+        boq_item_id: null,
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,6 +50,19 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
             setFormData(prev => ({ ...prev, [name]: value }));
         }
     };
+
+    useEffect(() => {
+        if (formData.project_id) {
+            boqService.getBoqsByProject(Number(formData.project_id))
+                .then(setBoqItems)
+                .catch(console.error);
+        } else {
+            setBoqItems([]);
+            if (formData.boq_item_id) {
+                setFormData(prev => ({ ...prev, boq_item_id: null }));
+            }
+        }
+    }, [formData.project_id]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -73,6 +90,7 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
                 ...formData,
                 rental_cost: Number(formData.rental_cost),
                 project_id: formData.project_id ? Number(formData.project_id) : null,
+                boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : null,
             };
             await onSubmit(Number(equipmentId), payload);
             setEquipmentId('');
@@ -86,6 +104,7 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
                 is_received: false,
                 is_returned: false,
                 project_id: null,
+                boq_item_id: null,
             });
         } catch (error) {
             console.error('Submit error', error);
@@ -170,6 +189,53 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
                                 <option key={p.id} value={p.id}>{p.project_name}</option>
                             ))}
                         </select>
+                    </div>
+
+                    {/* BOQ Item ID */}
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">BOQ Item (Optional)</label>
+                        <div
+                            className={`w-full px-4 py-2.5 bg-white border ${isBoqDropdownOpen ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'} rounded-xl text-sm transition-all cursor-pointer flex justify-between items-center ${(!formData.project_id || boqItems.length === 0) ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
+                            onClick={() => {
+                                if (formData.project_id && boqItems.length > 0) {
+                                    setIsBoqDropdownOpen(!isBoqDropdownOpen);
+                                }
+                            }}
+                        >
+                            <span className={formData.boq_item_id ? 'text-slate-800 font-medium' : 'text-slate-600'}>
+                                {formData.boq_item_id ? boqItems.find(i => i.id === formData.boq_item_id)?.item_name : 'Select BOQ Item'}
+                            </span>
+                            <svg className={`w-4 h-4 transition-transform ${isBoqDropdownOpen ? 'rotate-180 text-primary' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+
+                        {isBoqDropdownOpen && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-56 overflow-y-auto custom-scrollbar">
+                                <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsBoqDropdownOpen(false); }}></div>
+                                <div className="relative z-50 py-1">
+                                    <div
+                                        className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-500 transition-colors"
+                                        onClick={() => {
+                                            setFormData(prev => ({ ...prev, boq_item_id: null }));
+                                            setIsBoqDropdownOpen(false);
+                                        }}
+                                    >
+                                        Clear Selection
+                                    </div>
+                                    {boqItems.map(item => (
+                                        <div
+                                            key={item.id}
+                                            className={`px-4 py-2 hover:bg-primary/5 cursor-pointer text-sm transition-colors ${formData.boq_item_id === item.id ? 'bg-primary/10 text-primary font-bold' : 'text-slate-700'}`}
+                                            onClick={() => {
+                                                setFormData(prev => ({ ...prev, boq_item_id: item.id }));
+                                                setIsBoqDropdownOpen(false);
+                                            }}
+                                        >
+                                            {item.item_name}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Start Date */}

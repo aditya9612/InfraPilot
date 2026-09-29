@@ -10,6 +10,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { projectService } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
+import { quotationService } from "../../services/quotationService";
 import type { Project, ProjectStatus } from "../../types/project";
 import SortDropdown from "../../components/common/SortDropdown";
 import ConvertQuotationModal from "../../components/dashboard/ConvertQuotationModal";
@@ -112,10 +113,11 @@ const ProjectsPage = () => {
         fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
       }
 
-      const [pAlerts, tAlerts, invoices] = await Promise.all([
+      const [pAlerts, tAlerts, invoices, quotations] = await Promise.all([
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
-        financeService.getInvoices(50, 0).catch(() => [])
+        financeService.getInvoices(50, 0).catch(() => []),
+        quotationService.getQuotations(50, 0).catch(() => [])
       ]);
 
       setProjects(projectList);
@@ -135,6 +137,10 @@ const ProjectsPage = () => {
       const filteredInvoices = user?.role === "ProjectManager"
         ? invoices.filter((inv: any) => assignedProjectIds.has(inv.project_id))
         : invoices;
+
+      const filteredQuotations = user?.role === "ProjectManager"
+        ? quotations.filter((q: any) => assignedProjectIds.has(q.project_id))
+        : quotations;
 
       const combined = [
         ...filteredPAlerts.map((a: any) => ({
@@ -166,6 +172,15 @@ const ProjectsPage = () => {
           type: "Finance",
           icon: "🧾",
           color: "bg-amber-50 text-amber-500",
+        })),
+        ...filteredQuotations.map((q: any) => ({
+          user: q.client_name || "System",
+          action: `Quotation #${q.id}: ${q.status || 'Generated'}`,
+          rawTime: q.created_at || "",
+          time: q.created_at ? new Date(q.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+          type: "Finance",
+          icon: "📄",
+          color: "bg-indigo-50 text-indigo-500",
         }))
       ].sort((a, b) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
 

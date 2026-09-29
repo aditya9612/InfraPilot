@@ -124,16 +124,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
           </div>
         )}
 
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
-            <h3 className="font-semibold text-gray-700">System metadata</h3>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoItem label="Entity ID" value={`#MD-${item.id.toString().padStart(4, '0')}`} isMono />
-          </div>
-        </div>
       </div>
     </Modal>
   );
