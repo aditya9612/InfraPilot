@@ -8,6 +8,7 @@ interface CreateReturnInspectionModalProps {
     onClose: () => void;
     onSubmit: (equipmentId: number, data: ReturnInspectionRequest) => Promise<void>;
     rentalItem: any;
+    equipmentName?: string;
 }
 
 const CreateReturnInspectionModal: React.FC<CreateReturnInspectionModalProps> = ({
@@ -15,6 +16,7 @@ const CreateReturnInspectionModal: React.FC<CreateReturnInspectionModalProps> = 
     onClose,
     onSubmit,
     rentalItem,
+    equipmentName,
 }) => {
     const [isLoading, setIsLoading] = useState(false);
 
@@ -116,14 +118,10 @@ const CreateReturnInspectionModal: React.FC<CreateReturnInspectionModalProps> = 
         >
             <form id="create-inspection-form" onSubmit={handleSubmit} className="space-y-6">
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center mb-6">
-                    <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rental ID</p>
-                        <p className="text-sm font-bold text-slate-700">#{rentalItem?.id}</p>
-                    </div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-end items-center mb-6">
                     <div className="text-right">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Equipment</p>
-                        <p className="text-sm font-bold text-slate-700">#{rentalItem?.equipment_id}</p>
+                        <p className="text-sm font-bold text-slate-700">{equipmentName || `#${rentalItem?.equipment_id}`}</p>
                     </div>
                 </div>
 
@@ -151,9 +149,9 @@ const CreateReturnInspectionModal: React.FC<CreateReturnInspectionModalProps> = 
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
                         >
                             <option value="GOOD">Good</option>
-                            <option value="FAIR">Fair (Normal Wear & Tear)</option>
+                            <option value="REPAIR">Repair</option>
                             <option value="DAMAGED">Damaged</option>
-                            <option value="REPAIR_NEEDED">Repair Needed</option>
+                            <option value="MAINTENANCE">Maintenance</option>
                         </select>
                         {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
                     </div>

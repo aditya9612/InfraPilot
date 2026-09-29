@@ -58,11 +58,9 @@ const ManagerBOQPage = () => {
     const [boqData, setBoqData] = useState<BoqItem[]>([]);
     const [projectMap, setProjectMap] = useState<Record<number, string>>({});
     const [activityTypeMap, setActivityTypeMap] = useState<Record<number, string>>({});
-    const [boqGroups, setBoqGroups] = useState<any[]>([]);
 
     const [summary, setSummary] = useState<BoqSummary | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [itemRefreshCounter, setItemRefreshCounter] = useState(0);
 
     // Filter States
     const [searchTerm, setSearchTerm] = useState("");
@@ -168,28 +166,12 @@ const ManagerBOQPage = () => {
         loadInitialData();
     }, [assignedProjects]);
 
-    // Fetch BOQ groups whenever project changes
-    useEffect(() => {
-        if (!selectedProjectId) { setBoqGroups([]); return; }
-        boqService.getBoqsByProject(Number(selectedProjectId))
-            .then(async (items: any[]) => {
-                // Removed draft filter so newly created BOQs show up
-                const masters = items;
-
-                // Fetch details for each master to get the correct internal boq_group_id to avoid 404s
-                const enrichedMasters = await Promise.all(masters.map(async (m: any) => {
-                    try {
-                        const detail = await boqService.getBoqById(m.id);
-                        return { ...m, true_group_id: detail.boq_group_id || m.boq_group_id || m.id };
-                    } catch {
-                        return { ...m, true_group_id: m.boq_group_id || m.id };
-                    }
-                }));
-
-                setBoqGroups(enrichedMasters);
-            })
-            .catch(() => { setBoqGroups([]); });
-    }, [selectedProjectId, itemRefreshCounter]);
+    const boqGroups = useMemo(() => {
+        return boqData.map((m: any) => ({
+            ...m,
+            true_group_id: m.boq_group_id || m.id
+        }));
+    }, [boqData]);
 
     const refreshBoqs = useCallback(async () => {
         setIsLoading(true);
@@ -491,7 +473,6 @@ const ManagerBOQPage = () => {
             await boqService.addBoqItem(selectedBoqGroupId, data);
             toast.success("BOQ Item added successfully!");
             await refreshBoqs();
-            setItemRefreshCounter(prev => prev + 1);
             setIsAddBoqItemModalOpen(false);
             setSelectedBoqGroupId(null);
             handleTabChange("item-list");

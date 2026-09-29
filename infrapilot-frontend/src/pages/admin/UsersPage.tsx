@@ -26,10 +26,10 @@ const UsersPage = () => {
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 10;
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (searchQuery = searchTerm) => {
     try {
       setIsLoading(true);
-      const res = await userService.getAllUsers(100, 0);
+      const res = await userService.getAllUsers(100, 0, searchQuery);
       const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
       setUsers(userList);
     } catch (error) {
@@ -41,8 +41,11 @@ const UsersPage = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchUsers(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleCreateOrUpdateUser = async (userData: any) => {
     try {
@@ -55,7 +58,7 @@ const UsersPage = () => {
       }
       setIsModalOpen(false);
       setEditingUser(null);
-      fetchUsers();
+      fetchUsers(searchTerm);
     } catch (error) {
       toast.error(editingUser ? "Failed to update user" : "Failed to create user");
       console.error(error);
@@ -79,7 +82,7 @@ const UsersPage = () => {
         toast.success("User deleted successfully!");
         setIsDeleteModalOpen(false);
         setUserToDelete(null);
-        fetchUsers();
+        fetchUsers(searchTerm);
       } catch (error) {
         toast.error("Failed to delete user");
         console.error(error);

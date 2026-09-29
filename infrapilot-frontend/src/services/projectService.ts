@@ -331,9 +331,10 @@ export const projectService = {
     }
   },
 
-  async getTaskRequests(params?: number | { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number }) {
+  async getTaskRequests(params?: number | { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number; page?: number; page_size?: number }) {
     try {
-      const queryParams = typeof params === 'number' ? { project_id: params } : (params || {});
+      const inputParams = typeof params === 'number' ? { project_id: params } : (params || {});
+      const queryParams = { page: 1, page_size: 100, ...inputParams };
       const response = await api.get('projects/task-requests', { params: queryParams });
       const data = response.data;
       return Array.isArray(data) ? data : (data?.items || data?.data || []);
@@ -408,7 +409,15 @@ export const projectService = {
         payload = new FormData();
         for (const [key, value] of Object.entries(taskData)) {
           if (value !== undefined && value !== null) {
-            payload.append(key, String(value));
+            if (Array.isArray(value)) {
+              if (value.length === 0) {
+                payload.append(key, "");
+              } else {
+                value.forEach(v => payload.append(key, String(v)));
+              }
+            } else {
+              payload.append(key, String(value));
+            }
           }
         }
       }
