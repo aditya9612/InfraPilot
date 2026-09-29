@@ -110,13 +110,13 @@ export const documentService = {
      * GET /api/v1/documents/{id}/download
      */
     async getDownloadUrl(id: number): Promise<{ file_url: string }> {
-        const response = await api.get(`/drawings/documents/download/${id}`);
+        const response = await api.get(`/documents/${id}/download`);
         return response.data;
     },
 
     async downloadDocument(id: number, fileName?: string) {
         try {
-            const response = await api.get(`/drawings/documents/download/${id}`, {
+            const response = await api.get(`/documents/${id}/download`, {
                 responseType: 'blob'
             });
 

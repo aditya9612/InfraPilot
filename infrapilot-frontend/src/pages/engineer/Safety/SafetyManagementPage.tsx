@@ -405,7 +405,6 @@ const SafetyManagementPage = () => {
             const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
             setFormNotification({ type: 'error', message: msg, fields: missingFields });
             setFormFieldErrors(fieldErrors);
-            toast.error(msg, { id: 'validation' });
             return;
         }
 
@@ -513,7 +512,6 @@ const SafetyManagementPage = () => {
             const msg = `Please fill the following mandatory field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`;
             setFormNotification({ type: 'error', message: msg, fields: missingFields });
             setFormFieldErrors(fieldErrors);
-            toast.error(msg, { id: 'validation' });
             return;
         }
 
@@ -606,9 +604,7 @@ const SafetyManagementPage = () => {
                             </span>
                         </div>
                         <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">
-                            {formNotification.type === 'error'
-                                ? `Mandatory fields required: ${(formNotification.fields || []).join(', ')}`
-                                : formNotification.message}
+                            {formNotification.message}
                         </p>
                         <button
                             type="button"

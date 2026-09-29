@@ -636,8 +636,16 @@ const MachineryPage = () => {
 
             // The API returns a batch response — check if allocation actually succeeded
             if (result.success_count === 0 || (result.failed && result.failed.length > 0)) {
-                const reason = result.failed?.[0]?.reason || "Equipment could not be allocated";
-                setFormNotification({ type: 'error', message: `Allocation failed: ${reason}` });
+                const rawReason = (result.failed?.[0]?.reason || "").toLowerCase();
+                let userMessage: string;
+                if (rawReason.includes('maintenance')) {
+                    userMessage = `Equipment "${selectedEquipment.equipment_name}" is currently under maintenance and cannot be allocated to a project. Please wait until the maintenance is complete.`;
+                } else if (rawReason.includes('already allocated') || rawReason.includes('in use')) {
+                    userMessage = `Equipment "${selectedEquipment.equipment_name}" is already allocated to another project.`;
+                } else {
+                    userMessage = result.failed?.[0]?.reason || "Equipment could not be allocated. Please try again.";
+                }
+                setFormNotification({ type: 'error', message: userMessage });
                 return;
             }
 

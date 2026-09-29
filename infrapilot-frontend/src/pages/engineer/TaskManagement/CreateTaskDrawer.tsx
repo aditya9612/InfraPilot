@@ -542,6 +542,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     ...assignedProjects.map(p => ({ id: p.id || p.project_id, label: p.project_name || p.name }))
                                 ]}
                                 placeholder="Select project"
+                                searchable={false}
                             />
                             {errors.project && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">REQUIRED</p>}
                         </div>
@@ -557,6 +558,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     ...activities.map(a => ({ id: a.id, label: a.name || a.activity_name || a.title }))
                                 ]}
                                 placeholder="Select activity type"
+                                searchable={false}
                             />
                         </div>
 
@@ -571,6 +573,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     ...milestones.map(m => ({ id: m.id, label: m.name }))
                                 ]}
                                 placeholder="Select milestone"
+                                searchable={false}
                             />
                         </div>
 
@@ -585,6 +588,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     ...boqs.map(b => ({ id: b.id, label: b.item_name || b.name || b.item_description || 'BOQ Item' }))
                                 ]}
                                 placeholder="Select BOQ item"
+                                searchable={false}
                             />
                         </div>
 
