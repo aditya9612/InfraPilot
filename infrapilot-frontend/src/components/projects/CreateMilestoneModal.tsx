@@ -46,7 +46,6 @@ const CreateMilestoneModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.description.trim()) newErrors.description = "Description is required.";
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
     else if (formData.start_date && formData.end_date < formData.start_date) {
@@ -136,9 +135,9 @@ const CreateMilestoneModal = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Description</label>
               <textarea
-                required name="description" value={formData.description} onChange={handleChange} placeholder="What does this milestone achieve?" rows={3}
+                name="description" value={formData.description} onChange={handleChange} placeholder="What does this milestone achieve?" rows={3}
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.description ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
               />
               {errors.description && <p className="text-[10px] text-red-500 mt-1">{errors.description}</p>}
@@ -151,23 +150,23 @@ const CreateMilestoneModal = ({
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Schedule & Deadline</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Start Date</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Start Date <span className="text-red-500">*</span></label>
               <input
-                type="date" name="start_date" value={formData.start_date} onChange={handleChange}
+                required type="date" name="start_date" value={formData.start_date} onChange={handleChange}
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.start_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all text-slate-700`}
               />
               {errors.start_date && <p className="text-[10px] text-red-500 mt-1">{errors.start_date}</p>}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Target End Date</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Target End Date <span className="text-red-500">*</span></label>
               <input
-                type="date" name="end_date" value={formData.end_date} onChange={handleChange}
+                required type="date" name="end_date" value={formData.end_date} onChange={handleChange}
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all text-slate-700`}
               />
               {errors.end_date && <p className="text-[10px] text-red-500 mt-1">{errors.end_date}</p>}
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 mb-1">Initial Status</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Initial Status <span className="text-red-500">*</span></label>
               <select
                 name="status"
                 value={formData.status}

@@ -24,7 +24,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Subscriptions", path: "/superadmin/subscriptions", icon: "clipboard-list" },
     { label: "Manual Payments", path: "/superadmin/manual-payments", icon: "file-text" },
     { label: "Billing & Reconciliation", path: "/superadmin/billing", icon: "dollar-sign" },
-    { label: "Audit Logs", path: "/superadmin/audit-logs", icon: "shield-check" },
   ],
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
@@ -55,7 +54,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       subNav: [
         { label: "Roles & Permissions", path: "/admin/access-control/roles", icon: "user-check" },
         { label: "User Management", path: "/admin/users", icon: "users" },
-        { label: "Audit Logs", path: "/admin/audit-logs", icon: "file-text" },
       ],
     },
     { label: "Clients", path: "/admin/clients", icon: "user-check" },

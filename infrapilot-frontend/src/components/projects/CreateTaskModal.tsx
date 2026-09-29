@@ -179,14 +179,7 @@ const CreateTaskModal = ({
       newErrors.priority = "Priority is required.";
       errorFields.push("Priority");
     }
-    if (!formData.start_date) {
-      newErrors.start_date = "Start Date is required.";
-      errorFields.push("Start Date");
-    }
-    if (!formData.end_date) {
-      newErrors.end_date = "End Date is required.";
-      errorFields.push("End Date");
-    }
+    // Dates are optional Fields
 
     if (Object.keys(newErrors).length > 0) {
       setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: errorFields });
@@ -311,13 +304,14 @@ const CreateTaskModal = ({
       footer={modalFooter}
       maxWidth="max-w-3xl"
     >
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
           @keyframes slideDownIn {
               from { transform: translateY(-100%); opacity: 0; }
               to { transform: translateY(0); opacity: 1; }
           }
       `}} />
-      
+
       {/* Top-right floating toast */}
       {formNotification && (
         <div
@@ -595,20 +589,18 @@ const CreateTaskModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Start Date <span className="text-red-500">*</span></label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Start Date</label>
                     <input
                       type="date" name="start_date" value={formData.start_date} onChange={handleChange}
-                      className={`w-full px-4 py-2.5 bg-white border ${errors.start_date ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium`}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all font-medium"
                     />
-                    {errors.start_date && <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider mt-1 ml-1">REQUIRED</p>}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">End Date <span className="text-red-500">*</span></label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">End Date</label>
                     <input
                       type="date" name="end_date" value={formData.end_date} onChange={handleChange}
-                      className={`w-full px-4 py-2.5 bg-white border ${errors.end_date ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium`}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all font-medium"
                     />
-                    {errors.end_date && <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider mt-1 ml-1">REQUIRED</p>}
                   </div>
                 </div>
               </div>

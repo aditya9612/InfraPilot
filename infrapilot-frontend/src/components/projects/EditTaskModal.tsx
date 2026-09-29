@@ -218,7 +218,6 @@ const EditTaskModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title || !formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
@@ -263,9 +262,15 @@ const EditTaskModal = ({
         if (instructionImage) form.append("instruction_image", instructionImage);
 
         form.append("activity_name", formData.title);
-        form.append("engineer_id", String(formData.assigned_user_id));
-        form.append("assigned_to", String(formData.assigned_user_id));
-        form.append("user_id", String(formData.assigned_user_id));
+
+        const uid = formData.assigned_user_id ? String(formData.assigned_user_id) : "";
+        if (uid) {
+          form.append("engineer_id", uid);
+          form.append("assigned_to", uid);
+          form.append("user_id", uid);
+          form.append("assigned_user_ids", uid); // Additional fallback
+          form.append("assigned_users", uid); // Array mapping fallback
+        }
         submitData = form;
       } else {
         submitData = {
@@ -284,9 +289,11 @@ const EditTaskModal = ({
           milestone_id: formData.milestone_id ? Number(formData.milestone_id) : null,
           activity_type_id: formData.activity_type_id ? Number(formData.activity_type_id) : null,
           activity_name: formData.title,
-          engineer_id: Number(formData.assigned_user_id),
-          assigned_to: Number(formData.assigned_user_id),
-          user_id: Number(formData.assigned_user_id),
+          engineer_id: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
+          assigned_to: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
+          user_id: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
+          assigned_user_ids: formData.assigned_user_id ? String(formData.assigned_user_id) : "",
+          assigned_users: formData.assigned_user_id ? String(formData.assigned_user_id) : "",
           remove_audio: formData.remove_audio,
           remove_image: formData.remove_image,
         };
@@ -535,8 +542,6 @@ const EditTaskModal = ({
                 <CustomSelect
                   label="Assigned User"
                   icon={UserCircle}
-                  required
-                  disabled
                   placeholder="Select User"
                   value={formData.assigned_user_id}
                   onChange={(val) => handleSelectChange('assigned_user_id', val)}

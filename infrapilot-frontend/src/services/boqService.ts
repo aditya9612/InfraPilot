@@ -562,7 +562,7 @@ export const boqService = {
    * Get BOQ alerts
    * GET /api/v1/boq/{boq_id}/alerts
    */
-  async getBoqAlerts(boqId: number): Promise<any[]> {
+  async getBoqAlerts(boqId: number): Promise<any> {
     try {
       const response = await api.get(`/boq/${boqId}/alerts`);
       return response.data;
