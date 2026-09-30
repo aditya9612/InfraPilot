@@ -12,6 +12,7 @@ import { quotationService } from "../../../services/quotationService";
 import { paymentService } from "../../../services/paymentService";
 import { notificationService } from "../../../services/notificationService";
 import { financeService } from "../../../services/financeService";
+import { fetchClientAssignedProjects } from "../../../utils/clientProjectUtils";
 import { useParams, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -324,9 +325,8 @@ const ClientPaymentPage = () => {
 
   // ── Sync projects and active project name dynamically ──
   useEffect(() => {
-    projectService.getProjects(100, 0)
-      .then(res => {
-        const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
+    fetchClientAssignedProjects(user)
+      .then(items => {
         setAvailableProjects(items);
         if (items.length > 0) {
           const currentId = projectId ? Number(projectId) : null;
@@ -2274,13 +2274,7 @@ const ClientPaymentPage = () => {
                   <p className="text-[12px] font-medium text-slate-700">{selectedPayment.projectName}</p>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => { setIsViewModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Close</button>
-                  <button onClick={() => handleOpenEdit(selectedPayment!)} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </button>
-                  <button onClick={() => handleDownloadReceipt(selectedPayment!)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
-                    <Download className="w-3.5 h-3.5" /> Receipt
-                  </button>
+                  <button onClick={() => { setIsViewModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 active:scale-95">Close</button>
                 </div>
               </div>
             )}

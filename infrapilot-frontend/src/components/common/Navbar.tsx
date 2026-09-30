@@ -392,18 +392,8 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-6">
               <p className="text-sm text-slate-700 leading-relaxed font-medium">{selectedNotif.details || selectedNotif.description}</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  const notif = selectedNotif;
-                  setIsDetailOpen(false);
-                  handleNotificationClick(notif, navigate, user?.role || "Client");
-                }}
-                className="py-2.5 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl transition-all uppercase tracking-widest text-xs shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
-              >
-                Open Page
-              </button>
-              <button onClick={() => setIsDetailOpen(false)} className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs cursor-pointer">
+            <div className="flex justify-end">
+              <button onClick={() => setIsDetailOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs cursor-pointer">
                 Dismiss
               </button>
             </div>

@@ -2,7 +2,11 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
+import { ownerService } from "../../services/ownerService";
+import { financeService } from "../../services/financeService";
+import { quotationService } from "../../services/quotationService";
 import { useAuth } from "../../context/AuthContext";
+import { filterProjectsForClient } from "../../utils/clientProjectUtils";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
 
@@ -14,7 +18,7 @@ const ClientSettingsPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
 
-    const { refreshUser } = useAuth();
+    const { user, refreshUser } = useAuth();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,29 +51,62 @@ const ClientSettingsPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, settingsData, projectsResult] = await Promise.all([
-                    settingsService.getProfile(),
-                    settingsService.getSettings(),
+                const [profileData, settingsData, projectsResult, ownersResult, invoicesResult, quotationsResult] = await Promise.all([
+                    settingsService.getProfile().catch(() => null),
+                    settingsService.getSettings().catch(() => null),
                     projectService.getProjects(100, 0).catch(() => []),
+                    ownerService.getOwners().catch(() => []),
+                    financeService.getInvoices(100, 0).catch(() => []),
+                    quotationService.getQuotations(100, 0).catch(() => []),
                 ]);
-                const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
-                setProjects(projectsList);
+                const rawProjectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
+                const ownersList = Array.isArray(ownersResult) ? ownersResult : (ownersResult?.items || ownersResult?.data || []);
+                const invoicesList = Array.isArray(invoicesResult) ? invoicesResult : (invoicesResult?.items || invoicesResult?.data || []);
+                const quotationsList = Array.isArray(quotationsResult) ? quotationsResult : (quotationsResult?.items || quotationsResult?.data || []);
+
+                // Filter only projects assigned to this client
+                const clientAssignedProjects = filterProjectsForClient(
+                    rawProjectsList,
+                    user,
+                    profileData,
+                    ownersList,
+                    invoicesList,
+                    quotationsList
+                );
+
+                setProjects(clientAssignedProjects);
 
                 const localSavedId = localStorage.getItem("client_selected_project_id");
                 let defaultPid: number | null = null;
                 if (localSavedId && localSavedId !== "null" && localSavedId !== "undefined" && Number(localSavedId) > 0) {
-                    defaultPid = Number(localSavedId);
-                } else if (settingsData?.default_project_id && Number(settingsData.default_project_id) > 0) {
-                    defaultPid = Number(settingsData.default_project_id);
-                } else if (projectsList.length > 0) {
-                    defaultPid = Number(projectsList[0]?.id || projectsList[0]?.project_id);
+                    const numId = Number(localSavedId);
+                    if (clientAssignedProjects.some(p => Number(p.id || p.project_id) === numId)) {
+                        defaultPid = numId;
+                    }
+                }
+                
+                if (!defaultPid && settingsData?.default_project_id && Number(settingsData.default_project_id) > 0) {
+                    const numId = Number(settingsData.default_project_id);
+                    if (clientAssignedProjects.some(p => Number(p.id || p.project_id) === numId)) {
+                        defaultPid = numId;
+                    }
+                }
+                
+                if (!defaultPid && clientAssignedProjects.length > 0) {
+                    defaultPid = Number(clientAssignedProjects[0]?.id || clientAssignedProjects[0]?.project_id);
                 }
 
                 if (defaultPid) {
                     setActiveProjectId(defaultPid);
                     localStorage.setItem("client_selected_project_id", String(defaultPid));
                     localStorage.setItem("infrapilot_selected_project_id", String(defaultPid));
+                } else {
+                    setActiveProjectId(null);
+                    if (clientAssignedProjects.length === 0) {
+                        localStorage.removeItem("client_selected_project_id");
+                    }
                 }
+
                 setProfile(profileData);
                 setPreviewUrl(null);
                 setSelectedFile(null);
@@ -101,7 +138,7 @@ const ClientSettingsPage = () => {
             }
         };
         fetchData();
-    }, []);
+    }, [user]);
 
     const togglePreference = (key: string) => {
         const newValue = !settings.preferences?.[key];
@@ -215,8 +252,9 @@ const ClientSettingsPage = () => {
     };
 
     const getActiveProjectName = () => {
+        if (!projects || projects.length === 0) return "No Assigned Project";
         const p = projects.find(proj => (proj.id || proj.project_id) === activeProjectId);
-        return p?.name || p?.project_name || (projects.length > 0 ? (projects[0].name || projects[0].project_name) : "Project");
+        return p?.name || p?.project_name || projects[0]?.name || projects[0]?.project_name || "No Assigned Project";
     };
 
     const formatDisplayDate = (dateStr: any) => {
@@ -393,7 +431,7 @@ const ClientSettingsPage = () => {
                                 </div>
 
                                 <div className="md:col-span-2 flex justify-end mt-4">
-                                    <button onClick={handleSaveAll} disabled={updating} className="px-8 py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:bg-slate-800 transition-all active:scale-95">
+                                    <button onClick={handleSaveAll} disabled={updating} className="px-8 py-3.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                         Save Profile Settings
                                     </button>
@@ -421,14 +459,24 @@ const ClientSettingsPage = () => {
                                         window.dispatchEvent(new Event("project_changed"));
                                     }
                                 }}
-                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                disabled={projects.length === 0}
+                                className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer ${projects.length === 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
-                                {projects.map(p => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || p.title || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
+                                {projects.length === 0 ? (
+                                    <option value="">No projects assigned to your account</option>
+                                ) : (
+                                    projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || p.title || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))
+                                )}
                             </select>
+                            {projects.length > 0 && (
+                                <p className="text-[11px] text-slate-400 font-medium mt-2">
+                                    Showing {projects.length} project{projects.length > 1 ? "s" : ""} assigned to your account.
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -566,7 +614,7 @@ const ClientSettingsPage = () => {
                     {/* Bottom Actions */}
                     <div className="flex justify-end pt-12 items-center gap-8 border-t border-slate-200">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">Last Audit Logged: Yesterday 4:32 PM</p>
-                        <button onClick={handleSaveAll} disabled={updating} className="px-12 py-5 bg-[#0f172a] text-white rounded-2xl text-[12px] font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
+                        <button onClick={handleSaveAll} disabled={updating} className="px-12 py-5 bg-blue-600 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                             {updating ? "Saving All..." : "Save All Settings"}
                         </button>

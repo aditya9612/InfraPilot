@@ -53,6 +53,7 @@ const PaymentsPage: React.FC = () => {
     const [showDateFilter, setShowDateFilter] = useState(false);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
+    const dateFilterRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [payments, setPayments] = useState<any[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -70,6 +71,9 @@ const PaymentsPage: React.FC = () => {
         const handleClickOutside = (event: MouseEvent) => {
             if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
                 setIsExportMenuOpen(false);
+            }
+            if (dateFilterRef.current && !dateFilterRef.current.contains(event.target as Node)) {
+                setShowDateFilter(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -98,7 +102,7 @@ const PaymentsPage: React.FC = () => {
 
             setPayments(projectScopedRecords);
             setTotalRecords(data?.total_records || data?.meta?.total || data?.total || data?.total_count || projectScopedRecords.length);
-            
+
             const sum = data?.summary || {};
             setSummaryStats({
                 total_payout: sum.total_payout !== undefined ? parseCurrency(sum.total_payout) : projectScopedRecords.reduce((acc: number, curr: any) => acc + parseCurrency(curr.total_wage_earned || curr.total_earned || curr.amount || curr.daily_wage || 0), 0),
@@ -175,25 +179,25 @@ const PaymentsPage: React.FC = () => {
     const generateFrontendPDF = (data: any[]) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        
+
         // Header
         doc.setFillColor(17, 24, 39); // #111827
         doc.rect(0, 0, pageWidth, 40, 'F');
-        
+
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
         doc.text("InfraPilot", 14, 25);
-        
+
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text("Labour Payment History Report", 14, 32);
-        
+
         doc.setTextColor(31, 41, 55);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.text("Labour Payments Summary", 14, 55);
-        
+
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         doc.text(`Report Period: ${filterPeriod}`, 14, 62);
@@ -201,11 +205,11 @@ const PaymentsPage: React.FC = () => {
 
         doc.setDrawColor(229, 231, 235);
         doc.line(14, 75, pageWidth - 14, 75);
-        
+
         doc.setFont('helvetica', 'bold');
         doc.text("TOTAL PAYOUT:", 14, 85);
         doc.text(`₹${summaryStats.total_payout.toLocaleString()}`, 50, 85);
-        
+
         const tableHeaders = [["Period", "Skill Type", "Wage", "OT Hours", "Total Earned", "Status"]];
         const tableBody = data.map(item => [
             item.period,
@@ -443,17 +447,85 @@ const PaymentsPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-4 ml-auto">
-                            <button
-                                type="button"
-                                onClick={() => setShowDateFilter(!showDateFilter)}
-                                className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer ${
-                                    showDateFilter
-                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25'
-                                        : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
-                                }`}
-                            >
-                                <Calendar className="w-4 h-4" /> Date
-                            </button>
+                            {/* DATE button with floating calendar popover */}
+                            <div className="relative" ref={dateFilterRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDateFilter(!showDateFilter)}
+                                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer ${
+                                        showDateFilter
+                                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25'
+                                            : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
+                                    }`}
+                                >
+                                    <Calendar className="w-4 h-4" /> Date
+                                </button>
+
+                                {/* Floating Calendar Popover */}
+                                {showDateFilter && (
+                                    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-[300px] bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        {/* Arrow pointer */}
+                                        <div className="absolute -top-2 right-5 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-45" />
+
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Filter by Date Range</p>
+
+                                        <div className="space-y-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-0.5">From</label>
+                                                <input
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={e => { setStartDate(e.target.value); setCurrentPage(1); }}
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition-all cursor-pointer"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-0.5">To</label>
+                                                <input
+                                                    type="date"
+                                                    value={endDate}
+                                                    min={startDate}
+                                                    onChange={e => { setEndDate(e.target.value); setCurrentPage(1); }}
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition-all cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Active range display */}
+                                        {startDate && endDate && (
+                                            <div className="mt-3 px-3 py-2 bg-blue-50 rounded-xl">
+                                                <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
+                                                    {startDate === endDate
+                                                        ? `Date: ${startDate}`
+                                                        : `${startDate} → ${endDate}`}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setCurrentPage(1); fetchPayments(); setShowDateFilter(false); }}
+                                                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-blue-500/20"
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const today = new Date().toISOString().split('T')[0];
+                                                    setStartDate(today);
+                                                    setEndDate(today);
+                                                    setCurrentPage(1);
+                                                }}
+                                                className="flex-1 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 

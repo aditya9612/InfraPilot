@@ -4,7 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import {
   Bell, CheckCheck,
-  CheckCircle, AlertCircle, Info, Search, ExternalLink
+  CheckCircle, AlertCircle, Info, Search
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../services/api";
@@ -499,22 +499,10 @@ const ClientNotificationsPage = () => {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    const notif = viewingNotif;
-                    setIsViewModalOpen(false);
-                    setViewingNotif(null);
-                    handleDirectNavigate(notif);
-                  }}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Open Page</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
+                  className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
                 >
                   Dismiss
                 </button>

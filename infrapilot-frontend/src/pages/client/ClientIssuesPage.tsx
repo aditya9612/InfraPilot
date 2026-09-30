@@ -16,6 +16,9 @@ const ClientIssuesPage = () => {
   const [fetchingDetail, setFetchingDetail] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editAssignedTo, setEditAssignedTo] = useState<string>("");
+  const [editResolution, setEditResolution] = useState<string>("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -137,12 +140,37 @@ const ClientIssuesPage = () => {
       setIsViewModalOpen(true);
       const data = await issueService.getIssue(id);
       setSelectedIssue(data);
+      setEditAssignedTo(data.assigned_to ? String(data.assigned_to) : "");
+      setEditResolution(data.resolution || "");
     } catch (error) {
       console.error("Failed to fetch issue detail:", error);
       toast.error("Could not load details.");
       setIsViewModalOpen(false);
     } finally {
       setFetchingDetail(false);
+    }
+  };
+
+  const handleSaveIssueEdit = async () => {
+    if (!selectedIssue?.id) return;
+    try {
+      setIsSavingEdit(true);
+      await issueService.updateIssue(selectedIssue.id, {
+        assigned_to: editAssignedTo ? Number(editAssignedTo) : null,
+        resolution: editResolution.trim() || null,
+      });
+      toast.success("Issue updated successfully.");
+      setSelectedIssue((prev: any) => ({
+        ...prev,
+        assigned_to: editAssignedTo ? Number(editAssignedTo) : null,
+        resolution: editResolution.trim() || null,
+      }));
+      await fetchIssues();
+    } catch (error: any) {
+      console.error("Failed to update issue:", error);
+      toast.error(error.response?.data?.detail || "Failed to update issue.");
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -706,29 +734,68 @@ const ClientIssuesPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned To</p>
-                    <p className="text-sm font-black text-slate-800">
-                      {selectedIssue.assigned_to
-                        ? (projectMembers.find(m => (m.user_id || m.id) === selectedIssue.assigned_to)?.full_name ||
-                           projectMembers.find(m => (m.user_id || m.id) === selectedIssue.assigned_to)?.name ||
-                           `User #${selectedIssue.assigned_to}`)
-                        : "Unassigned"}
-                    </p>
-                  </div>
-                  <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
                     <p className="text-sm font-black text-slate-800">{selectedIssue.status?.toUpperCase() || "OPEN"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Reported</p>
+                    <p className="text-sm font-black text-slate-800">{selectedIssue.reported_date || "N/A"}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Resolution (if exists) */}
-              {selectedIssue.resolution && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-4">
-                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Resolution</p>
-                  <p className="text-sm text-emerald-800 font-bold leading-relaxed">{selectedIssue.resolution}</p>
+              {/* Editable: Assigned To & Resolution */}
+              <div className="space-y-4 bg-blue-50/60 border border-blue-100 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Update Issue</p>
                 </div>
-              )}
+
+                {/* Assigned To dropdown */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Assigned To</label>
+                  <div className="relative">
+                    <select
+                      value={editAssignedTo}
+                      onChange={(e) => setEditAssignedTo(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:border-blue-400 focus:border-blue-500 transition-all"
+                    >
+                      <option value="">Unassigned</option>
+                      {projectMembers.map((member) => (
+                        <option key={member.user_id || member.id} value={member.user_id || member.id}>
+                          {member.full_name || member.name || member.username || member.user?.name || `User #${member.user_id || member.id}`}
+                          {member.role ? ` (${member.role})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Resolution textarea */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Resolution</label>
+                  <textarea
+                    rows={3}
+                    value={editResolution}
+                    onChange={(e) => setEditResolution(e.target.value)}
+                    placeholder="Enter resolution details..."
+                    className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none hover:border-blue-400 focus:border-blue-500 transition-all resize-none"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSaveIssueEdit}
+                  disabled={isSavingEdit}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {isSavingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
 
               {/* DISMISS Button */}
               <button

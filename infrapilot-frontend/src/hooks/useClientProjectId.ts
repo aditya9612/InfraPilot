@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { projectService } from "../services/projectService";
+import { fetchClientAssignedProjects } from "../utils/clientProjectUtils";
 
 /**
  * Shared hook for all Client module pages.
  * Resolves the active project ID from:
  *   1. client_selected_project_id / infrapilot_selected_project_id in localStorage
  *   2. settingsService default_project_id
- *   3. First available project returned by projectService.getProjects() (API fallback)
+ *   3. First available project assigned to this client (API fallback)
  */
 export function useClientProjectId() {
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -15,13 +16,16 @@ export function useClientProjectId() {
   const resolve = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch active projects from API to validate project ID exists
+      // Fetch projects assigned to this client from API
       let items: any[] = [];
       try {
-        const response = await projectService.getProjects(100, 0);
-        items = Array.isArray(response) ? response : (response?.items || response?.data || []);
+        items = await fetchClientAssignedProjects();
       } catch (apiErr) {
-        console.warn("useClientProjectId: API project fetch warning:", apiErr);
+        console.warn("useClientProjectId: client assigned project fetch warning:", apiErr);
+        try {
+          const response = await projectService.getProjects(100, 0);
+          items = Array.isArray(response) ? response : (response?.items || response?.data || []);
+        } catch {}
       }
 
       const validProjectIds = items

@@ -1204,6 +1204,73 @@ export const labourService = {
             throw error;
         }
     },
+
+    /**
+     * Get the list of projects assigned to the currently logged-in labour user.
+     * Queries GET /api/v1/labour?user_id=<userId> to find the labour record(s),
+     * then resolves each unique project_id into a project object via projectService.
+     *
+     * @param userId - The user_id of the logged-in labour user (from AuthContext)
+     * @returns Array of project objects the labour is assigned to
+     */
+    async getLabourAssignedProjects(userId: number | string): Promise<any[]> {
+        const { projectService } = await import('./projectService');
+        try {
+            // Attempt to fetch labour record(s) for this user
+            const response = await api.get('labour', { params: { user_id: userId, limit: 100 } });
+            const data = response.data;
+            const items: any[] = Array.isArray(data) ? data : (data?.items || data?.data || []);
+
+            // Collect unique project_ids from the labour records
+            const projectIds: number[] = [];
+            items.forEach((item: any) => {
+                const pid = Number(item.project_id);
+                if (pid > 0 && !projectIds.includes(pid)) {
+                    projectIds.push(pid);
+                }
+            });
+
+            if (projectIds.length === 0) {
+                // Fallback: check localStorage for a saved project_id (set during login or last session)
+                const savedPid = localStorage.getItem('infrapilot_selected_project_id') || localStorage.getItem('client_selected_project_id');
+                if (savedPid && savedPid !== 'null' && savedPid !== 'undefined') {
+                    projectIds.push(Number(savedPid));
+                }
+            }
+
+            if (projectIds.length === 0) return [];
+
+            // Fetch project details for each unique project_id
+            const projectDetails = await Promise.all(
+                projectIds.map(async (pid) => {
+                    try {
+                        const proj = await projectService.getProjectById(pid);
+                        return proj ? { ...proj, id: proj.id || proj.project_id } : null;
+                    } catch {
+                        return null;
+                    }
+                })
+            );
+
+            return projectDetails.filter(Boolean);
+        } catch (error: any) {
+            console.warn('getLabourAssignedProjects API error, falling back to saved project:', error.message);
+            // Fallback: return project from localStorage if available
+            const savedPid = localStorage.getItem('infrapilot_selected_project_id') || localStorage.getItem('client_selected_project_id');
+            const savedName = localStorage.getItem('infrapilot_selected_project_name') || localStorage.getItem('client_selected_project_name');
+            if (savedPid && savedPid !== 'null' && savedPid !== 'undefined') {
+                try {
+                    const proj = await projectService.getProjectById(Number(savedPid));
+                    if (proj) return [{ ...proj, id: proj.id || proj.project_id }];
+                } catch {
+                    if (savedName) {
+                        return [{ id: Number(savedPid), name: savedName, project_name: savedName }];
+                    }
+                }
+            }
+            return [];
+        }
+    },
 };
 
 export default labourService;

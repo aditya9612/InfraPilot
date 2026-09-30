@@ -329,20 +329,47 @@ const ClientReportsPage = () => {
       setDailyReport(resolvedDaily);
 
       // ── WEEKLY ─────────────────────────────────────────────────────────────
-      // API returns ProjectSummary: { total_activities, completed_activities, delayed_activities, on_track_activities, not_started_activities, completion_percentage }
-      const totalActivities = weekly?.total_activities || 0;
-      const completedActivities = weekly?.completed_activities || 0;
-      const delayedActivities = weekly?.delayed_activities || 0;
-
-      // Compute quantity-based completion (matches PDF: total_completed / planned_quantity)
+      // Primary: fetch all activities for this project to compute real counts
+      let totalActivities = weekly?.total_activities || 0;
+      let completedActivities = weekly?.completed_activities || 0;
+      let delayedActivities = weekly?.delayed_activities || 0;
+      let onTrackActivities = weekly?.on_track_activities || 0;
+      let notStartedActivities = weekly?.not_started_activities || 0;
       let overallCompletion = 0;
+
       try {
-        const activities = await workProgressService.listActivities(Number(pid));
-        const totalPlanned = activities.reduce((sum: number, a: any) => sum + (a.planned_quantity || 0), 0);
-        const totalCompleted = activities.reduce((sum: number, a: any) => sum + (a.total_completed || 0), 0);
-        overallCompletion = totalPlanned > 0
-          ? Math.round((totalCompleted / totalPlanned) * 10000) / 100
-          : (weekly?.completion_percentage || 0);
+        const activities = await workProgressService.listActivities(Number(pid), undefined, 200);
+        if (Array.isArray(activities) && activities.length > 0) {
+          totalActivities = activities.length;
+          completedActivities = activities.filter((a: any) =>
+            (a.status || '').toUpperCase() === 'COMPLETED' || Number(a.completion_percentage) >= 100
+          ).length;
+          delayedActivities = activities.filter((a: any) =>
+            ['DELAY', 'DELAYED', 'DELAY_ONGOING'].includes((a.status || '').toUpperCase())
+          ).length;
+          onTrackActivities = activities.filter((a: any) =>
+            ['ON_TRACK', 'ON TRACK'].includes((a.status || '').toUpperCase())
+          ).length;
+          notStartedActivities = activities.filter((a: any) =>
+            ['NOT_STARTED', 'NOT STARTED'].includes((a.status || '').toUpperCase())
+          ).length;
+
+          // Quantity-based completion (most accurate)
+          const totalPlanned = activities.reduce((sum: number, a: any) => sum + (Number(a.planned_quantity) || 0), 0);
+          const totalCompleted = activities.reduce((sum: number, a: any) => sum + (Number(a.total_completed) || 0), 0);
+          if (totalPlanned > 0) {
+            overallCompletion = Math.round((totalCompleted / totalPlanned) * 10000) / 100;
+          } else if (totalActivities > 0) {
+            overallCompletion = Math.round((completedActivities / totalActivities) * 100);
+          } else {
+            overallCompletion = weekly?.completion_percentage || 0;
+          }
+        } else {
+          // Fallback to summary API data
+          overallCompletion = weekly?.completion_percentage !== undefined
+            ? weekly.completion_percentage
+            : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
+        }
       } catch {
         overallCompletion = weekly?.completion_percentage !== undefined
           ? weekly.completion_percentage
@@ -354,6 +381,8 @@ const ClientReportsPage = () => {
         total_activities: totalActivities,
         completed_activities: completedActivities,
         delayed_activities: delayedActivities,
+        on_track_activities: onTrackActivities,
+        not_started_activities: notStartedActivities,
         overall_completion: overallCompletion
       });
 
@@ -499,10 +528,12 @@ const ClientReportsPage = () => {
       ),
       desc: "7-day performance summary covering milestone achievements, planned vs actual progress, and workforce trends.",
       stats: [
-        { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%` },
-        { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
-        { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
-        { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0 }
+        { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 0}%` },
+        { label: "COMPLETED", value: weeklyProgress?.completed_activities ?? 0 },
+        { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 0 },
+        { label: "DELAYED", value: weeklyProgress?.delayed_activities ?? 0 },
+        { label: "ON TRACK", value: weeklyProgress?.on_track_activities ?? 0 },
+        { label: "NOT STARTED", value: weeklyProgress?.not_started_activities ?? 0 }
       ],
       onPDF: () => setShowWeeklyPdfModal(true),
       onExcel: () => setShowWeeklyExcelModal(true),
@@ -515,10 +546,12 @@ const ClientReportsPage = () => {
           time: "Mon, 10:00 AM",
           status: "ALIGNED / ON-TRACK",
           metrics: [
-            { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%`, color: "text-blue-600" },
-            { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
-            { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
-            { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0, color: "text-rose-500" }
+            { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 0}%`, color: "text-blue-600" },
+            { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0, color: "text-emerald-600" },
+            { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 0 },
+            { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0, color: "text-rose-500" },
+            { label: "ON TRACK", value: weeklyProgress?.on_track_activities ?? 0, color: "text-blue-500" },
+            { label: "NOT STARTED", value: weeklyProgress?.not_started_activities ?? 0, color: "text-slate-400" }
           ]
         });
         setShowInsight(true);

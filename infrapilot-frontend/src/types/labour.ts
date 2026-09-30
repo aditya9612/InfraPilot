@@ -1,7 +1,25 @@
+
+
+
+edjd
+
+
+
 export interface LabourItem {
   id: number;
   worker_code: string;
   user_id: number | null;
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   role: string | null;
   aadhaar_number: string;
   labour_name: string;

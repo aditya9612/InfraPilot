@@ -4,6 +4,7 @@ import { projectService } from "../../services/projectService";
 import { ownerService } from "../../services/ownerService";
 import { userService } from "../../services/userService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
+import { fetchClientAssignedProjects } from "../../utils/clientProjectUtils";
 import { formatDateBySettings } from "../../utils/dateUtils";
 import toast from "react-hot-toast";
 
@@ -63,9 +64,8 @@ const ClientProjectOverviewPage = () => {
         setLoading(true);
         setLoadingProjects(true);
 
-        // Fetch projects to populate the list at the top
-        const listResult: any = await projectService.getProjects(20, 0);
-        const list = Array.isArray(listResult) ? listResult : (listResult?.items || listResult?.data || []);
+        // Fetch projects assigned to client
+        const list = await fetchClientAssignedProjects();
         setProjects(list);
 
         if (projectId) {

@@ -298,6 +298,27 @@ const LabourDashboard: React.FC = () => {
                             else break;
                         }
                         setAttendanceStreak(prev => prev || streak);
+
+                        // ── Fallback: compute weekly earnings from last 7 days of attendance ──
+                        setWeeklyEarnings(prevWE => {
+                            if (prevWE !== 0) return prevWE; // already set from API
+                            const sevenDaysAgo = new Date(now);
+                            sevenDaysAgo.setDate(now.getDate() - 6);
+                            const weekRecords = records.filter((r: any) => {
+                                const rd = new Date(r.attendance_date);
+                                return rd >= sevenDaysAgo && rd <= now;
+                            });
+                            const weekPresent = weekRecords.filter((r: any) =>
+                                (r.working_hours > 4 || r.work_hours > 4 || (r.check_in_time || r.in_time)) && !r.is_half_day
+                            ).length;
+                            const weekHalf = weekRecords.filter((r: any) => r.is_half_day).length;
+                            const dWage = Number(
+                                dashData?.daily_wage ?? dashData?.profile?.daily_wage ??
+                                dashData?.labour?.daily_wage ?? dashData?.labour_details?.daily_wage ?? 0
+                            );
+                            if (dWage <= 0) return 0;
+                            return weekPresent * dWage + weekHalf * (dWage / 2);
+                        });
                     }
                 }
 
@@ -338,8 +359,8 @@ const LabourDashboard: React.FC = () => {
                     else if (sLower === 'cancelled' || sLower === 'canceled') formattedStatus = 'Cancelled';
                     else formattedStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
 
-                    const progVal = t.progress !== undefined 
-                        ? Number(t.progress) 
+                    const progVal = t.progress !== undefined
+                        ? Number(t.progress)
                         : (t.progress_percent !== undefined ? Number(t.progress_percent) : (sLower === 'completed' ? 100 : 0));
 
                     return {
@@ -483,11 +504,10 @@ const LabourDashboard: React.FC = () => {
                             </div>
                             <button
                                 onClick={() => navigate('/labour/attendance')}
-                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-xl active:scale-95 ${
-                                    isCheckedIn
+                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-xl active:scale-95 ${isCheckedIn
                                         ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-200'
                                         : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200'
-                                }`}
+                                    }`}
                             >
                                 {isCheckedIn ? 'CHECK OUT' : 'CHECK IN'}
                             </button>
@@ -635,19 +655,17 @@ const LabourDashboard: React.FC = () => {
                                 <div className="border-t border-slate-100 pt-4 grid grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Status</p>
-                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
-                                            paymentStatus?.toLowerCase() === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                            paymentStatus?.toLowerCase() === 'partial' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                            'bg-slate-50 text-slate-500 border-slate-200'
-                                        }`}>
+                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${paymentStatus?.toLowerCase() === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                                paymentStatus?.toLowerCase() === 'partial' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                    'bg-slate-50 text-slate-500 border-slate-200'
+                                            }`}>
                                             {paymentStatus || '-'}
                                         </span>
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Is Overdue</p>
-                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
-                                            isOverdue ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                        }`}>
+                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${isOverdue ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                            }`}>
                                             {isOverdue ? 'Yes' : 'No'}
                                         </span>
                                     </div>

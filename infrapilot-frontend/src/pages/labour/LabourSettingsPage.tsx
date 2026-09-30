@@ -6,10 +6,11 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { settingsService } from '../../services/settingsService';
 import { projectService } from '../../services/projectService';
+import { labourService } from '../../services/labourService';
 import type { UserProfile, UserSettings, UpdateProfileRequest, UpdateSettingsRequest } from '../../types/settings';
 
 const LabourSettingsPage: React.FC = () => {
-    const { refreshUser } = useAuth();
+    const { refreshUser, user } = useAuth();
 
     // Loading States
     const [isLoading, setIsLoading] = useState(true);
@@ -42,17 +43,27 @@ const LabourSettingsPage: React.FC = () => {
         fetchData();
     }, []);
 
-    const loadProjects = async (search: string, offsetValue: number) => {
+    const loadProjects = async (search: string, _offsetValue: number) => {
         setIsProjectsLoading(true);
         try {
-            const projectsData = await projectService.getProjects(20, offsetValue, search, "", offsetValue);
-            const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
-            setProjects(itemList);
-            if (projectsData.meta) {
-                setProjectsTotal(projectsData.meta.total || itemList.length);
+            // Fetch only projects assigned to the logged-in labour user
+            const userId = user?.id;
+            let assignedProjects: any[] = [];
+            if (userId) {
+                assignedProjects = await labourService.getLabourAssignedProjects(userId);
             } else {
-                setProjectsTotal(itemList.length);
+                // Fallback if user context not yet available
+                const projectsData = await projectService.getProjects(20, 0, "", "", 0);
+                assignedProjects = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
             }
+            // Apply client-side search filter
+            const filtered = search
+                ? assignedProjects.filter((p: any) =>
+                    (p.name || p.project_name || '').toLowerCase().includes(search.toLowerCase())
+                )
+                : assignedProjects;
+            setProjects(filtered);
+            setProjectsTotal(filtered.length);
         } catch (error) {
             console.error("Failed to load projects:", error);
         } finally {
@@ -73,22 +84,24 @@ const LabourSettingsPage: React.FC = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [profileData, settingsData, projectsData] = await Promise.all([
+            const userId = user?.id;
+            const [profileData, settingsData, assignedProjects] = await Promise.all([
                 settingsService.getProfile(),
                 settingsService.getSettings(),
-                projectService.getProjects(20, 0, "", "", 0)
+                // Only load projects assigned to this labour user
+                userId
+                    ? labourService.getLabourAssignedProjects(userId)
+                    : projectService.getProjects(20, 0, "", "", 0).then((d: any) =>
+                        Array.isArray(d) ? d : (d.items || [])
+                    )
             ]);
 
             setProfile(profileData);
             setSettings(settingsData);
 
-            const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
+            const itemList: any[] = Array.isArray(assignedProjects) ? assignedProjects : [];
             setProjects(itemList);
-            if (projectsData.meta) {
-                setProjectsTotal(projectsData.meta.total || itemList.length);
-            } else {
-                setProjectsTotal(itemList.length);
-            }
+            setProjectsTotal(itemList.length);
 
             if (settingsData?.default_project_id) {
                 const activeProj = itemList.find((p: any) => p.id === settingsData.default_project_id);
@@ -413,7 +426,7 @@ const LabourSettingsPage: React.FC = () => {
                                                 <button
                                                     onClick={handleSave}
                                                     disabled={isSaving}
-                                                    className="bg-[#111827] text-white px-12 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all active:scale-95 disabled:opacity-70"
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-70"
                                                 >
                                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                                     {isSaving ? 'SAVING...' : 'SAVE PROFILE SETTINGS'}
@@ -570,7 +583,7 @@ const LabourSettingsPage: React.FC = () => {
                                                 <button
                                                     key={sys}
                                                     onClick={() => settings && setSettings({ ...settings, unit: sys })}
-                                                    className={`flex-1 py-3.5 px-6 rounded-xl text-xs font-black transition-all ${settings?.unit === sys ? 'bg-[#111827] text-white shadow-xl scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    className={`flex-1 py-3.5 px-6 rounded-xl text-xs font-black transition-all ${settings?.unit === sys ? 'bg-[#1e61ff] text-white shadow-xl shadow-blue-200 scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                                                 >
                                                     {sys === 'Meter' ? 'Metric' : 'Imperial'}
                                                 </button>
@@ -810,7 +823,7 @@ const LabourSettingsPage: React.FC = () => {
                         <button
                             onClick={handleSave}
                             disabled={isSaving || isLoading}
-                            className={`${isSaving ? 'opacity-70 cursor-not-allowed' : 'bg-[#111827] hover:bg-slate-800 active:scale-95'} text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all`}
+                            className={`${isSaving ? 'opacity-70 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-blue-500/20'} text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all`}
                         >
                             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                             {isSaving ? 'SAVING ALL...' : 'SAVE ALL SETTINGS'}

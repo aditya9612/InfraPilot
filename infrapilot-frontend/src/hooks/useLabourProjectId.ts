@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { projectService } from "../services/projectService";
+import { labourService } from "../services/labourService";
 
 export interface LabourProjectState {
   projectId: number | null;
@@ -32,11 +33,25 @@ export function useLabourProjectId(): LabourProjectState {
     try {
       setLoading(true);
 
-      // 1. Fetch project list from API to validate and get accurate project name
+      // 1. Determine the logged-in user's ID to fetch only their assigned projects
+      let userId: number | null = null;
+      try {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+          const parsed = JSON.parse(userStr);
+          if (parsed?.id) userId = Number(parsed.id);
+        }
+      } catch (_e) {}
+
+      // 2. Fetch only the projects assigned to this labour user
       let items: any[] = [];
       try {
-        const response = await projectService.getProjects(100, 0);
-        items = Array.isArray(response) ? response : (response?.items || response?.data || []);
+        if (userId) {
+          items = await labourService.getLabourAssignedProjects(userId);
+        } else {
+          const response = await projectService.getProjects(100, 0);
+          items = Array.isArray(response) ? response : (response?.items || response?.data || []);
+        }
       } catch (apiErr) {
         console.warn("useLabourProjectId: API project fetch warning:", apiErr);
       }

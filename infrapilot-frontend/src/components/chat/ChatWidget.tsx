@@ -691,7 +691,7 @@ const ChatWidget: React.FC = () => {
                     }}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-14 h-14 bg-slate-900 rounded-2xl shadow-2xl shadow-slate-900/30 flex items-center justify-center text-white relative"
+                    className="w-14 h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl shadow-2xl shadow-blue-500/30 flex items-center justify-center text-white relative transition-colors"
                 >
                     <AnimatePresence mode="wait">
                         {isOpen ? (

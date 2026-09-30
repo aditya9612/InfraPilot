@@ -23,6 +23,7 @@ import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal"
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
 import { paymentService } from "../../services/paymentService";
+import { fetchClientAssignedProjects } from "../../utils/clientProjectUtils";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import type { Project } from "../../types/project";
 import type { Invoice } from "../../types/invoice";
@@ -83,7 +84,7 @@ const ClientInvoicesPage = () => {
       try {
         const [invData, projData, invSummary, paymentHistory] = await Promise.all([
           financeService.getInvoices(200).catch(() => []),
-          projectService.getProjects(100, 0).catch(() => []),
+          fetchClientAssignedProjects().catch(() => []),
           paymentService.getInvoiceSummary(projectId || undefined).catch(() => null),
           paymentService.getClientPaymentHistory(projectId || undefined).catch(() => []),
         ]);
