@@ -55,17 +55,17 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
   }, [isOpen]);
 
   React.useEffect(() => {
-      setFormData({
-        project_id: '',
-        item_name: '',
-        category: '',
-        description: '',
-        quantity: '',
-        unit: '',
-        unit_cost: '',
-        status: 'Active',
-        activity_type_id: '',
-      });
+    setFormData({
+      project_id: '',
+      item_name: '',
+      category: '',
+      description: '',
+      quantity: '',
+      unit: '',
+      unit_cost: '',
+      status: 'Active',
+      activity_type_id: '',
+    });
   }, [isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -172,7 +172,7 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      toast.error("Please fix the errors in the form.");
+      toast.error("Please fill all required fields");
     }
   };
 

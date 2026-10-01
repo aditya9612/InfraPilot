@@ -14,6 +14,7 @@ export interface ClientPayment {
     reference_no?: string | null;
     remarks?: string | null;
     payment_status: string;
+    status?: string;
     transaction_id?: string | null;
     receipt_url?: string | null;
     payment_date: string;

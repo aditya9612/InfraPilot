@@ -23,7 +23,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
   onApprove,
   onReject,
 }) => {
-  const [entityDetails, setEntityDetails] = React.useState<any>(null);
+
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
 
   const [requestedByName, setRequestedByName] = React.useState<string>("Loading...");
@@ -45,7 +45,6 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
           if (type === "boq") {
             const detail = await boqService.getBoqById(id);
             resolvedName = detail?.item_name || `#${id}`;
-            setEntityDetails(detail); // Keep for backwards compatibility
           } else if (type === "document") {
             const res = await documentService.listDocuments({ limit: 1000 });
             const docs = Array.isArray(res) ? res : (res as any).items || [];
@@ -107,7 +106,6 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
     if (isOpen) {
       fetchDetails();
     } else {
-      setEntityDetails(null);
       setRequestedByName("");
       setApprovedByName("");
       setEntityName("");
@@ -201,7 +199,6 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
           <Section icon={<User size={16} />} title="Requester Info">
             <InfoItem label="Requested By" value={requestedByName} />
-            <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "N/A"} />
           </Section>
 
           <Section icon={<Briefcase size={16} />} title="Request Details">

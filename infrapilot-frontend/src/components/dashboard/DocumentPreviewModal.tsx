@@ -281,7 +281,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={document.isFolder ? "Folder Details" : (document.isDrawing ? "Preview Drawing" : "Document Preview")}
+      title={document.isFolder ? "Folder Details" : ((document.isDrawing || document.type === "Drawing" || document.document_type === "Drawing" || document.file_type === "Drawing" || document.drawing_name) ? "Drawing Preview" : "Document Preview")}
       footer={footer}
       maxWidth="max-w-3xl"
     >
@@ -320,7 +320,9 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
               <InfoItem label="Remarks" value={document.remarks || "—"} />
-              <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || `User #${document.uploaded_by_user_id || document.uploaded_by || "Unknown"}`} />
+              {(!document.isDrawing && !document.drawing_name && document.type !== "Drawing" && document.document_type !== "Drawing" && document.file_type !== "Drawing") && (
+                <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || `User #${document.uploaded_by_user_id || document.uploaded_by || "Unknown"}`} />
+              )}
             </Section>
           </div>
 

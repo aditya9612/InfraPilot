@@ -227,6 +227,7 @@ export default function OwnerLedger() {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-md z-10">
                     <th className="p-4 pl-6">Description</th>
+                    <th className="p-4">Reference Type</th>
                     <th className="p-4">Project Site</th>
                     <th className="p-4">Type</th>
                     <th className="p-4 pr-6 text-right">Amount (₹)</th>
@@ -253,6 +254,11 @@ export default function OwnerLedger() {
                       <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
                         <td className="p-4 pl-6 text-sm font-bold text-slate-700">
                           {txn.description}
+                        </td>
+                        <td className="p-4">
+                          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                            {txn.reference_type?.replace(/_/g, " ") || "N/A"}
+                          </p>
                         </td>
                         <td className="p-4 min-w-[120px]">
                           <p className="text-[11px] font-bold text-slate-600 uppercase tracking-tighter truncate">

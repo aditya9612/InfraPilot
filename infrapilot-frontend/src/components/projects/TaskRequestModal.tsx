@@ -37,6 +37,22 @@ const TaskRequestModal = ({
     const [submitting, setSubmitting] = useState(false);
     const [projectMembersForSelectedProject, setProjectMembersForSelectedProject] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [allProjects, setAllProjects] = useState<any[]>(assignedProjects);
+
+    useEffect(() => {
+        const fetchAllProjects = async () => {
+            try {
+                const response = await projectService.getProjects(100, 0);
+                const projects = Array.isArray(response) ? response : (response?.items || response?.data || []);
+                if (projects.length > 0) {
+                    setAllProjects(projects);
+                }
+            } catch (error) {
+                console.error("Failed to fetch projects for dropdown", error);
+            }
+        };
+        fetchAllProjects();
+    }, []);
 
     useEffect(() => {
         if (editingRequest) {
@@ -97,8 +113,8 @@ const TaskRequestModal = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || !formData.category || !formData.priority) {
-            toast.error("Title, Category, and Priority are required");
+        if (!formData.title || !formData.category || !formData.priority || !formData.assigned_project) {
+            toast.error("Title, Category, Priority, and Assigned Project are required");
             return;
         }
 
@@ -213,29 +229,16 @@ const TaskRequestModal = ({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Status</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Assigned Project <span className="text-rose-500">*</span></label>
                         <select
-                            name="status"
-                            value={formData.status}
-                            onChange={handleChange}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
-                        >
-                            <option value="PENDING">Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="REJECTED">Rejected</option>
-                        </select>
-                    </div>
-
-                    <div className="col-span-2">
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Assigned Project</label>
-                        <select
+                            required
                             name="assigned_project"
                             value={formData.assigned_project}
                             onChange={handleChange}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
                         >
                             <option value="">Select Project</option>
-                            {assignedProjects.map(p => (
+                            {allProjects.map(p => (
                                 <option key={p.id || p.project_id} value={p.id || p.project_id}>
                                     {p.name || p.project_name}
                                 </option>

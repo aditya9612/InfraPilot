@@ -218,7 +218,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
           const cardDefs = [
             {
-              f: "All" as const,
+              f: "All" as "All" | "Unread" | "Read" | "Approval",
               label: "Total",
               sub: activeTab === "alerts" ? "All alerts received" : "All system notifications",
               count: projectScopedNotifs.length,
@@ -240,28 +240,22 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
               count: projectScopedNotifs.filter(n => n.read).length,
               accent: "text-emerald-500",
               ring: "ring-emerald-500",
-            },
-            activeTab === "alerts"
-              ? {
-                f: "Approval" as const,
-                label: "Alerts",
-                sub: "Project & task alerts",
-                count: projectScopedNotifs.filter(n => n.type === "Alert").length,
-                accent: "text-amber-500",
-                ring: "ring-amber-500",
-              }
-              : {
-                f: "Approval" as const,
-                label: "System",
-                sub: "System messages",
-                count: projectScopedNotifs.filter(n => n.type === "System" || n.source === "system").length,
-                accent: "text-blue-500",
-                ring: "ring-blue-500",
-              },
+            }
           ];
 
+          if (activeTab === "alerts") {
+            cardDefs.push({
+              f: "Approval" as const,
+              label: "Alerts",
+              sub: "Project & task alerts",
+              count: projectScopedNotifs.filter(n => n.type === "Alert").length,
+              accent: "text-amber-500",
+              ring: "ring-amber-500",
+            });
+          }
+
           return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${activeTab === "alerts" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-6 mb-8`}>
               {cardDefs.map(({ f, label, sub, count, accent, ring }) => (
                 <div
                   key={f}
@@ -494,15 +488,17 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
               {/* Grid Section */}
               <div className="grid grid-cols-2 gap-x-8 gap-y-10">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    Project
+                {activeTab !== "system" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                      Project
+                    </div>
+                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">
+                      {viewingNotif.project_name || projects.find(p => p.id === viewingNotif.project_id)?.name || "Enterprise Global"}
+                    </p>
                   </div>
-                  <p className="text-sm font-black text-slate-700 uppercase tracking-tight">
-                    {viewingNotif.project_name || "Enterprise Global"}
-                  </p>
-                </div>
+                )}
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">

@@ -7,45 +7,45 @@ import { projectService } from "../../services/projectService";
 import { accountingService } from "../../services/accountingService";
 
 const REPORT_TABS = [
-  { id: "financial", label: "Financial", reports: ["trial-balance", "balance-sheet", "profit-loss", "cashflow"] },
-  { id: "tax", label: "Taxation (GST/TDS)", reports: ["gst-summary", "gst-returns", "tds-deductions"] },
-  { id: "receivables", label: "Receivables", reports: ["receivables-summary", "receivables-aging"] },
-  { id: "payables", label: "Payables", reports: ["vendor-aging", "procurement-efficiency"] },
-  { id: "bank", label: "Bank", reports: ["bank-reconciliation"] },
-  { id: "expense", label: "Expense", reports: ["expense-ledger"] },
-  { id: "project", label: "Project & Recon", reports: ["project-financial-health", "billing-reconciliation"] }
+    { id: "financial", label: "Financial", reports: ["trial-balance", "balance-sheet", "profit-loss", "cashflow"] },
+    { id: "tax", label: "Taxation (GST/TDS)", reports: ["gst-summary", "gst-returns", "tds-deductions"] },
+    { id: "receivables", label: "Receivables", reports: ["receivables-summary", "receivables-aging"] },
+    { id: "payables", label: "Payables", reports: ["vendor-aging", "procurement-efficiency"] },
+    { id: "bank", label: "Bank", reports: ["bank-reconciliation"] },
+    { id: "expense", label: "Expense", reports: ["expense-ledger"] },
+    { id: "project", label: "Project & Recon", reports: ["project-financial-health", "billing-reconciliation"] }
 ];
 
 const REPORT_CONFIG: Record<string, any> = {
-  "trial-balance": { title: "Trial Balance", endpoint: "/accountant/reports/trial-balance", filters: [] },
-  "balance-sheet": { title: "Balance Sheet", endpoint: "/accountant/reports/balance-sheet", filters: ["as_of"] },
-  "profit-loss": { title: "Profit & Loss", endpoint: "/reports/profit-loss", filters: [] },
-  "cashflow": { title: "Cash Flow", endpoint: "/reports/cashflow", filters: [] },
-  "gst-summary": { title: "GST Summary", endpoint: "/accountant/gst/summary", filters: [] },
-  "gst-returns": { title: "GST Returns", endpoint: "/accountant/gst/returns", filters: [] },
-  "tds-deductions": { title: "TDS Deductions", endpoint: "/accountant/tds/deductions", filters: ["skip_limit"] }, 
-  "receivables-summary": { title: "Receivables Summary", endpoint: "/invoices/receivables/summary", filters: [] },
-  "receivables-aging": { title: "Receivables Aging", endpoint: "/invoices/receivables/aging", filters: [] },
-  "bank-reconciliation": { title: "Bank Reconciliation", endpoint: "/accountant/bank/reconciliation/dashboard", filters: ["bank_account_id"] },
-  "expense-ledger": { title: "Expense Ledger", endpoint: "/expenses/ledger", filters: [] },
-  "project-financial-health": { title: "Project Financial Health", endpoint: "/reports/financial-summary", filters: ["project_id"] },
-  "procurement-efficiency": { 
-      title: "Procurement Efficiency", 
-      endpoint: "/reports/procurement-efficiency", 
-      filters: ["project_id", "supplier_id", "status", "payment_status", "date_from", "date_to", "search", "format"] 
-  },
-  "vendor-aging": { title: "Vendor Payables Aging", endpoint: "/accountant/reports/vendor-aging", filters: ["supplier_id", "project_id", "as_of_date"] },
-  "billing-reconciliation": { 
-      title: "Billing vs Payments Reconciliation", 
-      endpoint: "/accountant/reports/billing-reconciliation", 
-      filters: ["project_id", "start_date", "end_date"],
-      warning: "Important Limitation: Partial/multiple payment tracking in RA Bills is not fully complete. Please do not assume this as a full-fledged partial-payment reconciliation."
-  }
+    "trial-balance": { title: "Trial Balance", endpoint: "/accountant/reports/trial-balance", filters: [] },
+    "balance-sheet": { title: "Balance Sheet", endpoint: "/accountant/reports/balance-sheet", filters: ["as_of"] },
+    "profit-loss": { title: "Profit & Loss", endpoint: "/reports/profit-loss", filters: [] },
+    "cashflow": { title: "Cash Flow", endpoint: "/reports/cashflow", filters: [] },
+    "gst-summary": { title: "GST Summary", endpoint: "/accountant/gst/summary", filters: [] },
+    "gst-returns": { title: "GST Returns", endpoint: "/accountant/gst/returns", filters: [] },
+    "tds-deductions": { title: "TDS Deductions", endpoint: "/accountant/tds/deductions", filters: ["skip_limit"] },
+    "receivables-summary": { title: "Receivables Summary", endpoint: "/invoices/receivables/summary", filters: [] },
+    "receivables-aging": { title: "Receivables Aging", endpoint: "/invoices/receivables/aging", filters: [] },
+    "bank-reconciliation": { title: "Bank Reconciliation", endpoint: "/accountant/bank/reconciliation/dashboard", filters: ["bank_account_id"] },
+    "expense-ledger": { title: "Expense Ledger", endpoint: "/expenses/ledger", filters: [] },
+    "project-financial-health": { title: "Project Financial Health", endpoint: "/reports/financial-summary", filters: ["project_id"] },
+    "procurement-efficiency": {
+        title: "Procurement Efficiency",
+        endpoint: "/reports/procurement-efficiency",
+        filters: ["project_id", "supplier_id", "status", "payment_status", "date_from", "date_to", "search", "format"]
+    },
+    "vendor-aging": { title: "Vendor Payables Aging", endpoint: "/accountant/reports/vendor-aging", filters: ["supplier_id", "project_id", "as_of_date"] },
+    "billing-reconciliation": {
+        title: "Billing vs Payments Reconciliation",
+        endpoint: "/accountant/reports/billing-reconciliation",
+        filters: ["project_id", "start_date", "end_date"],
+        warning: "Important Limitation: Partial/multiple payment tracking in RA Bills is not fully complete. Please do not assume this as a full-fledged partial-payment reconciliation."
+    }
 };
 
 const GenericTable = ({ data }: { data: any[] }) => {
     if (!data || data.length === 0) return <div className="p-4 text-xs text-slate-500">No records found.</div>;
-    
+
     const headers = Object.keys(data[0]).filter(k => typeof data[0][k] !== "object");
 
     return (
@@ -118,7 +118,7 @@ const SmartDataRenderer = ({ data }: { data: any }) => {
                         <GenericTable data={value as any[]} />
                     </div>
                 ))}
-                
+
                 {/* Fallback if it's a complex nested object we can't easily flatten */}
                 {scalars.length === 0 && arrays.length === 0 && (
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 overflow-y-auto">
@@ -197,26 +197,26 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
             {config.filters.length > 0 && (
                 <div className="flex flex-wrap items-end gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                     {config.filters.includes("as_of") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">As Of Date</label><input type="date" value={params.as_of || ""} onChange={e => setParams({...params, as_of: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">As Of Date</label><input type="date" value={params.as_of || ""} onChange={e => setParams({ ...params, as_of: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("as_of_date") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">As Of Date</label><input type="date" value={params.as_of_date || ""} onChange={e => setParams({...params, as_of_date: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">As Of Date</label><input type="date" value={params.as_of_date || ""} onChange={e => setParams({ ...params, as_of_date: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("start_date") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label><input type="date" value={params.start_date || ""} onChange={e => setParams({...params, start_date: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label><input type="date" value={params.start_date || ""} onChange={e => setParams({ ...params, start_date: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("end_date") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date</label><input type="date" value={params.end_date || ""} onChange={e => setParams({...params, end_date: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date</label><input type="date" value={params.end_date || ""} onChange={e => setParams({ ...params, end_date: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("date_from") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date From</label><input type="date" value={params.date_from || ""} onChange={e => setParams({...params, date_from: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date From</label><input type="date" value={params.date_from || ""} onChange={e => setParams({ ...params, date_from: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("date_to") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date To</label><input type="date" value={params.date_to || ""} onChange={e => setParams({...params, date_to: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date To</label><input type="date" value={params.date_to || ""} onChange={e => setParams({ ...params, date_to: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full" /></div>
                     )}
                     {config.filters.includes("project_id") && (
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label>
-                            <select value={params.project_id || ""} onChange={e => setParams({...params, project_id: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-40 bg-white">
+                            <select value={params.project_id || ""} onChange={e => setParams({ ...params, project_id: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-40 bg-white">
                                 <option value="">All Projects</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.name || `Project ${p.id}`}</option>
@@ -226,7 +226,7 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
                     )}
                     {config.filters.includes("supplier_id") && (
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier</label>
-                            <select value={params.supplier_id || ""} onChange={e => setParams({...params, supplier_id: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-40 bg-white">
+                            <select value={params.supplier_id || ""} onChange={e => setParams({ ...params, supplier_id: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-40 bg-white">
                                 <option value="">All Suppliers</option>
                                 {suppliers.map(s => (
                                     <option key={s.id} value={s.id}>{s.name || s.supplier_name || `Supplier ${s.id}`}</option>
@@ -236,7 +236,7 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
                     )}
                     {config.filters.includes("bank_account_id") && (
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account</label>
-                            <select value={params.bank_account_id || ""} onChange={e => setParams({...params, bank_account_id: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-48 bg-white">
+                            <select value={params.bank_account_id || ""} onChange={e => setParams({ ...params, bank_account_id: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-48 bg-white">
                                 <option value="">Select Bank Account</option>
                                 {bankAccounts.map(b => (
                                     <option key={b.id} value={b.id}>{b.bank_name || b.name || `Account ${b.id}`} {b.account_number ? `(${b.account_number})` : ''}</option>
@@ -246,7 +246,7 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
                     )}
                     {config.filters.includes("status") && (
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-                            <select value={params.status || ""} onChange={e => setParams({...params, status: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-32 bg-white">
+                            <select value={params.status || ""} onChange={e => setParams({ ...params, status: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-32 bg-white">
                                 <option value="">All</option>
                                 <option value="pending">Pending</option>
                                 <option value="approved">Approved</option>
@@ -257,7 +257,7 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
                     )}
                     {config.filters.includes("payment_status") && (
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
-                            <select value={params.payment_status || ""} onChange={e => setParams({...params, payment_status: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-36 bg-white">
+                            <select value={params.payment_status || ""} onChange={e => setParams({ ...params, payment_status: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-36 bg-white">
                                 <option value="">All</option>
                                 <option value="unpaid">Unpaid</option>
                                 <option value="partial">Partially Paid</option>
@@ -267,22 +267,22 @@ const ReportViewer = ({ reportId }: { reportId: string }) => {
                         </div>
                     )}
                     {config.filters.includes("search") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search</label><input type="text" placeholder="Search..." value={params.search || ""} onChange={e => setParams({...params, search: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-48" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search</label><input type="text" placeholder="Search..." value={params.search || ""} onChange={e => setParams({ ...params, search: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-48" /></div>
                     )}
                     {config.filters.includes("format") && (
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Format</label><input type="text" placeholder="e.g. json, pdf" value={params.format || ""} onChange={e => setParams({...params, format: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Format</label><input type="text" placeholder="e.g. json, pdf" value={params.format || ""} onChange={e => setParams({ ...params, format: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
                     )}
                     {config.filters.includes("skip_limit") && (
                         <>
-                           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Skip</label><input type="number" value={params.skip || "0"} onChange={e => setParams({...params, skip: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
-                           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</label><input type="number" value={params.limit || "100"} onChange={e => setParams({...params, limit: e.target.value})} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Skip</label><input type="number" value={params.skip || "0"} onChange={e => setParams({ ...params, skip: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</label><input type="number" value={params.limit || "100"} onChange={e => setParams({ ...params, limit: e.target.value })} className="px-3 py-2 text-sm border border-slate-200 rounded-lg w-full sm:w-24" /></div>
                         </>
                     )}
                 </div>
             )}
-            
+
             <div className="mb-6">
-                <button 
+                <button
                     onClick={handleFetch}
                     disabled={loading}
                     className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
@@ -318,7 +318,7 @@ export default function AccountantReportsPage() {
         <>
             <Navbar title="Accountant Reports" breadcrumb={["Accountant", "Reports"]} />
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] font-inter pb-8">
-                
+
                 <div className="mb-8">
                     <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Accountant Reports</h1>
                     <p className="text-slate-500 text-sm mt-1">Generate and view all 15 financial and compliance reports.</p>
@@ -333,26 +333,24 @@ export default function AccountantReportsPage() {
                                 <div key={tab.id} className="space-y-1">
                                     <button
                                         onClick={() => handleTabChange(tab.id)}
-                                        className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                                            isActiveTab 
-                                            ? "bg-slate-800 text-white shadow-sm" 
-                                            : "text-slate-600 hover:bg-white hover:text-slate-800"
-                                        }`}
+                                        className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${isActiveTab
+                                                ? "bg-slate-800 text-white shadow-sm"
+                                                : "text-slate-600 hover:bg-white hover:text-slate-800"
+                                            }`}
                                     >
                                         {tab.label}
                                     </button>
-                                    
+
                                     {isActiveTab && (
                                         <div className="flex flex-col gap-1 pl-4 border-l-2 border-slate-200 ml-2 mt-2">
                                             {tab.reports.map(reportId => (
                                                 <button
                                                     key={reportId}
                                                     onClick={() => setActiveReport(reportId)}
-                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                                                        activeReport === reportId
-                                                        ? "bg-white text-primary shadow-sm border border-slate-200"
-                                                        : "text-slate-500 hover:text-slate-800"
-                                                    }`}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${activeReport === reportId
+                                                            ? "bg-white text-primary shadow-sm border border-slate-200"
+                                                            : "text-slate-500 hover:text-slate-800"
+                                                        }`}
                                                 >
                                                     {REPORT_CONFIG[reportId].title}
                                                 </button>

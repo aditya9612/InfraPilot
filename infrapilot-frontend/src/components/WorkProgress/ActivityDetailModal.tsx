@@ -58,29 +58,31 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         }
       }
 
-      // ── BOQ Name ───────────────────────────────────────────────────
-      // If already enriched with a name, use it
+      // ── BOQ Name & Description ──────────────────────────────────────
       const existingBoqName = (activity as any).boq_name || (activity as any).boq_item_name || (activity as any).boq_title;
       const boqId = (activity as any).boq_item_id || activity.boq_code;
-      if (existingBoqName) {
-        setBoqName(existingBoqName);
-      } else if (boqId) {
-        // fetch its name by ID
+      if (boqId) {
         api.get(`/boq/${boqId}`)
           .then((res: any) => {
             const data = res.data;
             const name = data.item_name || data.title || data.name || data.boq_name || data.description || `BOQ ${boqId}`;
-            setBoqName(name);
+            if (!existingBoqName) setBoqName(name);
+
+            // Map BOQ description to Work Order if not explicitly defined
+            if (!activity.work_order_id || activity.work_order_id === null) {
+              setWorkOrderName(data.description || "-");
+            }
           })
           .catch(() => {
-            setBoqName(`BOQ ${boqId}`);
+            if (!existingBoqName) setBoqName(`BOQ ${boqId}`);
           });
       } else {
-        setBoqName("-");
+        if (!existingBoqName) setBoqName("-");
       }
+      if (existingBoqName) setBoqName(existingBoqName);
 
       // ── Work Order Name ────────────────────────────────────────────
-      const existingWoName = (activity as any).work_order_name || (activity as any).work_order_title || (activity as any).work_order_no;
+      const existingWoName = (activity as any).work_order_description || (activity as any).work_order_name || (activity as any).work_order_title || (activity as any).work_order_no;
       if (existingWoName) {
         setWorkOrderName(existingWoName);
       } else if (activity.work_order_id) {
@@ -89,7 +91,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
             const wo = list.find((w: any) => w.id == activity.work_order_id);
             if (wo) {
-              const name = wo.title || wo.name || wo.work_order_no || wo.order_no || wo.work_order_number || `Work Order #${activity.work_order_id}`;
+              const name = wo.description || wo.title || wo.name || wo.work_order_no || wo.order_no || wo.work_order_number || `Work Order #${activity.work_order_id}`;
               setWorkOrderName(name);
             } else {
               setWorkOrderName(`Work Order #${activity.work_order_id}`);
@@ -98,8 +100,6 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
           .catch(() => {
             setWorkOrderName(`Work Order #${activity.work_order_id}`);
           });
-      } else {
-        setWorkOrderName("-");
       }
     }
   }, [activity, isOpen]);

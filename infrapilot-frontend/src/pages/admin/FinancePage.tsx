@@ -185,7 +185,6 @@ const FinancePage = () => {
         setInvoices((prev) =>
           prev.map((inv) => (inv.id === selectedInvoice.id ? updated : inv)),
         );
-        fetchInvoices();
         toast.success("Invoice updated successfully");
       } else {
         let created;
@@ -201,7 +200,6 @@ const FinancePage = () => {
           created = await financeService.createInvoice(data);
         }
         setInvoices((prev) => [created, ...prev]);
-        fetchInvoices();
         toast.success("Invoice created successfully");
       }
       setSelectedInvoice(null);
@@ -296,7 +294,6 @@ const FinancePage = () => {
       }
       setSelectedExpense(null);
       setIsExpenseModalOpen(false);
-      fetchExpenses();
     } catch (error: any) {
       toast.error(error.message || "Failed to process expense");
     } finally {
@@ -368,7 +365,7 @@ const FinancePage = () => {
       }
 
       return matchSearch && matchCategory && matchDate && matchProject;
-    });
+    }).sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
   }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects, projectIdFilter]);
 
   const uniqueCategories = useMemo(() => {

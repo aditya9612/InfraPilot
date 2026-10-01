@@ -123,10 +123,9 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                                Document Type <span className="text-rose-500">*</span>
+                                                Document Type
                                             </label>
                                             <select
-                                                required
                                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                                 value={formData.document_type || "General"}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
@@ -143,10 +142,9 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
                                         <div className="space-y-1.5">
                                             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                                Status <span className="text-rose-500">*</span>
+                                                Status
                                             </label>
                                             <select
-                                                required
                                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                                 value={formData.status || "PENDING"}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
@@ -162,11 +160,10 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-1" : "col-span-1"}`}>
                                         <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            Version <span className="text-rose-500">*</span>
+                                            Version
                                         </label>
                                         <input
                                             type="text"
-                                            required
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
                                             value={formData.version || ""}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}

@@ -863,6 +863,25 @@ const EquipmentRegistryPage = () => {
         }
     };
 
+    const handleCompleteRental = async (rentalId: number) => {
+        setIsLoading(true);
+        try {
+            await equipmentService.completeRental(rentalId);
+            toast.success("Rental marked as completed!");
+
+            setSelectedEquipmentLogs(prev => ({
+                ...prev,
+                rental: prev.rental.map((r: any) => r.id === rentalId ? { ...r, status: 'COMPLETED' } : r)
+            }));
+            setAllRentalLogs(prev => prev.map(r => r.id === rentalId ? { ...r, status: 'COMPLETED' } : r));
+
+        } catch (err: any) {
+            toast.error(err.response?.data?.detail || "Failed to complete rental");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleRentalDelete = async (rentalId: number) => {
         if (!rentalId) return;
         setIsLoading(true);
@@ -1462,6 +1481,9 @@ const EquipmentRegistryPage = () => {
                                                 </td>
                                                 <td className="p-3 text-right whitespace-nowrap">
                                                     <div className="flex items-center justify-end gap-1">
+                                                        {r.status === 'ACTIVE' && (
+                                                            <button onClick={() => handleCompleteRental(r.id)} className="p-1.5 text-emerald-500 hover:text-white hover:bg-emerald-500 rounded" title="Complete Rental"><Check className="w-4 h-4" /></button>
+                                                        )}
                                                         <button onClick={() => viewRental(r.id)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View"><Eye className="w-4 h-4" /></button>
                                                         <button onClick={() => { setIsRentalViewOnly(false); setSelectedEquipment(equipmentList.find(e => e.id === r.equipment_id) || null); setFormData({ id: r.id, equipment_id: r.equipment_id, start_date: r.start_date, end_date: r.end_date, rental_cost: r.rental_cost, client_name: r.client_name, notes: r.notes, project_id: r.project_id || effectiveProjectId, boq_item_id: r.boq_item_id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
                                                         <button onClick={() => handleRentalDelete(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>

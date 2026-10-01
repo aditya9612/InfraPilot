@@ -44,6 +44,17 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         remarks: initialData.description || "",
         boq_item_id: initialData.boq_item_id ? String(initialData.boq_item_id) : "",
       });
+    } else if (isOpen) {
+      setFormData({
+        project_id: "",
+        category: "Material",
+        amount: "",
+        expense_date: new Date().toISOString().split("T")[0],
+        payment_mode: "Cash",
+        remarks: "",
+        boq_item_id: "",
+      });
+      setErrors({});
     }
   }, [initialData, isOpen]);
 

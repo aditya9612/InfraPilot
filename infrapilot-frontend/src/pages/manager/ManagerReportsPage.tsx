@@ -247,7 +247,9 @@ const ManagerReportsPage = () => {
                 if (reportId === "daily") {
                     fileName = getReportFileName(reportId, format, { reportDate: effectiveEnd });
                 }
-                if (reportId === "issues") {
+                if (reportId === "procurement" && format !== "PDF") {
+                    fileName = `procurement_efficiency_report_${effectiveEnd}.csv`;
+                } else if (reportId === "issues") {
                     fileName = `executive_site_issue_report.${format === "PDF" ? "pdf" : "xlsx"}`;
                 } else if (reportId === "labour") {
                     fileName = `labour_distribution_summary.${format === "PDF" ? "pdf" : "xlsx"}`;

@@ -13,6 +13,7 @@ import MaterialCostReportModal from "../../components/inventory/MaterialCostRepo
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
+import Pagination from "../../components/common/Pagination";
 import { materialService } from "../../services/materialService";
 import { projectService } from "../../services/projectService";
 import { masterService } from "../../services/masterService";
@@ -1020,32 +1021,13 @@ const InventoryPage = () => {
                           }
                         }}
                       />
-                      {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                            Showing {supplierPage * PAGE_SIZE + 1}–{Math.min((supplierPage + 1) * PAGE_SIZE, sortedSuppliers.length)} of {sortedSuppliers.length} Suppliers
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setSupplierPage((p) => Math.max(0, p - 1))}
-                              disabled={supplierPage === 0}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
-                              {supplierPage + 1}
-                            </div>
-                            <button
-                              onClick={() => setSupplierPage((p) => Math.min(totalPages - 1, p + 1))}
-                              disabled={supplierPage >= totalPages - 1}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      <Pagination
+                        currentPage={supplierPage}
+                        totalItems={sortedSuppliers.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setSupplierPage}
+                        label="Suppliers"
+                      />
                     </>
                   );
                 })()}

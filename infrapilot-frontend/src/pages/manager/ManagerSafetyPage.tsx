@@ -273,7 +273,7 @@ const ManagerSafetyPage = () => {
 
   const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
     if (e) e.preventDefault();
-    if (!formData.date || !formData.violation_type || !formData.description || !formData.action_taken || !formData.responsible_person) {
+    if (!formData.project_id || !formData.date || !formData.safety_checklist_status) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -290,6 +290,10 @@ const ManagerSafetyPage = () => {
   const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
     if (e) e.preventDefault();
     if (!selectedIncident) return;
+    if (!formData.project_id || !formData.date || !formData.safety_checklist_status) {
+      toast.error("Please fill all required fields");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await safetyService.updateIncident(selectedIncident.id, formData);
@@ -664,13 +668,14 @@ const ManagerSafetyPage = () => {
               <input name="date" type="date" required value={formData.date} onChange={handleInputChange} className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Violation Type <span className="text-rose-500">*</span></label>
+              <label className={labelCls}>Violation Type</label>
               <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputCls}>
+                <option value="">— None —</option>
                 {VIOLATION_TYPES.map(v => <option key={v}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelCls}>Responsible Person <span className="text-rose-500">*</span></label>
+              <label className={labelCls}>Responsible Person</label>
               <input name="responsible_person" type="text" value={formData.responsible_person}
                 onChange={e => setFormData(p => ({ ...p, responsible_person: e.target.value.replace(/[^a-zA-Z\s.'-]/g, "") }))}
                 placeholder="Full Name" className={inputCls} />
@@ -684,11 +689,11 @@ const ManagerSafetyPage = () => {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>Description <span className="text-rose-500">*</span></label>
+              <label className={labelCls}>Description</label>
               <textarea name="description" value={formData.description} onChange={handleInputChange} rows={2} placeholder="Describe the incident..." className={inputCls + " resize-none"} />
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>Action Taken <span className="text-rose-500">*</span></label>
+              <label className={labelCls}>Action Taken</label>
               <textarea name="action_taken" value={formData.action_taken} onChange={handleInputChange} rows={2} placeholder="Corrective action taken..." className={inputCls + " resize-none"} />
             </div>
             <div className="md:col-span-2">

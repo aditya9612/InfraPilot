@@ -142,8 +142,9 @@ const ClientPaymentsList = () => {
                 <table className="w-full text-left whitespace-nowrap">
                     <thead>
                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                            <th className="px-6 py-4">Client & Project</th>
-                            <th className="px-6 py-4">Date & Amount</th>
+                            <th className="px-6 py-4">Client</th>
+                            <th className="px-6 py-4">Date</th>
+                            <th className="px-6 py-4">Amount</th>
                             <th className="px-6 py-4">Method & Bank</th>
                             <th className="px-6 py-4">Recorded By</th>
                             <th className="px-6 py-4">Status</th>
@@ -153,7 +154,7 @@ const ClientPaymentsList = () => {
                     <tbody className="divide-y divide-slate-50">
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                                <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                                     <div className="flex items-center justify-center gap-2">
                                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                                         Loading payments...
@@ -162,7 +163,7 @@ const ClientPaymentsList = () => {
                             </tr>
                         ) : filteredPayments.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                                <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                                     No payments found.
                                 </td>
                             </tr>
@@ -171,11 +172,12 @@ const ClientPaymentsList = () => {
                                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-slate-600">{(p as any).client_name || p.user_name || "Unknown Client"}</p>
-                                        {p.project_name && <p className="text-[10px] text-slate-500 truncate max-w-[150px]" title={p.project_name}>{p.project_name}</p>}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm font-medium text-slate-600">
+                                        {new Date(p.payment_date).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 font-black text-slate-700">
                                         ₹{Number(p.amount).toLocaleString()}
-                                        <p className="text-[10px] text-slate-400 font-normal">{new Date(p.payment_date).toLocaleDateString()}</p>
                                     </td>
                                     <td className="px-6 py-4">
                                         <p className="text-sm font-bold text-slate-700 uppercase">{(p as any).method || p.payment_method || "N/A"}</p>

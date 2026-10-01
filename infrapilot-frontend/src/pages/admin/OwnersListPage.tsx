@@ -605,7 +605,7 @@ export default function OwnersListPage() {
         onConfirm={handleDelete}
         title="Authorize Sequence Purge"
         message={`This action will permanently terminate the stakeholder profile for ${deleteTarget?.name}. All broadcast data will be archived. Continue?`}
-        confirmText="Confirm Deletion"
+        confirmText="Delete"
         type="danger"
       />
     </>

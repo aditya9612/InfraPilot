@@ -372,7 +372,7 @@ const EquipmentPage = () => {
             default:
                 return [];
         }
-    }, [activeTab, searchTerm, filterCondition, filterProject, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList]);
+    }, [activeTab, searchTerm, filterCondition, filterProject, equipmentList, usageReport, maintenanceAlerts, rentalList, purchaseList, equipmentAlerts, transferList, allMaintenance, equipmentMap]);
 
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 

@@ -28,9 +28,9 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ payment, onCl
                         <div>
                             <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Status</p>
                             <span className={`px-2.5 py-1 rounded-lg text-xs font-bold tracking-widest uppercase
-                                ${(payment.payment_status || '').toLowerCase() === 'completed' || (payment.payment_status || '').toLowerCase() === 'verified' ? 'bg-emerald-100 text-emerald-600' :
-                                    (payment.payment_status || '').toLowerCase() === 'failed' || (payment.payment_status || '').toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                {payment.payment_status || 'Pending'}
+                                ${['completed', 'verified', 'success', 'paid'].includes((payment.payment_status || payment.status || '').toLowerCase()) ? 'bg-emerald-100 text-emerald-600' :
+                                    ['failed', 'rejected'].includes((payment.payment_status || payment.status || '').toLowerCase()) ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                {payment.payment_status || payment.status || 'Pending'}
                             </span>
                         </div>
                         <div className="text-right">

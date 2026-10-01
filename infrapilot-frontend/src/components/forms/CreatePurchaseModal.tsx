@@ -128,7 +128,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 // send null when no BOQ item selected (0 fails BE validation)
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
                 // send null when no warranty date
-                warranty_end_date: formData.warranty_end_date || null,
+                warranty_end_date: formData.warranty_end_date || undefined,
                 quantity: formData.quantity ? Number(formData.quantity) : 0,
                 unit_price: formData.unit_price ? Number(formData.unit_price) : 0,
                 total_amount: (formData.quantity ? Number(formData.quantity) : 0) * (formData.unit_price ? Number(formData.unit_price) : 0),
@@ -160,32 +160,32 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto" onMouseDown={onClose}>
-            <div className="flex justify-center min-h-full p-4">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8" onMouseDown={(e) => e.stopPropagation()}>
-                    <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                                <ShoppingCart className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800 tracking-tight">
-                                    Create Purchase
-                                </h3>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    Record a new equipment or material purchase
-                                </p>
-                            </div>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onMouseDown={onClose}>
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 relative" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                            <ShoppingCart className="w-5 h-5" />
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800 tracking-tight">
+                                Create Purchase
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">
+                                Record a new equipment or material purchase
+                            </p>
+                        </div>
                     </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
 
-                    <form onSubmit={handleSubmit} className="p-8" noValidate>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden" noValidate>
+                    <div className="p-8 overflow-y-auto flex-1">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Purchase Type */}
                             <div className="space-y-2">
@@ -412,30 +412,30 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                 />
                             </div>
                         </div>
+                    </div>
 
-                        <div className="flex gap-3 pt-8 mt-4 border-t border-slate-50">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="flex-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                            >
-                                {isSubmitting ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <ShoppingCart className="w-4 h-4" />
-                                )}
-                                {isSubmitting ? "Saving..." : "Save Purchase"}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0 rounded-b-[2rem]">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-100 transition-all bg-white"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="flex-[2] px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <ShoppingCart className="w-4 h-4" />
+                            )}
+                            {isSubmitting ? "Saving..." : "Save Purchase"}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

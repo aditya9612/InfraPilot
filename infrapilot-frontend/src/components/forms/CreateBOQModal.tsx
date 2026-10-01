@@ -194,7 +194,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      toast.error("Please fix the errors in the form.");
+      toast.error("Please fill all required fields");
     }
   };
 
