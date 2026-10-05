@@ -308,6 +308,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                 }))}
                                 placeholder="Select Project"
                                 error={!!errors.project_id}
+                                searchable={false}
                             />
                             {errors.project_id && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
                         </div>
@@ -355,6 +356,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                     { id: '', label: 'Select Activity' },
                                     ...ACTIVITY_TAGS.map(t => ({ id: t, label: t }))
                                 ]}
+                                searchable={false}
                             />
                         </div>
                         <div className="z-[62] relative">
@@ -366,6 +368,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                     { id: '', label: 'Select Location' },
                                     ...LOCATION_TAGS.map(t => ({ id: t, label: t }))
                                 ]}
+                                searchable={false}
                             />
                         </div>
                     </div>

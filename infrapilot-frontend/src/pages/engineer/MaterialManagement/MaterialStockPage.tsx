@@ -553,9 +553,9 @@ const MaterialStockPage = () => {
                                     className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600 w-44"
                                 >
                                     <option value="">All Alerts</option>
-                                    <option value="IN_STOCK">✅ In Stock</option>
-                                    <option value="LOW_STOCK">⚠️ Low Stock</option>
-                                    <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+                                    <option value="IN_STOCK">In Stock</option>
+                                    <option value="LOW_STOCK">Low Stock</option>
+                                    <option value="OUT_OF_STOCK">Out of Stock</option>
                                 </select>
                                 <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>

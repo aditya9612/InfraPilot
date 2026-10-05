@@ -2893,10 +2893,8 @@ const TaskManagementPage = () => {
                         <textarea
                             value={passRemark}
                             onChange={(e) => setPassRemark(e.target.value)}
-                            placeholder="e.g. passed to user 2 due to shift end"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            
                         />
                     </div>
                 </div>

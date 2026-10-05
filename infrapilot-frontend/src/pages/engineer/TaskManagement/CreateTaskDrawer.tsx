@@ -606,6 +606,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 }))}
                                 placeholder="Select users..."
                                 placement="top"
+                                searchable={false}
                             />
                         </div>
 

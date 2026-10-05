@@ -30,7 +30,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     onChange,
     options,
     placeholder = "Select...",
-    searchable = true,
+    searchable = false,
     placement = "bottom",
     disabled = false,
     error
@@ -150,7 +150,7 @@ export const CustomMultiSelect: React.FC<CustomMultiSelectProps> = ({
     onChange,
     options,
     placeholder = "Select...",
-    searchable = true,
+    searchable = false,
     placement = "bottom"
 }) => {
     const [open, setOpen] = useState(false);

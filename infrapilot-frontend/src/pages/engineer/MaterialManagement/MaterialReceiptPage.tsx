@@ -695,7 +695,10 @@ const MaterialReceiptPage = () => {
                                                         <td className="px-6 py-4 text-sm text-slate-600">{(m as any).unit_name || m.unit}</td>
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
                                                         <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
-                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">
+                                                            <div>{formatINR(m.purchase_rate)}</div>
+                                                            {m.rate_type && <span className="text-[10px] font-semibold text-slate-400 block tracking-wider uppercase">{m.rate_type}</span>}
+                                                        </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
                                                         </td>
@@ -1081,6 +1084,7 @@ const MaterialReceiptPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select Project"
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1101,6 +1105,7 @@ const MaterialReceiptPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select Supplier"
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Supplier") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1129,6 +1134,7 @@ const MaterialReceiptPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select Material"
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1147,6 +1153,7 @@ const MaterialReceiptPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select BOQ (Optional)"
+                                    searchable={false}
                                 />
                             </div>
                             <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>

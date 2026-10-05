@@ -554,6 +554,7 @@ const MaterialConsumptionPage = () => {
                                     }))}
                                     placeholder="Select Project"
                                     error={formNotification?.fields?.includes("Project")}
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -571,6 +572,7 @@ const MaterialConsumptionPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select Task (Optional)"
+                                    searchable={false}
                                 />
                             </div>
                             <div className="z-[59]">
@@ -587,10 +589,10 @@ const MaterialConsumptionPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select BOQ (Optional)"
+                                    searchable={false}
                                 />
                             </div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} max={selectedInventory?.remaining_stock} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div className="md:col-span-2 z-[58]">
+                            <div className="z-[58]">
                                 <CustomSelect
                                     label="Issue Type"
                                     required
@@ -599,8 +601,14 @@ const MaterialConsumptionPage = () => {
                                     options={ISSUE_TYPES.map(i => ({ id: i, label: i }))}
                                     placeholder="Select Issue Type"
                                     error={formNotification?.fields?.includes("Issue Type")}
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Issue Type") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
+                                <input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} max={selectedInventory?.remaining_stock} />
+                                {formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
                         </div>
                     </div>
@@ -639,21 +647,6 @@ const MaterialConsumptionPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="z-[61]">
                                 <CustomSelect
-                                    label="Material"
-                                    required
-                                    value={transferForm.material_id?.toString() || ""}
-                                    onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
-                                    options={inventory.map(i => ({
-                                        id: i.material_id.toString(),
-                                        label: i.material_name
-                                    }))}
-                                    placeholder="Select Material"
-                                    error={formNotification?.fields?.includes("Material")}
-                                />
-                                {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
-                            </div>
-                            <div className="z-[60]">
-                                <CustomSelect
                                     label="From Project"
                                     required
                                     value={transferForm.from_project_id?.toString() || ""}
@@ -664,10 +657,11 @@ const MaterialConsumptionPage = () => {
                                     }))}
                                     placeholder="Select Origin"
                                     error={formNotification?.fields?.includes("From Project")}
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("From Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div className="z-[59]">
+                            <div className="z-[60]">
                                 <CustomSelect
                                     label="To Project"
                                     required
@@ -679,8 +673,25 @@ const MaterialConsumptionPage = () => {
                                     }))}
                                     placeholder="Select Destination"
                                     error={formNotification?.fields?.includes("To Project")}
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("To Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="Material"
+                                    required
+                                    value={transferForm.material_id?.toString() || ""}
+                                    onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
+                                    options={inventory.map(i => ({
+                                        id: i.material_id.toString(),
+                                        label: i.material_name
+                                    }))}
+                                    placeholder="Select Material"
+                                    error={formNotification?.fields?.includes("Material")}
+                                    searchable={false}
+                                />
+                                {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
                             <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div className="md:col-span-2 hidden"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
@@ -718,8 +729,8 @@ const MaterialConsumptionPage = () => {
                     )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
-                        <div className="space-y-4">
-                            <div><label className={labelClasses}>Transfer Name <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.material?.name || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><label className={labelClasses}>Transfer Name <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.material?.name || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
                             <div><label className={labelClasses}>Transfer ID <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
                             <div className="z-[60]">
                                 <CustomSelect
@@ -730,6 +741,7 @@ const MaterialConsumptionPage = () => {
                                     options={TRANSFER_STATUSES.map(s => ({ id: s, label: s }))}
                                     placeholder="Select Status"
                                     error={formNotification?.fields?.includes("Status")}
+                                    searchable={false}
                                 />
                                 {formNotification?.fields?.includes("Status") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>

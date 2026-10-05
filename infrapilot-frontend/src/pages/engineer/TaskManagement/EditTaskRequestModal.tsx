@@ -184,8 +184,7 @@ const EditTaskRequestModal: React.FC<EditTaskRequestModalProps> = ({ isOpen, onC
                                 options={[
                                     { id: 'LOW', label: 'LOW' },
                                     { id: 'MEDIUM', label: 'MEDIUM' },
-                                    { id: 'HIGH', label: 'HIGH' },
-                                    { id: 'CRITICAL', label: 'CRITICAL' }
+                                    { id: 'HIGH', label: 'HIGH' }
                                 ]}
                                 placeholder="Select priority"
                                 searchable={false}
