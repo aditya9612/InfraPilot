@@ -21,6 +21,7 @@ import { workProgressService } from '../../../services/workProgressService';
 import { masterService } from '../../../services/masterService';
 import { userService } from '../../../services/userService';
 import type { Task, ProjectMember } from '../../../types/project';
+import { formatDisplayDate, formatDateTimeToIST } from '../../../utils/dateUtils';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
     priority: "LOW" | "MEDIUM" | "HIGH";
@@ -743,9 +744,9 @@ const TaskManagementPage = () => {
         if (descStr) payload.append('description', descStr);
 
         const priorityRaw = formData.get('priority') as string;
-        const PMAP: Record<string, number> = { CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4, Critical: 1, High: 2, Medium: 3, Low: 4 };
+        const PMAP: Record<string, number> = { HIGH: 1, High: 1, MEDIUM: 2, Medium: 2, LOW: 3, Low: 3, CRITICAL: 4, Critical: 4 };
         const priorityNum = parseInt(priorityRaw);
-        const safePriority = !isNaN(priorityNum) ? priorityNum : (PMAP[priorityRaw] ?? 4);
+        const safePriority = !isNaN(priorityNum) ? priorityNum : (PMAP[priorityRaw] ?? 3);
         payload.append('priority', String(safePriority));
 
         const startDateStr = formData.get('start_date') as string;
@@ -2207,7 +2208,7 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Deadline</p>
                                             </div>
                                             <div className="pl-9">
-                                                <p className="text-sm text-slate-600">{selectedTask.end_date ? new Date(selectedTask.end_date).toLocaleDateString() : 'N/A'}</p>
+                                                <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.end_date, 'N/A')}</p>
                                             </div>
                                         </div>
 
@@ -2219,7 +2220,7 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Start Date</p>
                                             </div>
                                             <div className="pl-9">
-                                                <p className="text-sm text-slate-600">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : 'N/A'}</p>
+                                                <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.start_date, 'N/A')}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -2438,7 +2439,9 @@ const TaskManagementPage = () => {
                                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1">
                                                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                                             <h4 className="text-sm font-bold text-slate-800">Progress Updated</h4>
-                                                            <span className="text-[10px] font-bold text-slate-500">{new Date(activity.created_at).toLocaleString()}</span>
+                                                            <span className="text-[10px] font-bold text-slate-500">
+                                                                {formatDateTimeToIST(activity.created_at || activity.timestamp || activity.updated_at || activity.date || activity.performed_at, "Just now")}
+                                                            </span>
                                                         </div>
                                                         <p className="text-sm text-slate-700 mb-3">Progress moved to {activity.percentage ?? activity.progress_percentage ?? 0}%</p>
                                                         {activity.remarks && (
@@ -2655,10 +2658,10 @@ const TaskManagementPage = () => {
                                         defaultValue={selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : selectedEditTask?.priority === "LOW" ? 3 : 1}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
-                                        <option value={4}>Low</option>
-                                        <option value={3}>Medium</option>
-                                        <option value={2}>High</option>
-                                        <option value={1}>Critical</option>
+                                        <option value={1}>High</option>
+                                        <option value={2}>Medium</option>
+                                        <option value={3}>Low</option>
+                                        <option value={4}>Critical</option>
                                     </select>
                                 </div>
 

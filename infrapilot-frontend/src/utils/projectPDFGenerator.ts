@@ -3,45 +3,96 @@ import autoTable from "jspdf-autotable";
 import type { Project } from "../types/project";
 
 /**
- * Generates and downloads a Master Projects Overview PDF.
+ * Generates and downloads a Master Projects Overview / Company Portfolio PDF.
  */
 export const generateProjectListPDF = (projects: Project[]) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
-    // Colors & Styles
-    const primaryColor: [number, number, number] = [37, 99, 235]; // #2563eb
-    const secondaryColor: [number, number, number] = [71, 85, 105]; // #475569
+    // Ensure projects are sorted in consistent order corresponding to the dashboard view (by project ID ascending)
+    const sortedProjects = [...projects].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+    const totalCount = sortedProjects.length;
+    const ongoingCount = sortedProjects.filter(p => p.status === "Ongoing" || p.status === "On Track").length;
+    const completedCount = sortedProjects.filter(p => p.status === "Completed").length;
+    const delayedCount = sortedProjects.filter(p => p.status === "Delayed").length;
+    const onHoldCount = sortedProjects.filter(p => p.status === "On Hold").length;
+
+    const primaryColor: [number, number, number] = [20, 50, 95]; // Deep corporate navy
+    const secondaryColor: [number, number, number] = [71, 85, 105]; // Slate
 
     // --- Header ---
-    doc.setFontSize(20);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("COMPANY PORTFOLIO OVERVIEW", 15, 20);
+
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(20, 30, 45);
-    doc.text("Master Projects Overview", 15, 20);
+    doc.text("1. REPORT INFORMATION", 15, 32);
 
-    doc.setFontSize(10);
+    // Section 1 Box / Details
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 15, 28);
-    doc.text(`Total Projects: ${projects.length}`, 15, 34);
+    const todayStr = new Date().toISOString().split('T')[0];
+    doc.text(`Generated On:  ${todayStr}`, 15, 38);
+    doc.text(`Report Type:   Company Portfolio / Master Projects Overview`, 110, 38);
 
-    // --- Projects Table ---
-    const tableData = projects.map(p => [
-        p.project_name,
-        `${p.start_date} - ${p.end_date}`,
-        `${p.completion_percentage}%`,
-        "92.4", // Static efficiency score as in UI
-        p.status
-    ]);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(15, 42, pageWidth - 15, 42);
+
+    // --- Section 2: Summary ---
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(20, 30, 45);
+    doc.text("2. SUMMARY", 15, 50);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(15, 54, pageWidth - 30, 14, 2, 2, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(15, 54, pageWidth - 30, 14, 2, 2, "D");
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(
+        `Total Projects: ${totalCount}  |  Ongoing: ${ongoingCount}  |  Completed: ${completedCount}  |  Delayed: ${delayedCount}  |  On Hold: ${onHoldCount}`,
+        20,
+        63
+    );
+
+    // --- Section 3: Project List ---
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(20, 30, 45);
+    doc.text("3. PROJECT LIST", 15, 78);
+
+    const tableData = sortedProjects.map(p => {
+        const idStr = p.id ? `PRJ00${p.id}` : "-";
+        const datesStr = p.start_date && p.end_date ? `${p.start_date} to ${p.end_date}` : (p.start_date || p.end_date || "-");
+        const progressStr = `${p.completion_percentage ?? 0}%`;
+        const statusStr = (p.status || "").toUpperCase();
+        return [
+            idStr,
+            p.project_name,
+            datesStr,
+            progressStr,
+            statusStr
+        ];
+    });
 
     autoTable(doc, {
-        startY: 45,
-        head: [['Site / Project', 'Dates', 'Progress', 'Efficiency', 'Health']],
+        startY: 82,
+        head: [['ID', 'Site / Project', 'Dates', 'Progress', 'Health']],
         body: tableData,
+        theme: 'striped',
         headStyles: {
             fillColor: primaryColor,
             textColor: [255, 255, 255],
-            fontSize: 10,
+            fontSize: 9,
             fontStyle: 'bold',
             halign: 'left'
         },
@@ -50,21 +101,42 @@ export const generateProjectListPDF = (projects: Project[]) => {
             textColor: [20, 30, 45]
         },
         columnStyles: {
-            0: { fontStyle: 'bold' },
-            2: { halign: 'center' },
-            3: { halign: 'center' }
+            0: { fontStyle: 'bold', halign: 'left', cellWidth: 25 },
+            1: { fontStyle: 'bold', cellWidth: 50 },
+            2: { halign: 'left', cellWidth: 55 },
+            3: { halign: 'center', cellWidth: 25 },
+            4: { halign: 'center', fontStyle: 'bold', cellWidth: 30 }
+        },
+        didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 4) {
+                const val = String(data.cell.raw).toUpperCase();
+                if (val === 'ON TRACK' || val === 'ONGOING') {
+                    data.cell.styles.textColor = [16, 185, 129]; // Emerald
+                } else if (val === 'DELAYED') {
+                    data.cell.styles.textColor = [239, 68, 68]; // Red
+                } else if (val === 'ON HOLD' || val === 'ON_HOLD') {
+                    data.cell.styles.textColor = [245, 158, 11]; // Amber
+                } else if (val === 'COMPLETED') {
+                    data.cell.styles.textColor = [37, 99, 235]; // Blue
+                }
+            }
         }
     });
 
     // --- Footer ---
-    const bottomY = doc.internal.pageSize.height - 15;
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(150, 150, 150);
-    doc.text("InfraPilot Construction Management Suite - Confidential Site Report", pageWidth / 2, bottomY, { align: "center" });
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        const bottomY = doc.internal.pageSize.height - 12;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(150, 150, 150);
+        doc.text("InfraPilot Construction Management Suite - Confidential Site Report", 15, bottomY);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 15, bottomY, { align: "right" });
+    }
 
     // Download
-    doc.save(`Master_Projects_Overview_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Master_Projects_Overview_${todayStr}.pdf`);
 };
 /**
  * Generates and downloads a specialized Engineer Site Intelligence Report.

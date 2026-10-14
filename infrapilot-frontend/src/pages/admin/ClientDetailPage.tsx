@@ -4,7 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import {
     User, Mail, Phone, Briefcase, FileText, MessageCircle,
-    Send, Upload, Trash2, PlusCircle, ArrowLeft,
+    Send, Upload, Trash2, ArrowLeft,
     ClipboardList, CreditCard, Download
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -72,7 +72,7 @@ function OverviewTab({ client, onSaveNotes }: any) {
 }
 
 // ─── Financial Ledger Tab ─────────────────────────────────────────────────────
-function LedgerTab({ client, navigate }: any) {
+function LedgerTab({ client }: { client: any }) {
     const [invoices, setInvoices] = useState(client.invoices ?? []);
     const totalBilled = invoices.reduce((s: number, i: any) => s + i.amount, 0);
     const totalReceived = invoices.filter((i: any) => i.status === "Paid" || i.status === "Approved").reduce((s: number, i: any) => s + i.amount, 0);
@@ -508,7 +508,7 @@ const ClientDetailPage = () => {
                         ? inferredProjectName
                         : (inferredProjectId && inferredProjectId !== 1)
                             ? `Project #${inferredProjectId}`
-                            : u.address || "No Project Linked",
+                            : "No Project Linked",
                     status: u.is_active ? "Active" : "Inactive",
                     address: u.address || "No Address Provided",
 
@@ -618,7 +618,7 @@ const ClientDetailPage = () => {
 
                 {/* Tab Content */}
                 {activeTab === "overview" && <OverviewTab client={client} onSaveNotes={handleSaveNotes} />}
-                {activeTab === "ledger" && <LedgerTab client={client} navigate={navigate} />}
+                {activeTab === "ledger" && <LedgerTab client={client} />}
                 {activeTab === "documents" && <DocumentsTab client={client} />}
                 {activeTab === "comms" && <CommunicationTab client={client} />}
 

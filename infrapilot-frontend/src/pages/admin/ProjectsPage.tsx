@@ -72,7 +72,7 @@ const ProjectsPage = () => {
   );
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("oldest");
   const [actTab, setActTab] = useState("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
@@ -277,7 +277,10 @@ const ProjectsPage = () => {
   const stats = useMemo(() => {
     const s = {
       total: allProjects.length,
-      ongoing: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
+      ongoing: allProjects.filter((p) => {
+        const st = p.status?.toLowerCase();
+        return st === "ongoing" || st === "on track" || st === "on_track";
+      }).length,
       completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
       delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
       planned: allProjects.filter((p) => p.status?.toLowerCase() === "planned").length,

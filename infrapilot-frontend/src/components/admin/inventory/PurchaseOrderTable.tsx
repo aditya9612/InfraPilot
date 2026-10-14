@@ -5,6 +5,7 @@ import type { PurchaseOrder } from "../../../types/material";
 interface PurchaseOrderTableProps {
   pos: PurchaseOrder[];
   projectMap?: Record<number, string>;
+  supplierMap?: Record<number, string>;
   onEdit: (po: PurchaseOrder) => void;
   onView?: (po: PurchaseOrder) => void;
   onDelete: (id: number) => void;
@@ -13,6 +14,7 @@ interface PurchaseOrderTableProps {
 const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
   pos,
   projectMap = {},
+  supplierMap = {},
   onEdit,
   onView,
   onDelete,
@@ -33,6 +35,7 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
             <th className="px-6 py-4">Project</th>
             <th className="px-6 py-4">Material</th>
+            <th className="px-6 py-4">Supplier</th>
             <th className="px-6 py-4">Quantity</th>
             <th className="px-6 py-4">Rate (₹)</th>
             <th className="px-6 py-4">Total Amount</th>
@@ -51,6 +54,11 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
               </td>
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-800">{po.material_name}</p>
+              </td>
+              <td className="px-6 py-4">
+                <p className="font-semibold text-slate-700 text-sm">
+                  {po.supplier_name || (po.supplier_id && supplierMap[po.supplier_id]) || (po.supplier_id ? `Supplier #${po.supplier_id}` : "-")}
+                </p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {po.quantity}
@@ -104,7 +112,7 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
           ))}
           {pos.length === 0 && (
             <tr>
-              <td colSpan={8} className="py-12 text-center text-slate-400">
+              <td colSpan={9} className="py-12 text-center text-slate-400">
                 No purchase orders found.
               </td>
             </tr>

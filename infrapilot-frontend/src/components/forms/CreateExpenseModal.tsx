@@ -21,29 +21,36 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   projects,
   initialData,
 }) => {
-  const [formData, setFormData] = useState({
+  const emptyFormData = {
     project_id: "",
-    category: "Material",
+    category: "",
     amount: "",
     expense_date: new Date().toISOString().split("T")[0],
     payment_mode: "Cash",
     remarks: "",
     boq_item_id: "",
-  });
+  };
+
+  const [formData, setFormData] = useState(emptyFormData);
   const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
   const [isFetchingBoqs, setIsFetchingBoqs] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        project_id: String(initialData.project_id),
-        category: initialData.category,
-        amount: String(initialData.amount),
-        expense_date: initialData.expense_date.split("T")[0],
-        payment_mode: initialData.payment_mode,
-        remarks: initialData.description || "",
-        boq_item_id: initialData.boq_item_id ? String(initialData.boq_item_id) : "",
-      });
+    if (isOpen) {
+      if (initialData) {
+        setFormData({
+          project_id: String(initialData.project_id || ""),
+          category: initialData.category || "",
+          amount: String(initialData.amount || ""),
+          expense_date: (initialData.expense_date || new Date().toISOString()).split("T")[0],
+          payment_mode: initialData.payment_mode || "Cash",
+          remarks: initialData.description || "",
+          boq_item_id: initialData.boq_item_id ? String(initialData.boq_item_id) : "",
+        });
+      } else {
+        setFormData(emptyFormData);
+      }
+      setErrors({});
     }
   }, [initialData, isOpen]);
 
@@ -74,6 +81,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
     if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = "Amount must be greater than 0.";
     if (!formData.project_id) newErrors.project_id = "Project is required.";
+    if (!formData.category?.trim()) newErrors.category = "Category is required.";
     if (!formData.expense_date) newErrors.expense_date = "Expense Date is required.";
 
     if (Object.keys(newErrors).length > 0) {
@@ -85,7 +93,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setErrors({});
     const submissionData = {
       project_id: Number(formData.project_id) || 0,
-      category: formData.category,
+      category: formData.category.trim(),
       description: formData.remarks,
       amount: Number(formData.amount),
       expense_date: formData.expense_date,
@@ -96,12 +104,6 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     // Await the parent handler — it controls closing the modal on success/failure
     await onSubmit(submissionData);
   };
-
-  const categories = [
-    "Material", "Construction", "Contractor", "Labor", "Labour Advance",
-    "Subcontractor", "Equipment Rental", "Fuel", "Office Rent", "Travel",
-    "Salaries", "Utilities", "Stationery", "Marketing"
-  ];
 
   return (
     <Modal
@@ -122,15 +124,20 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">Category <span className="text-rose-500">*</span></label>
-                <select
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
+                <input
+                  type="text"
+                  placeholder="e.g. Material, Fuel, Labour, Travel..."
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.category
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   value={formData.category}
-                  onChange={e => setFormData({ ...formData, category: e.target.value })}
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                  onChange={e => {
+                    setFormData({ ...formData, category: e.target.value });
+                    if (errors.category) setErrors({ ...errors, category: "" });
+                  }}
+                />
+                {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
               </div>
 
               <div className="md:col-span-2 space-y-1">

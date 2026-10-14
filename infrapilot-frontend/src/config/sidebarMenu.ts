@@ -120,12 +120,12 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     {
       label: "Finance & Accounts",
       path: "/admin/finance",
-      icon: "dollar-sign",
+      icon: "rupee",
       subNav: [
         {
           label: "Expenses",
           path: "/admin/finance/expenses",
-          icon: "dollar-sign",
+          icon: "rupee",
         },
         {
           label: "Profit Tracking",
@@ -164,7 +164,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         {
           label: "Financial Report",
           path: "/admin/reports/financial",
-          icon: "dollar-sign",
+          icon: "rupee",
         },
         { label: "Labour Report", path: "/admin/reports/labour", icon: "users" },
         {
@@ -396,7 +396,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     {
       label: "Expenses",
       path: "/accountant/expenses/dashboard",
-      icon: "dollar-sign",
+      icon: "rupee",
     },
     {
       label: "Payments & Receipts",

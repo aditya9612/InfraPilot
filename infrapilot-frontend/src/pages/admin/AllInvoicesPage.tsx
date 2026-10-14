@@ -5,7 +5,6 @@ import {
   FileText,
   Eye,
   Trash2,
-  Download,
   Plus,
   ChevronDown,
   Layers,
@@ -22,13 +21,13 @@ import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
-import { exportToCSV } from "../../utils/csvExport";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import ClientSelectionModal from "../../components/forms/ClientSelectionModal";
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
 import { ownerService } from "../../services/ownerService";
+import { paymentService } from "../../services/paymentService";
 import type { Project } from "../../types/project";
 import type { Invoice, InvoiceType } from "../../types/invoice";
 
@@ -93,16 +92,107 @@ const AllInvoicesPage = () => {
     const load = async () => {
       setIsLoading(true);
       try {
-        // Fetch invoices, projects and owners first — don't block on slow quotation API
-        const [invData, projData, ownersRes] = await Promise.all([
+        // Fetch invoices, projects, owners and payment history to accurately sync payment statuses
+        const [invData, projData, ownersRes, paymentHistory] = await Promise.all([
           financeService.getInvoices(200).catch(() => []),
           projectService.getProjects(100, 0).catch(() => []),
-          ownerService.getOwners().catch(() => [])
+          ownerService.getOwners().catch(() => []),
+          paymentService.getClientPaymentHistory().catch(() => [])
         ]);
-        setInvoices(Array.isArray(invData) ? invData : []);
+
         const projList = Array.isArray(projData)
           ? projData
           : projData.items || projData.data || [];
+
+        const paidInvIds = new Set<string>();
+        const paidProjectIds = new Set<string>();
+        const paidProjectNames = new Set<string>();
+        const paidInvoiceNumbers = new Set<string>();
+
+        if (Array.isArray(paymentHistory)) {
+          paymentHistory.forEach((p: any) => {
+            const s = String(p.payment_status || p.status || p.invoice_status || "").toUpperCase();
+            const isCompletedPayment =
+              s === "VERIFIED" ||
+              s === "PAID" ||
+              s === "APPROVED" ||
+              s === "COMPLETED" ||
+              s === "SUCCESS" ||
+              Boolean(p.verified_by) ||
+              Boolean(p.verified_at) ||
+              Number(p.amount) > 0;
+
+            if (isCompletedPayment) {
+              if (p.invoice_id != null) {
+                paidInvIds.add(String(p.invoice_id));
+                const digits = String(p.invoice_id).replace(/\D/g, "");
+                if (digits) paidInvIds.add(digits);
+              }
+              if (p.project_id != null) {
+                paidProjectIds.add(String(p.project_id));
+              }
+              if (p.project_name || p.projectName) {
+                paidProjectNames.add(String(p.project_name || p.projectName).toLowerCase().trim());
+              }
+              if (p.invoice_no) {
+                paidInvoiceNumbers.add(String(p.invoice_no).toUpperCase().trim());
+                const digits = String(p.invoice_no).replace(/\D/g, "");
+                if (digits) paidInvIds.add(digits);
+              }
+              if (p.invoiceNo) {
+                paidInvoiceNumbers.add(String(p.invoiceNo).toUpperCase().trim());
+                const digits = String(p.invoiceNo).replace(/\D/g, "");
+                if (digits) paidInvIds.add(digits);
+              }
+            }
+          });
+        }
+
+        const locallyPaidSet = new Set<string>();
+        try {
+          const stored = JSON.parse(localStorage.getItem("infrapilot_paid_invoices") || "[]");
+          if (Array.isArray(stored)) {
+            stored.forEach((id: any) => {
+              locallyPaidSet.add(String(id));
+              const d = String(id).replace(/\D/g, "");
+              if (d) locallyPaidSet.add(d);
+            });
+          }
+        } catch { }
+
+        const rawList = Array.isArray(invData) ? invData : (invData as any)?.items || [];
+        const syncedInvoices: Invoice[] = rawList.map((inv: any) => {
+          const invIdStr = String(inv.id || "");
+          const invDigits = invIdStr.replace(/\D/g, "");
+          const invNo = String(inv.invoice_number || inv.invoice_no || `INV-${invIdStr.padStart(3, "0")}`).toUpperCase().trim();
+
+          const isDirectlyPaid =
+            (inv.status || "").toLowerCase() === "paid" ||
+            (inv.payment_status || "").toLowerCase() === "paid" ||
+            (Number(inv.total_amount) > 0 && Number(inv.paid_amount) >= Number(inv.total_amount));
+
+          const invProj = projList.find((p: any) => String(p.id) === String(inv.project_id));
+          const invProjName = (invProj?.project_name || (inv as any).project_name || "").toLowerCase().trim();
+          const desc = String(inv.description || "").toLowerCase().trim();
+
+          const isPaymentMatch =
+            locallyPaidSet.has(invIdStr) ||
+            (invDigits && locallyPaidSet.has(invDigits)) ||
+            paidInvIds.has(invIdStr) ||
+            (invDigits && paidInvIds.has(invDigits)) ||
+            paidInvoiceNumbers.has(invNo) ||
+            (inv.project_id != null && paidProjectIds.has(String(inv.project_id))) ||
+            (invProjName && Array.from(paidProjectNames).some(name => invProjName.includes(name) || name.includes(invProjName))) ||
+            Array.from(paidProjectNames).some(name => desc.includes(name));
+
+          const isPaid = isDirectlyPaid || isPaymentMatch;
+
+          return isPaid
+            ? { ...inv, status: "paid" as any, payment_status: "paid", paid_amount: Number(inv.paid_amount) || Number(inv.total_amount) || 0, pending_amount: 0 }
+            : inv;
+        });
+
+        setInvoices(syncedInvoices);
         setProjects(projList);
         setOwners(ownersRes);
       } catch (error) {
@@ -147,7 +237,13 @@ const AllInvoicesPage = () => {
       const invData = await financeService.getInvoices(200);
       setInvoices(Array.isArray(invData) ? invData : []);
     } catch (error: any) {
-      toast.error(error.message || "Failed to create invoice");
+      const detail = error.response?.data?.detail;
+      const message = typeof detail === 'string'
+        ? detail
+        : (Array.isArray(detail)
+            ? detail.map((d: any) => d.msg || d.message).join(', ')
+            : (typeof detail === 'object' && detail?.message ? detail.message : (error.response?.data?.message || error.message || "Failed to create invoice")));
+      toast.error(message);
     }
   };
 
@@ -221,11 +317,18 @@ const AllInvoicesPage = () => {
 
   // Filtered data
   const filteredQuotations = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
     return quotations.filter((q) => {
-      const matchSearch =
-        q.quotation_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.project_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const rawId = String(q.id || "").toLowerCase();
+      const qtnId = `qtn-${q.id}`.toLowerCase();
+      const formattedId = q.id ? `qt/2026/${String(q.id).padStart(4, "0")}`.toLowerCase() : "";
+      const matchSearch = !term ||
+        (q.quotation_no || "").toLowerCase().includes(term) ||
+        (q.client_name || "").toLowerCase().includes(term) ||
+        (q.project_name || "").toLowerCase().includes(term) ||
+        rawId === term || rawId.includes(term) ||
+        qtnId.includes(term) ||
+        formattedId.includes(term);
       const matchStatus =
         statusFilter === "all" ||
         q.status?.toLowerCase() === statusFilter.toLowerCase();
@@ -234,17 +337,61 @@ const AllInvoicesPage = () => {
     });
   }, [quotations, searchTerm, statusFilter, projectFilter]);
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      const proj = projects.find((p) => p.id === inv.project_id);
-      const matchSearch =
-        (proj?.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        `INV-${inv.id}`.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredDummyQuotations = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    return dummyQuotations.filter((q) => {
+      const rawId = String(q.id || "").toLowerCase();
+      const qtnId = `qtn-${q.id}`.toLowerCase();
+      const formattedId = q.id ? `qt/2026/${String(q.id).padStart(4, "0")}`.toLowerCase() : "";
+      const matchSearch = !term ||
+        (q.quotation_no || "").toLowerCase().includes(term) ||
+        (q.client_name || "").toLowerCase().includes(term) ||
+        (q.project_name || "").toLowerCase().includes(term) ||
+        rawId === term || rawId.includes(term) ||
+        qtnId.includes(term) ||
+        formattedId.includes(term);
       const matchStatus =
         statusFilter === "all" ||
-        inv.status?.toLowerCase() === statusFilter.toLowerCase();
-      const matchProject = projectFilter === "all" || String(inv.project_id) === projectFilter;
+        (q.status || "draft").toLowerCase() === statusFilter.toLowerCase();
+      const matchProject = projectFilter === "all" || String(q.project_id) === projectFilter;
+      return matchSearch && matchStatus && matchProject;
+    });
+  }, [dummyQuotations, searchTerm, statusFilter, projectFilter]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      const proj = projects.find((p) => String(p.id) === String(inv.project_id));
+      const projName = proj?.project_name || "";
+      const matchSearch =
+        projName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (inv.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `INV-${inv.id}`.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const isPaid =
+        String(inv.status || inv.payment_status || "").toLowerCase() === "paid" ||
+        (Number(inv.total_amount) > 0 && Number(inv.paid_amount) >= Number(inv.total_amount));
+
+      const matchStatus =
+        statusFilter === "all" ||
+        (statusFilter.toLowerCase() === "paid"
+          ? isPaid
+          : statusFilter.toLowerCase() === "pending"
+          ? !isPaid
+          : String(inv.status || "").toLowerCase() === statusFilter.toLowerCase());
+
+      const selectedProject = projects.find((p) => String(p.id) === projectFilter);
+      const selectedProjName = (selectedProject?.project_name || "").toLowerCase().trim();
+
+      const matchProject =
+        projectFilter === "all" ||
+        String(inv.project_id) === projectFilter ||
+        (proj && String(proj.id) === projectFilter) ||
+        (selectedProjName !== "" && (
+          projName.toLowerCase().includes(selectedProjName) ||
+          selectedProjName.includes(projName.toLowerCase()) ||
+          (inv.description || "").toLowerCase().includes(selectedProjName)
+        ));
+
       return matchSearch && matchStatus && matchProject;
     });
   }, [invoices, projects, searchTerm, statusFilter, projectFilter]);
@@ -254,7 +401,7 @@ const AllInvoicesPage = () => {
     const mappedQuotations = filteredQuotations.map(q => ({
       id: q.id,
       isQuotation: true,
-      invoice_no: q.quotation_no || `QTN-${q.id}`,
+      invoice_no: q.quotation_no || (q.id ? `QT/2026/${String(q.id).padStart(4, "0")}` : "-"),
       project_name: q.project_name || "Unknown Project",
       description: "Converted from quotation",
       type: "invoice",
@@ -280,7 +427,7 @@ const AllInvoicesPage = () => {
 
     const finalFiltered = combined.filter(item => {
       if (typeFilter === "all") return true;
-      if (typeFilter === "invoice") return item.isQuotation || item.type === "owner";
+      if (typeFilter === "invoice") return item.type !== "labour" && item.type !== "material";
       return item.type?.toLowerCase() === typeFilter.toLowerCase();
     });
 
@@ -291,37 +438,46 @@ const AllInvoicesPage = () => {
     });
   }, [filteredInvoices, filteredQuotations, projects, sortOrder, typeFilter]);
   const displayData = activeTab === "dummy_quotations"
-    ? dummyQuotations.map(q => ({
-      id: q.id,
-      isQuotation: true,
-      client_user_id: q.client_user_id,
-      invoice_no: q.quotation_no || `QTN-${q.id}`,
-      project_name: q.project_name || "Unknown Project",
-      client_name: q.client_name,
-      description: "Dummy Quotation",
-      type: "quotation",
-      amount: q.subtotal || 0,
-      gst_amount: q.gst_amount || 0,
-      tax_amount: q.tds_amount || 0,
-      total_amount: q.grand_total || 0,
-      paid_amount: q.advance_paid || 0,
-      pending_amount: q.balance_due || 0,
-      status: q.status || "draft",
-      created_at: q.created_at
-    }))
+    ? filteredDummyQuotations.map(q => {
+      const gstVal = q.cgst_amount != null && q.cgst_amount > 0
+        ? q.cgst_amount
+        : (q.gst_amount || ((q.cgst_amount || 0) + (q.sgst_amount || 0)) || 0);
+      const taxVal = q.sgst_amount != null && q.sgst_amount > 0
+        ? q.sgst_amount
+        : ((q as any).tax_amount || q.tds_amount || 0);
+
+      return {
+        id: q.id,
+        isQuotation: true,
+        client_user_id: q.client_user_id,
+        invoice_no: q.quotation_no || "",
+        project_name: q.project_name || "Unknown Project",
+        client_name: q.client_name,
+        description: "Dummy Quotation",
+        type: "quotation",
+        amount: q.subtotal || 0,
+        gst_amount: gstVal,
+        tax_amount: taxVal,
+        total_amount: q.grand_total || 0,
+        paid_amount: q.advance_paid || 0,
+        pending_amount: q.balance_due || 0,
+        status: q.status || "draft",
+        created_at: q.created_at
+      };
+    })
     : activeTab === "quotations"
       ? filteredQuotations.map(q => ({
         id: q.id,
         isQuotation: true,
         client_user_id: q.client_user_id,
-        invoice_no: q.quotation_no || `QTN-${q.id}`,
+        invoice_no: q.quotation_no || (q.id ? `QT/2026/${String(q.id).padStart(4, "0")}` : "-"),
         project_name: q.project_name || "Unknown Project",
         client_name: q.client_name,
         description: "Quotation",
         type: "quotation",
         amount: q.subtotal || 0,
-        gst_amount: q.gst_amount || 0,
-        tax_amount: q.tds_amount || 0,
+        gst_amount: q.gst_amount || ((q.cgst_amount || 0) + (q.sgst_amount || 0)) || 0,
+        tax_amount: (q as any).tax_amount || q.tds_amount || 0,
         total_amount: q.grand_total || 0,
         paid_amount: q.advance_paid || 0,
         pending_amount: q.balance_due || 0,
@@ -344,24 +500,6 @@ const AllInvoicesPage = () => {
     const paid = displayData.reduce((s, i: any) => s + (Number(i.paid_amount) || 0), 0);
     return { total, pending, paid };
   }, [displayData]);
-
-  const handleExportAll = () => {
-    if (displayData.length === 0) { toast.error("No data to export."); return; }
-    const csvData = displayData.map((item) => ({
-      id: item.invoice_no,
-      type: item.type,
-      project: item.project_name,
-      description: item.description,
-      amount: item.total_amount,
-      status: item.status,
-      date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
-    }));
-    exportToCSV(csvData, `invoice_portfolio_${new Date().toISOString().split("T")[0]}.csv`, {
-      id: "Invoice #", type: "Type", project: "Project", description: "Description",
-      amount: "Amount (₹)", status: "Status", date: "Date",
-    });
-    toast.success(`Exported ${displayData.length} records to CSV!`);
-  };
 
   const openCreateModal = (type: InvoiceType) => {
     setActiveCreateType(type);
@@ -440,7 +578,7 @@ const AllInvoicesPage = () => {
           {/* TABS */}
           <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit">
             <button
-              onClick={() => { setActiveTab("invoices"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              onClick={() => { setActiveTab("invoices"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "invoices"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -452,7 +590,7 @@ const AllInvoicesPage = () => {
                 }`}>{invoices.length}</span>
             </button>
             <button
-              onClick={() => { setActiveTab("quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              onClick={() => { setActiveTab("quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -464,7 +602,7 @@ const AllInvoicesPage = () => {
                 }`}>{quotations.length}</span>
             </button>
             <button
-              onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -491,14 +629,20 @@ const AllInvoicesPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search invoices, clients, descriptions..."
+                  placeholder={
+                    activeTab === "quotations"
+                      ? "Search quotations, clients, descriptions..."
+                      : activeTab === "dummy_quotations"
+                        ? "Search draft quotations, clients, descriptions..."
+                        : "Search invoices, clients, descriptions..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
                 />
               </div>
               <div className="flex items-center gap-3">
-                {activeTab !== "quotations" && (
+                {activeTab === "invoices" && (
                   <select
                     value={typeFilter}
                     onChange={(e) => setType(e.target.value)}
@@ -510,7 +654,7 @@ const AllInvoicesPage = () => {
                     <option value="material">Material</option>
                   </select>
                 )}
-                {activeTab !== "quotations" && (
+                {activeTab !== "quotations" && activeTab !== "dummy_quotations" && (
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
@@ -522,18 +666,20 @@ const AllInvoicesPage = () => {
                     <option value="partial">Partial</option>
                   </select>
                 )}
-                <select
-                  value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
-                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none shadow-sm md:max-w-[160px] truncate"
-                >
-                  <option value="all">All Projects</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={String(proj.id)}>
-                      {proj.project_name}
-                    </option>
-                  ))}
-                </select>
+                {activeTab !== "dummy_quotations" && (
+                  <select
+                    value={projectFilter}
+                    onChange={(e) => setProjectFilter(e.target.value)}
+                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none shadow-sm md:max-w-[160px] truncate"
+                  >
+                    <option value="all">All Projects</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={String(proj.id)}>
+                        {proj.project_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <SortDropdown value={sortOrder} onChange={setSortOrder} />
               </div>
             </div>
@@ -542,7 +688,9 @@ const AllInvoicesPage = () => {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                    <th className="px-4 py-4 whitespace-nowrap">Invoice #</th>
+                    <th className="px-4 py-4 whitespace-nowrap">
+                      {activeTab === "dummy_quotations" ? "Quotation ID" : activeTab === "quotations" ? "Quotation No" : "Invoice #"}
+                    </th>
                     <th className="px-4 py-4 whitespace-nowrap">Project / Description</th>
                     <th className="px-4 py-4 whitespace-nowrap">Owner</th>
                     <th className="px-4 py-4 whitespace-nowrap">Type</th>
@@ -561,14 +709,14 @@ const AllInvoicesPage = () => {
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={16} className="px-6 py-20 text-center">
+                      <td colSpan={14} className="px-6 py-20 text-center">
                         <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading...</p>
                       </td>
                     </tr>
                   ) : pagedData.length === 0 ? (
                     <tr>
-                      <td colSpan={16} className="px-6 py-20 text-center">
+                      <td colSpan={14} className="px-6 py-20 text-center">
                         <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No records found</p>
                       </td>
@@ -578,7 +726,7 @@ const AllInvoicesPage = () => {
                       return (
                         <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-4 py-4 text-sm font-black text-slate-800 whitespace-nowrap">
-                            {inv.invoice_no}
+                            {activeTab === "dummy_quotations" ? (inv.invoice_no || `QTN-${inv.id}`) : inv.invoice_no}
                           </td>
                           <td className="px-4 py-4">
                             <p className="text-sm font-bold text-slate-700 whitespace-nowrap">{inv.project_name || "Unknown Project"}</p>
@@ -752,13 +900,32 @@ const AllInvoicesPage = () => {
         projects={projects}
         owners={owners}
         onMarkPaid={async (id) => {
+          const t = toast.loading("Marking invoice as paid...");
           try {
-            await financeService.markInvoicePaid(id);
-            toast.success("Invoice marked as paid!");
-            const invData = await financeService.getInvoices(200);
-            setInvoices(Array.isArray(invData) ? invData : []);
+            const currentInv = invoices.find(inv => inv.id === id) || viewingInvoice;
+            const updated = await financeService.markInvoicePaid(id, currentInv || undefined);
+            toast.success("Invoice marked as paid!", { id: t });
+            setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...(updated || {}), status: "paid", payment_status: "PAID", paid_amount: inv.total_amount, pending_amount: 0 } : inv));
+            if (viewingInvoice && viewingInvoice.id === id) {
+              setViewingInvoice(prev => prev ? { ...prev, ...(updated || {}), status: "paid", payment_status: "PAID", paid_amount: prev.total_amount, pending_amount: 0 } : null);
+            }
+            // Background refresh without overwriting paid status
+            financeService.getInvoices(200).then(invData => {
+              const rawList = Array.isArray(invData) ? invData : (invData as any)?.items || [];
+              if (rawList.length > 0) {
+                setInvoices(prev => rawList.map((inv: any) => {
+                  const existing = prev.find(p => p.id === inv.id);
+                  const isPaid = existing && ((existing.status || "").toLowerCase() === "paid" || (existing.payment_status || "").toLowerCase() === "paid");
+                  return isPaid
+                    ? { ...inv, status: "paid" as any, payment_status: "PAID", paid_amount: inv.total_amount || inv.amount, pending_amount: 0 }
+                    : inv;
+                }));
+              }
+            }).catch(() => {});
             setViewingInvoice(null);
-          } catch { toast.error("Failed to update status"); }
+          } catch (err: any) {
+            toast.error(err?.message || "Failed to update status", { id: t });
+          }
         }}
         onDownloadPDF={handleDownloadItemPDF}
         onSendInvoice={(id) => {

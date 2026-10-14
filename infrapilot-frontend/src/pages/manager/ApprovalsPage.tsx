@@ -15,6 +15,7 @@ import { documentService } from "../../services/documentService";
 import { drawingService } from "../../services/drawingService";
 import { equipmentService } from "../../services/equipmentService";
 import { userService } from "../../services/userService";
+import { CustomSelect } from "../../components/common/CustomDropdown";
 
 const ApprovalsPage = () => {
     const location = useLocation();
@@ -214,10 +215,6 @@ const ApprovalsPage = () => {
         return Array.from(types).sort();
     }, [approvals]);
 
-    const pendingFilteredApprovals = useMemo(() => {
-        return filteredApprovals.filter(a => a.status === "Pending");
-    }, [filteredApprovals]);
-
     const handleApprove = async (id: number, remarks: string = "Approved by Project Manager") => {
         try {
             await approvalService.approve(id, remarks);
@@ -293,6 +290,13 @@ const ApprovalsPage = () => {
                         <p className="text-slate-500 text-sm">Review critical site requests and authorize resource deployment.</p>
                     </div>
                     <div className="flex gap-2">
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
+                            title="Export CSV"
+                        >
+                            <Download className="w-4 h-4 text-slate-500" /> Export CSV
+                        </button>
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
@@ -549,15 +553,13 @@ const ApprovalsPage = () => {
                 <div className="p-4 space-y-4">
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
-                        <select
+                        <CustomSelect
                             value={createForm.entity_type}
-                            onChange={e => setCreateForm(p => ({ ...p, entity_type: e.target.value }))}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                        >
-                            {ENTITY_TYPES.map(et => (
-                                <option key={et.value} value={et.value}>{et.label}</option>
-                            ))}
-                        </select>
+                            onChange={(val) => setCreateForm(p => ({ ...p, entity_type: val, entity_id: "" }))}
+                            options={ENTITY_TYPES.map(et => ({ id: et.value, label: et.label }))}
+                            placeholder="Select Entity Type"
+                            maxHeight="max-h-48"
+                        />
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
@@ -568,22 +570,29 @@ const ApprovalsPage = () => {
                                 <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                                 Loading...
                             </div>
-                        ) : (
-                            <select
-                                value={createForm.entity_id}
-                                onChange={e => setCreateForm(p => ({ ...p, entity_id: e.target.value }))}
-                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                            >
-                                <option value="">
-                                    {entityItems.length === 0
-                                        ? `No ${createForm.entity_type} items found`
-                                        : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`}
-                                </option>
-                                {entityItems.map(item => (
-                                    <option key={item.id} value={item.id}>{item.label}</option>
-                                ))}
-                            </select>
-                        )}
+                        ) : (() => {
+                            const entityPlaceholder = entityItems.length === 0
+                                ? `No ${createForm.entity_type} items found`
+                                : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`;
+
+                            return (
+                                <CustomSelect
+                                    value={createForm.entity_id}
+                                    onChange={(val) => setCreateForm(p => ({ ...p, entity_id: val }))}
+                                    options={[
+                                        { id: "", label: entityPlaceholder },
+                                        ...entityItems.map(item => ({
+                                            id: item.id,
+                                            label: item.label,
+                                            searchKey: item.label
+                                        }))
+                                    ]}
+                                    placeholder={entityPlaceholder}
+                                    searchable={entityItems.length > 5}
+                                    maxHeight="max-h-48"
+                                />
+                            );
+                        })()}
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Remarks</label>

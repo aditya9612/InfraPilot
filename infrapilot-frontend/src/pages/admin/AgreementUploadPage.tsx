@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -23,42 +23,44 @@ export default function AgreementUploadPage() {
   const [filterProject, setFilterProject] = useState<string>("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const PAGE_SIZE = 10;
+  const searchRequestIdRef = useRef(0);
 
   const fetchAgreements = useCallback(async (query = "") => {
+    const currentRequestId = ++searchRequestIdRef.current;
     setIsLoading(true);
     try {
+      const trimmed = query.trim();
       const [data, statsData] = await Promise.all([
-        agreementService.listAgreements({ search: query }),
+        agreementService.listAgreements(trimmed ? { search: trimmed } : {}),
         agreementService.getAgreementStats()
       ]);
-      setAgreements(data);
-      setStats(statsData);
+      if (currentRequestId !== searchRequestIdRef.current) return;
+      setAgreements(Array.isArray(data) ? data : []);
+      if (statsData) setStats(statsData);
     } catch (err) {
-      console.error("Failed to fetch agreements", err);
-      toast.error("Failed to sync document registry");
+      if (currentRequestId === searchRequestIdRef.current) {
+        console.error("Failed to fetch agreements", err);
+        toast.error("Failed to sync document registry");
+      }
     } finally {
-      setIsLoading(false);
+      if (currentRequestId === searchRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchAgreements();
-  }, [fetchAgreements]);
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    // Debounce or immediate search
-  };
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
+    const timer = setTimeout(() => {
       fetchAgreements(searchTerm);
       setCurrentPage(0);
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [searchTerm, fetchAgreements]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(0);
+  };
 
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
@@ -173,7 +175,10 @@ export default function AgreementUploadPage() {
         (a.owner_name || "").toLowerCase().includes(term) ||
         (a.project_name || "").toLowerCase().includes(term) ||
         (a.type || "").toLowerCase().includes(term) ||
-        (a.status || "").toLowerCase().includes(term)
+        (a.status || "").toLowerCase().includes(term) ||
+        String(a.id || "").toLowerCase().includes(term) ||
+        String(a.owner_id || "").toLowerCase().includes(term) ||
+        String(a.project_id || "").toLowerCase().includes(term)
       ) : true;
       const matchesProject = filterProject ? a.project_name === filterProject : true;
       return matchesSearch && matchesProject;
@@ -314,7 +319,7 @@ export default function AgreementUploadPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {agreements.length > 0 ? (
+                    {pagedAgreements.length > 0 ? (
                       pagedAgreements.map((agr) => (
                         <tr key={agr.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-6 py-4">
@@ -415,7 +420,7 @@ export default function AgreementUploadPage() {
               {totalPages > 1 && (
                 <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, agreements.length)} of {agreements.length} Entries
+                    Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedAgreements.length)} of {sortedAgreements.length} Entries
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -482,7 +487,7 @@ export default function AgreementUploadPage() {
                 </div>
                 <div className="p-4 sm:p-6">
                   <AgreementUpload onUploadSuccess={() => {
-                    fetchAgreements(searchTerm);
+                    fetchAgreements();
                     setIsUploadModalOpen(false);
                   }} />
                 </div>

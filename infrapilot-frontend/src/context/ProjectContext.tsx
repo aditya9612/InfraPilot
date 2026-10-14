@@ -16,7 +16,10 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, isAuthenticated } = useAuth();
-    const [selectedProjectId, setSelectedProjectIdState] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectIdState] = useState<number | null>(() => {
+        const saved = localStorage.getItem('infrapilot_selected_project_id');
+        return saved ? Number(saved) : null;
+    });
     const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -28,7 +31,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setIsLoading(true);
         try {
-            if (user.role === 'ProjectManager' || user.role === 'SiteEngineer' || user.role === 'Manager') {
+            if (user.role === 'ProjectManager' || user.role === 'SiteEngineer' || (user.role as string) === 'Manager') {
                 let localProjects: Project[] = [];
                 const userStr = localStorage.getItem('infrapilot_user');
                 if (userStr) {
@@ -120,6 +123,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     offset += limit;
                 }
                 setAssignedProjects(allAdminProjects);
+
+                // Restore saved project for Admin only if one was previously selected
+                const savedId = localStorage.getItem('infrapilot_selected_project_id');
+                if (savedId) {
+                    const idToSelect = Number(savedId);
+                    if (!selectedProjectId || !allAdminProjects.some(p => p.id === selectedProjectId)) {
+                        if (allAdminProjects.some(p => p.id === idToSelect)) {
+                            setSelectedProjectIdState(idToSelect);
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Failed to fetch assigned projects:', error);

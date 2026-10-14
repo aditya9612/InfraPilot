@@ -23,7 +23,15 @@ export default function SupplierModal({
     address: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
+
   useEffect(() => {
+    setErrors({});
     if (initialData) {
       const contactStr = initialData.contact || initialData.phone || initialData.email || "";
       setFormData({
@@ -43,8 +51,6 @@ export default function SupplierModal({
       });
     }
   }, [initialData, isOpen]);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Merge backend errors into form errors
   useEffect(() => {
@@ -136,7 +142,7 @@ export default function SupplierModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
           >
             <svg
@@ -262,7 +268,7 @@ export default function SupplierModal({
           <div className="pt-2 flex gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-4 py-2.5 bg-gray-50 text-gray-600 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-100 transition-all"
             >
               Cancel

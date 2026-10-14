@@ -124,7 +124,19 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name === "quotation_id" && value) {
+            const selectedQ = quotations.find(q => String(q.id) === String(value));
+            setFormData(prev => ({
+                ...prev,
+                quotation_id: value,
+                start_date: selectedQ?.project_start_date ? selectedQ.project_start_date.split("T")[0] : prev.start_date,
+                end_date: selectedQ?.project_end_date ? selectedQ.project_end_date.split("T")[0] : prev.end_date,
+                city: (selectedQ?.site_address || selectedQ?.billing_address) ? (selectedQ.site_address || selectedQ.billing_address).split(",")[0].trim() : prev.city,
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
+
         if (errors[name]) {
             setErrors(prev => {
                 const { [name]: _, ...rest } = prev;
@@ -153,9 +165,19 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
         if (!formData.country.trim()) newErrors.country = "Country is required";
         if (!formData.pincode.trim()) newErrors.pincode = "Pincode is required";
 
-        if (!formData.start_date) newErrors.start_date = "Start date is required";
-        if (!formData.end_date) newErrors.end_date = "End date is required";
-        else if (formData.start_date && formData.end_date < formData.start_date) {
+        // Validate start_date
+        if (!formData.start_date || !formData.start_date.trim()) {
+            newErrors.start_date = "Start date is mandatory";
+        } else if (isNaN(new Date(formData.start_date).getTime())) {
+            newErrors.start_date = "Please enter a valid start date";
+        }
+
+        // Validate end_date
+        if (!formData.end_date || !formData.end_date.trim()) {
+            newErrors.end_date = "End date is mandatory";
+        } else if (isNaN(new Date(formData.end_date).getTime())) {
+            newErrors.end_date = "Please enter a valid end date";
+        } else if (formData.start_date && !newErrors.start_date && new Date(formData.end_date) < new Date(formData.start_date)) {
             newErrors.end_date = "End date cannot be before start date";
         }
 
@@ -173,13 +195,17 @@ const ConvertQuotationModal = ({ isOpen, onClose, onSuccess }: ConvertQuotationM
         e.preventDefault();
 
         if (!validate()) {
-            toast.error("Please fill all required fields correctly");
+            toast.error("Please fill all mandatory fields with valid values");
             return;
         }
 
         setIsSubmitting(true);
         try {
             const { quotation_id, ...payload } = formData;
+            if (!payload.start_date || !payload.end_date) {
+                toast.error("Start date and end date are mandatory fields.");
+                return;
+            }
             await quotationService.convertToProject(Number(quotation_id), {
                 ...payload,
                 owner_id: Number(payload.owner_id),

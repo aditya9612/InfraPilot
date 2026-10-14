@@ -306,6 +306,8 @@ const CreateTaskModal = ({
     </div>
   );
 
+  const labelClasses = "block text-[11px] font-extrabold text-slate-800 uppercase tracking-wider mb-1.5 ml-1";
+
   return (
     <Modal
       isOpen={isOpen}
@@ -393,7 +395,7 @@ const CreateTaskModal = ({
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Task Title <span className="text-red-500">*</span></label>
+                  <label className={labelClasses}>Task Title <span className="text-red-500">*</span></label>
                   <input
                     required type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g. Site Cleaning"
                     className={`w-full px-4 py-2.5 bg-white border ${errors.title ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 font-medium`}
@@ -402,7 +404,7 @@ const CreateTaskModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Description</label>
+                  <label className={labelClasses}>Description</label>
                   <textarea
                     name="description" value={formData.description} onChange={handleChange} placeholder="Detailed instructions for the site team" rows={3}
                     className={`w-full px-4 py-2.5 bg-white border ${errors.description ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none font-medium`}
@@ -412,7 +414,7 @@ const CreateTaskModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Activity Type</label>
+                    <label className={labelClasses}>Activity Type</label>
                     <select
                       name="activity_type_id" value={formData.activity_type_id} onChange={handleChange}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
@@ -424,23 +426,23 @@ const CreateTaskModal = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Priority <span className="text-red-500">*</span></label>
+                    <label className={labelClasses}>Priority <span className="text-red-500">*</span></label>
                     <select
                       name="priority" value={formData.priority} onChange={handleChange}
                       className={`w-full px-4 py-2.5 bg-white border ${errors.priority ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all font-medium appearance-none`}
                     >
                       <option value="">Select</option>
-                      <option value={4}>Low</option>
-                      <option value={3}>Medium</option>
-                      <option value={2}>High</option>
-                      <option value={1}>Critical</option>
+                      <option value={1}>High</option>
+                      <option value={2}>Medium</option>
+                      <option value={3}>Low</option>
+                      <option value={4}>Critical</option>
                     </select>
                     {errors.priority && <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider mt-1 ml-1">REQUIRED</p>}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
+                  <label className={labelClasses}>Status</label>
                   <select
                     name="status" value={formData.status} onChange={handleChange}
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
@@ -463,7 +465,7 @@ const CreateTaskModal = ({
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Instruction Image</label>
+                  <label className={labelClasses}>Instruction Image</label>
                   <label className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-200 rounded-2xl hover:border-primary/50 hover:bg-white transition-all cursor-pointer group">
                     <input
                       type="file" accept="image/*" className="hidden"
@@ -538,7 +540,7 @@ const CreateTaskModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Upload Audio File</label>
+                  <label className={labelClasses}>Upload Audio File</label>
                   <input
                     type="file" accept="audio/*"
                     onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
@@ -557,7 +559,7 @@ const CreateTaskModal = ({
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Assigned To</label>
+                  <label className={labelClasses}>Assigned To</label>
                   <select
                     name="assigned_user_id" value={formData.assigned_user_id || ""} onChange={handleChange}
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
@@ -571,7 +573,7 @@ const CreateTaskModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Link to Milestone</label>
+                    <label className={labelClasses}>Link to Milestone</label>
                     <select
                       name="milestone_id" value={formData.milestone_id} onChange={handleChange}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
@@ -583,7 +585,7 @@ const CreateTaskModal = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Link to BOQ Activity</label>
+                    <label className={labelClasses}>Link to BOQ Activity</label>
                     <select
                       name="boq_id" value={formData.boq_id || ""} onChange={handleChange}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
@@ -599,14 +601,14 @@ const CreateTaskModal = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Start Date</label>
+                    <label className={labelClasses}>Start Date</label>
                     <input
                       type="date" name="start_date" value={formData.start_date} onChange={handleChange}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all font-medium"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">End Date</label>
+                    <label className={labelClasses}>End Date</label>
                     <input
                       type="date" name="end_date" value={formData.end_date} onChange={handleChange}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all font-medium"

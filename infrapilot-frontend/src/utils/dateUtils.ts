@@ -155,12 +155,37 @@ export const formatDisplayTime = (timeStr: string | null | undefined): string =>
     return formatToIST(timeStr);
 };
 
-export const formatDateToIST = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return "";
+export const isValidDateValue = (dateVal: any): boolean => {
+    if (dateVal === null || dateVal === undefined || dateVal === "" || dateVal === 0 || dateVal === "0") {
+        return false;
+    }
+    const str = String(dateVal).trim();
+    if (
+        str === "-" ||
+        str === "--" ||
+        str === "null" ||
+        str === "undefined" ||
+        str === "N/A" ||
+        str === "NA" ||
+        str.startsWith("1970-01-01") ||
+        str.startsWith("01/01/1970") ||
+        str.startsWith("1970/01/01")
+    ) {
+        return false;
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1970) {
+        return false;
+    }
+    return true;
+};
+
+export const formatDateToIST = (dateStr: string | null | undefined, placeholder: string = "-"): string => {
+    if (!isValidDateValue(dateStr)) return placeholder;
 
     try {
         const date = parseUTCToDate(dateStr);
-        if (!date) return "-";
+        if (!date || isNaN(date.getTime()) || date.getFullYear() <= 1970) return placeholder;
 
         return date.toLocaleDateString('en-IN', {
             timeZone: 'Asia/Kolkata',
@@ -169,15 +194,40 @@ export const formatDateToIST = (dateStr: string | null | undefined): string => {
             year: 'numeric'
         });
     } catch (e) {
-        return "-";
+        return placeholder;
+    }
+};
+
+/**
+ * Formats datetime accurately in Indian Standard Time (IST) 12-hour format: DD/MM/YYYY, hh:mm:ss AM/PM
+ */
+export const formatDateTimeToIST = (dateStr: string | null | undefined, placeholder: string = "-"): string => {
+    if (!isValidDateValue(dateStr)) return placeholder;
+
+    try {
+        const date = parseUTCToDate(dateStr);
+        if (!date || isNaN(date.getTime()) || date.getFullYear() <= 1970) return placeholder;
+
+        return date.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    } catch {
+        return placeholder;
     }
 };
 
 const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } | null => {
-    if (!dateStr || (typeof dateStr !== 'string' && !(dateStr instanceof Date))) return null;
+    if (!isValidDateValue(dateStr)) return null;
 
     if (dateStr instanceof Date) {
-        if (isNaN(dateStr.getTime())) return null;
+        if (isNaN(dateStr.getTime()) || dateStr.getFullYear() <= 1970) return null;
         return {
             d: dateStr.getDate().toString().padStart(2, '0'),
             m: (dateStr.getMonth() + 1).toString().padStart(2, '0'),
@@ -190,6 +240,7 @@ const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } 
     // 1. Check YYYY-MM-DD or YYYY/MM/DD
     const ymd = /^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})/.exec(str);
     if (ymd) {
+        if (Number(ymd[1]) <= 1970) return null;
         return {
             y: ymd[1],
             m: ymd[2].padStart(2, '0'),
@@ -203,6 +254,7 @@ const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } 
         let first = parseInt(dmy[1], 10);
         let second = parseInt(dmy[2], 10);
         let year = dmy[3];
+        if (Number(year) <= 1970) return null;
 
         if (first > 12) {
             return { d: dmy[1].padStart(2, '0'), m: dmy[2].padStart(2, '0'), y: year };
@@ -215,7 +267,7 @@ const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } 
 
     // 3. Fallback to JS new Date
     const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1970) {
         return {
             d: parsed.getDate().toString().padStart(2, '0'),
             m: (parsed.getMonth() + 1).toString().padStart(2, '0'),
@@ -226,11 +278,11 @@ const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } 
     return null;
 };
 
-export const formatDateBySettings = (dateStr: any): string => {
-    if (!dateStr || dateStr === "-" || dateStr === "N/A" || dateStr === "NA" || dateStr === "null") return "-";
+export const formatDateBySettings = (dateStr: any, placeholder: string = "-"): string => {
+    if (!isValidDateValue(dateStr)) return placeholder;
 
     const comp = parseDateComponents(dateStr);
-    if (!comp) return typeof dateStr === 'string' ? dateStr : "-";
+    if (!comp) return placeholder;
 
     let format = "DD/MM/YYYY";
     try {
@@ -260,3 +312,11 @@ export const formatDateBySettings = (dateStr: any): string => {
             return `${comp.d}/${comp.m}/${comp.y}`;
     }
 };
+
+/**
+ * Universal display date helper with placeholder fallback instead of 01/01/1970
+ */
+export const formatDisplayDate = (dateStr: any, placeholder: string = "-"): string => {
+    return formatDateBySettings(dateStr, placeholder);
+};
+

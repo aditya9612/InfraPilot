@@ -24,7 +24,6 @@ import {
     Calendar,
     IndianRupee,
     Zap,
-    MapPin,
     Wallet,
     Timer,
     Award,
@@ -46,15 +45,16 @@ const fmtCurrency = (n: number | string | undefined | null): string => {
 };
 
 /* ─── Donut chart (pure SVG) ─── */
-const AttendanceDonut: React.FC<{ present: number; absent: number; halfDays: number; total: number }> = ({
-    present, absent, halfDays, total
+const AttendanceDonut: React.FC<{ present: number; absent: number; halfDays: number; total: number; percentage?: number }> = ({
+    present, absent, halfDays, total, percentage
 }) => {
-    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    const pct = percentage !== undefined ? Math.round(percentage) : (total > 0 ? Math.round((present / total) * 100) : 0);
     const radius = 54;
     const circumference = 2 * Math.PI * radius;
-    const presentArc = total > 0 ? (present / total) * circumference : 0;
-    const absentArc = total > 0 ? (absent / total) * circumference : 0;
-    const halfArc = total > 0 ? (halfDays / total) * circumference : 0;
+    const effectiveTotal = total > 0 ? total : (present + absent + halfDays);
+    const presentArc = effectiveTotal > 0 ? (present / effectiveTotal) * circumference : 0;
+    const absentArc = effectiveTotal > 0 ? (absent / effectiveTotal) * circumference : 0;
+    const halfArc = effectiveTotal > 0 ? (halfDays / effectiveTotal) * circumference : 0;
 
     return (
         <div className="flex flex-col items-center">
@@ -130,6 +130,7 @@ const LabourDashboard: React.FC = () => {
     const [halfDays, setHalfDays] = useState(0);
     const [totalDays, setTotalDays] = useState(0);
     const [attendanceStreak, setAttendanceStreak] = useState(0);
+    const [attendancePercentage, setAttendancePercentage] = useState<number | undefined>(undefined);
 
     // Payment summary
     const [totalAmount, setTotalAmount] = useState(0);
@@ -137,7 +138,7 @@ const LabourDashboard: React.FC = () => {
     const [pendingAmount, setPendingAmount] = useState(0);
     const [paymentStatus, setPaymentStatus] = useState('');
     const [isOverdue, setIsOverdue] = useState(false);
-    const [nextPaymentDate, setNextPaymentDate] = useState('');
+    const [_nextPaymentDate, setNextPaymentDate] = useState('');
 
     useEffect(() => {
         if (!activeProjectId && isProjectLoading) return;
@@ -166,6 +167,8 @@ const LabourDashboard: React.FC = () => {
                     setOvertimeHours(todayStatus.attendance?.overtime_hours || 0);
                 }
 
+                let hasAttSummary = false;
+
                 // ── Dashboard data ──
                 if (dashData) {
                     const d: any = dashData;
@@ -184,7 +187,7 @@ const LabourDashboard: React.FC = () => {
                         setProjectName(activeProjectName);
                     }
 
-                    const contName = d.contractor_name || prof.contractor_name || lbr.contractor_name || user?.contractor_name || (user as any)?.contractor;
+                    const contName = d.contractor_name || prof.contractor_name || lbr.contractor_name || (user as any)?.contractor_name || (user as any)?.contractor;
                     if (contName) setContractorName(contName);
 
                     const sName = d.site_name || prof.site_name || lbr.site_name;
@@ -221,15 +224,29 @@ const LabourDashboard: React.FC = () => {
                     setMonthEarnings(typeof mEarn === 'number' ? mEarn : parseFloat(mEarn) || 0);
 
                     // Attendance from dashboard response
-                    const pDays = d.present_days ?? d.attendance_summary?.present_days ?? 0;
-                    const aDays = d.absent_days ?? d.attendance_summary?.absent_days ?? 0;
-                    const hDays = d.half_days ?? d.attendance_summary?.half_days ?? 0;
+                    const att = d.attendance_summary || {};
+                    hasAttSummary = Boolean(d.attendance_summary);
+                    const pDays = Number(att.present_days ?? d.present_days ?? 0);
+                    const rawADays = Number(att.absent_days ?? d.absent_days ?? 0);
+                    const hDays = Number(att.half_days ?? d.half_days ?? 0);
+                    const rawTotDays = Number(att.total_days ?? d.total_days ?? (pDays + rawADays + hDays));
+                    const rawStreak = Number(att.attendance_streak ?? d.attendance_streak ?? d.streak ?? 0);
+                    const rawPct = att.attendance_percentage !== undefined ? Number(att.attendance_percentage) : undefined;
+
+                    // If newly added labor on Day 1 (total_days <= 1 and present_days === 0),
+                    // they should not be automatically marked as Absent Days: 1 before day completion.
+                    const isDay1Ongoing = (rawTotDays <= 1 || (rawTotDays === 1 && rawADays === 1)) && pDays === 0;
+                    const aDays = isDay1Ongoing ? 0 : rawADays;
+                    const finalTotalDays = isDay1Ongoing ? 0 : rawTotDays;
+                    const finalPct = isDay1Ongoing ? 0 : (rawPct !== undefined ? rawPct : (finalTotalDays > 0 ? (pDays / finalTotalDays) * 100 : 0));
+                    const finalStreak = pDays === 0 ? 0 : rawStreak;
+
                     setPresentDays(pDays);
                     setAbsentDays(aDays);
                     setHalfDays(hDays);
-                    const calculatedTot = pDays + aDays + hDays;
-                    setTotalDays(calculatedTot > 0 ? calculatedTot : (d.total_days ?? d.attendance_summary?.total_days ?? 0));
-                    setAttendanceStreak(d.attendance_streak ?? d.streak ?? 0);
+                    setTotalDays(finalTotalDays);
+                    setAttendanceStreak(finalStreak);
+                    setAttendancePercentage(finalPct);
 
                     // Payment summary from dashboard response
                     const totAmt = pymt.total_amount ?? d.total_amount ?? 0;
@@ -270,61 +287,71 @@ const LabourDashboard: React.FC = () => {
                     }
                 }
 
-                // ── Attendance list for month summary ──
-                if (attendanceList) {
+                // ── Attendance list for month summary (fallback ONLY if dashboard did not provide attendance_summary) ──
+                if (attendanceList && !hasAttSummary) {
                     const records = attendanceList.data || [];
                     const now = new Date();
                     const thisMonth = now.getMonth();
                     const thisYear = now.getFullYear();
-                    const monthRecords = records.filter((r: any) => {
+                    const userRecords = records.filter((r: any) => {
+                        const isUserMatch = !user?.id || r.user_id === user?.id || r.labour_id === user?.id;
                         const rd = new Date(r.attendance_date);
-                        return rd.getMonth() === thisMonth && rd.getFullYear() === thisYear;
+                        return isUserMatch && rd.getMonth() === thisMonth && rd.getFullYear() === thisYear;
                     });
-                    if (monthRecords.length > 0) {
-                        const pres = monthRecords.filter((r: any) => r.working_hours > 4 || r.work_hours > 4 || (!r.is_half_day && (r.check_in_time || r.in_time))).length;
-                        const half = monthRecords.filter((r: any) => r.is_half_day).length;
-                        const abs = monthRecords.length - pres - half;
+                    if (userRecords.length > 0) {
+                        const pres = userRecords.filter((r: any) => r.working_hours > 4 || r.work_hours > 4 || (!r.is_half_day && (r.check_in_time || r.in_time))).length;
+                        const half = userRecords.filter((r: any) => r.is_half_day).length;
+                        const abs = userRecords.length - pres - half;
                         const calculatedWorkDays = pres + (abs > 0 ? abs : 0) + half;
-                        setPresentDays(prev => prev || pres);
-                        setHalfDays(prev => prev || half);
-                        setAbsentDays(prev => prev || (abs > 0 ? abs : 0));
-                        setTotalDays(prev => prev || calculatedWorkDays || pres);
+                        setPresentDays(pres);
+                        setHalfDays(half);
+                        setAbsentDays(abs > 0 ? abs : 0);
+                        setTotalDays(calculatedWorkDays);
+                        setAttendancePercentage(calculatedWorkDays > 0 ? (pres / calculatedWorkDays) * 100 : 0);
 
                         // Streak: consecutive present days from today backwards
-                        const sorted = [...monthRecords].sort((a: any, b: any) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
+                        const sorted = [...userRecords].sort((a: any, b: any) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
                         let streak = 0;
                         for (const rec of sorted) {
                             if (rec.check_in_time || rec.in_time) streak++;
                             else break;
                         }
-                        setAttendanceStreak(prev => prev || streak);
+                        setAttendanceStreak(streak);
                     }
                 }
 
                 // ── Tasks ──
-                const rawDashboardRecentTasks = dashData?.recent_tasks || dashData?.tasks || dashData?.assigned_tasks || [];
-                const rawProjectTasks = Array.isArray(tasksResponse) ? tasksResponse : (tasksResponse?.items || tasksResponse?.data || []);
-                const rawTasks = (Array.isArray(rawDashboardRecentTasks) && rawDashboardRecentTasks.length > 0)
-                    ? rawDashboardRecentTasks
-                    : rawProjectTasks;
+                // The backend /dashboard/labour endpoint returns "recent_tasks" specifically for this labour worker.
+                // If recent_tasks is provided as an array (even if empty []), strictly respect it instead of showing unassigned project tasks.
+                const hasDashboardTasks = dashData && (
+                    Array.isArray(dashData.recent_tasks) ||
+                    Array.isArray(dashData.tasks) ||
+                    Array.isArray(dashData.assigned_tasks)
+                );
+                const rawDashboardRecentTasks = dashData?.recent_tasks ?? dashData?.tasks ?? dashData?.assigned_tasks;
 
-                const dashTotal = dashData?.overview?.total_tasks ?? dashData?.total_tasks ?? dashData?.total;
-                const dashCompleted = dashData?.overview?.completed_tasks ?? dashData?.completed_tasks ?? dashData?.completed;
-                const dashPending = dashData?.overview?.pending_tasks ?? dashData?.pending_tasks ?? dashData?.pending;
-
-                if (dashTotal !== undefined && dashTotal !== null) {
-                    setTotalTasks(Number(dashTotal));
-                    setCompletedTasks(Number(dashCompleted ?? 0));
-                    setPendingTasks(Number(dashPending ?? 0));
-                } else {
-                    setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (rawTasks.length || (dashData?.total ?? 0)));
-                    setCompletedTasks(rawProjectTasks.length > 0
-                        ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length
-                        : (dashData?.completed ?? 0));
-                    setPendingTasks(rawProjectTasks.length > 0
-                        ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length
-                        : (dashData?.pending ?? 0));
+                let rawTasks: any[] = [];
+                if (hasDashboardTasks) {
+                    rawTasks = rawDashboardRecentTasks || [];
+                } else if (dashData) {
+                    // Dashboard data loaded but had no tasks property: no tasks assigned
+                    rawTasks = [];
+                } else if (tasksResponse) {
+                    // Fallback to project tasks only if dashboard endpoint failed, filtering strictly for this worker
+                    const rawProjectTasks = Array.isArray(tasksResponse) ? tasksResponse : (tasksResponse?.items || tasksResponse?.data || []);
+                    rawTasks = rawProjectTasks.filter((t: any) => 
+                        (user?.id && (t.assigned_to_id === user.id || t.assigned_to === user.id || t.labour_id === user.id || (t.labour_ids && t.labour_ids.includes(user.id)))) ||
+                        (user?.name && t.assigned_to === user.name)
+                    );
                 }
+
+                const dashTotal = dashData?.overview?.total_tasks ?? dashData?.total_tasks ?? (hasDashboardTasks || dashData ? rawTasks.length : undefined);
+                const dashCompleted = dashData?.overview?.completed_tasks ?? dashData?.completed_tasks ?? (hasDashboardTasks || dashData ? rawTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length : undefined);
+                const dashPending = dashData?.overview?.pending_tasks ?? dashData?.pending_tasks ?? (hasDashboardTasks || dashData ? rawTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length : undefined);
+
+                setTotalTasks(dashTotal !== undefined ? Number(dashTotal) : rawTasks.length);
+                setCompletedTasks(dashCompleted !== undefined ? Number(dashCompleted) : rawTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length);
+                setPendingTasks(dashPending !== undefined ? Number(dashPending) : rawTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length);
 
                 const displayProjectName = resolvedProjectName || activeProjectName || user?.project_name || '-';
 
@@ -458,7 +485,7 @@ const LabourDashboard: React.FC = () => {
                                     <User className="w-4 h-4 text-slate-400" />
                                     <span className="font-medium">Contractor</span>
                                     <span className="text-slate-300 mx-1">|</span>
-                                    <span className="font-bold text-slate-800">{contractorName || user?.contractor_name || (user as any)?.contractor || '-'}</span>
+                                    <span className="font-bold text-slate-800">{contractorName || (user as any)?.contractor_name || (user as any)?.contractor || '-'}</span>
                                 </div>
                             </div>
                             {/* Skill tags */}
@@ -526,7 +553,7 @@ const LabourDashboard: React.FC = () => {
                         ) : (
                             <>
                                 <div className="flex items-start gap-6">
-                                    <AttendanceDonut present={presentDays} absent={absentDays} halfDays={halfDays} total={totalDays || 1} />
+                                    <AttendanceDonut present={presentDays} absent={absentDays} halfDays={halfDays} total={totalDays} percentage={attendancePercentage} />
                                     <div className="space-y-3 flex-1 pt-2">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">

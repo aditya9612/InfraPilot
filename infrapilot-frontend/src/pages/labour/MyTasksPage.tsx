@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import {
-    Filter, Search, Calendar,
+    Search, Calendar,
     CheckCircle, Clock, XCircle, List, Grid,
     Eye,
     Play,
@@ -36,14 +36,14 @@ const MyTasksPage: React.FC = () => {
     const { user } = useAuth();
     const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-    const [activeTab, setActiveTab] = useState('All Tasks');
+    const activeTab: string = 'All Tasks';
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [filterType, setFilterType] = useState('MY TASKS');
+    const filterType: string = 'MY TASKS';
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalTasks, setTotalTasks] = useState(0);
@@ -207,7 +207,7 @@ const MyTasksPage: React.FC = () => {
         return tasks.filter(t => {
             // When MY TASKS is selected (or active tab is My Tasks), filter to only show tasks assigned to the logged-in user (e.g., Ramesh Sharma)
             if (filterType === 'MY TASKS' || activeTab === 'My Tasks') {
-                const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
+                const currentUserName = (user?.name || (user as any)?.username || 'Ramesh Sharma').toLowerCase();
                 const assignedText = (t.assignedTo || '').toLowerCase();
                 
                 const isAssignedToMe = assignedText.includes(currentUserName) ||
@@ -511,7 +511,7 @@ return (
                                             {/* AUDIO INSTRUCTION */}
                                             <td className="px-6 py-5 whitespace-nowrap">
                                                 {!task.audioUrl && (!task.description || task.description === 'NA') ? (
-                                                    <span className="text-xs font-bold text-slate-300 italic uppercase">null</span>
+                                                    <span className="text-xs font-bold text-slate-400 font-inter">-</span>
                                                 ) : (
                                                     <div className={`flex items-center gap-2 rounded-full px-3 py-2 w-fit relative transition-all ${playingTaskId === task.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-50/50' : 'bg-slate-100'}`}>
                                                         {/* Play / Pause button */}
@@ -553,7 +553,7 @@ return (
                                                         />
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] font-bold text-slate-300 italic uppercase">NULL</span>
+                                                    <span className="text-xs font-bold text-slate-400 font-inter">-</span>
                                                 )}
                                             </td>
                                             {/* ACTION — View icon only without background */}

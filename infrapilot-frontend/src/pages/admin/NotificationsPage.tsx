@@ -7,9 +7,10 @@ import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import CreateAlertModal from "../../components/forms/CreateAlertModal";
 import toast from "react-hot-toast";
-import { notificationService, type Notification } from "../../services/notificationService";
+import { notificationService, type Notification, emitNotificationUpdate } from "../../services/notificationService";
 import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
+import { formatToIST } from "../../utils/dateUtils";
 
 interface NotificationsPageProps {
   filter?: "alerts" | "system";
@@ -97,12 +98,21 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
     setCurrentPage(0);
   }, [searchTerm, activeStatFilter, filter, selectedProjectId, activeTab]);
 
+  // Dynamically emit unread count whenever notifications change so top navbar bell icon updates in real-time
+  useEffect(() => {
+    if (!isLoading) {
+      const unread = notifications.filter(n => !n.read).length;
+      emitNotificationUpdate(unread);
+    }
+  }, [notifications, isLoading]);
+
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
   const pagedNotifs = filteredNotifs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead("Admin", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    emitNotificationUpdate(0);
   };
 
   const handleViewDetails = async (notif: Notification) => {
@@ -110,7 +120,11 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
     setIsViewModalOpen(true);
     if (!notif.read) {
       await notificationService.markAsRead(notif.id, notif.source);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      setNotifications(prev => {
+        const next = prev.map(n => n.id === notif.id ? { ...n, read: true } : n);
+        emitNotificationUpdate(next.filter(n => !n.read).length);
+        return next;
+      });
     }
   };
 
@@ -118,7 +132,11 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
     if (!notifToDelete) return;
     try {
       await notificationService.deleteAlert(notifToDelete);
-      setNotifications(prev => prev.filter(n => n.id !== notifToDelete));
+      setNotifications(prev => {
+        const next = prev.filter(n => n.id !== notifToDelete);
+        emitNotificationUpdate(next.filter(n => !n.read).length);
+        return next;
+      });
       toast.success("Notification removed.");
     } catch (err) {
       toast.error("Failed to delete notification.");
@@ -390,7 +408,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-xs font-bold text-slate-600">{new Date(notif.timestamp).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
-                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(notif.timestamp).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">{formatToIST(notif.timestamp)}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">

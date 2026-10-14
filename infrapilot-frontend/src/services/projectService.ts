@@ -35,11 +35,15 @@ export const projectService = {
         else if (rawStatusStr === "COMPLETED") normalizedStatus = "Completed";
         else if (rawStatusStr === "ON_HOLD" || rawStatusStr === "ON HOLD" || rawStatusStr === "SUSPENDED") normalizedStatus = "On Hold";
         else if (rawStatusStr === "DELAYED" || rawStatusStr === "DELAY" || rawStatusStr === "DELAY_ONGOING") normalizedStatus = "Delayed";
+        else if (rawStatusStr === "ON_TRACK" || rawStatusStr === "ON TRACK") normalizedStatus = "On Track";
 
+        const progressVal = Number(p.completion_percentage ?? p.progress ?? 0);
         if (normalizedStatus !== "Completed" && p.end_date) {
           const end = new Date(p.end_date).getTime();
           if (!isNaN(end) && end < Date.now()) {
-            normalizedStatus = "Delayed";
+            if (progressVal === 0 || normalizedStatus !== "On Hold") {
+              normalizedStatus = "Delayed";
+            }
           }
         }
 
@@ -87,7 +91,12 @@ export const projectService = {
    */
   async createProject(projectData: any) {
     try {
-      const response = await api.post('projects', projectData);
+      const payload = { ...projectData };
+      if (payload.status) {
+        const s = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+        payload.status = s === "IN_PROGRESS" ? "ONGOING" : s === "ONHOLD" ? "ON_HOLD" : s;
+      }
+      const response = await api.post('projects', payload);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -103,7 +112,12 @@ export const projectService = {
    */
   async updateProject(projectId: number, projectData: any) {
     try {
-      const response = await api.put(`projects/${projectId}`, projectData);
+      const payload = { ...projectData };
+      if (payload.status) {
+        const s = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+        payload.status = s === "IN_PROGRESS" ? "ONGOING" : s === "ONHOLD" ? "ON_HOLD" : s;
+      }
+      const response = await api.put(`projects/${projectId}`, payload);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -283,7 +297,11 @@ export const projectService = {
   },
 
   async createMilestone(projectId: number, milestoneData: any) {
-    const response = await api.post(`projects/${projectId}/milestones`, milestoneData);
+    const payload = { ...milestoneData };
+    if (payload.status) {
+      payload.status = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+    }
+    const response = await api.post(`projects/${projectId}/milestones`, payload);
     return response.data;
   },
 
@@ -293,7 +311,11 @@ export const projectService = {
   },
 
   async updateMilestone(projectId: number, milestoneId: number, milestoneData: any) {
-    const response = await api.put(`projects/${projectId}/milestones/${milestoneId}`, milestoneData);
+    const payload = { ...milestoneData };
+    if (payload.status) {
+      payload.status = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+    }
+    const response = await api.put(`projects/${projectId}/milestones/${milestoneId}`, payload);
     return response.data;
   },
 

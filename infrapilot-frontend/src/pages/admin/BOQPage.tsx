@@ -120,7 +120,8 @@ const BOQPage = () => {
     const tabMap: Record<string, string> = useMemo(() => ({
         list: "boq-list",
         items: "item-list",
-        cost: "cost-tracking"
+        cost: "cost-tracking",
+        setup: "boq-list"
     }), []);
 
     const activeTab = tabMap[tab || ""] || "boq-list";
@@ -153,9 +154,6 @@ const BOQPage = () => {
                     activityMap[a.id] = a.name;
                 });
                 setActivityTypeMap(activityMap);
-
-                // Initial fetch
-                await refreshBoqs();
             } catch (error) {
                 toast.error("Failed to load initial data");
             } finally {
@@ -176,6 +174,7 @@ const BOQPage = () => {
     const refreshBoqs = useCallback(async () => {
         setIsLoading(true);
         try {
+            const activeProjId = selectedProjectId || (localStorage.getItem('infrapilot_selected_project_id') ? Number(localStorage.getItem('infrapilot_selected_project_id')) : null);
             const filters: any = {
                 search: searchTerm || null,
                 status: statusFilter === "all" ? null : statusFilter,
@@ -186,20 +185,23 @@ const BOQPage = () => {
                 offset: (currentPage - 1) * itemsPerPage,
             };
 
-            if (selectedProjectId) {
-                filters.project_id = Number(selectedProjectId);
+            if (activeProjId) {
+                filters.project_id = Number(activeProjId);
             }
 
             const res = await boqService.getBoqs(filters);
 
             // Allow UI filters to handle visibility; don't hard-filter Drafts when fetching raw BOQs
-            const masterItems = res.items;
-            setBoqData(masterItems);
-            setTotalItems(res.total || masterItems.length);
+            const masterItems = res.items || [];
+            const scopedItems = activeProjId
+                ? masterItems.filter((item: any) => Number(item.project_id) === Number(activeProjId))
+                : masterItems;
+            setBoqData(scopedItems);
+            setTotalItems(res.total ?? scopedItems.length);
 
             // Also refresh summary if project is selected
-            if (selectedProjectId) {
-                const stats = await boqService.getBoqSummary(Number(selectedProjectId), selectedVersion);
+            if (activeProjId) {
+                const stats = await boqService.getBoqSummary(Number(activeProjId), selectedVersion);
                 setSummary(stats);
             } else {
                 setSummary(null);
@@ -319,30 +321,6 @@ const BOQPage = () => {
                 toast.error(typeof msg === 'string' ? msg : "Failed to update actuals");
                 throw error;
             }
-        }
-    };
-
-    const handleCreateVersion = async () => {
-        if (!selectedProjectId) {
-            toast.error("Please select a project first");
-            return;
-        }
-
-        const firstItem = boqData[0];
-        if (!firstItem) {
-            toast.error("No items found to version");
-            return;
-        }
-
-        try {
-            const res = await boqService.createBoqVersion(firstItem.id);
-            toast.success(res.message || "New version created!");
-            await refreshBoqs();
-            if (res.version) {
-                setSelectedVersion(res.version);
-            }
-        } catch (error) {
-            toast.error("Failed to create new version");
         }
     };
 
@@ -595,7 +573,12 @@ const BOQPage = () => {
 
 
     const filteredBoqData = useMemo(() => {
-        return [...boqData].sort((a, b) => {
+        const activeProjId = selectedProjectId || (localStorage.getItem('infrapilot_selected_project_id') ? Number(localStorage.getItem('infrapilot_selected_project_id')) : null);
+        let list = boqData;
+        if (activeProjId) {
+            list = list.filter((item: any) => Number(item.project_id) === Number(activeProjId));
+        }
+        return [...list].sort((a, b) => {
             const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
             const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
             if (dateA !== dateB) {
@@ -603,7 +586,7 @@ const BOQPage = () => {
             }
             return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
         });
-    }, [boqData, sortOrder]);
+    }, [boqData, sortOrder, selectedProjectId]);
 
     const handleViewDetails = async (item: BoqItem) => {
         try {
@@ -805,8 +788,8 @@ const BOQPage = () => {
                                                     ))}
                                                 </select>
                                                 <div className="w-px h-4 bg-slate-200 mx-1" />
-                                                <button onClick={handleCreateVersion} title="Create New Version" className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
-                                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                                <button onClick={() => refreshBoqs()} title="Refresh" className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
+                                                    <RefreshCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                                                 </button>
                                             </div>
                                         )}
@@ -824,6 +807,7 @@ const BOQPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                                                     <th className="px-6 py-5">Identified Item</th>
+                                                    <th className="px-6 py-5">Description</th>
                                                     <th className="px-6 py-5">Project</th>
                                                     <th className="px-6 py-5">Category</th>
                                                     <th className="px-6 py-5">Quantity Unit</th>
@@ -837,14 +821,19 @@ const BOQPage = () => {
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
                                                 {filteredBoqData.length === 0 ? (
-                                                    <tr><td colSpan={9} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
+                                                    <tr><td colSpan={11} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
                                                 ) : (
                                                     filteredBoqData.map((item) => (
                                                         <tr key={item.id} className="hover:bg-slate-50/80 transition-all group text-slate-800">
                                                             <td className="px-6 py-5">
                                                                 <div className="flex flex-col">
-                                                                    <p className="font-black text-slate-700 group-hover:text-slate-900 transition-colors text-xs tracking-tight uppercase">{item.item_name}</p>
+                                                                    <p className="font-black text-slate-700 group-hover:text-slate-900 transition-colors text-xs tracking-tight">{item.item_name}</p>
                                                                 </div>
+                                                            </td>
+                                                            <td className="px-6 py-5">
+                                                                <p className="text-xs text-slate-600 font-medium max-w-[200px] truncate" title={item.description || ''}>
+                                                                    {item.description || '—'}
+                                                                </p>
                                                             </td>
                                                             <td className="px-6 py-5">
                                                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{projectMap[item.project_id] || "Global Registry"}</p>

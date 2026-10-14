@@ -18,6 +18,24 @@ export interface Notification {
     user_id?: number | string | null;
 }
 
+export const normalizeNotificationTimestamp = (ts: string | null | undefined): string => {
+    if (!ts) return new Date().toISOString();
+    let s = String(ts).trim();
+    if (!s.includes('T') && s.includes(' ')) {
+        s = s.replace(' ', 'T');
+    }
+    if (!s.includes('Z') && !s.includes('+') && !/[-+]\d{2}:\d{2}$/.test(s)) {
+        s += 'Z';
+    }
+    return s;
+};
+
+export const emitNotificationUpdate = (unreadCount?: number) => {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('infrapilot-notifications-updated', { detail: { unreadCount } }));
+    }
+};
+
 export const notificationService = {
     /**
      * Get aggregated notifications for a specific role
@@ -45,13 +63,7 @@ export const notificationService = {
             const tAlerts = extractData(tRes);
             const sysNotifications = extractData(nRes);
 
-            const normalizeTimestamp = (ts: string) => {
-                if (!ts) return new Date().toISOString();
-                if (!ts.endsWith('Z') && !ts.includes('+') && !ts.includes('-')) {
-                    return ts.replace(' ', 'T') + 'Z';
-                }
-                return ts;
-            };
+            const normalizeTimestamp = normalizeNotificationTimestamp;
 
             const generateVirtualId = (prefix: string, item: any, index: number) => {
                 const uniqueStr = `${prefix}-${item.project_id || item.task_id || ''}-${item.status || ''}-${item.created_at || item.timestamp || ''}-${index}`;
@@ -82,8 +94,8 @@ export const notificationService = {
                     type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : "Alert",
                     timestamp: normalizeTimestamp(a.created_at || a.timestamp),
                     created_at: normalizeTimestamp(a.created_at || a.timestamp),
-                    read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
-                    is_read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    read: isVirtuallyRead(a.id || a.uuid || a.alert_id) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: isVirtuallyRead(a.id || a.uuid || a.alert_id) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                     role_target: "All" as const,
                     source: "general" as const,
                     status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
@@ -181,12 +193,7 @@ export const notificationService = {
             const deletedIdsStr = localStorage.getItem('infrapilot_alerts_deleted_ids');
             const deletedIds = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
 
-            const normalizeTs = (ts: string) => {
-                if (!ts) return new Date().toISOString();
-                if (!ts.endsWith('Z') && !ts.includes('+') && !ts.match(/\d{2}-\d{2}:\d{2}$/))
-                    return ts.replace(' ', 'T') + 'Z';
-                return ts;
-            };
+            const normalizeTs = normalizeNotificationTimestamp;
 
             const genAlerts = extractData(genRes).map((a: any) => ({
                 ...a,
@@ -260,8 +267,8 @@ export const notificationService = {
                 description: item.message || item.description || "",
                 details: item.message || item.details || item.content || "",
                 type: (item.type === 'alert' ? 'Alert' : item.type === 'success' ? 'Info' : 'System') as any,
-                timestamp: item.created_at || item.timestamp || new Date().toISOString(),
-                created_at: item.created_at || item.timestamp || new Date().toISOString(),
+                timestamp: normalizeNotificationTimestamp(item.created_at || item.timestamp),
+                created_at: normalizeNotificationTimestamp(item.created_at || item.timestamp),
                 read: !!(item.is_read || item.read),
                 source: "system" as const,
                 role_target: "All" as const,
@@ -298,6 +305,7 @@ export const notificationService = {
                     localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
                 }
             }
+            emitNotificationUpdate();
         } catch (error) {
             console.error(`Failed to mark notification ${id} as read:`, error);
         }
@@ -331,6 +339,7 @@ export const notificationService = {
                 });
                 localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
             }
+            emitNotificationUpdate(0);
         } catch (error) {
             console.error("Failed to mark all notifications as read:", error);
         }
@@ -350,6 +359,7 @@ export const notificationService = {
      */
     async createAlert(data: { project_id: number; alert_type: string; message: string; user_id: number }): Promise<any> {
         const response = await api.post('/alerts', data);
+        emitNotificationUpdate();
         return response.data;
     },
 
@@ -378,6 +388,7 @@ export const notificationService = {
                 localStorage.setItem('infrapilot_alerts_deleted_ids', JSON.stringify(deletedIds));
             }
         }
+        emitNotificationUpdate();
     },
 
     /**
@@ -425,8 +436,8 @@ export const notificationService = {
                     description: item.message || item.description || "",
                     details: item.message || item.details || item.content || "",
                     type: (item.type || "Info") as any,
-                    timestamp: item.created_at || item.timestamp || new Date().toISOString(),
-                    created_at: item.created_at || item.timestamp || new Date().toISOString(),
+                    timestamp: normalizeNotificationTimestamp(item.created_at || item.timestamp),
+                    created_at: normalizeNotificationTimestamp(item.created_at || item.timestamp),
                     read: isRead,
                     role_target: (item.role_target || "All") as any,
                     source: "direct" as const

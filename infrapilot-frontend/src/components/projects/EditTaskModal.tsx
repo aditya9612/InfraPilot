@@ -7,7 +7,7 @@ import { projectService } from "../../services/projectService";
 import { masterService } from "../../services/masterService";
 import type { BoqItem } from "../../types/boq";
 import type { Task, TaskStatus, ProjectMember } from "../../types/project";
-import { Mic, Square, Trash, Briefcase, ListTodo, UserCircle, Activity, FileText, Check } from "lucide-react";
+import { Mic, Square, Trash, Briefcase, ListTodo, UserCircle, Activity, FileText, Check, Upload } from "lucide-react";
 import { getFullImageUrl } from "../../utils/imageUtils";
 import { CustomSelect } from "../common/CustomDropdown";
 
@@ -33,6 +33,8 @@ const EditTaskModal = ({
     status: "Planned" as TaskStatus,
     start_date: "",
     end_date: "",
+    actual_start_date: "",
+    actual_end_date: "",
     assigned_user_id: 0 as string | number,
     completion_percentage: 0,
     boq_id: "" as string | number,
@@ -56,13 +58,20 @@ const EditTaskModal = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<any>(null);
 
-  // File State
+  // File State & Refs
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [instructionImage, setInstructionImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const isPriorityTouched = useRef(false);
 
   const PRIORITY_LABEL_MAP: Record<string, number> = {
-    CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4,
-    Critical: 1, High: 2, Medium: 3, Low: 4,
+    HIGH: 1, High: 1,
+    MEDIUM: 2, Medium: 2,
+    LOW: 3, Low: 3,
+    CRITICAL: 4, Critical: 4,
   };
 
   const sanitizePriority = (p: any): number => {
@@ -70,13 +79,14 @@ const EditTaskModal = ({
     if (typeof p === 'string') {
       const asNum = parseInt(p);
       if (!isNaN(asNum)) return asNum;
-      return PRIORITY_LABEL_MAP[p] ?? 4; // default to Low (4)
+      return PRIORITY_LABEL_MAP[p] ?? 3; // default to Low (3)
     }
-    return 4;
+    return 3;
   };
 
   useEffect(() => {
     if (task) {
+      isPriorityTouched.current = false;
       // Resolve assigned_user_id — may come from assigned_user_id or first entry in assigned_users
       const resolvedUserId = (() => {
         if (task.assigned_user_id) return task.assigned_user_id;
@@ -93,8 +103,10 @@ const EditTaskModal = ({
         description: task.description,
         priority: sanitizePriority(task.priority),
         status: task.status,
-        start_date: task.start_date,
-        end_date: task.end_date,
+        start_date: task.start_date || "",
+        end_date: task.end_date || "",
+        actual_start_date: (task as any).actual_start_date ? (task as any).actual_start_date.split('T')[0] : "",
+        actual_end_date: (task as any).actual_end_date ? (task as any).actual_end_date.split('T')[0] : "",
         assigned_user_id: resolvedUserId,
         completion_percentage: task.completion_percentage,
         boq_id: task.boq_id ? String(task.boq_id) : "",
@@ -108,6 +120,7 @@ const EditTaskModal = ({
       setAudioUrl(null);
       setAudioFile(null);
       setInstructionImage(null);
+      setImagePreviewUrl(null);
       setRecordingDuration(0);
     }
   }, [task]);
@@ -185,6 +198,9 @@ const EditTaskModal = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    if (name === "priority") {
+      isPriorityTouched.current = true;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: ["priority", "assigned_user_id", "completion_percentage", "boq_id", "milestone_id", "activity_type_id"].includes(name)
@@ -200,6 +216,9 @@ const EditTaskModal = ({
   };
 
   const handleSelectChange = (name: string, value: string | number) => {
+    if (name === "priority") {
+      isPriorityTouched.current = true;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: ["priority", "assigned_user_id", "completion_percentage", "boq_id", "milestone_id", "activity_type_id"].includes(name)
@@ -215,13 +234,41 @@ const EditTaskModal = ({
   };
 
 
+  const handleImageChange = (file: File | null) => {
+    setInstructionImage(file);
+    if (file) {
+      setImagePreviewUrl(URL.createObjectURL(file));
+      setFormData((prev) => ({ ...prev, remove_image: false }));
+    } else {
+      setImagePreviewUrl(null);
+    }
+  };
+
+  const isValidYear = (dateStr: string) => {
+    if (!dateStr) return true;
+    const year = parseInt(dateStr.split('-')[0], 10);
+    return !isNaN(year) && year >= 1970 && year <= 2099;
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title || !formData.title.trim()) newErrors.title = "Title is required.";
+    if (formData.start_date && !isValidYear(formData.start_date)) {
+      newErrors.start_date = "Please enter a valid year between 1970 and 2099.";
+    }
+    if (formData.end_date && !isValidYear(formData.end_date)) {
+      newErrors.end_date = "Please enter a valid year between 1970 and 2099.";
+    }
+    if (formData.actual_start_date && !isValidYear(formData.actual_start_date)) {
+      newErrors.actual_start_date = "Please enter a valid year between 1970 and 2099.";
+    }
+    if (formData.actual_end_date && !isValidYear(formData.actual_end_date)) {
+      newErrors.actual_end_date = "Please enter a valid year between 1970 and 2099.";
+    }
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
-      toast.error("Please fill required fields.");
+      toast.error("Please fill required fields and fix validation errors.");
     }
     return Object.keys(newErrors).length === 0;
   };
@@ -235,16 +282,23 @@ const EditTaskModal = ({
       let submitData: any;
       const hasFiles = audioBlob || audioFile || instructionImage;
 
+      // If user did not touch priority, preserve task.priority exactly so progress updates don't alter priority
+      const finalPriority = isPriorityTouched.current
+        ? sanitizePriority(formData.priority)
+        : (task.priority !== undefined && task.priority !== null ? task.priority : sanitizePriority(formData.priority));
+
       if (hasFiles) {
         const form = new FormData();
         form.append("task_id", String(task.id));
         form.append("project_id", String(task.project_id));
         form.append("title", formData.title);
         form.append("description", formData.description);
-        form.append("priority", String(sanitizePriority(formData.priority)));
+        form.append("priority", String(finalPriority));
         form.append("status", formData.status);
         if (formData.start_date) form.append("start_date", formData.start_date);
         if (formData.end_date) form.append("end_date", formData.end_date);
+        if (formData.actual_start_date) form.append("actual_start_date", formData.actual_start_date);
+        if (formData.actual_end_date) form.append("actual_end_date", formData.actual_end_date);
         form.append("assigned_user_id", String(formData.assigned_user_id));
         form.append("completion_percentage", String(formData.completion_percentage));
         form.append("percentage", String(formData.completion_percentage));
@@ -254,7 +308,7 @@ const EditTaskModal = ({
         if (formData.activity_type_id) form.append("activity_type_id", String(formData.activity_type_id));
 
         form.append("remove_audio", String(formData.remove_audio));
-        form.append("remove_image", String(formData.remove_image));
+        form.append("remove_image", String(instructionImage ? false : formData.remove_image));
 
         if (audioBlob) form.append("audio_file", audioBlob, "recording.webm");
         else if (audioFile) form.append("audio_file", audioFile);
@@ -278,10 +332,12 @@ const EditTaskModal = ({
           project_id: task.project_id,
           title: formData.title,
           description: formData.description,
-          priority: sanitizePriority(formData.priority),
+          priority: typeof finalPriority === 'number' ? finalPriority : sanitizePriority(finalPriority),
           status: formData.status,
           ...(formData.start_date ? { start_date: formData.start_date } : {}),
           ...(formData.end_date ? { end_date: formData.end_date } : {}),
+          ...(formData.actual_start_date ? { actual_start_date: formData.actual_start_date } : { actual_start_date: null }),
+          ...(formData.actual_end_date ? { actual_end_date: formData.actual_end_date } : { actual_end_date: null }),
           assigned_user_id: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
           completion_percentage: Number(formData.completion_percentage),
           percentage: Number(formData.completion_percentage),
@@ -401,7 +457,44 @@ const EditTaskModal = ({
                 )}
               </div>
               <div className="mt-2">
-                <input type="file" accept="audio/*" onChange={(e) => setAudioFile(e.target.files?.[0] || null)} className="w-full text-xs font-inter file:bg-slate-100 file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:mr-3 border border-slate-200 rounded-lg p-1 outline-none" />
+                <div
+                  onClick={() => audioInputRef.current?.click()}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 hover:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl cursor-pointer transition-all group select-none"
+                  title="Click anywhere to upload audio file"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="bg-slate-100 group-hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-lg text-xs font-semibold transition-colors shrink-0">
+                      Choose File
+                    </span>
+                    <span className="text-xs text-slate-500 truncate">
+                      {audioFile ? audioFile.name : "No file chosen"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {audioFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAudioFile(null);
+                          if (audioInputRef.current) audioInputRef.current.value = "";
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                        title="Remove selected file"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    )}
+                    <Upload className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors shrink-0" />
+                  </div>
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                  />
+                </div>
               </div>
               {/* remove_audio flag */}
               {(task?.audio_file || task?.audio_instruction_url) && (
@@ -421,25 +514,89 @@ const EditTaskModal = ({
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                 Instruction Image
               </label>
-              {(task?.instruction_image || (task as any)?.instruction_image_url) && (
+
+              {/* If a replacement image is selected: show new image preview, replacing existing */}
+              {imagePreviewUrl ? (
                 <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                  {!formData.remove_image && (
-                    <img src={getFullImageUrl(task?.instruction_image || (task as any)?.instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200 shrink-0" />
-                  )}
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Replacement Preview"
+                    className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200 shrink-0"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm text-slate-700 font-medium block">New image selected</span>
+                    <span className="text-xs text-emerald-600 font-semibold">Will replace existing image upon saving</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInstructionImage(null);
+                      setImagePreviewUrl(null);
+                      if (imageInputRef.current) imageInputRef.current.value = "";
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                    title="Cancel replacement"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (task?.instruction_image || (task as any)?.instruction_image_url) && !formData.remove_image ? (
+                <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <img
+                    src={getFullImageUrl(task?.instruction_image || (task as any)?.instruction_image_url)}
+                    alt="Existing Instruction"
+                    className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200 shrink-0"
+                  />
                   <div className="flex-1">
                     <span className="text-sm text-slate-600 font-medium">Existing Image</span>
                   </div>
                 </div>
-              )}
-              <input
-                type="file"
-                name="instruction_image"
-                accept="image/*"
-                onChange={(e) => setInstructionImage(e.target.files?.[0] || null)}
-                className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all file:bg-slate-100 file:border-0 file:rounded-lg file:px-3 file:py-1 file:mr-4 font-inter"
-              />
+              ) : null}
+
+              {/* Clickable anywhere file upload container */}
+              <div
+                onClick={() => imageInputRef.current?.click()}
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 hover:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl cursor-pointer transition-all group select-none"
+                title="Click anywhere to upload instruction image"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="bg-slate-100 group-hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-lg text-xs font-semibold transition-colors shrink-0">
+                    Choose File
+                  </span>
+                  <span className="text-sm text-slate-500 truncate">
+                    {instructionImage ? instructionImage.name : "No file chosen"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {instructionImage && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInstructionImage(null);
+                        setImagePreviewUrl(null);
+                        if (imageInputRef.current) imageInputRef.current.value = "";
+                      }}
+                      className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                      title="Remove selected file"
+                    >
+                      <Trash className="w-4 h-4" />
+                    </button>
+                  )}
+                  <Upload className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors shrink-0" />
+                </div>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  name="instruction_image"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
+                />
+              </div>
+
               {/* remove_image flag */}
-              {(task?.instruction_image || (task as any)?.instruction_image_url) && (
+              {(task?.instruction_image || (task as any)?.instruction_image_url) && !instructionImage && (
                 <label className="mt-2 flex items-center gap-2 cursor-pointer select-none w-fit">
                   <input
                     type="checkbox"
@@ -488,10 +645,10 @@ const EditTaskModal = ({
                   value={formData.priority}
                   onChange={(val) => handleSelectChange('priority', val)}
                   options={[
-                    { id: 4, label: 'Low' },
-                    { id: 3, label: 'Medium' },
-                    { id: 2, label: 'High' },
-                    { id: 1, label: 'Critical' },
+                    { id: 1, label: 'High' },
+                    { id: 2, label: 'Medium' },
+                    { id: 3, label: 'Low' },
+                    { id: 4, label: 'Critical' },
                   ]}
                   error={errors.priority}
                 />
@@ -504,10 +661,15 @@ const EditTaskModal = ({
                 <input
                   type="date"
                   name="start_date"
+                  min="1970-01-01"
+                  max="2099-12-31"
                   value={formData.start_date ? formData.start_date.split('T')[0] : ""}
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
                 />
+                {errors.start_date && (
+                  <p className="text-xs text-rose-500 mt-1">{errors.start_date}</p>
+                )}
               </div>
 
               <div>
@@ -517,10 +679,51 @@ const EditTaskModal = ({
                 <input
                   type="date"
                   name="end_date"
+                  min="1970-01-01"
+                  max="2099-12-31"
                   value={formData.end_date ? formData.end_date.split('T')[0] : ""}
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
                 />
+                {errors.end_date && (
+                  <p className="text-xs text-rose-500 mt-1">{errors.end_date}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                  Actual Start Date
+                </label>
+                <input
+                  type="date"
+                  name="actual_start_date"
+                  min="1970-01-01"
+                  max="2099-12-31"
+                  value={formData.actual_start_date ? formData.actual_start_date.split('T')[0] : ""}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                />
+                {errors.actual_start_date && (
+                  <p className="text-xs text-rose-500 mt-1">{errors.actual_start_date}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                  Actual End Date
+                </label>
+                <input
+                  type="date"
+                  name="actual_end_date"
+                  min="1970-01-01"
+                  max="2099-12-31"
+                  value={formData.actual_end_date ? formData.actual_end_date.split('T')[0] : ""}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                />
+                {errors.actual_end_date && (
+                  <p className="text-xs text-rose-500 mt-1">{errors.actual_end_date}</p>
+                )}
               </div>
 
               <div className="flex-1">

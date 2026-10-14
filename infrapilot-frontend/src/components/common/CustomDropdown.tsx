@@ -20,6 +20,7 @@ interface CustomSelectProps {
     placement?: 'top' | 'bottom';
     disabled?: boolean;
     error?: string | boolean;
+    maxHeight?: string;
 }
 
 export const CustomSelect: React.FC<CustomSelectProps> = ({
@@ -33,7 +34,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     searchable = false,
     placement = "bottom",
     disabled = false,
-    error
+    error,
+    maxHeight
 }) => {
     const [open, setOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -50,7 +52,12 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const selectedOption = options.find(o => o.id === value);
+    const selectedOption = useMemo(() => {
+        if (value === undefined || value === null || value === '') {
+            return options.find(o => o.id === '' || o.id === null || o.id === undefined);
+        }
+        return options.find(o => String(o.id) === String(value));
+    }, [options, value]);
     
     const filteredOptions = useMemo(() => {
         if (!searchable || !searchTerm) return options;
@@ -61,7 +68,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const dropdownClasses = `absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden`;
+    const dropdownClasses = `absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-52'} flex flex-col overflow-hidden`;
 
     return (
         <div className="relative font-inter" ref={ref}>
@@ -82,7 +89,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             </button>
 
             {open && (
-                <div className={dropdownClasses}>
+                <div className={dropdownClasses} style={{ maxHeight: '220px' }}>
                     {searchable && (
                         <div className="p-2 border-b border-slate-100 bg-slate-50/50 shrink-0">
                             <div className="relative">
@@ -100,7 +107,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                     )}
                     <div className="overflow-y-auto overflow-x-hidden flex-1 scrollbar-thin">
                         {filteredOptions.length > 0 ? filteredOptions.map(o => {
-                            const isSelected = value === o.id;
+                            const isSelected = (value === undefined || value === null || value === '')
+                                ? (o.id === '' || o.id === null || o.id === undefined)
+                                : String(value) === String(o.id);
                             return (
                                 <div
                                     key={o.id}
@@ -109,9 +118,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                         setOpen(false);
                                         setSearchTerm("");
                                     }}
-                                    className={`px-4 py-2.5 text-sm cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-primary/10 text-primary font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                                    className={`px-3.5 py-2 min-h-[36px] text-xs font-medium cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-primary/10 text-primary font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
                                 >
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col min-w-0">
                                         <span className="truncate">{o.label}</span>
                                         {o.badge && <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mt-0.5">{o.badge}</span>}
                                     </div>

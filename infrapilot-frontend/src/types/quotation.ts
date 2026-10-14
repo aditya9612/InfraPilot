@@ -93,6 +93,8 @@ export interface Quotation {
     tds_amount?: number;
 
     discount_amount: number;
+    transport?: number;
+    other?: number;
     grand_total?: number;
     advance_paid: number;
     balance_due?: number;

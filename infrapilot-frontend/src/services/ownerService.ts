@@ -33,20 +33,53 @@ export const ownerService = {
    */
   async getOwners(search = ""): Promise<Owner[]> {
     try {
-      const response = await api.get("/owners", { params: { search, limit: 1000 } });
+      const response = await api.get("/owners", { params: { search: search || undefined, limit: 1000 } });
       const data = response.data;
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
 
-      return items.map((o: any) => ({
+      let mapped: Owner[] = items.map((o: any) => ({
         id: String(o.id),
-        name: o.owner_name,
+        name: o.owner_name || o.name || "",
         mobile: String(o.mobile || o.mobile_number || ""),
-        email: o.email,
-        address: o.address,
-        pan: o.pan,
-        owner_code: o.owner_code,
+        email: o.email || o.email_id || o.owner_email || "",
+        address: o.address || "",
+        pan: o.pan || "",
+        owner_code: o.owner_code || "",
         created_at: o.created_at || o.createdAt,
       }));
+
+      // If search query is provided (e.g. searching by email address like rajesh.sharma@test.com)
+      // and backend search returned 0 items because backend only filters on name/code,
+      // fallback to fetching all and filtering across name, email, code, mobile, and PAN.
+      if (search && mapped.length === 0) {
+        try {
+          const allRes = await api.get("/owners", { params: { limit: 1000 } });
+          const allData = allRes.data;
+          const allItems = Array.isArray(allData) ? allData : (allData.items || allData.data || []);
+          const allMapped: Owner[] = allItems.map((o: any) => ({
+            id: String(o.id),
+            name: o.owner_name || o.name || "",
+            mobile: String(o.mobile || o.mobile_number || ""),
+            email: o.email || o.email_id || o.owner_email || "",
+            address: o.address || "",
+            pan: o.pan || "",
+            owner_code: o.owner_code || "",
+            created_at: o.created_at || o.createdAt,
+          }));
+          const term = search.toLowerCase().trim();
+          mapped = allMapped.filter((o) =>
+            (o.name || "").toLowerCase().includes(term) ||
+            (o.email || "").toLowerCase().includes(term) ||
+            (o.owner_code || "").toLowerCase().includes(term) ||
+            (o.mobile || "").toLowerCase().includes(term) ||
+            (o.pan || "").toLowerCase().includes(term)
+          );
+        } catch {
+          // If fallback fails, return original mapped
+        }
+      }
+
+      return mapped;
     } catch (error: any) {
       console.error(
         "Fetch Owners API Error:",

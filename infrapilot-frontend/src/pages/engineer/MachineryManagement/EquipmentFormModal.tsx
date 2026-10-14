@@ -10,6 +10,7 @@ interface EquipmentFormModalProps {
     initialData?: any;
     selectedProjectId?: number | null;
     isViewOnly?: boolean;
+    projects?: any[];
 }
 
 const conditionDisplay: Record<string, string> = {
@@ -19,10 +20,10 @@ const conditionDisplay: Record<string, string> = {
     'MAINTENANCE': 'MAINTENANCE',
 };
 
-const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId, isViewOnly }) => {
+const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId, isViewOnly, projects: propProjects }) => {
     const [formData, setFormData] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [projects, setProjects] = useState<any[]>([]);
+    const [projects, setProjects] = useState<any[]>(propProjects || []);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
 
     // Auto-hide form notification after 3 seconds
@@ -30,38 +31,47 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
         if (formNotification) {
             const timer = setTimeout(() => {
                 setFormNotification(null);
-            }, 2000);
+            }, 3000);
             return () => clearTimeout(timer);
         }
     }, [formNotification]);
 
+    useEffect(() => {
+        if (propProjects && propProjects.length > 0) {
+            setProjects(propProjects);
+        }
+    }, [propProjects]);
 
     useEffect(() => {
         if (isOpen) {
             // If adding new equipment, default the project_id to the currently selected project
             const defaultData = initialData && Object.keys(initialData).length > 0
-                ? initialData
+                ? { ...initialData }
                 : { project_id: selectedProjectId || undefined };
             setFormData(defaultData);
+            setFormNotification(null);
 
-            const fetchProjects = async () => {
-                try {
-                    const res = await projectService.getProjects(100, 0);
-                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-                    setProjects(projectsList);
-                } catch (err) {
-                    console.error("Failed to fetch projects", err);
-                }
-            };
-            fetchProjects();
+            if (!propProjects || propProjects.length === 0) {
+                const fetchProjects = async () => {
+                    try {
+                        const res = await projectService.getProjects(100, 0);
+                        const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                        setProjects(projectsList);
+                    } catch (err) {
+                        console.error("Failed to fetch projects", err);
+                    }
+                };
+                fetchProjects();
+            }
         }
-    }, [isOpen, initialData, selectedProjectId]);
+    }, [isOpen, initialData, selectedProjectId, propProjects]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isViewOnly) return;
-        
+
         const missingFields: string[] = [];
+        if (!formData.project_id) missingFields.push("Assigned Project");
         if (!formData.equipment_name) missingFields.push("Equipment Name");
         if (!formData.equipment_code) missingFields.push("Equipment Code");
         if (!formData.condition) missingFields.push("Condition");
@@ -79,7 +89,8 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
             await onSave({ ...formData });
             onClose();
         } catch (error: any) {
-            setFormNotification({ type: 'error', message: error.message || "Failed to save equipment. Please try again." });
+            const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || "Failed to save equipment. Please try again.";
+            setFormNotification({ type: 'error', message: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) });
         } finally {
             setIsSaving(false);
         }
@@ -146,16 +157,16 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         </div>
                     </div>
                     <div className="ml-6">
-                        <label className={labelClasses}>ASSIGNED PROJECT</label>
-                        {formData.project_id ? (
+                        <label className={labelClasses}>ASSIGNED PROJECT <span className="text-rose-500">*</span></label>
+                        {isViewOnly ? (
                             <div className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
-                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || `Project ${formData.project_id}`}
+                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || (formData.project_id ? `Project ${formData.project_id}` : '-')}
                             </div>
                         ) : (
                             <select
                                 value={formData.project_id || ''}
                                 onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className={inputClasses}
+                                className={`${inputClasses} ${formNotification?.fields?.includes("Assigned Project") ? "!border-rose-500 !bg-rose-50" : ""}`}
                             >
                                 <option value="">-- Select your project --</option>
                                 {projects.map(p => (
@@ -163,6 +174,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                                 ))}
                             </select>
                         )}
+                        {formNotification?.fields?.includes("Assigned Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                 </div>
 
@@ -192,20 +204,20 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             {formNotification?.fields?.includes("Condition") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
 
-                            <div className="flex gap-2">
-                                <div className="flex-1">
-                                    <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
-                                    <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rental Cost") ? "!border-rose-500 !bg-rose-50" : ""}`} />
-                                    {formNotification?.fields?.includes("Rental Cost") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
-                                </div>
-                                <div className="w-[140px]">
-                                    <label className={labelClasses}>Unit</label>
-                                    <select value={formData.cost_unit || 'PER_MONTH'} onChange={(e) => setFormData({ ...formData, cost_unit: e.target.value })} className={inputClasses}>
-                                        <option value="PER_MONTH">Per Month</option>
-                                        <option value="PER_DAY">Per Day</option>
-                                    </select>
-                                </div>
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
+                                <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rental Cost") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                                {formNotification?.fields?.includes("Rental Cost") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
+                            <div className="w-[140px]">
+                                <label className={labelClasses}>Unit</label>
+                                <select value={formData.cost_unit || 'PER_MONTH'} onChange={(e) => setFormData({ ...formData, cost_unit: e.target.value })} className={inputClasses}>
+                                    <option value="PER_MONTH">Per Month</option>
+                                    <option value="PER_DAY">Per Day</option>
+                                </select>
+                            </div>
+                        </div>
                         <div>
                             <label className={labelClasses}>Maintenance Date <span className="text-rose-500">*</span></label>
                             <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Maintenance Date") ? "!border-rose-500 !bg-rose-50" : ""}`} />

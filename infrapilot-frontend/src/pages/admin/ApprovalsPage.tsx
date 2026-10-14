@@ -5,7 +5,7 @@ import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { Eye, Check, X, Loader2, Plus } from "lucide-react";
+import { Eye, Check, X, Loader2, Plus, Download } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
@@ -14,6 +14,7 @@ import { boqService } from "../../services/boqService";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
 import { equipmentService } from "../../services/equipmentService";
+import { CustomSelect } from "../../components/common/CustomDropdown";
 
 const ApprovalsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -117,6 +118,16 @@ const ApprovalsPage = () => {
     fetchEntityItems();
   }, [createForm.entity_type, isCreateModalOpen]);
 
+  const formatRemarks = (remarks: string | null | undefined) => {
+    if (!remarks) return "-";
+    const trimmed = remarks.trim();
+    if (!trimmed) return "-";
+    if (/^approval request for /i.test(trimmed) || /^initial approval request for /i.test(trimmed)) {
+      return "-";
+    }
+    return trimmed;
+  };
+
   const handleCreateApproval = async () => {
     if (!createForm.entity_id.trim()) { toast.error("Entity ID is required"); return; }
     setIsCreating(true);
@@ -124,7 +135,7 @@ const ApprovalsPage = () => {
       await approvalService.createApproval({
         entity_type: createForm.entity_type,
         entity_id: Number(createForm.entity_id),
-        remarks: createForm.remarks || `Approval request for ${createForm.entity_type} #${createForm.entity_id}`,
+        remarks: createForm.remarks?.trim() || "",
       });
       toast.success("Approval request created successfully!");
       setIsCreateModalOpen(false);
@@ -232,6 +243,7 @@ const ApprovalsPage = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success("Report exported successfully!");
   };
 
@@ -247,6 +259,12 @@ const ApprovalsPage = () => {
             <p className="text-slate-500 text-sm">Review and authorize site requests across all categories with unified filtering.</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <Download className="w-4 h-4 text-slate-500" /> Export CSV
+            </button>
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
@@ -350,7 +368,7 @@ const ApprovalsPage = () => {
                     <td className="px-6 py-4 text-xs font-semibold text-slate-600">
                       {usersMap[Number(item.requested_by)] || item.requested_by || "-"}
                     </td>
-                    <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{item.remarks || "No remarks provided"}</td>
+                    <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{formatRemarks(item.remarks)}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status?.toLowerCase() === "approved" ? "bg-emerald-100 text-emerald-600" :
                         item.status?.toLowerCase() === "pending" ? "bg-amber-100 text-amber-600" :
@@ -471,15 +489,13 @@ const ApprovalsPage = () => {
         <div className="p-4 space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
-            <select
+            <CustomSelect
               value={createForm.entity_type}
-              onChange={e => setCreateForm(p => ({ ...p, entity_type: e.target.value }))}
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-            >
-              {ENTITY_TYPES.map(et => (
-                <option key={et.value} value={et.value}>{et.label}</option>
-              ))}
-            </select>
+              onChange={(val) => setCreateForm(p => ({ ...p, entity_type: val, entity_id: "" }))}
+              options={ENTITY_TYPES.map(et => ({ id: et.value, label: et.label }))}
+              placeholder="Select Entity Type"
+              maxHeight="max-h-48"
+            />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
@@ -490,36 +506,37 @@ const ApprovalsPage = () => {
                 <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                 Loading...
               </div>
-            ) : (
-              <select
-                value={createForm.entity_id}
-                onChange={e => setCreateForm(p => ({ ...p, entity_id: e.target.value }))}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-              >
-                {(() => {
-                  const filteredItems = entityItems.filter(item => {
-                    const isApproved = approvals.some(a =>
-                      String(a.entity_type).toLowerCase() === String(createForm.entity_type).toLowerCase() &&
-                      Number(a.entity_id) === Number(item.id) &&
-                      (a.status || "").toLowerCase() === "approved"
-                    );
-                    return !isApproved;
-                  });
-                  return (
-                    <>
-                      <option value="">
-                        {filteredItems.length === 0
-                          ? `No pending/unapproved ${createForm.entity_type} items found`
-                          : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`}
-                      </option>
-                      {filteredItems.map(item => (
-                        <option key={item.id} value={item.id}>{item.label}</option>
-                      ))}
-                    </>
-                  );
-                })()}
-              </select>
-            )}
+            ) : (() => {
+              const filteredItems = entityItems.filter(item => {
+                const isApproved = approvals.some(a =>
+                  String(a.entity_type).toLowerCase() === String(createForm.entity_type).toLowerCase() &&
+                  Number(a.entity_id) === Number(item.id) &&
+                  (a.status || "").toLowerCase() === "approved"
+                );
+                return !isApproved;
+              });
+              const entityPlaceholder = filteredItems.length === 0
+                ? `No pending/unapproved ${createForm.entity_type} items found`
+                : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`;
+
+              return (
+                <CustomSelect
+                  value={createForm.entity_id}
+                  onChange={(val) => setCreateForm(p => ({ ...p, entity_id: val }))}
+                  options={[
+                    { id: "", label: entityPlaceholder },
+                    ...filteredItems.map(item => ({
+                      id: item.id,
+                      label: item.label,
+                      searchKey: item.label
+                    }))
+                  ]}
+                  placeholder={entityPlaceholder}
+                  searchable={filteredItems.length > 5}
+                  maxHeight="max-h-48"
+                />
+              );
+            })()}
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Remarks</label>

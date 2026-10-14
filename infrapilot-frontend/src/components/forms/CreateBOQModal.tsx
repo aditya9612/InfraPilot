@@ -56,6 +56,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   }, [isOpen]);
 
   React.useEffect(() => {
+    setErrors({});
     if (initialData) {
       setFormData({
         project_id: (initialData as BoqItem).project_id?.toString() || '',
@@ -199,6 +200,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   };
 
 
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
+
   const modalTitle = initialData ? "Edit BOQ" : "Add BOQ";
 
   const submitLabel = initialData ? 'Update BOQ' : (window.location.pathname.includes('manager') ? 'Save BOQ' : 'Create BOQ');
@@ -207,7 +213,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
     <>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         disabled={isLoading}
         className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
       >
@@ -235,7 +241,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={modalTitle}
       footer={modalFooter}
       maxWidth="max-w-2xl"

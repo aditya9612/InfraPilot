@@ -63,9 +63,6 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                 <h3 className="text-xl font-bold text-slate-800 tracking-tight">
                                     Rental Details
                                 </h3>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    View information for {equipmentName} (Rental #{rental.id})
-                                </p>
                             </div>
                         </div>
                         <button
@@ -205,12 +202,19 @@ const ViewRentalModal: React.FC<ViewRentalModalProps> = ({
                                 </div>
                             )}
 
-                            <div className="text-right mt-2">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                    Record logged: {new Date((rental.created_at || '') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium', hour12: true })} IST
-                                </p>
-                            </div>
+
                         </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-8 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end rounded-b-[2rem]">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-8 py-2.5 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95 flex items-center gap-2 tracking-wide"
+                        >
+                            Close
+                        </button>
                     </div>
                 </div>
             </div>

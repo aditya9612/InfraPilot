@@ -21,6 +21,7 @@ import { workProgressService } from '../../../services/workProgressService';
 import labourService from '../../../services/labourService';
 import { useProject } from '../../../context/ProjectContext';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
+import { formatDisplayDate, formatDateTimeToIST } from '../../../utils/dateUtils';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
     priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -2120,7 +2121,7 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Deadline</p>
                                             </div>
                                             <div className="pl-9">
-                                                <p className="text-sm text-slate-600">{selectedTask.end_date ? new Date(selectedTask.end_date).toLocaleDateString() : 'N/A'}</p>
+                                                <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.end_date, 'N/A')}</p>
                                             </div>
                                         </div>
 
@@ -2132,7 +2133,7 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Start Date</p>
                                             </div>
                                             <div className="pl-9">
-                                                <p className="text-sm text-slate-600">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : 'N/A'}</p>
+                                                <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.start_date, 'N/A')}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -2345,7 +2346,9 @@ const TaskManagementPage = () => {
                                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1">
                                                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                                             <h4 className="text-sm font-bold text-slate-800">Progress Updated</h4>
-                                                            <span className="text-[10px] font-bold text-slate-500">{new Date(activity.created_at).toLocaleString()}</span>
+                                                            <span className="text-[10px] font-bold text-slate-500">
+                                                                {formatDateTimeToIST(activity.created_at || activity.timestamp || activity.updated_at || activity.date || activity.performed_at, "Just now")}
+                                                            </span>
                                                         </div>
                                                         <p className="text-sm text-slate-700 mb-3">Progress moved to {activity.percentage ?? activity.progress_percentage ?? 0}%</p>
                                                         {activity.remarks && (

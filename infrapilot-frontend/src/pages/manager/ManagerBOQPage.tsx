@@ -316,30 +316,6 @@ const ManagerBOQPage = () => {
         }
     };
 
-    const handleCreateVersion = async () => {
-        if (!selectedProjectId) {
-            toast.error("Please select a project first");
-            return;
-        }
-
-        const firstItem = boqData[0];
-        if (!firstItem) {
-            toast.error("No items found to version");
-            return;
-        }
-
-        try {
-            const res = await boqService.createBoqVersion(firstItem.id);
-            toast.success(res.message || "New version created!");
-            await refreshBoqs();
-            if (res.version) {
-                setSelectedVersion(res.version);
-            }
-        } catch (error) {
-            toast.error("Failed to create new version");
-        }
-    };
-
     const handleExport = async (item: BoqItem, format: "excel" | "pdf" | "json") => {
         if (isExporting) return;
 
@@ -799,8 +775,8 @@ const ManagerBOQPage = () => {
                                                     ))}
                                                 </select>
                                                 <div className="w-px h-4 bg-slate-200 mx-1" />
-                                                <button onClick={handleCreateVersion} title="Create New Version" className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
-                                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                                <button onClick={() => refreshBoqs()} title="Refresh" className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
+                                                    <RefreshCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                                                 </button>
                                             </div>
                                         )}
@@ -818,6 +794,7 @@ const ManagerBOQPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                                                     <th className="px-6 py-5">Identified Item</th>
+                                                    <th className="px-6 py-5">Description</th>
                                                     <th className="px-6 py-5">Project</th>
                                                     <th className="px-6 py-5">Category</th>
                                                     <th className="px-6 py-5">Quantity Unit</th>
@@ -831,14 +808,19 @@ const ManagerBOQPage = () => {
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
                                                 {filteredBoqData.length === 0 ? (
-                                                    <tr><td colSpan={9} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
+                                                    <tr><td colSpan={11} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No BOQ items found.</td></tr>
                                                 ) : (
                                                     filteredBoqData.map((item) => (
                                                         <tr key={item.id} className="hover:bg-slate-50/80 transition-all group text-slate-800">
                                                             <td className="px-6 py-5">
                                                                 <div className="flex flex-col">
-                                                                    <p className="font-black text-slate-700 group-hover:text-slate-900 transition-colors text-xs tracking-tight uppercase">{item.item_name}</p>
+                                                                    <p className="font-black text-slate-700 group-hover:text-slate-900 transition-colors text-xs tracking-tight">{item.item_name}</p>
                                                                 </div>
+                                                            </td>
+                                                            <td className="px-6 py-5">
+                                                                <p className="text-xs text-slate-600 font-medium max-w-[200px] truncate" title={item.description || ''}>
+                                                                    {item.description || '—'}
+                                                                </p>
                                                             </td>
                                                             <td className="px-6 py-5">
                                                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{projectMap[item.project_id] || "Global Registry"}</p>

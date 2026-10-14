@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { X, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import toast from "react-hot-toast";
+import Modal from "../common/Modal";
+import { CustomSelect } from "../common/CustomDropdown";
 import { equipmentService } from "../../services/equipmentService";
 import { boqService } from "../../services/boqService";
 
@@ -71,11 +73,9 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         }
     }, [isOpen, formData.project_id]);
 
-    if (!isOpen) return null;
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFieldErrors(prev => ({ ...prev, [name]: "" }));
+        if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: "" }));
         setFormData(prev => ({
             ...prev,
             [name]: ["asset_id", "boq_item_id", "project_id"].includes(name) ? Number(value) : value
@@ -125,10 +125,8 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
             await equipmentService.createPurchase({
                 ...formData,
                 project_id: formData.project_id && formData.project_id > 0 ? formData.project_id : 0,
-                // send null when no BOQ item selected (0 fails BE validation)
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
-                // send null when no warranty date
-                warranty_end_date: formData.warranty_end_date || null,
+                warranty_end_date: formData.warranty_end_date || undefined,
                 quantity: formData.quantity ? Number(formData.quantity) : 0,
                 unit_price: formData.unit_price ? Number(formData.unit_price) : 0,
                 total_amount: (formData.quantity ? Number(formData.quantity) : 0) * (formData.unit_price ? Number(formData.unit_price) : 0),
@@ -145,7 +143,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 errorMessage = "Please fix the errors below.";
                 const backendErrors: Record<string, string> = {};
                 detail.forEach(d => {
-                    const field = d.loc[d.loc.length - 1]; // get 'vendor_name' from loc array
+                    const field = d.loc[d.loc.length - 1];
                     backendErrors[field] = d.msg;
                 });
                 setFieldErrors(backendErrors);
@@ -159,285 +157,293 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         }
     };
 
+    const modalFooter = (
+        <div className="flex items-center justify-end gap-3 w-full">
+            <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+            >
+                Cancel
+            </button>
+            <button
+                form="create-purchase-form"
+                type="submit"
+                disabled={isSubmitting}
+                className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+            >
+                {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                    <ShoppingCart className="w-4 h-4" />
+                )}
+                {isSubmitting ? "Saving..." : "Save Purchase"}
+            </button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto" onMouseDown={onClose}>
-            <div className="flex justify-center min-h-full p-4">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8" onMouseDown={(e) => e.stopPropagation()}>
-                    <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                                <ShoppingCart className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800 tracking-tight">
-                                    Create Purchase
-                                </h3>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    Record a new equipment or material purchase
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Create Purchase"
+            footer={modalFooter}
+            maxWidth="max-w-3xl"
+        >
+            <form id="create-purchase-form" onSubmit={handleSubmit} className="space-y-6" noValidate>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Purchase Type */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Purchase Type <span className="text-rose-500">*</span>
+                        </label>
+                        <CustomSelect
+                            value={formData.purchase_type}
+                            onChange={(val) => {
+                                setFormData(prev => ({ ...prev, purchase_type: val }));
+                                if (fieldErrors.purchase_type) setFieldErrors(prev => ({ ...prev, purchase_type: "" }));
+                            }}
+                            options={[
+                                { id: "", label: "Select Type..." },
+                                { id: "NEW", label: "New" },
+                                { id: "USED", label: "Used" },
+                                { id: "RENT", label: "Rental" },
+                                { id: "SPARE_PART", label: "Spare Part" }
+                            ]}
+                            placeholder="Select Type..."
+                            maxHeight="max-h-52"
+                            error={!!fieldErrors.purchase_type}
+                        />
+                        {fieldErrors.purchase_type && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.purchase_type}</p>
+                        )}
                     </div>
 
-                    <form onSubmit={handleSubmit} className="p-8" noValidate>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Purchase Type */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Purchase Type <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                    name="purchase_type"
-                                    value={formData.purchase_type}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.purchase_type ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                >
-                                    <option value="">Select Type...</option>
-                                    <option value="NEW">New</option>
-                                    <option value="USED">Used</option>
-                                    <option value="RENT">Rental</option>
-                                    <option value="SPARE_PART">Spare Part</option>
-                                </select>
-                                {fieldErrors.purchase_type && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.purchase_type}</p>
-                                )}
-                            </div>
+                    {/* Asset */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Asset <span className="text-rose-500">*</span>
+                        </label>
+                        <CustomSelect
+                            value={formData.asset_id || 0}
+                            onChange={(val) => {
+                                setFormData(prev => ({ ...prev, asset_id: Number(val) }));
+                                if (fieldErrors.asset_id) setFieldErrors(prev => ({ ...prev, asset_id: "" }));
+                            }}
+                            options={[
+                                { id: 0, label: "Select Asset..." },
+                                ...assets.map((asset) => ({
+                                    id: asset.id,
+                                    label: asset.equipment_name || asset.equipment_code || `Asset #${asset.id}`
+                                }))
+                            ]}
+                            placeholder="Select Asset..."
+                            searchable={assets.length > 5}
+                            maxHeight="max-h-52"
+                            error={!!fieldErrors.asset_id}
+                        />
+                        {fieldErrors.asset_id && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.asset_id}</p>
+                        )}
+                    </div>
 
-                            {/* Asset ID */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Asset <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                    name="asset_id"
-                                    value={formData.asset_id}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.asset_id ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                >
-                                    <option value={0}>Select Asset...</option>
-                                    {assets.map((asset) => (
-                                        <option key={asset.id} value={asset.id}>{asset.equipment_name || asset.equipment_code}</option>
-                                    ))}
-                                </select>
-                                {fieldErrors.asset_id && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.asset_id}</p>
-                                )}
-                            </div>
+                    {/* Purchase Date */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Purchase Date <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="purchase_date"
+                            value={formData.purchase_date}
+                            onChange={handleChange}
+                            required
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.purchase_date ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                        />
+                        {fieldErrors.purchase_date && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.purchase_date}</p>
+                        )}
+                    </div>
 
-                            {/* Purchase Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Purchase Date <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    name="purchase_date"
-                                    value={formData.purchase_date}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.purchase_date ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
+                    {/* Vendor Name */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Vendor Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="vendor_name"
+                            value={formData.vendor_name}
+                            onChange={handleChange}
+                            required
+                            minLength={2}
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.vendor_name ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                            placeholder="Enter vendor name"
+                        />
+                        {fieldErrors.vendor_name && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.vendor_name}</p>
+                        )}
+                    </div>
+
+                    {/* Invoice Number */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Invoice Number <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="invoice_number"
+                            value={formData.invoice_number}
+                            onChange={handleChange}
+                            required
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.invoice_number ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                            placeholder="Enter invoice number"
+                        />
+                        {fieldErrors.invoice_number && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.invoice_number}</p>
+                        )}
+                    </div>
+
+                    {/* Quantity */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Quantity <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            name="quantity"
+                            value={formData.quantity}
+                            onChange={handleChange}
+                            min="1"
+                            required
+                            placeholder="Enter quantity"
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.quantity ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                        />
+                        {fieldErrors.quantity && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.quantity}</p>
+                        )}
+                    </div>
+
+                    {/* Unit Price */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Unit Price <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            name="unit_price"
+                            value={formData.unit_price}
+                            onChange={handleChange}
+                            required
+                            min="0.01"
+                            step="0.01"
+                            placeholder="Enter unit price"
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.unit_price ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                        />
+                        {fieldErrors.unit_price && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.unit_price}</p>
+                        )}
+                    </div>
+
+                    {/* Warranty End Date */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Warranty End Date <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="warranty_end_date"
+                            value={formData.warranty_end_date}
+                            onChange={handleChange}
+                            required
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.warranty_end_date ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                        />
+                        {fieldErrors.warranty_end_date && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.warranty_end_date}</p>
+                        )}
+                    </div>
+
+                    {/* Project Name */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Project Name <span className="text-rose-500">*</span>
+                        </label>
+                        {projects && projects.length > 0 ? (
+                            <>
+                                <CustomSelect
+                                    value={formData.project_id || 0}
+                                    onChange={(val) => {
+                                        setFormData(prev => ({ ...prev, project_id: Number(val) }));
+                                        if (fieldErrors.project_id) setFieldErrors(prev => ({ ...prev, project_id: "" }));
+                                    }}
+                                    options={[
+                                        { id: 0, label: "Select Project..." },
+                                        ...projects.map((p) => ({
+                                            id: p.id,
+                                            label: p.project_name || p.name || `Project #${p.id}`
+                                        }))
+                                    ]}
+                                    placeholder="Select Project..."
+                                    searchable={projects.length > 5}
+                                    maxHeight="max-h-52"
+                                    error={!!fieldErrors.project_id}
                                 />
-                                {fieldErrors.purchase_date && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.purchase_date}</p>
+                                {fieldErrors.project_id && (
+                                    <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.project_id}</p>
                                 )}
-                            </div>
+                            </>
+                        ) : (
+                            <input
+                                type="text"
+                                value={projectName}
+                                readOnly
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed"
+                            />
+                        )}
+                    </div>
 
-                            {/* Vendor Name */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Vendor Name <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="vendor_name"
-                                    value={formData.vendor_name}
-                                    onChange={handleChange}
-                                    required
-                                    minLength={2}
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.vendor_name ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                    placeholder="Enter vendor name"
-                                />
-                                {fieldErrors.vendor_name && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.vendor_name}</p>
-                                )}
-                            </div>
+                    {/* BOQ Item ID */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            BOQ Item (Optional)
+                        </label>
+                        <CustomSelect
+                            value={formData.boq_item_id || 0}
+                            onChange={(val) => {
+                                setFormData(prev => ({ ...prev, boq_item_id: Number(val) }));
+                            }}
+                            options={[
+                                { id: 0, label: "None" },
+                                ...boqItems.map((boq) => ({
+                                    id: boq.id,
+                                    label: boq.item_name || `Item #${boq.id}`
+                                }))
+                            ]}
+                            placeholder={!formData.project_id ? "Select a project first" : "None"}
+                            searchable={boqItems.length > 5}
+                            disabled={!formData.project_id || boqItems.length === 0}
+                            maxHeight="max-h-52"
+                        />
+                    </div>
 
-                            {/* Invoice Number */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Invoice Number <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="invoice_number"
-                                    value={formData.invoice_number}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.invoice_number ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                    placeholder="Enter invoice number"
-                                />
-                                {fieldErrors.invoice_number && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.invoice_number}</p>
-                                )}
-                            </div>
-
-                            {/* Quantity */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Quantity <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    name="quantity"
-                                    value={formData.quantity}
-                                    onChange={handleChange}
-                                    min="1"
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.quantity ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                />
-                                {fieldErrors.quantity && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.quantity}</p>
-                                )}
-                            </div>
-
-                            {/* Unit Price */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Unit Price <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    name="unit_price"
-                                    value={formData.unit_price}
-                                    onChange={handleChange}
-                                    required
-                                    min="0.01"
-                                    step="0.01"
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.unit_price ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                />
-                                {fieldErrors.unit_price && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.unit_price}</p>
-                                )}
-                            </div>
-
-                            {/* Warranty End Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Warranty End Date <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    name="warranty_end_date"
-                                    value={formData.warranty_end_date}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.warranty_end_date ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                />
-                                {fieldErrors.warranty_end_date && (
-                                    <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.warranty_end_date}</p>
-                                )}
-                            </div>
-
-                            {/* Project Name (Dropdown or Read Only) */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Project Name <span className="text-rose-500">*</span>
-                                </label>
-                                {projects && projects.length > 0 ? (
-                                    <>
-                                        <select
-                                            name="project_id"
-                                            value={formData.project_id}
-                                            onChange={handleChange}
-                                            required
-                                            className={`w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none transition-all ${fieldErrors.project_id ? 'border-rose-500 focus:border-rose-500' : 'border-slate-100 focus:border-primary'}`}
-                                        >
-                                            <option value={0}>Select Project</option>
-                                            {projects.map((p) => (
-                                                <option key={p.id} value={p.id}>{p.project_name || p.name || `Project #${p.id}`}</option>
-                                            ))}
-                                        </select>
-                                        {fieldErrors.project_id && (
-                                            <p className="text-rose-500 text-xs font-bold px-1 m-0 mt-1">{fieldErrors.project_id}</p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <input
-                                        type="text"
-                                        value={projectName}
-                                        readOnly
-                                        className="w-full px-5 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-500 cursor-not-allowed"
-                                    />
-                                )}
-                            </div>
-
-                            {/* BOQ Item ID */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    BOQ Item
-                                </label>
-                                <select
-                                    name="boq_item_id"
-                                    value={formData.boq_item_id}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
-                                >
-                                    <option value={0}>None</option>
-                                    {boqItems.map((boq) => (
-                                        <option key={boq.id} value={boq.id}>{boq.item_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Notes */}
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    Notes
-                                </label>
-                                <textarea
-                                    name="notes"
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                    rows={3}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
-                                    placeholder="Enter any additional notes..."
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 pt-8 mt-4 border-t border-slate-50">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="flex-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                            >
-                                {isSubmitting ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <ShoppingCart className="w-4 h-4" />
-                                )}
-                                {isSubmitting ? "Saving..." : "Save Purchase"}
-                            </button>
-                        </div>
-                    </form>
+                    {/* Notes */}
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                            Notes
+                        </label>
+                        <textarea
+                            name="notes"
+                            value={formData.notes}
+                            onChange={handleChange}
+                            rows={3}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                            placeholder="Enter any additional notes..."
+                        />
+                    </div>
                 </div>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };
 

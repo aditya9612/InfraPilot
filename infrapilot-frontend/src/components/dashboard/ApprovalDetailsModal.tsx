@@ -23,7 +23,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
   onApprove,
   onReject,
 }) => {
-  const [entityDetails, setEntityDetails] = React.useState<any>(null);
+  const [_entityDetails, setEntityDetails] = React.useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
 
   const [requestedByName, setRequestedByName] = React.useState<string>("Loading...");
@@ -201,7 +201,6 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
           <Section icon={<User size={16} />} title="Requester Info">
             <InfoItem label="Requested By" value={requestedByName} />
-            <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "N/A"} />
           </Section>
 
           <Section icon={<Briefcase size={16} />} title="Request Details">
@@ -226,7 +225,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
                   <span className="text-sm font-medium text-slate-500">{approvedByName}</span>
                 </div>
               )}
-              {approval.remarks && (
+              {approval.remarks && !/^approval request for /i.test(approval.remarks.trim()) && !/^initial approval request for /i.test(approval.remarks.trim()) && (
                 <div className="flex flex-col border-t border-slate-200 pt-4 mt-2">
                   <span className="text-sm font-bold text-slate-700 mb-1">Remarks</span>
                   <p className="text-sm text-slate-500 italic">"{approval.remarks}"</p>

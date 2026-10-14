@@ -419,7 +419,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 rows={2}
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Enter full address / linked project"
+                placeholder="Enter full address"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none resize-none"
               />
             </div>

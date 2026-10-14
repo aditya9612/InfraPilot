@@ -93,10 +93,18 @@ const QuotationsPage = () => {
 
     const filteredQuotations = useMemo(() => {
         const sourceData = activeTab === "dummy_quotations" ? dummyQuotations : quotations;
+        const term = searchQuery.toLowerCase().trim();
         const filtered = sourceData.filter(q => {
-            const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
+            const rawId = String(q.id || "").toLowerCase();
+            const qtnId = `qtn-${q.id}`.toLowerCase();
+            const formattedId = q.id ? `qt/2026/${String(q.id).padStart(4, "0")}`.toLowerCase() : "";
+            const matchSearch = !term ||
+                (q.client_name || "").toLowerCase().includes(term) ||
+                (q.project_name || "").toLowerCase().includes(term) ||
+                (q.quotation_no || "").toLowerCase().includes(term) ||
+                rawId === term || rawId.includes(term) ||
+                qtnId.includes(term) ||
+                formattedId.includes(term);
             const matchStatus = statusFilter === "all" ||
                 q.status?.toLowerCase() === statusFilter.toLowerCase();
             return matchSearch && matchStatus;
@@ -371,7 +379,7 @@ const QuotationsPage = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
-                                    <th className="px-6 py-4">Quotation ID</th>
+                                    <th className="px-6 py-4">{activeTab === 'dummy_quotations' ? "Quotation ID" : "Quotation No"}</th>
                                     <th className="px-6 py-4">Client / Project</th>
                                     <th className="px-6 py-4">Date</th>
                                     <th className="px-6 py-4">Amount</th>
@@ -399,7 +407,11 @@ const QuotationsPage = () => {
                                     pagedQuotations.map((q) => (
                                         <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-800">{q.quotation_no || `QTN-${q.id}`}</span>
+                                                <span className="text-sm font-bold text-slate-800">
+                                                    {activeTab === 'dummy_quotations'
+                                                        ? (q.quotation_no || `QTN-${q.id}`)
+                                                        : (q.quotation_no || (q.id ? `QT/2026/${String(q.id).padStart(4, "0")}` : "-"))}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="space-y-0.5">

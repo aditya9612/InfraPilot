@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { Task, ProjectMember } from "../../types/project";
 import { ChevronDown, Forward, Eye, Edit2, Trash2 } from "lucide-react";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { formatDisplayDate } from "../../utils/dateUtils";
 
 interface TaskListViewProps {
   tasks: Task[];
@@ -91,7 +92,9 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
               <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{projectName || (task as any).projectName || `Project ${task.project_id}`}</td>
                 <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800 block md:table-cell">{task.title}</td>
-                <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">{task.description}</td>
+                <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">
+                  {task.description && task.description !== "null" ? task.description : "-"}
+                </td>
                 <td className="p-4 text-center block md:table-cell">
                   <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority] || 'bg-slate-500 text-white'}`}>
                     {typeof task.priority === 'number' ? (task.priority === 1 ? 'HIGH' : task.priority === 2 ? 'MEDIUM' : 'LOW') : (task.priority || 'LOW')}
@@ -120,29 +123,29 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
                 </td>
                 <td className="p-4 whitespace-nowrap block md:table-cell">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{new Date(task.start_date).toLocaleDateString() || 'NA'}</span></span>
-                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{new Date(task.end_date).toLocaleDateString() || 'NA'}</span></span>
+                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{formatDisplayDate(task.start_date)}</span></span>
+                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{formatDisplayDate(task.end_date)}</span></span>
                   </div>
                 </td>
                 <td className="p-4 whitespace-nowrap block md:table-cell">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date ? new Date((task as any).actual_start_date).toLocaleDateString() : 'NA'}</span></span>
-                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date ? new Date((task as any).actual_end_date).toLocaleDateString() : 'NA'}</span></span>
+                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{formatDisplayDate((task as any).actual_start_date)}</span></span>
+                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{formatDisplayDate((task as any).actual_end_date)}</span></span>
                   </div>
                 </td>
-                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getMemberName(task)}</td>
-                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell font-bold ${(task as any).is_delayed ? 'text-rose-500' : ''}">{(task as any).delay_days || 0}</td>
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getMemberName(task) || '-'}</td>
+                <td className={`p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell font-bold ${(task as any).is_delayed ? 'text-rose-500' : ''}`}>{(task as any).delay_days || 0}</td>
 
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
-                  {(task.audio_file || (task as any).audio_instruction_url) ? (
+                  {(task.audio_file && task.audio_file !== "null") || ((task as any).audio_instruction_url && (task as any).audio_instruction_url !== "null") ? (
                     <audio controls src={getFullImageUrl(task.audio_file || String((task as any).audio_instruction_url)) || ''} className="h-8 max-w-[120px]" />
-                  ) : <span className="text-slate-400">null</span>}
+                  ) : <span className="text-slate-400 font-medium">-</span>}
                 </td>
 
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
-                  {(task.instruction_image || (task as any).instruction_image_url) ? (
+                  {(task.instruction_image && task.instruction_image !== "null") || ((task as any).instruction_image_url && (task as any).instruction_image_url !== "null") ? (
                     <img src={getFullImageUrl(task.instruction_image || String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
-                  ) : <span className="text-slate-400">null</span>}
+                  ) : <span className="text-slate-400 font-medium">-</span>}
                 </td>
 
                 <td className="p-4 text-center block md:table-cell">

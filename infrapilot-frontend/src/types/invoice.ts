@@ -26,6 +26,7 @@ export interface Invoice {
   end_date?: string;
   paid_amount?: number;
   pending_amount?: number;
+  payment_status?: string;
   source_type?: string | null;
   quotation_id?: number | null;
 }

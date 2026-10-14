@@ -10,6 +10,7 @@ export interface EquipmentItem {
     rental_cost: number;
     cost_unit?: string;
     maintenance_date: string;
+    status?: string;
     is_deleted: boolean;
     created_at: string;
     updated_at: string;
@@ -90,7 +91,7 @@ export interface PurchaseRequest {
     purchase_type: string;
     asset_id: number;
     purchase_date: string;
-    supplier_id: number;
+    supplier_id?: number;
     vendor_name: string;
     invoice_number: string;
     quantity: number;
@@ -311,7 +312,8 @@ export const equipmentService = {
     },
 
     async getUsageReport(params?: { equipment_id?: number, date_from?: string, date_to?: string, limit?: number, offset?: number, project_id?: number }): Promise<UsageReport[]> {
-        const response = await api.get<any>('/equipment/usage/report', { params });
+        const queryParams = { limit: 100, offset: 0, ...params };
+        const response = await api.get<any>('/equipment/usage/report', { params: queryParams });
         const data = response.data;
         return Array.isArray(data) ? data : (data.items || data.data || []);
     },
@@ -499,8 +501,16 @@ export const equipmentService = {
         return response.data;
     },
 
-    async receiveRentalIn(purchase_id: number, data: { equipment_name: string; equipment_code: string; condition: string; expected_end_date: string }): Promise<any> {
-        const response = await api.post(`/equipment/rental-in/${purchase_id}/receive`, data);
+    async receiveRentalIn(purchase_id: number, data: { equipment_name: string; equipment_code: string; condition: string; expected_end_date?: string }): Promise<any> {
+        const payload: any = {
+            equipment_name: data.equipment_name,
+            equipment_code: data.equipment_code,
+            condition: data.condition
+        };
+        if (data.expected_end_date) {
+            payload.expected_end_date = data.expected_end_date;
+        }
+        const response = await api.post(`/equipment/rental-in/${purchase_id}/receive`, payload);
         return response.data;
     },
 
@@ -613,9 +623,11 @@ export const equipmentService = {
         return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
-    async getMaintenanceAlerts(params?: { project_id?: number }): Promise<MaintenanceAlert[]> {
-        const response = await api.get<MaintenanceAlert[]>('/equipment/alerts/maintenance', { params });
-        return response.data;
+    async getMaintenanceAlerts(params?: { project_id?: number; equipment_id?: number; days_ahead?: number }): Promise<MaintenanceAlert[]> {
+        const queryParams = { days_ahead: 30, ...params };
+        const response = await api.get<any>('/equipment/alerts/maintenance', { params: queryParams });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data?.items || data?.data || []);
     },
 
     async getEquipmentAlerts(params?: { project_id?: number }): Promise<EquipmentAlert[]> {

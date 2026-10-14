@@ -190,10 +190,18 @@ const QuotationsSection = () => {
 
     const filteredQuotations = useMemo(() => {
         const sourceData = activeTab === "dummy_quotations" ? dummyQuotations : quotations;
+        const term = searchQuery.toLowerCase().trim();
         const filtered = sourceData.filter(q => {
-            const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
+            const rawId = String(q.id || "").toLowerCase();
+            const qtnId = `qtn-${q.id}`.toLowerCase();
+            const formattedId = q.id ? `qt/2026/${String(q.id).padStart(4, "0")}`.toLowerCase() : "";
+            const matchSearch = !term ||
+                (q.client_name || "").toLowerCase().includes(term) ||
+                (q.project_name || "").toLowerCase().includes(term) ||
+                (q.quotation_no || "").toLowerCase().includes(term) ||
+                rawId === term || rawId.includes(term) ||
+                qtnId.includes(term) ||
+                formattedId.includes(term);
             const matchStatus = statusFilter === "all" ||
                 q.status?.toLowerCase() === statusFilter.toLowerCase();
             return matchSearch && matchStatus;

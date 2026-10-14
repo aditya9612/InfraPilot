@@ -10,35 +10,50 @@ interface NewProjectModalProps {
   onSubmit?: (projectData: any) => void;
 }
 
+const INITIAL_FORM_DATA = {
+  project_name: "",
+  owner_id: "",
+  description: "",
+  type: "RESIDENTIAL",
+  location_type: "URBAN",
+  site_address: "",
+  city: "",
+  state: "",
+  country: "India",
+  pincode: "",
+  latitude: "",
+  longitude: "",
+  start_date: "",
+  end_date: "",
+  status: "PLANNED",
+  shift_start_time: "09:00",
+  shift_end_time: "18:00",
+  grace_period_minutes: 15,
+  budget_amount: "",
+};
+
 const NewProjectModal = ({
   isOpen,
   onClose,
   onSubmit,
 }: NewProjectModalProps) => {
-  const [formData, setFormData] = useState({
-    project_name: "",
-    owner_id: "",
-    description: "",
-    type: "RESIDENTIAL",
-    location_type: "URBAN",
-    site_address: "",
-    city: "",
-    state: "",
-    country: "India",
-    pincode: "",
-    latitude: "",
-    longitude: "",
-    start_date: "",
-    end_date: "",
-    status: "PLANNED",
-    shift_start_time: "09:00",
-    shift_end_time: "18:00",
-    grace_period_minutes: 15,
-    budget_amount: "",
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [owners, setOwners] = useState<Owner[]>([]);
+
+  const handleClose = () => {
+    setFormData(INITIAL_FORM_DATA);
+    setErrors({});
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(INITIAL_FORM_DATA);
+      setErrors({});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const fetchOwners = async () => {
@@ -169,7 +184,7 @@ const NewProjectModal = ({
         budget_amount: formData.budget_amount ? Number(formData.budget_amount) : 0,
       };
       if (onSubmit) await onSubmit(requestBody);
-      onClose();
+      handleClose();
     } catch (error) {
       console.error("Project creation error:", error);
     } finally {
@@ -181,7 +196,7 @@ const NewProjectModal = ({
     <>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
       >
         Cancel
@@ -200,7 +215,7 @@ const NewProjectModal = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Create New Project"
       footer={modalFooter}
     >

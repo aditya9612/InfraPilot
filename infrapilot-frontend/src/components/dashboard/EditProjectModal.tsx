@@ -30,6 +30,17 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
 
+    const normalizeProjectStatus = (s: string) => {
+        if (!s) return "PLANNED";
+        const cleaned = s.trim().toUpperCase().replace(/\s+/g, "_");
+        if (cleaned === "IN_PROGRESS") return "ONGOING";
+        if (cleaned === "ONHOLD") return "ON_HOLD";
+        if (["PLANNED", "ONGOING", "COMPLETED", "ON_HOLD", "DELAYED", "CANCELLED"].includes(cleaned)) {
+            return cleaned;
+        }
+        return "PLANNED";
+    };
+
     useEffect(() => {
         if (project) {
             setFormData({
@@ -46,7 +57,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                 longitude: project.longitude || "",
                 start_date: project.start_date,
                 end_date: project.end_date,
-                status: project.status,
+                status: normalizeProjectStatus(project.status),
             });
         }
     }, [project]);
@@ -146,6 +157,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
         try {
             const requestBody = {
                 ...formData,
+                status: normalizeProjectStatus(formData.status),
                 latitude: formData.latitude ? Number(formData.latitude) : undefined,
                 longitude: formData.longitude ? Number(formData.longitude) : undefined,
             };
@@ -224,10 +236,12 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                                 name="status" value={formData.status} onChange={handleChange}
                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                             >
-                                <option value="PLANNED">PLANNED</option>
-                                <option value="ONGOING">ONGOING</option>
-                                <option value="COMPLETED">COMPLETED</option>
-                                <option value="ON_HOLD">ON HOLD</option>
+                                <option value="PLANNED">Planned</option>
+                                <option value="ONGOING">Ongoing</option>
+                                <option value="COMPLETED">Completed</option>
+                                <option value="ON_HOLD">On Hold</option>
+                                <option value="DELAYED">Delayed</option>
+                                <option value="CANCELLED">Cancelled</option>
                             </select>
                         </div>
 

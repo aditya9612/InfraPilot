@@ -64,14 +64,32 @@ const RentalManagementPage = () => {
         }
     };
 
+    const getErrorMessage = (error: any, fallback: string): string => {
+        const data = error?.response?.data;
+        if (data) {
+            if (typeof data === 'string') return data;
+            if (typeof data.detail === 'string') return data.detail;
+            if (Array.isArray(data.detail)) {
+                return data.detail.map((d: any) => d.msg || d.message || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ');
+            }
+            if (typeof data.detail === 'object' && data.detail !== null) {
+                return data.detail.msg || data.detail.message || JSON.stringify(data.detail);
+            }
+            if (typeof data.message === 'string') return data.message;
+            if (typeof data.error === 'string') return data.error;
+        }
+        if (typeof error?.message === 'string') return error.message;
+        return fallback;
+    };
+
     const handleCreateRental = async (equipmentId: number, data: CreateRentalRequest) => {
         try {
             await equipmentService.createRental(equipmentId, data);
             toast.success("Rental created successfully!");
             setIsCreateModalOpen(false);
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to create rental");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to create rental"));
             throw error;
         }
     };
@@ -83,8 +101,8 @@ const RentalManagementPage = () => {
             setIsInspectionModalOpen(false);
             setSelectedRental(null);
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to submit inspection");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to submit inspection"));
             throw error;
         }
     };
@@ -96,8 +114,8 @@ const RentalManagementPage = () => {
             toast.success("Rental marked as complete!");
             setConfirmCompleteRentalId(null);
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to complete rental");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to complete rental"));
         }
     };
 
@@ -106,8 +124,8 @@ const RentalManagementPage = () => {
             await equipmentService.generateRentalInVendorBill(equipmentId, purchaseId);
             toast.success("Vendor bill generated!");
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to generate vendor bill");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to generate vendor bill"));
         }
     };
 
@@ -116,8 +134,8 @@ const RentalManagementPage = () => {
             await equipmentService.generateRentalOutInvoice(equipmentId, rentalId);
             toast.success("Invoice generated!");
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to generate invoice");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to generate invoice"));
         }
     };
 
@@ -129,13 +147,13 @@ const RentalManagementPage = () => {
             setIsReceiveModalOpen(false);
             setSelectedPurchaseId(null);
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to link and receive equipment");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to link and receive equipment"));
             throw error;
         }
     };
 
-    const handleReceiveRentalInNew = async (data: { equipment_name: string; equipment_code: string; condition: string; expected_end_date: string }) => {
+    const handleReceiveRentalInNew = async (data: { equipment_name: string; equipment_code: string; condition: string }) => {
         if (!selectedPurchaseId) return;
         try {
             await equipmentService.receiveRentalIn(selectedPurchaseId, data);
@@ -143,8 +161,8 @@ const RentalManagementPage = () => {
             setIsReceiveModalOpen(false);
             setSelectedPurchaseId(null);
             fetchRentals();
-        } catch (error) {
-            toast.error("Failed to receive new equipment");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error, "Failed to receive new equipment"));
             throw error;
         }
     };
@@ -220,7 +238,9 @@ const RentalManagementPage = () => {
                                     <tr>
                                         <th className="px-6 py-4">PO / Inv #</th>
                                         <th className="px-6 py-4">Vendor</th>
+                                        <th className="px-6 py-4">Purchase Type</th>
                                         <th className="px-6 py-4">Purchase Date</th>
+                                        <th className="px-6 py-4">Unit Price</th>
                                         <th className="px-6 py-4">Quantity / Cost</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
@@ -236,7 +256,17 @@ const RentalManagementPage = () => {
                                                 <div className="font-bold text-slate-800">{p.vendor_name || 'N/A'}</div>
                                             </td>
                                             <td className="px-6 py-4">
+                                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
+                                                    {p.purchase_type || 'RENT'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-700">{p.purchase_date}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800">
+                                                    ₹{p.unit_price !== undefined && p.unit_price !== null ? Number(p.unit_price).toLocaleString('en-IN') : '-'}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-emerald-600">₹{p.total_amount}</div>
@@ -406,6 +436,7 @@ const RentalManagementPage = () => {
                 onSubmitLegacy={handleReceiveRentalInLegacy}
                 onSubmitNew={handleReceiveRentalInNew}
                 equipmentList={equipmentList}
+                selectedPurchase={pendingPurchases.find(p => p.id === selectedPurchaseId)}
             />
 
             {/* Custom Confirmation Modal for Completing Rental */}

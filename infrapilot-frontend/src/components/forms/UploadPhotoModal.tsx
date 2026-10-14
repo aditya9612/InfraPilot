@@ -166,10 +166,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
             console.log("Submitting Photo Upload with Project:", projectId);
             await onSubmit(data);
-            setFormNotification({ type: 'success', message: 'Site photo saved successfully!' });
-            setTimeout(() => {
-                onClose();
-            }, 1500);
+            onClose();
         } catch (error) {
             console.error("Upload Form Error:", error);
             setFormNotification({ type: 'error', message: 'Upload failed. Please try again.' });

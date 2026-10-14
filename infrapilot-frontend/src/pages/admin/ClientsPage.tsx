@@ -17,6 +17,7 @@ import { clientPaymentService } from "../../services/clientPaymentService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { financeService } from "../../services/financeService";
 import { quotationService } from "../../services/quotationService";
+import { projectService } from "../../services/projectService";
 
 
 const ClientsPage = () => {
@@ -38,15 +39,27 @@ const ClientsPage = () => {
   const fetchClients = async () => {
     try {
       setIsLoading(true);
-      const [res, allInvoices, allQuotations] = await Promise.all([
+      const [res, allInvoices, allQuotations, allProjects] = await Promise.all([
         userService.getAllUsers(100, 0),
         financeService.getInvoices(100, 0).catch(() => []),
-        quotationService.getQuotations(100, 0).catch(() => [])
+        quotationService.getQuotations(100, 0).catch(() => []),
+        projectService.getProjects(100, 0).catch(() => ({ items: [] })),
       ]);
       const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
+      const projectList = Array.isArray(allProjects) ? allProjects : (allProjects?.items || allProjects?.data || []);
 
       const invMap = new Map();
       const invProjNameMap = new Map();
+
+      // Map projects by id and client info
+      projectList.forEach((p: any) => {
+        if (p && p.project_name) {
+          if (p.id) invMap.set(Number(p.id), p.project_name);
+          if (p.client_id) invProjNameMap.set(Number(p.client_id), p.project_name);
+          if (p.client_name) invProjNameMap.set(p.client_name.toLowerCase().trim(), p.project_name);
+        }
+      });
+
       (Array.isArray(allInvoices) ? allInvoices : []).forEach((inv: any) => {
         const cid = inv.owner_id || inv.user_id || inv.client_id;
         if (cid) {
@@ -55,8 +68,11 @@ const ClientsPage = () => {
         }
       });
       (Array.isArray(allQuotations) ? allQuotations : []).forEach((quo: any) => {
-        if (quo.client_name && quo.project_name) {
-          invProjNameMap.set(quo.client_name.toLowerCase().trim(), quo.project_name);
+        if (quo.project_name) {
+          if (quo.client_user_id) invProjNameMap.set(Number(quo.client_user_id), quo.project_name);
+          if (quo.client_name) {
+            invProjNameMap.set(quo.client_name.toLowerCase().trim(), quo.project_name);
+          }
         }
       });
 
@@ -69,7 +85,7 @@ const ClientsPage = () => {
         .map((u: User) => {
           const cName = (u.full_name || "").toLowerCase().trim();
           const projId = u.project_id || invMap.get(Number(u.user_id));
-          const projName = u.project_name || invProjNameMap.get(Number(u.user_id)) || invProjNameMap.get(cName) || u.address;
+          const projName = u.project_name || invProjNameMap.get(Number(u.user_id)) || invProjNameMap.get(cName);
 
           return {
             id: u.user_id,
@@ -77,7 +93,7 @@ const ClientsPage = () => {
             company: u.designation || "N/A",
             email: u.email,
             mobile: u.mobile_number,
-            project: projName || (projId ? `Project #${projId}` : null) || "No Project Linked",
+            project: projName || (projId ? (invMap.get(Number(projId)) || `Project #${projId}`) : null) || "—",
             status: u.is_active ? "Active" : "Inactive",
             profile_image: getFullImageUrl((u as any).profile_image || (u as any).avatar),
             pan_number: (u as any).pan_number || (u as any).pan || "—",

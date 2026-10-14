@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 
@@ -6,7 +6,7 @@ interface CreateMilestoneModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: number;
-  onSubmit?: (milestoneData: any) => void;
+  onSubmit?: (milestoneData: any) => Promise<any> | void;
 }
 
 const CreateMilestoneModal = ({
@@ -24,6 +24,12 @@ const CreateMilestoneModal = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setErrors({});
+    }
+  }, [isOpen]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -46,42 +52,62 @@ const CreateMilestoneModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.start_date) newErrors.start_date = "Start date is required.";
-    if (!formData.end_date) newErrors.end_date = "End date is required.";
-    else if (formData.start_date && formData.end_date < formData.start_date) {
+
+    const isValidYear = (dStr: string) => {
+      const year = new Date(dStr).getFullYear();
+      return !isNaN(year) && year >= 1970 && year <= 2099;
+    };
+
+    if (!formData.start_date) {
+      newErrors.start_date = "Start date is required.";
+    } else if (!isValidYear(formData.start_date)) {
+      newErrors.start_date = "Please enter a valid year between 1970 and 2099.";
+    }
+
+    if (!formData.end_date) {
+      newErrors.end_date = "End date is required.";
+    } else if (!isValidYear(formData.end_date)) {
+      newErrors.end_date = "Please enter a valid year between 1970 and 2099.";
+    } else if (formData.start_date && formData.end_date < formData.start_date) {
       newErrors.end_date = "End date cannot be before start date.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsLoading(true);
-    // Simulate API call based on USER requirement
-    setTimeout(() => {
+    try {
+      const statusMap: Record<string, string> = {
+        "Planned": "PLANNED",
+        "In Progress": "IN_PROGRESS",
+        "Completed": "COMPLETED",
+        "Delayed": "DELAYED",
+      };
+      const formattedStatus = statusMap[formData.status] || formData.status.toUpperCase().replace(/\s+/g, "_");
+
       const requestBody = {
         project_id: projectId,
         ...formData,
+        status: formattedStatus,
       };
 
       console.log("Creating Milestone (Request Body):", requestBody);
 
-      if (onSubmit) onSubmit(requestBody);
-      setIsLoading(false);
+      if (onSubmit) {
+        await onSubmit(requestBody);
+      }
 
-      toast.success(`Milestone "${formData.title}" added to schedule!`, {
-        style: {
-          borderRadius: '12px',
-          background: '#333',
-          color: '#fff',
-          fontSize: '14px',
-          fontWeight: '600'
-        },
-      });
-      onClose();
+      toast.success(`Milestone "${formData.title}" added to schedule!`);
+      handleClose();
       // Reset form
       setFormData({
         title: "",
@@ -90,14 +116,20 @@ const CreateMilestoneModal = ({
         end_date: "",
         status: "Planned",
       });
-    }, 1000);
+    } catch (error: any) {
+      console.error("Failed to create milestone:", error);
+      const msg = error?.message || error?.response?.data?.detail || "Failed to create milestone";
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const modalFooter = (
     <>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
       >
         Cancel
@@ -116,7 +148,7 @@ const CreateMilestoneModal = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Define New Project Milestone"
       footer={modalFooter}
     >
@@ -152,7 +184,13 @@ const CreateMilestoneModal = ({
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Start Date <span className="text-red-500">*</span></label>
               <input
-                required type="date" name="start_date" value={formData.start_date} onChange={handleChange}
+                required 
+                type="date" 
+                name="start_date" 
+                min="1970-01-01" 
+                max="2099-12-31" 
+                value={formData.start_date} 
+                onChange={handleChange}
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.start_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all text-slate-700`}
               />
               {errors.start_date && <p className="text-[10px] text-red-500 mt-1">{errors.start_date}</p>}
@@ -160,7 +198,13 @@ const CreateMilestoneModal = ({
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Target End Date <span className="text-red-500">*</span></label>
               <input
-                required type="date" name="end_date" value={formData.end_date} onChange={handleChange}
+                required 
+                type="date" 
+                name="end_date" 
+                min="1970-01-01" 
+                max="2099-12-31" 
+                value={formData.end_date} 
+                onChange={handleChange}
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all text-slate-700`}
               />
               {errors.end_date && <p className="text-[10px] text-red-500 mt-1">{errors.end_date}</p>}

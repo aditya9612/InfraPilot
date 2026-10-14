@@ -36,9 +36,20 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
     }
   }, []);
 
+  const handleCancel = () => {
+    setSelectedUserIds([]);
+    setSearchTerm("");
+    onClose();
+  };
+
   useEffect(() => {
     if (isOpen) {
+      setSelectedUserIds([]);
+      setSearchTerm("");
       fetchUsers();
+    } else {
+      setSelectedUserIds([]);
+      setSearchTerm("");
     }
   }, [isOpen, fetchUsers]);
 
@@ -83,7 +94,7 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleCancel}
       title="Assign Team Members"
       maxWidth="max-w-md"
     >
@@ -180,7 +191,7 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
           </p>
           <div className="flex gap-2">
             <button
-              onClick={onClose}
+              onClick={handleCancel}
               className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors font-inter"
             >
               Cancel

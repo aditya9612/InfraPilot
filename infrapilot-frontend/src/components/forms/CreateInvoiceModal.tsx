@@ -144,55 +144,59 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     }
   }, [formData.quantity, formData.rate, formData.amount, formData.gst_percent, formData.tax_percent, formData.type]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.type === "labour") {
-      if (!formData.project_id || !formData.start_date || !formData.end_date) {
-        toast.error("Please fill in required fields (Project, Start Date, End Date)");
-        return;
+    try {
+      if (formData.type === "labour") {
+        if (!formData.project_id || !formData.start_date || !formData.end_date) {
+          toast.error("Please fill in required fields (Project, Start Date, End Date)");
+          return;
+        }
+        const submissionData = {
+          project_id: Number(formData.project_id),
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          type: "labour"
+        };
+        await onSubmit(submissionData);
+      } else if (formData.type === "material") {
+        if (!formData.project_id) {
+          toast.error("Please select a project");
+          return;
+        }
+        const submissionData = {
+          project_id: Number(formData.project_id),
+          type: "material"
+        };
+        await onSubmit(submissionData);
+      } else if (formData.type === "measurement") {
+        if (!formData.measurement_id) {
+          toast.error("Please select a measurement");
+          return;
+        }
+        const submissionData = {
+          project_id: Number(formData.project_id),
+          measurement_id: formData.measurement_id,
+          type: "measurement"
+        };
+        await onSubmit(submissionData);
+      } else {
+        if (!formData.project_id || !formData.invoice_number || !formData.client_name) {
+          toast.error("Please fill in required fields (Invoice #, Client, Project)");
+          return;
+        }
+        const submissionData = {
+          ...formData,
+          amount: calculated.base_total,
+          total_with_gst: calculated.total_with_gst,
+          project_id: Number(formData.project_id),
+        };
+        await onSubmit(submissionData);
       }
-      const submissionData = {
-        project_id: Number(formData.project_id),
-        start_date: formData.start_date,
-        end_date: formData.end_date,
-        type: "labour"
-      };
-      onSubmit(submissionData);
-    } else if (formData.type === "material") {
-      if (!formData.project_id) {
-        toast.error("Please select a project");
-        return;
-      }
-      const submissionData = {
-        project_id: Number(formData.project_id),
-        type: "material"
-      };
-      onSubmit(submissionData);
-    } else if (formData.type === "measurement") {
-      if (!formData.measurement_id) {
-        toast.error("Please select a measurement");
-        return;
-      }
-      const submissionData = {
-        project_id: Number(formData.project_id),
-        measurement_id: formData.measurement_id,
-        type: "measurement"
-      };
-      onSubmit(submissionData);
-    } else {
-      if (!formData.project_id || !formData.invoice_number || !formData.client_name) {
-        toast.error("Please fill in required fields (Invoice #, Client, Project)");
-        return;
-      }
-      const submissionData = {
-        ...formData,
-        amount: calculated.base_total,
-        total_with_gst: calculated.total_with_gst,
-        project_id: Number(formData.project_id),
-      };
-      onSubmit(submissionData);
+      onClose();
+    } catch (err) {
+      // Handled by parent handler with toast
     }
-    onClose();
   };
 
   const isLabour = formData.type === "labour";
@@ -234,9 +238,6 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
             <h3 className="text-sm font-bold text-slate-800">Basic Information</h3>
-            <span className="text-[10px] text-primary/50 bg-primary/10 px-2 py-1 rounded-full font-mono">
-              [DEBUG: PID={formData.project_id || 'none'} | Type={formData.type} | Meas={measurements.length}]
-            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 

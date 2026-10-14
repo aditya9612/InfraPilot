@@ -26,7 +26,7 @@ import { projectService } from "../../services/projectService";
 import { quotationService } from "../../services/quotationService";
 import { userService } from "../../services/userService";
 import { financeService } from "../../services/financeService";
-import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
+import type { LabourItem, MaterialItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
 import SelectContractorModal from "../../components/forms/SelectContractorModal";
@@ -627,7 +627,8 @@ const CreateDraftQuotationPage = () => {
           measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
           if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
         } else {
-          finalItemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
+          const itemType = item.item_type || "";
+          finalItemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(itemType) ? itemType : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
           measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
         }
 
@@ -904,7 +905,7 @@ const CreateDraftQuotationPage = () => {
                   </span>
                 )}
               </h2>
-              <p className="text-slate-500 text-sm font-medium">{id ? `Viewing/Editing Quotation #${id}` : "Create a streamlined draft quotation."}</p>
+              <p className="text-slate-500 text-sm font-medium">{id ? "Viewing/Editing Draft Quotation" : "Create a streamlined draft quotation."}</p>
             </div>
 
           </div>

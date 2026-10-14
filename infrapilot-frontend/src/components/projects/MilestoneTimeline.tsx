@@ -97,7 +97,7 @@ const MilestoneTimeline = ({
 
       <div className="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
         {milestones.map((milestone) => {
-          const statusLower = (milestone.status || "").toLowerCase();
+          const statusLower = (milestone.status || "").toLowerCase().replace(/_/g, " ");
           const isCompleted = statusLower === "completed";
           const isInProgress = statusLower === "in progress" || statusLower === "ongoing";
           const isDelayed = statusLower === "delayed";

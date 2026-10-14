@@ -237,14 +237,15 @@ const FinancePage = () => {
   };
 
   const handleMarkPaid = async (id: number) => {
+    const t = toast.loading("Marking invoice as paid...");
     try {
-      const updated = await financeService.markInvoicePaid(id);
-      setInvoices((prev) => prev.map((inv) => (inv.id === id ? updated : inv)));
-      toast.success("Invoice marked as Paid");
+      const currentInv = invoices.find((inv) => inv.id === id);
+      const updated = await financeService.markInvoicePaid(id, currentInv || undefined);
+      setInvoices((prev) => prev.map((inv) => (inv.id === id ? { ...inv, ...(updated || {}), status: "paid", payment_status: "PAID" } : inv)));
+      toast.success("Invoice marked as Paid", { id: t });
       setIsDetailsModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to mark invoice as paid");
-    } finally {
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark invoice as paid", { id: t });
     }
   };
 

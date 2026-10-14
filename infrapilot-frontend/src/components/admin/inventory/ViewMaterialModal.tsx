@@ -1,4 +1,3 @@
-import React from "react";
 import Modal from "../../common/Modal";
 import { formatCurrency as formatINR } from "../../../utils/currencyUtils";
 
@@ -12,15 +11,37 @@ interface ViewMaterialModalProps {
 export default function ViewMaterialModal({ isOpen, onClose, material, projectsList }: ViewMaterialModalProps) {
     if (!material) return null;
 
+    const projectName = projectsList.find(p => p.id === material.project_id)?.project_name || 
+                        projectsList.find(p => p.id === material.project_id)?.name || 
+                        `Site #${material.project_id}`;
+
+    const modalFooter = (
+        <div className="flex justify-end w-full">
+            <button
+                type="button"
+                onClick={onClose}
+                className="px-8 py-2.5 bg-primary hover:bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+            >
+                Close
+            </button>
+        </div>
+    );
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Material Details" maxWidth="max-w-3xl">
-            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title="Material Details" 
+            footer={modalFooter}
+            maxWidth="max-w-3xl"
+        >
+            <div className="space-y-6">
+                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center gap-4">
                     <div>
-                        <h3 className="text-2xl font-black text-slate-800">{material.material_master_name || material.material_name}</h3>
-                        <p className="text-sm font-bold text-slate-500">{material.material_code || "No Code"} • {material.category}</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-slate-800 break-words">{material.material_master_name || material.material_name}</h3>
+                        <p className="text-sm font-bold text-slate-500 mt-1">{material.material_code || "No Code"} • {material.category}</p>
                     </div>
-                    <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${material.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : material.alert_type === 'LOW_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                    <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border shrink-0 ${material.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : material.alert_type === 'LOW_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                         {(material.alert_type || (material.remaining_stock <= 0 ? 'OUT_OF_STOCK' : material.remaining_stock < material.minimum_stock_level ? 'LOW_STOCK' : 'IN_STOCK')).replace(/_/g, ' ')}
                     </span>
                 </div>
@@ -28,21 +49,44 @@ export default function ViewMaterialModal({ isOpen, onClose, material, projectsL
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === material.project_id)?.project_name || projectsList.find(p => p.id === material.project_id)?.name || `Site #${material.project_id}`}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{material.supplier_name || `ID: ${material.supplier_id}`}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{material.unit_name || material.unit}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{material.minimum_stock_level}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p><p className="font-bold text-slate-700">{material.material_master_name || 'N/A'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p><p className="font-bold text-slate-700">{material.material_master_brand || 'General'}</p></div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-4">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p>
+                                <p className="font-bold text-slate-700 text-sm break-words">{projectName}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
+                                <p className="font-bold text-slate-700 text-sm break-words">{material.supplier_name || `ID: ${material.supplier_id}`}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p>
+                                <p className="font-bold text-slate-700 text-sm">{material.unit_name || material.unit || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p>
+                                <p className="font-bold text-slate-700 text-sm">{material.minimum_stock_level ?? 0}</p>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p>
+                                <p className="font-bold text-slate-700 text-sm break-words">{material.material_master_name || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p>
+                                <p className="font-bold text-slate-700 text-sm break-words">{material.material_master_brand || 'General'}</p>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                        <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Stock Details</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700">{material.quantity_purchased}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Used</p><p className="font-bold text-slate-700">{material.quantity_used || 0}</p></div>
-                            <div className="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center"><p className="text-xs font-bold text-blue-800 uppercase tracking-widest">Remaining</p><p className="font-black text-lg text-blue-700">{material.remaining_stock} {material.unit_name || material.unit}</p></div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 flex flex-col justify-between">
+                        <div>
+                            <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2 mb-4">Stock Details</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700 text-base">{material.quantity_purchased}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Used</p><p className="font-bold text-slate-700 text-base">{material.quantity_used || 0}</p></div>
+                            </div>
+                        </div>
+                        <div className="bg-blue-50 p-3.5 rounded-xl border border-blue-100 flex justify-between items-center">
+                            <p className="text-xs font-bold text-blue-800 uppercase tracking-widest">Remaining</p>
+                            <p className="font-black text-lg text-blue-700">{material.remaining_stock} {material.unit_name || material.unit}</p>
                         </div>
                     </div>
                 </div>

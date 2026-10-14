@@ -1,4 +1,5 @@
 import api from "./api";
+import * as XLSX from "xlsx";
 import type {
     Payment
 } from "../types/payment";
@@ -336,18 +337,110 @@ export const paymentService = {
      */
     async exportClientPaymentsExcel(params?: Record<string, any>): Promise<void> {
         const queryParams: any = { ...params };
-        const response = await api.get("client-payments/export/excel", {
-            params: queryParams,
-            responseType: "blob",
-        });
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", `Client_Payments_${new Date().toISOString().split("T")[0]}.xlsx`);
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode?.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        let targetProject = String(params?.project_name || params?.projectName || "").trim();
+        const targetProjectId = params?.project_id || params?.projectId;
+        delete queryParams.project_name;
+        delete queryParams.projectName;
+
+        let responseData: any = null;
+        try {
+            const response = await api.get("client-payments/export/excel", {
+                params: queryParams,
+                responseType: "blob",
+            });
+            responseData = response.data;
+        } catch (err) {
+            console.warn("Backend excel export request failed:", err);
+        }
+
+        let blobToDownload = responseData;
+
+        // If a project is selected or targeted, ensure the downloaded Excel file strictly includes only records for that project
+        try {
+            // Resolve project name if only targetProjectId was supplied
+            if (!targetProject && targetProjectId) {
+                try {
+                    const projRes = await api.get(`projects/${targetProjectId}`);
+                    const pData = projRes.data;
+                    const resolvedName = pData?.name || pData?.project_name;
+                    if (resolvedName) {
+                        targetProject = String(resolvedName).trim();
+                    }
+                } catch {
+                    // Ignore resolution failure and proceed
+                }
+            }
+
+            if (responseData && (targetProject || targetProjectId)) {
+                const arrayBuffer = await responseData.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: "array" });
+                const firstSheetName = workbook.SheetNames[0];
+                if (firstSheetName) {
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (rows.length > 0) {
+                        const targetLower = targetProject ? targetProject.toLowerCase().trim() : "";
+                        const filteredRows = rows.filter((row: any) => {
+                            const pName = String(row["Project"] || row["Project Name"] || row["project_name"] || row["project"] || "").toLowerCase().trim();
+                            if (targetLower) {
+                                return pName.includes(targetLower) || targetLower.includes(pName);
+                            }
+                            if (targetProjectId && String(row["Project ID"] || row["project_id"] || "") === String(targetProjectId)) {
+                                return true;
+                            }
+                            return false;
+                        });
+
+                        const headers = Object.keys(rows[0] || {});
+                        const newWs = filteredRows.length > 0 
+                            ? XLSX.utils.json_to_sheet(filteredRows) 
+                            : XLSX.utils.json_to_sheet([], { header: headers });
+                        const newWb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(newWb, newWs, firstSheetName || "Payments");
+                        const outBuffer = XLSX.write(newWb, { bookType: "xlsx", type: "array" });
+                        blobToDownload = new Blob([outBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                    }
+                }
+            } else if (!responseData && (targetProject || targetProjectId)) {
+                const history = await this.getClientPaymentHistory(targetProjectId);
+                const targetLower = targetProject ? targetProject.toLowerCase().trim() : "";
+                const filtered = history.filter((p: any) => {
+                    const pName = String(p.project_name || p.projectName || "").toLowerCase().trim();
+                    return !targetLower || pName.includes(targetLower) || targetLower.includes(pName);
+                });
+                const rows = filtered.map((p: any) => ({
+                    "Payment No": p.payment_no || p.paymentId || `CP${String(p.id).padStart(6, '0')}`,
+                    "Client": p.client_name || p.clientName || "-",
+                    "Project": p.project_name || p.projectName || targetProject || "-",
+                    "Amount": Number(p.amount) || 0,
+                    "Method": p.payment_method || p.method || "CASH",
+                    "Status": p.payment_status || p.status || "SUCCESS",
+                    "Date": p.payment_date || p.paymentDate || p.created_at || "-",
+                    "Reference No": p.reference_no || "-",
+                    "Cheque No": p.cheque_no || "-",
+                    "Bank": p.bank_name || "-"
+                }));
+                const newWs = XLSX.utils.json_to_sheet(rows);
+                const newWb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(newWb, newWs, "Payments");
+                const outBuffer = XLSX.write(newWb, { bookType: "xlsx", type: "array" });
+                blobToDownload = new Blob([outBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            }
+        } catch (filterErr) {
+            console.warn("Client-side project filtering failed:", filterErr);
+        }
+
+        if (blobToDownload) {
+            const url = window.URL.createObjectURL(new Blob([blobToDownload]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Client_Payments_${new Date().toISOString().split("T")[0]}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        }
     },
 
     /**
@@ -446,19 +539,37 @@ export const paymentService = {
      */
     async getClientPaymentHistory(projectId?: number | string | any, params?: any): Promise<any[]> {
         try {
-            let queryParams: any = {};
+            let queryParams: any = { limit: 1000 };
             if (typeof projectId === "object" && projectId !== null) {
-                queryParams = { ...projectId };
+                queryParams = { ...queryParams, ...projectId };
             } else if (projectId) {
-                queryParams = { project_id: projectId, ...params };
+                queryParams = { ...queryParams, project_id: projectId, ...params };
             } else if (params?.project_id) {
-                queryParams = { ...params };
+                queryParams = { ...queryParams, ...params };
             } else {
-                queryParams = { ...params };
+                queryParams = { ...queryParams, ...params };
             }
-            const response = await api.get("client-payments/history", { params: queryParams });
-            const data = response.data;
-            return Array.isArray(data) ? data : data?.items || data?.data || data?.history || [];
+
+            let data: any = null;
+            try {
+                const response = await api.get("client-payments/history", { params: queryParams });
+                data = response.data;
+            } catch {
+                // Ignore and try fallback
+            }
+
+            let items = Array.isArray(data) ? data : data?.items || data?.data || data?.history || [];
+            if (!items || items.length === 0) {
+                try {
+                    const fallbackRes = await api.get("client-payments", { params: queryParams });
+                    const fbData = fallbackRes.data;
+                    items = Array.isArray(fbData) ? fbData : fbData?.items || fbData?.data || fbData?.history || [];
+                } catch {
+                    // Ignore fallback failure
+                }
+            }
+
+            return items || [];
         } catch (err) {
             console.error("Failed to fetch client payment history:", err);
             return [];

@@ -1277,6 +1277,17 @@ const ClientPaymentPage = () => {
   };
 
   const filteredClientPayments = clientPayments.filter(p => {
+    // Strictly isolate records for the currently selected project
+    const activeProjectTarget = (paymentProjectFilter && paymentProjectFilter !== "All Projects")
+      ? paymentProjectFilter
+      : (projectName && projectName !== "Loading..." && projectName !== "All Projects" ? projectName : "");
+    if (activeProjectTarget) {
+      const pLower = (p.projectName || "").toLowerCase().trim();
+      const targetLower = activeProjectTarget.toLowerCase().trim();
+      if (pLower && targetLower && !pLower.includes(targetLower) && !targetLower.includes(pLower)) {
+        return false;
+      }
+    }
     const sl = paymentSearch.toLowerCase();
     const matchesSearch = !paymentSearch || p.paymentId.toLowerCase().includes(sl) || p.invoiceNo.toLowerCase().includes(sl) || p.clientName.toLowerCase().includes(sl) || p.projectName.toLowerCase().includes(sl);
     const matchesTab = paymentTab === "All Payments" || p.status === paymentTab;
@@ -1414,20 +1425,32 @@ const ClientPaymentPage = () => {
     if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
     const t = toast.loading("Exporting Excel...");
     try {
-      await paymentService.exportClientPaymentsExcel({ project_id: projectId ? Number(projectId) : undefined });
+      const activeProjName = (paymentProjectFilter && paymentProjectFilter !== "All Projects")
+        ? paymentProjectFilter
+        : (projectName && projectName !== "Loading..." && projectName !== "All Projects" ? projectName : undefined);
+      await paymentService.exportClientPaymentsExcel({
+        project_id: projectId ? Number(projectId) : undefined,
+        project_name: activeProjName
+      });
       toast.success("Excel Exported", { id: t });
     } catch {
       // Fallback: local XLSX generation
       try {
         const rows = filteredClientPayments.map(p => ({
-          "Payment ID": p.paymentId, "Invoice ID": p.invoiceNo, "Client Name": p.clientName,
-          "Client Email": p.clientEmail, "Project Name": p.projectName, "Invoice Date": p.invoiceDate,
-          "Due Date": p.dueDate, "Total Amount (Rs.)": p.amount, "Paid Amount (Rs.)": p.paidAmount,
-          "Balance (Rs.)": p.amount - p.paidAmount, "Status": p.status, "Payment Date": p.paymentDate,
+          "Payment No": p.paymentId,
+          "Client": p.clientName,
+          "Project": p.projectName,
+          "Amount": p.amount,
+          "Method": "CASH",
+          "Status": p.status,
+          "Date": p.paymentDate !== "-" ? p.paymentDate : p.invoiceDate,
+          "Reference No": "-",
+          "Cheque No": "-",
+          "Bank": "-"
         }));
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Payment History");
+        XLSX.utils.book_append_sheet(wb, ws, "Payments");
         XLSX.writeFile(wb, `Payment_History_${new Date().toISOString().split("T")[0]}.xlsx`);
         toast.success("Excel Exported (local)", { id: t });
       } catch { toast.error("Export failed", { id: t }); }
@@ -1438,7 +1461,13 @@ const ClientPaymentPage = () => {
     if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
     const t = toast.loading("Generating PDF Report...");
     try {
-      await paymentService.exportClientPaymentsPdf({ project_id: projectId ? Number(projectId) : undefined });
+      const activeProjName = (paymentProjectFilter && paymentProjectFilter !== "All Projects")
+        ? paymentProjectFilter
+        : (projectName && projectName !== "Loading..." && projectName !== "All Projects" ? projectName : undefined);
+      await paymentService.exportClientPaymentsPdf({
+        project_id: projectId ? Number(projectId) : undefined,
+        project_name: activeProjName
+      });
       toast.success("PDF Downloaded", { id: t });
     } catch {
       // Fallback: local jsPDF generation

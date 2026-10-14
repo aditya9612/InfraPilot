@@ -8,6 +8,7 @@ import {
     Percent,
     ClipboardList
 } from "lucide-react";
+import { formatDisplayDate } from "../../utils/dateUtils";
 
 interface MilestoneDetailsModalProps {
     isOpen: boolean;
@@ -116,36 +117,28 @@ const MilestoneDetailsModal = ({
                                     <Calendar className="w-4 h-4 text-slate-400" />
                                     <span className="text-slate-400 font-bold uppercase text-[10px]">Start:</span>
                                     <span>
-                                        {milestone.start_date
-                                            ? new Date(milestone.start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                            : "N/A"}
+                                        {formatDisplayDate(milestone.start_date, "N/A")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4 text-slate-400" />
                                     <span className="text-slate-400 font-bold uppercase text-[10px]">Target:</span>
                                     <span>
-                                        {milestone.end_date
-                                            ? new Date(milestone.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                            : "N/A"}
+                                        {formatDisplayDate(milestone.end_date, "N/A")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4 text-slate-400" />
                                     <span className="text-slate-400 font-bold uppercase text-[10px]">Actual Start:</span>
                                     <span>
-                                        {(milestone as any).actual_start_date
-                                            ? new Date((milestone as any).actual_start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                            : "—"}
+                                        {formatDisplayDate((milestone as any).actual_start_date, "—")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4 text-slate-400" />
                                     <span className="text-slate-400 font-bold uppercase text-[10px]">Actual End:</span>
                                     <span>
-                                        {(milestone as any).actual_end_date
-                                            ? new Date((milestone as any).actual_end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                            : "—"}
+                                        {formatDisplayDate((milestone as any).actual_end_date, "—")}
                                     </span>
                                 </div>
                             </div>
@@ -281,10 +274,10 @@ const MilestoneDetailsModal = ({
                                                     <td className="p-4 whitespace-nowrap">
                                                         <div className="flex flex-col gap-0.5">
                                                             <span className="text-[9px] text-slate-400">
-                                                                S: <span className="font-bold text-slate-600">{new Date(task.start_date).toLocaleDateString()}</span>
+                                                                S: <span className="font-bold text-slate-600">{formatDisplayDate(task.start_date)}</span>
                                                             </span>
                                                             <span className="text-[9px] text-slate-400">
-                                                                E: <span className="font-bold text-slate-600">{new Date(task.end_date).toLocaleDateString()}</span>
+                                                                E: <span className="font-bold text-slate-600">{formatDisplayDate(task.end_date)}</span>
                                                             </span>
                                                         </div>
                                                     </td>

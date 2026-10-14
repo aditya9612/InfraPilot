@@ -55,17 +55,18 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
   }, [isOpen]);
 
   React.useEffect(() => {
-      setFormData({
-        project_id: '',
-        item_name: '',
-        category: '',
-        description: '',
-        quantity: '',
-        unit: '',
-        unit_cost: '',
-        status: 'Active',
-        activity_type_id: '',
-      });
+    setErrors({});
+    setFormData({
+      project_id: '',
+      item_name: '',
+      category: '',
+      description: '',
+      quantity: '',
+      unit: '',
+      unit_cost: '',
+      status: 'Active',
+      activity_type_id: '',
+    });
   }, [isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -177,6 +178,11 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
   };
 
 
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
+
   const modalTitle = "Add BOQ Item";
 
   const submitLabel = 'Add Item';
@@ -185,7 +191,7 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
     <>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         disabled={isLoading}
         className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
       >
@@ -213,7 +219,7 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={modalTitle}
       footer={modalFooter}
       maxWidth="max-w-2xl"

@@ -18,7 +18,7 @@ interface Task {
     assignedFrom?: 'Self' | 'Site Engineer' | string;
     assignedTo?: string;
     description: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned';
+    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned' | 'Cancelled';
     priority: 'High' | 'Medium' | 'Low';
     startDate: string;
     endDate: string;
@@ -44,7 +44,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
     const [newComment, setNewComment] = useState('');
     const [activities, setActivities] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [progressUpdate, setProgressUpdate] = useState({ percentage: 0, description: '' });
     
     const { speak } = useTextToAudio();
 
@@ -90,7 +89,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
     }, [task?.id, task?.status]);
 
     const handleUpdateStatusClick = async () => {
-        if (!onUpdateStatus) return;
+        if (!onUpdateStatus || !task) return;
         setIsSubmittingStatus(true);
         try {
             let backendStatus = localStatusVal;
@@ -170,6 +169,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
                                 project_id: data.project_id || initialTask.project_id || rawProjId,
                                 name: data.title || data.name || initialTask.name,
                                 project: data.project_name || initialTask.project,
+                                assignedTo: assignee,
                                 description: data.description || initialTask.description,
                                 status: (() => {
                                     const statusStr = data.status || 'Pending';
@@ -243,27 +243,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
             toast.success('Comment added');
         } catch (err) {
             toast.error('Failed to add comment');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleUpdateProgress = async () => {
-        if (progressUpdate.percentage < 0 || progressUpdate.percentage > 100) {
-            toast.error('Percentage must be between 0 and 100');
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            await projectService.updateTaskProgress(projectId, taskId, {
-                completion_percentage: progressUpdate.percentage,
-                description: progressUpdate.description || 'Progress update'
-            });
-            setProgressUpdate({ percentage: 0, description: '' });
-            fetchActivity();
-            toast.success('Progress updated');
-        } catch (err) {
-            toast.error('Failed to update progress');
         } finally {
             setIsSubmitting(false);
         }

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import type { Material, Supplier, POCreate } from "../../../types/material";
 import { boqService } from "../../../services/boqService";
+import { ChevronDown, Check, Search } from "lucide-react";
 
 interface CreatePOModalProps {
     isOpen: boolean;
@@ -19,16 +20,46 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     projects,
     inventory,
 }) => {
-    const [formData, setFormData] = useState<POCreate>({
+    const initialFormData: POCreate = {
         supplier_id: 0,
         project_id: 0,
         material_id: 0,
+        boq_item_id: 0,
         quantity: 0,
         rate: 0,
-    });
+    };
+    const [formData, setFormData] = useState<POCreate>(initialFormData);
     const [loading, setLoading] = useState(false);
     const [boqItems, setBoqItems] = useState<any[]>([]);
     const [loadingBoqs, setLoadingBoqs] = useState(false);
+    const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
+    const [boqSearch, setBoqSearch] = useState("");
+    const boqDropdownRef = useRef<HTMLDivElement>(null);
+
+    const handleClose = () => {
+        setFormData(initialFormData);
+        setIsBoqDropdownOpen(false);
+        setBoqSearch("");
+        onClose();
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            setFormData(initialFormData);
+            setIsBoqDropdownOpen(false);
+            setBoqSearch("");
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (boqDropdownRef.current && !boqDropdownRef.current.contains(e.target as Node)) {
+                setIsBoqDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     // Fetch BOQ items dynamically when a project is selected
     useEffect(() => {
@@ -100,6 +131,20 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
     const selectedMaterial = inventory.find(m => m.id === formData.material_id);
 
+    const filteredBoqItems = useMemo(() => {
+        if (!boqSearch.trim()) return boqItems;
+        const q = boqSearch.toLowerCase();
+        return boqItems.filter(b => (b.item_name || b.name || "").toLowerCase().includes(q));
+    }, [boqItems, boqSearch]);
+
+    const selectedBoqLabel = useMemo(() => {
+        if (!formData.project_id) return "Select Project First";
+        if (loadingBoqs) return "Loading BOQ items...";
+        if (!formData.boq_item_id) return "None";
+        const b = boqItems.find(item => item.id === formData.boq_item_id);
+        return b ? (b.item_name || b.name) : "None";
+    }, [formData.project_id, formData.boq_item_id, loadingBoqs, boqItems]);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity font-inter">
             <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -108,7 +153,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                         <h2 className="text-xl font-black text-indigo-900 tracking-tight">Create Purchase Order</h2>
 
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -177,27 +222,78 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                         </div>
 
                         {/* BOQ Selection (Optional) */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 relative" ref={boqDropdownRef}>
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">BOQ Item (Optional)</label>
-                            <select
+                            <button
+                                type="button"
                                 disabled={!formData.project_id || loadingBoqs}
-                                value={formData.boq_item_id || 0}
-                                onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) })}
-                                className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${(!formData.project_id || loadingBoqs) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={() => setIsBoqDropdownOpen(prev => !prev)}
+                                className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold flex items-center justify-between text-left outline-none ${(!formData.project_id || loadingBoqs) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                             >
-                                <option value={0}>
-                                    {!formData.project_id
-                                        ? "Select Project First"
-                                        : loadingBoqs
-                                            ? "Loading BOQ items..."
-                                            : "None"}
-                                </option>
-                                {boqItems.map((b) => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.item_name || b.name}
-                                    </option>
-                                ))}
-                            </select>
+                                <span className={`truncate ${formData.boq_item_id ? 'text-slate-800' : 'text-slate-500'}`}>
+                                    {selectedBoqLabel}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 ml-2 transition-transform duration-200 ${isBoqDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                            </button>
+
+                            {isBoqDropdownOpen && (
+                                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                                    {boqItems.length > 5 && (
+                                        <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                                            <div className="relative">
+                                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                <input
+                                                    type="text"
+                                                    value={boqSearch}
+                                                    onChange={(e) => setBoqSearch(e.target.value)}
+                                                    placeholder="Search BOQ item..."
+                                                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                        <div
+                                            onClick={() => {
+                                                setFormData({ ...formData, boq_item_id: 0 });
+                                                setIsBoqDropdownOpen(false);
+                                                setBoqSearch("");
+                                            }}
+                                            className={`px-4 py-2.5 text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                                                !formData.boq_item_id ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span>None</span>
+                                            {!formData.boq_item_id && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 ml-2" />}
+                                        </div>
+                                        {filteredBoqItems.map((b) => {
+                                            const isSelected = formData.boq_item_id === b.id;
+                                            return (
+                                                <div
+                                                    key={b.id}
+                                                    onClick={() => {
+                                                        setFormData({ ...formData, boq_item_id: b.id });
+                                                        setIsBoqDropdownOpen(false);
+                                                        setBoqSearch("");
+                                                    }}
+                                                    className={`px-4 py-2.5 text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                                                        isSelected ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-700 hover:bg-slate-50 hover:text-indigo-600'
+                                                    }`}
+                                                >
+                                                    <span className="truncate">{b.item_name || b.name}</span>
+                                                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 ml-2" />}
+                                                </div>
+                                            );
+                                        })}
+                                        {filteredBoqItems.length === 0 && boqItems.length > 0 && (
+                                            <div className="px-4 py-3 text-xs text-slate-400 text-center italic">
+                                                No BOQ items match search
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Quantity */}
@@ -246,7 +342,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     </div>
 
                     <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-                        <button type="button" onClick={onClose} className="flex-1 px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                        <button type="button" onClick={handleClose} className="flex-1 px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                         <button
                             type="submit"
                             disabled={loading || filteredMaterials.length === 0}

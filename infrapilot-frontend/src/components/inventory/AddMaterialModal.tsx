@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Modal from "../common/Modal";
+import { ChevronDown, Check, Search } from "lucide-react";
 
 interface AddMaterialModalProps {
   isOpen: boolean;
@@ -36,7 +37,32 @@ export default function AddMaterialModal({
     material_master_id: undefined as number | undefined,
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleClose = () => {
+    setErrors({});
+    setIsSupplierDropdownOpen(false);
+    setSupplierSearch("");
+    onClose();
+  };
+
   useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (supplierDropdownRef.current && !supplierDropdownRef.current.contains(e.target as Node)) {
+        setIsSupplierDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setErrors({});
+    setIsSupplierDropdownOpen(false);
+    setSupplierSearch("");
     if (initialData) {
       setFormData({
         ...initialData,
@@ -60,8 +86,6 @@ export default function AddMaterialModal({
       });
     }
   }, [initialData, isOpen]);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (apiErrors && Object.keys(apiErrors).length > 0) {
@@ -152,7 +176,7 @@ export default function AddMaterialModal({
     <div className="flex justify-end gap-3">
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         className="px-6 py-2.5 text-sm font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
       >
         Cancel
@@ -171,10 +195,29 @@ export default function AddMaterialModal({
     (formData.purchase_rate || 0) * (formData.quantity_purchased || 0);
   const paymentPending = totalAmount - (formData.payment_given || 0);
 
+  const selectedSupplierLabel = useMemo(() => {
+    if (initialData) {
+      const sId = (formData as any).supplier_id;
+      if (!sId) return "";
+      const sup = suppliers.find((s) => (s.id ?? s.supplier_id) === sId);
+      return sup ? (sup.name || sup.supplier_name || `Supplier #${sId}`) : `Supplier #${sId}`;
+    }
+    return formData.supplier_name || "";
+  }, [initialData, formData, suppliers]);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearch.trim()) return suppliers;
+    const q = supplierSearch.toLowerCase();
+    return suppliers.filter((sup) => {
+      const name = typeof sup === "string" ? sup : (sup.name || sup.supplier_name || sup.contactPerson || sup.phone || "");
+      return name.toLowerCase().includes(q);
+    });
+  }, [suppliers, supplierSearch]);
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={initialData ? "Update Material Record" : "Register New Material"}
       footer={modalFooter}
       maxWidth="max-w-2xl"
@@ -250,38 +293,77 @@ export default function AddMaterialModal({
             </div>
 
 
-            <div className="md:col-span-2 space-y-1">
+            <div className="md:col-span-2 space-y-1 relative" ref={supplierDropdownRef}>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Supplier <span className="text-rose-500">*</span>
               </label>
-              <select
-                name={initialData ? "supplier_id" : "supplier_name"}
-                value={initialData ? ((formData as any).supplier_id || "") : formData.supplier_name}
-                onChange={(e) => {
-                  const val = initialData ? Number(e.target.value) : e.target.value;
-                  setFormData(prev => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: val }));
-                  if (errors[initialData ? "supplier_id" : "supplier_name"]) {
-                    setErrors((prev) => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: "" }));
-                  }
-                }}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${errors[initialData ? "supplier_id" : "supplier_name"]
-                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+              <button
+                type="button"
+                onClick={() => setIsSupplierDropdownOpen((prev) => !prev)}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm flex items-center justify-between text-left focus:outline-none focus:ring-4 transition-all ${
+                  errors[initialData ? "supplier_id" : "supplier_name"]
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : isSupplierDropdownOpen
+                    ? "border-primary ring-4 ring-primary/10"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
               >
-                <option value="" disabled>
-                  -- Select from Supplier DB --
-                </option>
-                {suppliers.map((sup) => {
-                  const supId = sup.id ?? (sup as any).supplier_id;
-                  const supName = typeof sup === "string" ? sup : (sup.name || (sup as any).supplier_name || sup.contactPerson || sup.phone || `Supplier #${supId}`);
-                  return (
-                    <option key={supId} value={initialData ? supId : supName}>
-                      {supName}
-                    </option>
-                  );
-                })}
-              </select>
+                <span className={`truncate ${selectedSupplierLabel ? "text-slate-800 font-medium" : "text-gray-400"}`}>
+                  {selectedSupplierLabel || "-- Select from Supplier DB --"}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200 ${isSupplierDropdownOpen ? "rotate-180 text-primary" : ""}`} />
+              </button>
+
+              {isSupplierDropdownOpen && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                  <div className="p-2 border-b border-gray-100 bg-gray-50/50">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={supplierSearch}
+                        onChange={(e) => setSupplierSearch(e.target.value)}
+                        placeholder="Search supplier..."
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+                    {filteredSuppliers.length > 0 ? (
+                      filteredSuppliers.map((sup) => {
+                        const supId = sup.id ?? (sup as any).supplier_id;
+                        const supName = typeof sup === "string" ? sup : (sup.name || (sup as any).supplier_name || sup.contactPerson || sup.phone || `Supplier #${supId}`);
+                        const isSelected = initialData ? (formData as any).supplier_id === supId : formData.supplier_name === supName;
+                        return (
+                          <div
+                            key={supId}
+                            onClick={() => {
+                              const val = initialData ? Number(supId) : supName;
+                              setFormData(prev => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: val }));
+                              if (errors[initialData ? "supplier_id" : "supplier_name"]) {
+                                setErrors((prev) => ({ ...prev, [initialData ? "supplier_id" : "supplier_name"]: "" }));
+                              }
+                              setIsSupplierDropdownOpen(false);
+                              setSupplierSearch("");
+                            }}
+                            className={`px-4 py-2.5 text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                              isSelected ? "bg-primary/10 text-primary font-bold" : "text-gray-700 hover:bg-gray-50 hover:text-primary"
+                            }`}
+                          >
+                            <span className="truncate">{supName}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0 ml-2" />}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-4 py-3 text-xs text-gray-400 text-center italic">
+                        No suppliers found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {errors[initialData ? "supplier_id" : "supplier_name"] && (
                 <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
                   {errors[initialData ? "supplier_id" : "supplier_name"]}

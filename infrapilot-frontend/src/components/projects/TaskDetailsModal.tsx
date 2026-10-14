@@ -4,9 +4,10 @@ import { projectService } from "../../services/projectService";
 import { userService } from "../../services/userService";
 import toast from "react-hot-toast";
 import {
-  X, Calendar, User, Clock, AlertCircle, Paperclip, Send, CheckCircle, FileText
+  X, Calendar, User, Clock, AlertCircle, Paperclip, Send, CheckCircle, FileText, Download, ExternalLink
 } from "lucide-react";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import { formatDisplayDate, formatDateTimeToIST } from "../../utils/dateUtils";
 
 interface TaskDetailsModalProps {
   task: Task;
@@ -214,12 +215,122 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
     fetchMissingUsers();
   }, [comments]);
 
+  const getCommentAttachmentData = (c: any) => {
+    // 1. Direct fields from backend
+    if (c.attachment_url) {
+      const url = c.attachment_url;
+      const name = c.attachment_name || "Attachment";
+      return {
+        url,
+        name,
+        isImage: url.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url)
+      };
+    }
+    if (c.attachment) {
+      const url = typeof c.attachment === 'string' ? c.attachment : c.attachment.url || "";
+      const name = typeof c.attachment === 'string' ? "Attachment" : c.attachment.name || "Attachment";
+      return {
+        url,
+        name,
+        isImage: url.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url)
+      };
+    }
+
+    // 2. Parse from content markdown [Attachment: filename](url) or ![filename](url)
+    const rawText = c.content || c.comment || c.text || "";
+    const match = /\[(?:Attachment|Attached):\s*([^\]]+)\]\(([^)]+)\)/i.exec(rawText) || /!\[([^\]]*)\]\(([^)]+)\)/i.exec(rawText);
+    if (match) {
+      const name = match[1] || "Attachment";
+      const url = match[2];
+      return {
+        url,
+        name,
+        isImage: url.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name)
+      };
+    }
+
+    // 3. Fallback: match from local cache by comment id or matching text
+    try {
+      const storageKey = `infrapilot_task_${task.id}_comment_attachments`;
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const found = stored.find((item: any) => (c.id && item.id === c.id) || (rawText.trim() && item.content === rawText.trim()));
+      if (found) {
+        return {
+          url: found.attachment_url,
+          name: found.attachment_name || "Attachment",
+          isImage: found.is_image ?? (found.attachment_url.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(found.attachment_url))
+        };
+      }
+    } catch {
+      // ignore
+    }
+
+    return null;
+  };
+
+  const getCleanCommentText = (rawContent: string) => {
+    if (!rawContent) return "";
+    return rawContent
+      .replace(/\[(?:Attachment|Attached):\s*([^\]]+)\]\(([^)]+)\)/gi, '')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/gi, '')
+      .trim();
+  };
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() && !commentAttachment) return;
     setIsSubmitting(true);
     try {
-      await projectService.createTaskComment(task.project_id, task.id, { content: newComment });
+      let attachmentUrl = "";
+      let attachmentName = "";
+      let isImage = false;
+
+      if (commentAttachment) {
+        attachmentName = commentAttachment.name;
+        isImage = commentAttachment.type.startsWith("image/");
+        attachmentUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(commentAttachment);
+        });
+      }
+
+      let payloadContent = newComment.trim();
+      if (attachmentUrl) {
+        const tag = `[Attachment: ${attachmentName}](${attachmentUrl})`;
+        payloadContent = payloadContent ? `${payloadContent}\n\n${tag}` : tag;
+      }
+
+      const commentPayload: any = {
+        content: payloadContent,
+        comment: payloadContent,
+      };
+      if (attachmentUrl) {
+        commentPayload.attachment_url = attachmentUrl;
+        commentPayload.attachment_name = attachmentName;
+      }
+
+      const savedComment = await projectService.createTaskComment(task.project_id, task.id, commentPayload);
+
+      // Save attachment in local storage to guarantee persistence across sessions
+      if (attachmentUrl) {
+        try {
+          const storageKey = `infrapilot_task_${task.id}_comment_attachments`;
+          const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+          existing.push({
+            id: savedComment?.id,
+            content: newComment.trim(),
+            attachment_name: attachmentName,
+            attachment_url: attachmentUrl,
+            is_image: isImage,
+            timestamp: Date.now()
+          });
+          localStorage.setItem(storageKey, JSON.stringify(existing));
+        } catch (e) {
+          console.warn("Could not save comment attachment to localStorage", e);
+        }
+      }
+
       setNewComment("");
       setCommentAttachment(null);
       if (onAddComment) onAddComment(newComment);
@@ -362,7 +473,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                     <p className="text-sm font-bold text-slate-800">Deadline</p>
                   </div>
                   <div className="pl-9">
-                    <p className="text-sm text-slate-600">{selectedTask.end_date ? new Date(selectedTask.end_date).toLocaleDateString() : 'N/A'}</p>
+                    <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.end_date, 'N/A')}</p>
                   </div>
                 </div>
 
@@ -374,7 +485,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                     <p className="text-sm font-bold text-slate-800">Start Date</p>
                   </div>
                   <div className="pl-9">
-                    <p className="text-sm text-slate-600">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : 'N/A'}</p>
+                    <p className="text-sm text-slate-600">{formatDisplayDate(selectedTask.start_date, 'N/A')}</p>
                   </div>
                 </div>
               </div>
@@ -416,11 +527,11 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
-                  <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-800">{formatDisplayDate((selectedTask as any).actual_start_date, 'N/A')}</p>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
-                  <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-800">{formatDisplayDate((selectedTask as any).actual_end_date, 'N/A')}</p>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
@@ -509,17 +620,64 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {[...comments].reverse().map((c: any, i) => (
-                      <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
-                        <span className="text-xs font-bold text-slate-800 mb-1">
-                          {c.author_name || userMap[String(c.author_user_id)] || (c.author_user_id === 1 ? 'Clients' : `User ${c.author_user_id}`)}
-                        </span>
-                        <p className="text-sm text-slate-700 mb-2">{c.content || c.comment || c.text || ""}</p>
-                        <span className="text-[10px] text-slate-400">
-                          {c.created_at ? new Date(c.created_at).toLocaleString() : 'Just now'}
-                        </span>
-                      </div>
-                    ))}
+                    {[...comments].reverse().map((c: any, i) => {
+                      const attach = getCommentAttachmentData(c);
+                      const cleanText = getCleanCommentText(c.content || c.comment || c.text || "");
+                      const timeFormatted = formatDateTimeToIST(c.created_at, "Just now");
+
+                      return (
+                        <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[85%]">
+                          <span className="text-xs font-bold text-slate-800 mb-1">
+                            {c.author_name || userMap[String(c.author_user_id)] || (c.author_user_id === 1 ? 'Admin' : `User ${c.author_user_id}`)}
+                          </span>
+                          {cleanText && (
+                            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{cleanText}</p>
+                          )}
+                          {attach && (
+                            <div className="mt-2">
+                              {attach.isImage ? (
+                                <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50 max-w-sm">
+                                  <img
+                                    src={getFullImageUrl(attach.url) || attach.url}
+                                    alt={attach.name}
+                                    className="max-h-52 w-auto object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                                    onClick={() => window.open(getFullImageUrl(attach.url) || attach.url, '_blank')}
+                                  />
+                                  <div className="p-1.5 flex items-center justify-between bg-slate-50 border-t border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-600 truncate max-w-[180px]">{attach.name}</span>
+                                    <a
+                                      href={getFullImageUrl(attach.url) || attach.url}
+                                      download={attach.name}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-slate-400 hover:text-primary transition-colors p-1"
+                                      title="Open / Download"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <a
+                                  href={getFullImageUrl(attach.url) || attach.url}
+                                  download={attach.name}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group"
+                                >
+                                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                                  <span className="text-xs font-bold text-slate-700 truncate max-w-[200px] group-hover:text-primary">{attach.name}</span>
+                                  <Download className="w-3.5 h-3.5 text-slate-400 ml-auto group-hover:text-primary" />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          <span className="text-[10px] text-slate-400 mt-1.5">
+                            {timeFormatted}
+                          </span>
+                        </div>
+                      );
+                    })}
                     <div ref={chatEndRef} />
                   </div>
                 )}
@@ -598,7 +756,9 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                           <h4 className="text-sm font-bold text-slate-800">Progress Updated</h4>
-                          <span className="text-[10px] font-bold text-slate-500">{new Date(activity.created_at).toLocaleString()}</span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {formatDateTimeToIST(activity.created_at || activity.timestamp || activity.updated_at || activity.date || activity.performed_at, "Just now")}
+                          </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-3">Progress moved to {activity.percentage ?? activity.progress_percentage ?? 0}%</p>
                         {activity.remarks && (

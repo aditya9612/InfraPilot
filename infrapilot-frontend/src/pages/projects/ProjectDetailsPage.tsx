@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
+import { boqService } from "../../services/boqService";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import { expenseService } from "../../services/expenseService";
 import type { Project } from "../../types/project";
@@ -126,7 +127,7 @@ const ProjectDetailsPage = () => {
       // Stage 2: Load secondary data modules in parallel
       // We don't await this entire block before showing the page
       const loadSecondaryData = async () => {
-        const [mData, msData, tData, sData, prData, plData, fsData, phData, lData, eData] = await Promise.all([
+        const [mData, msData, tData, sData, prData, plData, fsData, phData, lData, eData, boqSummaryData, boqItemsData] = await Promise.all([
           projectService.getProjectMembers(projectId).catch((err) => {
             console.warn("Members Load Failure:", err);
             return [];
@@ -149,6 +150,8 @@ const ProjectDetailsPage = () => {
             console.warn("Project Expenses Load Failure:", err);
             return [];
           }),
+          boqService.getBoqSummary(projectId).catch(() => null),
+          boqService.getBoqs({ project_id: projectId, limit: 100 } as any).catch(() => ({ items: [] })),
         ]);
 
         // Process Members
@@ -170,6 +173,15 @@ const ProjectDetailsPage = () => {
         // Process Schedule, Progress & Finance
         setSchedule(sData);
         setProgress(prData);
+        const boqItemsList = Array.isArray(boqItemsData) ? boqItemsData : (boqItemsData && 'items' in boqItemsData ? boqItemsData.items : []);
+        const itemsBoqSum = boqItemsList.reduce((acc: number, curr: any) => acc + (Number(curr.total_cost) || 0), 0);
+        const calculatedBoqValue = Number(
+          boqSummaryData?.total_boq_value ??
+          boqSummaryData?.estimated ??
+          boqSummaryData?.total_cost ??
+          (itemsBoqSum > 0 ? itemsBoqSum : (pData?.budget || 0))
+        );
+
         const mergedFinancial = {
           ...plData,
           ...fsData,
@@ -179,6 +191,7 @@ const ProjectDetailsPage = () => {
           pending_invoice: fsData?.pending_invoice ?? plData?.pending_invoice ?? 0,
           profit: fsData?.profit ?? plData?.profit ?? ((fsData?.total_invoice ?? plData?.total_invoice ?? 0) - (fsData?.total_expense ?? plData?.total_expense ?? 0)),
           status: fsData?.status ?? plData?.status ?? (((fsData?.total_invoice ?? plData?.total_invoice ?? 0) - (fsData?.total_expense ?? plData?.total_expense ?? 0)) >= 0 ? 'profit' : 'loss'),
+          total_boq_value: calculatedBoqValue,
         };
         setProfitLoss(mergedFinancial);
         // Process Photos & Logs defensively
@@ -250,10 +263,11 @@ const ProjectDetailsPage = () => {
   const handleCreateMilestone = async (milestoneData: any) => {
     try {
       await projectService.createMilestone(projectId, milestoneData);
-      toast.success("Milestone created successfully");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to create milestone");
+      await fetchProjectData();
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail[0]?.msg : (error?.response?.data?.message || "Failed to create milestone"));
+      throw new Error(msg);
     }
   };
 
@@ -299,6 +313,7 @@ const ProjectDetailsPage = () => {
             percentage: percentage,
             completion_percentage: percentage,
             remarks: "Updated via edit modal",
+            created_at: new Date().toISOString(),
           })
           .catch((err) =>
             console.warn("Task progress history sync skipped:", err),
@@ -319,6 +334,13 @@ const ProjectDetailsPage = () => {
       setTasks(prev => prev.map(t => {
         if (t.id === task_id) {
           const assignedMember = updatedAssignedUserId ? members.find(m => String(m.user_id) === String(updatedAssignedUserId)) : null;
+          const actualStartDate = payload instanceof FormData
+            ? (payload.get('actual_start_date') as string || t.actual_start_date)
+            : (payload.actual_start_date !== undefined ? payload.actual_start_date : t.actual_start_date);
+          const actualEndDate = payload instanceof FormData
+            ? (payload.get('actual_end_date') as string || t.actual_end_date)
+            : (payload.actual_end_date !== undefined ? payload.actual_end_date : t.actual_end_date);
+
           return {
             ...t,
             title: payload instanceof FormData ? (payload.get('title') as string || t.title) : (payload.title || t.title),
@@ -326,6 +348,8 @@ const ProjectDetailsPage = () => {
             priority: payload instanceof FormData ? (payload.get('priority') as string || t.priority) : (payload.priority || t.priority),
             start_date: payload instanceof FormData ? (payload.get('start_date') as string || t.start_date) : (payload.start_date || t.start_date),
             end_date: payload instanceof FormData ? (payload.get('end_date') as string || t.end_date) : (payload.end_date || t.end_date),
+            actual_start_date: actualStartDate,
+            actual_end_date: actualEndDate,
             assigned_user_id: updatedAssignedUserId !== null ? updatedAssignedUserId : t.assigned_user_id,
             assigned_users: assignedMember ? [{ id: assignedMember.user_id, name: assignedMember.full_name, role: assignedMember.role }] : t.assigned_users,
           };
@@ -416,6 +440,7 @@ const ProjectDetailsPage = () => {
       await projectService.updateTaskProgress(projectId, taskId, {
         percentage,
         remarks,
+        created_at: new Date().toISOString(),
       });
       toast.success("Progress updated");
       fetchProjectData();
@@ -425,13 +450,9 @@ const ProjectDetailsPage = () => {
   };
 
   const handleEditMilestone = async (updatedData: any) => {
-    try {
-      const { milestone_id, ...data } = updatedData;
-      await projectService.updateMilestone(projectId, milestone_id, data);
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to update milestone");
-    }
+    const { milestone_id, ...data } = updatedData;
+    await projectService.updateMilestone(projectId, milestone_id, data);
+    await fetchProjectData();
   };
 
   const handleDeleteMilestoneClick = (id: number) => {
@@ -1110,6 +1131,14 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-4">
+                    <div className="px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                      <p className="text-[9px] font-bold uppercase text-white/50 mb-1">
+                        Total BOQ Value
+                      </p>
+                      <p className="text-xl font-black">
+                        ₹{(profitLoss?.total_boq_value || 0).toLocaleString()}
+                      </p>
+                    </div>
                     <div className="px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
                       <p className="text-[9px] font-bold uppercase text-white/50 mb-1">
                         Total Invoiced

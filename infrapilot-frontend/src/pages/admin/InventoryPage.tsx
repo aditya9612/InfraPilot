@@ -249,6 +249,17 @@ const InventoryPage = () => {
     });
   }, [filteredSuppliers, sortOrder]);
 
+  const supplierMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    suppliers.forEach((s: any) => {
+      const sId = s.id ?? s.supplier_id;
+      if (sId) {
+        map[sId] = s.name || s.supplier_name || s.contactPerson || `Supplier #${sId}`;
+      }
+    });
+    return map;
+  }, [suppliers]);
+
   const sortedPOs = useMemo(() => {
     const filtered = pos.filter((p) => {
       const matchesSearch = p.material_name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1057,6 +1068,7 @@ const InventoryPage = () => {
                       <PurchaseOrderTable
                         pos={paged}
                         projectMap={projectMap}
+                        supplierMap={supplierMap}
                         onView={(po) => {
                           setSelectedPO(po);
                           setIsViewPOModalOpen(true);

@@ -3032,29 +3032,100 @@ const MachineryPage = () => {
             </Modal>
 
             {/* View Maintenance Modal */}
-            <Modal isOpen={isViewMaintenanceModalOpen} onClose={() => setIsViewMaintenanceModalOpen(false)} title="Maintenance Details" maxWidth="max-w-md">
-                <div className="p-6 font-inter bg-slate-50">
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4 space-y-3 text-sm">
-                        {viewMaintenanceItem ? (
-                            <>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Status</span><span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${viewMaintenanceItem.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{viewMaintenanceItem.is_completed ? 'COMPLETED' : 'PENDING'}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Project</span><span className="font-bold text-slate-800">{projects.find(p => p.id === viewMaintenanceItem.project_id)?.project_name || projects.find(p => p.id === viewMaintenanceItem.project_id)?.name || viewMaintenanceItem.project_name || '-'}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">BOQ Item</span><span className="font-bold text-slate-800">{boqsList.find(b => b.id === viewMaintenanceItem.boq_item_id)?.item_name || viewMaintenanceItem.boq_item_name || '-'}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Equipment</span><span className="font-bold text-slate-800">{equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_name || viewMaintenanceItem.equipment_name || `ID: ${viewMaintenanceItem.equipment_id}`}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Maintenance Date</span><span className="font-bold text-slate-800">{viewMaintenanceItem.maintenance_date}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Cost</span><span className="font-bold text-indigo-600">₹{viewMaintenanceItem.cost?.toLocaleString() || '0'}</span></div>
-                                <div className="flex justify-between border-b border-slate-100 pb-3 mb-3"><span className="text-slate-500 font-medium">Next Maintenance</span><span className="font-bold text-slate-800">{viewMaintenanceItem.next_maintenance_date || 'Not set'}</span></div>
-                                <div><span className="text-slate-500 font-medium block mb-2">Description</span><p className="text-slate-900 bg-slate-50 p-3 rounded-lg text-xs">{viewMaintenanceItem.description || 'No description provided.'}</p></div>
-                                <div className="text-xs text-slate-400 mt-5 text-center">
-                                    <p>Created: {viewMaintenanceItem.created_at ? new Date(viewMaintenanceItem.created_at).toLocaleString() : 'N/A'}</p>
-                                    <p>Completed: {viewMaintenanceItem.completed_at ? new Date(viewMaintenanceItem.completed_at).toLocaleString() : 'N/A'}</p>
+            <Modal isOpen={isViewMaintenanceModalOpen} onClose={() => setIsViewMaintenanceModalOpen(false)} title="Maintenance Details" maxWidth="max-w-lg">
+                <div className="p-6 font-inter space-y-6">
+                    {viewMaintenanceItem ? (
+                        <>
+                            {/* Header Status & Equipment Banner */}
+                            <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-48 h-48 bg-primary/15 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                                <div className="relative z-10 flex items-start justify-between gap-4">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Equipment</span>
+                                            {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_code && (
+                                                <span className="px-2 py-0.5 rounded bg-white/10 text-slate-300 text-[10px] font-mono font-bold">
+                                                    {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_code}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="text-2xl font-black tracking-tight text-white">
+                                            {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_name || viewMaintenanceItem.equipment_name || `ID: ${viewMaintenanceItem.equipment_id}`}
+                                        </h3>
+                                        <p className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                            {projects.find(p => p.id === viewMaintenanceItem.project_id)?.project_name || projects.find(p => p.id === viewMaintenanceItem.project_id)?.name || viewMaintenanceItem.project_name || 'Project Unassigned'}
+                                        </p>
+                                    </div>
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm shrink-0 ${
+                                        viewMaintenanceItem.is_completed 
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    }`}>
+                                        <span className={`w-2 h-2 rounded-full ${viewMaintenanceItem.is_completed ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                                        {viewMaintenanceItem.is_completed ? 'COMPLETED' : 'PENDING'}
+                                    </span>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="text-center text-slate-400 py-4">Loading details...</div>
-                        )}
-                    </div>
-                    <button onClick={() => setIsViewMaintenanceModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                            </div>
+
+                            {/* Key Stats Row: Cost & Dates */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/70">
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Maintenance Cost</p>
+                                    <p className="text-lg font-black text-indigo-600">
+                                        ₹{viewMaintenanceItem.cost?.toLocaleString() || '0'}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/70">
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Service Date</p>
+                                    <p className="text-sm font-bold text-slate-800">
+                                        {viewMaintenanceItem.maintenance_date || '-'}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/70">
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Next Service</p>
+                                    <p className="text-sm font-bold text-slate-800">
+                                        {viewMaintenanceItem.next_maintenance_date || 'Not Scheduled'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Details List */}
+                            <div className="rounded-2xl border border-slate-100 bg-white p-5 space-y-3.5 shadow-sm">
+                                <div className="flex justify-between items-center text-sm py-1 border-b border-slate-50">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">BOQ Item</span>
+                                    <span className="font-semibold text-slate-800">
+                                        {boqsList.find(b => b.id === viewMaintenanceItem.boq_item_id)?.item_name || viewMaintenanceItem.boq_item_name || '—'}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Description & Notes</span>
+                                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700 leading-relaxed">
+                                        {viewMaintenanceItem.description ? viewMaintenanceItem.description : <span className="text-slate-400 italic">No description provided.</span>}
+                                    </div>
+                                </div>
+
+                                {/* Timestamps */}
+                                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 border-t border-slate-50">
+                                    <div>Created: <span className="font-semibold text-slate-600">{viewMaintenanceItem.created_at ? new Date(viewMaintenanceItem.created_at).toLocaleString() : 'N/A'}</span></div>
+                                    {viewMaintenanceItem.completed_at && (
+                                        <div>Completed: <span className="font-semibold text-emerald-600">{new Date(viewMaintenanceItem.completed_at).toLocaleString()}</span></div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Prominently Highlighted Close Button */}
+                            <button
+                                onClick={() => setIsViewMaintenanceModalOpen(false)}
+                                className="w-full py-3.5 bg-primary hover:bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2 tracking-wide uppercase"
+                            >
+                                CLOSE
+                            </button>
+                        </>
+                    ) : (
+                        <div className="text-center text-slate-400 py-8">Loading details...</div>
+                    )}
                 </div>
             </Modal>
 

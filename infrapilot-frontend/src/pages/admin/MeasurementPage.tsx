@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -16,7 +16,8 @@ import {
   Plus,
   Search,
   Edit3,
-  Eye
+  Eye,
+  ChevronDown
 } from "lucide-react";
 import { boqService } from "../../services/boqService";
 import type { BoqItem } from "../../types/boq";
@@ -57,6 +58,31 @@ const MeasurementPage = () => {
     retention_amount: "",
     status: "DRAFT"
   });
+
+  const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
+  const [boqSearch, setBoqSearch] = useState("");
+  const boqDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (boqDropdownRef.current && !boqDropdownRef.current.contains(event.target as Node)) {
+        setIsBoqDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredBoqs = useMemo(() => {
+    if (!boqSearch.trim()) return projectBoqItems;
+    return projectBoqItems.filter(b => (b.item_name || "").toLowerCase().includes(boqSearch.toLowerCase()));
+  }, [projectBoqItems, boqSearch]);
+
+  const selectedBoqName = useMemo(() => {
+    if (!formData.boq_item_id || formData.boq_item_id === "0") return "Select BOQ Item";
+    const found = projectBoqItems.find(b => String(b.id) === String(formData.boq_item_id));
+    return found?.item_name || `BOQ Item #${formData.boq_item_id}`;
+  }, [projectBoqItems, formData.boq_item_id]);
 
   // Initial load of projects
   useEffect(() => {
@@ -239,12 +265,12 @@ const MeasurementPage = () => {
     if (!targetId) return;
     try {
       await measurementService.deleteMeasurement(targetId);
-      toast.success("Record purged from mainframes");
+      toast.success("Measurement record deleted successfully");
       setIsDeleteOpen(false);
       setTargetId(null);
       fetchData();
     } catch (error) {
-      toast.error("Purge aborted: Safety protocols active");
+      toast.error("Failed to delete measurement record");
     }
   };
 
@@ -467,14 +493,14 @@ const MeasurementPage = () => {
       {/* Form Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
-        title={editingItem ? "Recalibrate Record" : "New Field Measurement"}
-        maxWidth="max-w-2xl"
+        onClose={() => { setIsModalOpen(false); setEditingItem(null); setIsBoqDropdownOpen(false); }}
+        title={editingItem ? "Edit Field Measurement" : "Record New Area"}
+        maxWidth="max-w-4xl"
         footer={
           <>
             <button
               type="button"
-              onClick={() => { setIsModalOpen(false); setEditingItem(null); }}
+              onClick={() => { setIsModalOpen(false); setEditingItem(null); setIsBoqDropdownOpen(false); }}
               className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
             >
               Cancel
@@ -482,90 +508,154 @@ const MeasurementPage = () => {
             <button
               form="measurement-form"
               type="submit"
-              className="px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+              className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95"
             >
-              {editingItem ? "Recalibrate Matrix" : "Authorize Entry"}
+              {editingItem ? "Update Measurement" : "Authorize Entry"}
             </button>
           </>
         }
       >
-        <form id="measurement-form" onSubmit={handleCreateOrUpdate} noValidate>
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-primary rounded-full" />
-              <h3 className="font-semibold text-gray-700">Target Project Node <span className="text-rose-500">*</span></h3>
+        <form id="measurement-form" onSubmit={handleCreateOrUpdate} noValidate className="space-y-6">
+          {/* Section 1: Project & Work Scope */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-5 bg-primary rounded-full" />
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Project & Work Scope</h3>
             </div>
-            <select
-              value={formData.project_id}
-              onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none appearance-none"
-            >
-              <option value="">Select Project Node</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.project_name}</option>
-              ))}
-            </select>
-          </div>
 
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-blue-500 rounded-full" />
-                <h3 className="font-semibold text-gray-700">Reference Nodes</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  Project Node <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.project_id}
+                    onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700 truncate"
+                  >
+                    <option value="">Select Project Node</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.project_name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Target Task <span className="text-rose-500">*</span></label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  Target Task <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
                   <select
                     value={formData.task_id}
                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 rounded-xl transition-all outline-none font-semibold appearance-none"
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700 truncate"
                   >
                     <option value="0">Select Task</option>
                     {projectTasks.map(t => (
                       <option key={t.id} value={t.id}>{t.title}</option>
                     ))}
                   </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">BOQ Item <span className="text-rose-500">*</span></label>
-                  <select
-                    value={formData.boq_item_id}
-                    onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 rounded-xl transition-all outline-none font-semibold appearance-none"
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  BOQ Item <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative" ref={boqDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsBoqDropdownOpen(!isBoqDropdownOpen)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold flex items-center justify-between text-slate-700 text-left"
                   >
-                    <option value="0">Select BOQ Item</option>
-                    {projectBoqItems.map(b => (
-                      <option key={b.id} value={b.id}>{b.item_name}</option>
-                    ))}
-                  </select>
+                    <span className="truncate pr-2">{selectedBoqName}</span>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isBoqDropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isBoqDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+                      <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+                        <input
+                          type="text"
+                          placeholder="Filter BOQ items..."
+                          value={boqSearch}
+                          onChange={(e) => setBoqSearch(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="overflow-y-auto max-h-48 divide-y divide-slate-50 custom-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, boq_item_id: "0" });
+                            setIsBoqDropdownOpen(false);
+                            setBoqSearch("");
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-xs text-slate-500 hover:bg-slate-50 font-medium"
+                        >
+                          Select BOQ Item
+                        </button>
+                        {filteredBoqs.map(b => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, boq_item_id: String(b.id) });
+                              setIsBoqDropdownOpen(false);
+                              setBoqSearch("");
+                            }}
+                            className={`w-full px-3.5 py-2 text-left text-xs font-semibold hover:bg-primary/5 hover:text-primary transition-colors flex items-center justify-between ${String(formData.boq_item_id) === String(b.id) ? "bg-primary/10 text-primary font-bold" : "text-slate-700"}`}
+                          >
+                            <span className="truncate pr-2">{b.item_name}</span>
+                            {String(formData.boq_item_id) === String(b.id) && <span className="text-[10px] text-primary shrink-0">✓</span>}
+                          </button>
+                        ))}
+                        {filteredBoqs.length === 0 && (
+                          <p className="p-3 text-xs text-slate-400 text-center">No BOQ items match filter</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+          </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-indigo-500 rounded-full" />
-                <h3 className="font-semibold text-gray-700">Status & Retention</h3>
+          {/* Section 2: Status & Retention */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-5 bg-blue-500 rounded-full" />
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Status & Retention</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  Retention Amount (₹) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.retention_amount}
+                  onChange={(e) => setFormData({ ...formData, retention_amount: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                  placeholder="0.00"
+                />
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Retention Amount <span className="text-rose-500">*</span></label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.retention_amount}
-                    onChange={(e) => setFormData({ ...formData, retention_amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 rounded-xl transition-all outline-none font-semibold"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Current Status <span className="text-rose-500">*</span></label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  Current Status <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 rounded-xl transition-all outline-none font-semibold"
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700"
                   >
                     <option value="DRAFT">DRAFT</option>
                     <option value="SUBMITTED">SUBMITTED</option>
@@ -574,118 +664,166 @@ const MeasurementPage = () => {
                     <option value="REJECTED">REJECTED</option>
                     <option value="BILLED">BILLED</option>
                   </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-emerald-500 rounded-full" />
-                <h3 className="font-semibold text-gray-700">Standard Certs</h3>
+          {/* Section 3: Measurements & Rates (2 Columns) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Standard Certified Work */}
+            <div className="p-5 bg-emerald-50/40 rounded-2xl border border-emerald-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-emerald-500 rounded-full" />
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Standard Certs</h3>
+                </div>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  Subtotal: ₹{((Number(formData.final_area) || 0) * (Number(formData.approved_rate) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Final Area <span className="text-rose-500">*</span></label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.final_area}
-                      onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Apprv. Rate <span className="text-rose-500">*</span></label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.approved_rate}
-                      onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
-                      placeholder="0.00"
-                    />
-                  </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Final Area (sq.ft) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.final_area}
+                    onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Apprv. Rate (₹) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.approved_rate}
+                    onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-amber-500 rounded-full" />
-                <h3 className="font-semibold text-gray-700">Extra Deviations</h3>
+            {/* Extra Deviations */}
+            <div className="p-5 bg-amber-50/40 rounded-2xl border border-amber-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-amber-500 rounded-full" />
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Extra Deviations</h3>
+                </div>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                  Subtotal: ₹{((Number(formData.extra_area) || 0) * (Number(formData.extra_rate) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area <span className="text-rose-500">*</span></label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.extra_area}
-                      onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate <span className="text-rose-500">*</span></label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.extra_rate}
-                      onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
-                      placeholder="0.00"
-                    />
-                  </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Extra Area (sq.ft) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.extra_area}
+                    onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Extra Rate (₹) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.extra_rate}
+                    onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-purple-500 rounded-full" />
-              <h3 className="font-semibold text-gray-700">Quantity Analysis</h3>
+          {/* Section 4: Quantity Analysis */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-5 bg-purple-500 rounded-full" />
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Quantity Analysis</h3>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Measured Qty <span className="text-rose-500">*</span></label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Measured Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.measured_qty}
                   onChange={(e) => setFormData({ ...formData, measured_qty: e.target.value })}
-                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-purple-200 focus:border-purple-400 rounded-xl transition-all outline-none font-semibold"
+                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-purple-200 focus:border-purple-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
                   placeholder="0.00"
                 />
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Certified Qty <span className="text-rose-500">*</span></label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Certified Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.certified_qty}
                   onChange={(e) => setFormData({ ...formData, certified_qty: e.target.value })}
-                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
                   placeholder="0.00"
                 />
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Rejected Qty <span className="text-rose-500">*</span></label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Rejected Qty <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.rejected_qty}
                   onChange={(e) => setFormData({ ...formData, rejected_qty: e.target.value })}
-                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-rose-200 focus:border-rose-400 rounded-xl transition-all outline-none font-semibold"
+                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-rose-200 focus:border-rose-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
                   placeholder="0.00"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Section 5: Live Financial Summary Banner */}
+          <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Standard</p>
+                <p className="text-sm font-extrabold text-emerald-400">
+                  ₹{((Number(formData.final_area) || 0) * (Number(formData.approved_rate) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="text-slate-600 font-bold">+</div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Deviations</p>
+                <p className="text-sm font-extrabold text-amber-400">
+                  ₹{((Number(formData.extra_area) || 0) * (Number(formData.extra_rate) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="text-slate-600 font-bold">-</div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Retention</p>
+                <p className="text-sm font-extrabold text-rose-400">
+                  ₹{(Number(formData.retention_amount) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-6 w-full sm:w-auto">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Certified Amount</p>
+              <p className="text-lg font-black text-white">
+                ₹{Math.max(0, (((Number(formData.final_area) || 0) * (Number(formData.approved_rate) || 0)) + ((Number(formData.extra_area) || 0) * (Number(formData.extra_rate) || 0))) - (Number(formData.retention_amount) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </form>
@@ -737,9 +875,9 @@ const MeasurementPage = () => {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Authorize Record Purge"
-        message="Are you certain you wish to terminate this measurement sequence? This action is irreversible."
-        confirmText="Purge Record"
+        title="Delete Measurement Record"
+        message="Are you certain you wish to delete this measurement sequence? This action is irreversible."
+        confirmText="Delete"
         type="danger"
       />
     </>

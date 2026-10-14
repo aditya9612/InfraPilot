@@ -124,10 +124,10 @@ export default function OwnersListPage() {
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 8;
 
-  const fetchOwners = useCallback(async (search = "") => {
+  const fetchOwners = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await ownerService.getOwners(search);
+      const data = await ownerService.getOwners();
       setOwners(data);
     } catch (error) {
       console.error("Failed to sync owners:", error);
@@ -138,11 +138,8 @@ export default function OwnersListPage() {
   }, []);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchOwners(searchTerm);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, fetchOwners]);
+    fetchOwners();
+  }, [fetchOwners]);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -198,7 +195,7 @@ export default function OwnersListPage() {
         toast.success("Owner profile synchronized successfully!");
       }
       setIsModalOpen(false);
-      fetchOwners(searchTerm);
+      fetchOwners();
     } catch (error) {
       toast.error("Synchronization failed. Check connectivity.");
     } finally {
@@ -214,7 +211,7 @@ export default function OwnersListPage() {
       toast.success("Stakeholder purged from directory", { id: "del-load" });
       setIsDeleteOpen(false);
       setDeleteTarget(null);
-      fetchOwners(searchTerm);
+      fetchOwners();
     } catch (error) {
       toast.error("Termination failed", { id: "del-load" });
     }
@@ -241,8 +238,20 @@ export default function OwnersListPage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
+  const filteredOwners = useMemo(() => {
+    if (!searchTerm.trim()) return owners;
+    const term = searchTerm.toLowerCase().trim();
+    return owners.filter((o) =>
+      (o.name || "").toLowerCase().includes(term) ||
+      (o.email || "").toLowerCase().includes(term) ||
+      (o.owner_code || "").toLowerCase().includes(term) ||
+      (o.mobile || "").toLowerCase().includes(term) ||
+      (o.pan || "").toLowerCase().includes(term)
+    );
+  }, [owners, searchTerm]);
+
   const sortedOwners = useMemo(() => {
-    return [...owners].sort((a, b) => {
+    return [...filteredOwners].sort((a, b) => {
       const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
       const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
 
@@ -255,7 +264,7 @@ export default function OwnersListPage() {
       const bId = parseInt(b.id) || 0;
       return sortOrder === "latest" ? bId - aId : aId - bId;
     });
-  }, [owners, sortOrder]);
+  }, [filteredOwners, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(sortedOwners.length / PAGE_SIZE));
   const pagedOwners = sortedOwners.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -326,7 +335,7 @@ export default function OwnersListPage() {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
                   <th className="px-8 py-5">Stakeholder Details</th>
-                  <th className="px-8 py-5">Document Identity</th>
+                  <th className="px-8 py-5">PAN Card</th>
                   <th className="px-8 py-5">Permanent Address</th>
                   <th className="px-8 py-5 text-center">Actions</th>
                 </tr>
@@ -341,10 +350,10 @@ export default function OwnersListPage() {
                       </div>
                     </td>
                   </tr>
-                ) : owners.length === 0 ? (
+                ) : pagedOwners.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-8 py-20 text-center text-slate-400 italic text-sm font-medium">
-                      Zero stakeholders detected in live directory.
+                      {searchTerm.trim() ? `No stakeholders matching "${searchTerm}".` : "Zero stakeholders detected in live directory."}
                     </td>
                   </tr>
                 ) : (
@@ -367,12 +376,9 @@ export default function OwnersListPage() {
                           </div>
                         </div>
                       </td>
-                      {/* Document Identity */}
+                      {/* PAN Card */}
                       <td className="px-8 py-5">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-black text-slate-300 uppercase leading-none">PAN Identifier</span>
-                          <span className="text-sm font-black text-slate-700 font-mono tracking-tighter leading-none">{o.pan}</span>
-                        </div>
+                        <span className="text-sm font-black text-slate-700 font-mono tracking-tighter leading-none">{o.pan || "—"}</span>
                       </td>
                       {/* Address */}
                       <td className="px-8 py-5 text-xs text-slate-400 font-bold max-w-[200px] truncate" title={o.address}>

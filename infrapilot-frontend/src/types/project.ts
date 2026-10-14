@@ -131,6 +131,7 @@ export interface ProfitLoss {
   total_expense: number;
   profit: number;
   status: "profit" | "loss";
+  total_boq_value?: number;
 }
 
 export interface ContractorBill {

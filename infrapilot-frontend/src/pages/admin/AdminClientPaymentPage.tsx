@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend
+  ResponsiveContainer
 } from "recharts";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
@@ -18,10 +18,9 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import {
   Search, Calendar, RotateCcw, Plus, FileSpreadsheet, FileText, ChevronLeft,
-  ChevronRight, Eye, History, Download, IndianRupee, Clock,
-  TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
-  ArrowUpRight, Pencil, Trash2, CreditCard, Info, Banknote, Building2,
-  Smartphone, Save, X, Upload, ChevronDown,
+  ChevronRight, Eye, Download, IndianRupee, Clock,
+  TrendingUp, BarChart3, CheckCircle2, AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 
 interface ClientPayment {
@@ -164,28 +163,7 @@ const processPaymentHistory = (historyList: any[]) => {
   };
 };
 
-const generateFallbackAnalytics = () => {
-  return {
-    totalRevenue: 2800000,
-    totalReceived: 2150000,
-    totalPending: 480000,
-    totalOverdue: 170000,
-    monthlyTrend: [
-      { month: "Jan", billed: 320000, received: 300000 },
-      { month: "Feb", billed: 450000, received: 410000 },
-      { month: "Mar", billed: 580000, received: 500000 },
-      { month: "Apr", billed: 420000, received: 380000 },
-      { month: "May", billed: 610000, received: 560000 },
-      { month: "Jun", billed: 420000, received: 320000 }
-    ],
-    statusShares: [
-      { name: "Paid", value: 20, fill: "#10B981" },
-      { name: "Partial", value: 5, fill: "#3B82F6" },
-      { name: "Pending", value: 4, fill: "#F59E0B" },
-      { name: "Overdue", value: 7, fill: "#EF4444" }
-    ]
-  };
-};
+
 
 const generateMockPayments = (): ClientPayment[] => {
   const clients = ["Rohit", "Client", "Rahul Sharma", "Priya Patel", "Aman Verma"];
@@ -266,7 +244,6 @@ const AdminClientPaymentPage = () => {
   // ── Quotation / old-expense state ──
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortOrder, setSortOrder] = useState("Latest First");
@@ -281,8 +258,6 @@ const AdminClientPaymentPage = () => {
   // ── Payment History redesigned state ──
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>(() => generateMockPayments());
   const [paymentSearch, setPaymentSearch] = useState("");
-  const [paymentClientFilter, setPaymentClientFilter] = useState("All Clients");
-  const [paymentProjectFilter, setPaymentProjectFilter] = useState("All Projects");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All Status");
   const [paymentStartDate, setPaymentStartDate] = useState("");
   const [paymentEndDate, setPaymentEndDate] = useState("");
@@ -290,7 +265,6 @@ const AdminClientPaymentPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<ClientPayment | null>(null);
 
   // ── Auto-open deep linked payment audit / detail modal ──
@@ -935,28 +909,7 @@ const AdminClientPaymentPage = () => {
     } catch { toast.error("Failed to download", { id: t }); }
   };
 
-  const handleDownloadExpense = async (expense: any) => {
-    const t = toast.loading("Generating Receipt...");
-    try {
-      const doc = new jsPDF() as any;
-      doc.setFontSize(18); doc.text("PAYMENT RECEIPT", 105, 20, { align: "center" });
-      autoTable(doc, {
-        startY: 30,
-        body: [
-          ["Project", projectName], ["Amount", `Rs. ${expense.amount}`], ["Date", expense.date || "-"],
-          ["Mode", expense.payment_method || "UPI"], ["Status", expense.status || "Approved"],
-        ],
-        theme: "striped",
-      });
-      doc.save(`Receipt_${expense.id}.pdf`);
-      toast.success("Receipt Downloaded", { id: t });
-    } catch { toast.error("Failed", { id: t }); }
-  };
 
-  const handlePay = (item: any) => {
-    setSelectedRequest(item);
-    setShowPaymentPortal(true);
-  };
 
   const processPayment = async () => {
     if (paymentMethod === "Check" && !checkFile) { toast.error("Please upload a check image"); return; }
@@ -1006,24 +959,7 @@ const AdminClientPaymentPage = () => {
       return sortOrder === "Latest First" ? dB - dA : dA - dB;
     });
 
-  const filteredPayments = payments;
 
-  const exportToCSV = () => {
-    const dataToExport = activeTab === "quotation" ? filteredQuotations : filteredPayments;
-    if (dataToExport.length === 0) { toast.error("No data to export"); return; }
-    const headers = activeTab === "quotation"
-      ? ["ID", "Type", "Requested By", "Status", "Approved By", "Date"]
-      : ["ID", "Expense ID", "Category", "Amount", "Status", "Date"];
-    const rows = dataToExport.map((item: any) => activeTab === "quotation"
-      ? [item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at]
-      : [item.id, item.id, item.type, item.amount, item.status, item.date]);
-    const csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map((e: any[]) => e.join(",")).join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csv));
-    link.setAttribute("download", `${activeTab}_report_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    toast.success("Report Exported");
-  };
 
   // ── Payment History computed ──
   const rawTotalPaid = clientPayments.filter(p => p.status === "PAID").reduce((s, p) => s + p.paidAmount, 0);
@@ -1055,6 +991,14 @@ const AdminClientPaymentPage = () => {
   };
 
   const filteredClientPayments = clientPayments.filter(p => {
+    // Strictly isolate records for the currently selected project
+    if (projectName && projectName !== "Loading..." && projectName !== "All Projects") {
+      const pLower = (p.projectName || "").toLowerCase().trim();
+      const targetLower = projectName.toLowerCase().trim();
+      if (pLower && targetLower && !pLower.includes(targetLower) && !targetLower.includes(pLower)) {
+        return false;
+      }
+    }
     const sl = paymentSearch.toLowerCase();
     const matchesSearch = !paymentSearch || p.paymentId.toLowerCase().includes(sl) || p.invoiceNo.toLowerCase().includes(sl) || p.clientName.toLowerCase().includes(sl) || p.projectName.toLowerCase().includes(sl);
     const matchesTab = paymentTab === "All Payments" || p.status === paymentTab;
@@ -1080,7 +1024,6 @@ const AdminClientPaymentPage = () => {
 
   const totalPages = Math.ceil(filteredClientPayments.length / itemsPerPage);
   const paginatedPayments = filteredClientPayments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const uniqueClients = ["All Clients", ...Array.from(new Set(clientPayments.map(p => p.clientName)))];
 
   const statusBadge = (status: ClientPayment["status"]) => {
     switch (status) {
@@ -1146,20 +1089,30 @@ const AdminClientPaymentPage = () => {
     if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
     const t = toast.loading("Exporting Excel...");
     try {
-      await paymentService.exportClientPaymentsExcel({ project_id: projectId || 4 });
+      const activeProjName = projectName && projectName !== "Loading..." && projectName !== "All Projects" ? projectName : undefined;
+      await paymentService.exportClientPaymentsExcel({
+        project_id: projectId ? Number(projectId) : undefined,
+        project_name: activeProjName
+      });
       toast.success("Excel Exported", { id: t });
     } catch {
       // Fallback: local XLSX generation
       try {
         const rows = filteredClientPayments.map(p => ({
-          "Payment ID": p.paymentId, "Invoice ID": p.invoiceNo, "Client Name": p.clientName,
-          "Client Email": p.clientEmail, "Project Name": p.projectName, "Invoice Date": p.invoiceDate,
-          "Due Date": p.dueDate, "Total Amount (Rs.)": p.amount, "Paid Amount (Rs.)": p.paidAmount,
-          "Balance (Rs.)": p.amount - p.paidAmount, "Status": p.status, "Payment Date": p.paymentDate,
+          "Payment No": p.paymentId,
+          "Client": p.clientName,
+          "Project": p.projectName,
+          "Amount": p.amount,
+          "Method": "CASH",
+          "Status": p.status,
+          "Date": p.paymentDate !== "-" ? p.paymentDate : p.invoiceDate,
+          "Reference No": "-",
+          "Cheque No": "-",
+          "Bank": "-"
         }));
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Payment History");
+        XLSX.utils.book_append_sheet(wb, ws, "Payments");
         XLSX.writeFile(wb, `Payment_History_${new Date().toISOString().split("T")[0]}.xlsx`);
         toast.success("Excel Exported (local)", { id: t });
       } catch { toast.error("Export failed", { id: t }); }
@@ -1170,7 +1123,11 @@ const AdminClientPaymentPage = () => {
     if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
     const t = toast.loading("Generating PDF Report...");
     try {
-      await paymentService.exportClientPaymentsPdf({ project_id: projectId || 4 });
+      const activeProjName = projectName && projectName !== "Loading..." && projectName !== "All Projects" ? projectName : undefined;
+      await paymentService.exportClientPaymentsPdf({
+        project_id: projectId ? Number(projectId) : undefined,
+        project_name: activeProjName
+      });
       toast.success("PDF Downloaded", { id: t });
     } catch {
       // Fallback: local jsPDF generation
@@ -1479,7 +1436,7 @@ const AdminClientPaymentPage = () => {
                       <p className="text-[10px] text-slate-400 font-medium">Live data from /client-payments/pending-invoices</p>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg">{pendingInvoices.length} pending</span>
+                  <span className="px-2.5 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg">{availablePendingInvoices.length} pending</span>
                 </div>
                 {apiLoading ? (
                   <div className="p-6 space-y-3">
@@ -1492,7 +1449,7 @@ const AdminClientPaymentPage = () => {
                       </div>
                     ))}
                   </div>
-                ) : pendingInvoices.length === 0 ? (
+                ) : availablePendingInvoices.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                     <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-300" />
                     <p className="text-xs font-black uppercase tracking-widest">No pending invoices</p>
@@ -1514,7 +1471,7 @@ const AdminClientPaymentPage = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {pendingInvoices.map((inv: any, i: number) => (
+                        {availablePendingInvoices.map((inv: any, i: number) => (
                           <tr key={i} className="hover:bg-slate-50/60 transition-all">
                             <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap">{inv.invoice_no ?? inv.invoiceNo ?? inv.invoice_number ?? inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
                             <td className="px-5 py-4 max-w-[150px] truncate"><p className="text-[11px] font-medium text-slate-600 truncate">{inv.project_name ?? inv.projectName ?? inv.project ?? "—"}</p></td>

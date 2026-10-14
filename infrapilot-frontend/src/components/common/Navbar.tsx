@@ -2,12 +2,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
-import Modal from "./Modal";
-import { notificationService, type Notification } from "../../services/notificationService";
+import { notificationService, type Notification, emitNotificationUpdate } from "../../services/notificationService";
 import { getFullImageUrl } from "../../utils/imageUtils";
 import { handleNotificationClick } from "../../utils/notificationNavigator";
+import { formatToIST } from "../../utils/dateUtils";
 import api from "../../services/api";
 interface BreadcrumbItem {
   label: string;
@@ -54,87 +54,101 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [clientTotalCount, setClientTotalCount] = useState(0);
+  const [badgeCountOverride, setBadgeCountOverride] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Only fetch notifications if not a Client (to avoid 401 logouts for new roles)
+  const fetchNotifs = useCallback(async () => {
     if (!user) return;
+    try {
+      let data: any[] = [];
+      if (user.role === "Client") {
+        // Fetch only client system notifications (no task alerts)
+        const sysRes = await api.get("/notifications").catch(() => ({ data: [] }));
+        const sysRaw = sysRes.data;
+        const sysItems: any[] = Array.isArray(sysRaw) ? sysRaw : sysRaw?.items || sysRaw?.data || sysRaw?.notifications || [];
 
-    const fetchNotifs = async () => {
-      try {
-        let data: any[] = [];
-        if (user.role === "Client") {
-          // Fetch only client system notifications (no task alerts)
-          const sysRes = await api.get("/notifications").catch(() => ({ data: [] }));
-          const sysRaw = sysRes.data;
-          const sysItems: any[] = Array.isArray(sysRaw) ? sysRaw : sysRaw?.items || sysRaw?.data || sysRaw?.notifications || [];
+        const mappedSys = sysItems
+          .filter((n: any) => {
+            const entity = String(n.entity || n.entity_type || n.notification_type || '').toLowerCase();
+            const title = String(n.title || n.alert_type || '').toLowerCase();
+            const message = String(n.message || n.description || n.content || n.details || '').toLowerCase();
+            const type = String(n.type || '').toLowerCase();
+            const link = String(n.link || n.url || n.action_url || '').toLowerCase();
 
-          const mappedSys = sysItems
-            .filter((n: any) => {
-              const entity = String(n.entity || n.entity_type || n.notification_type || '').toLowerCase();
-              const title = String(n.title || n.alert_type || '').toLowerCase();
-              const message = String(n.message || n.description || n.content || n.details || '').toLowerCase();
-              const type = String(n.type || '').toLowerCase();
-              const link = String(n.link || n.url || n.action_url || '').toLowerCase();
+            const isTask = (
+              entity.includes('task') ||
+              title.includes('task') ||
+              message.includes('task') ||
+              type.includes('task') ||
+              link.includes('task')
+            );
 
-              const isTask = (
-                entity.includes('task') ||
-                title.includes('task') ||
-                message.includes('task') ||
-                type.includes('task') ||
-                link.includes('task')
-              );
+            return !isTask;
+          })
+          .map((n: any) => ({
+            ...n,
+            id: n.id,
+            title: n.title || n.alert_type || "Notification",
+            description: n.message || n.description || n.content || "",
+            details: n.message || n.details || "",
+            message: n.message || "",
+            type: n.type || "Info",
+            timestamp: n.created_at || n.timestamp || new Date().toISOString(),
+            read: !!(n.is_read || n.read),
+            source: "system",
+            link: n.link || n.url || n.action_url || null,
+            entity: n.entity || n.entity_type || null,
+            entity_type: n.entity_type || n.entity || null,
+            entity_id: n.entity_id || n.reference_id || n.related_id || null,
+            reference_id: n.reference_id || n.related_id || null,
+            project_id: n.project_id || null,
+          }));
 
-              return !isTask;
-            })
-            .map((n: any) => ({
-              ...n,
-              id: n.id,
-              title: n.title || n.alert_type || "Notification",
-              description: n.message || n.description || n.content || "",
-              details: n.message || n.details || "",
-              message: n.message || "",
-              type: n.type || "Info",
-              timestamp: n.created_at || n.timestamp || new Date().toISOString(),
-              read: !!(n.is_read || n.read),
-              source: "system",
-              link: n.link || n.url || n.action_url || null,
-              entity: n.entity || n.entity_type || null,
-              entity_type: n.entity_type || n.entity || null,
-              entity_id: n.entity_id || n.reference_id || n.related_id || null,
-              reference_id: n.reference_id || n.related_id || null,
-              project_id: n.project_id || null,
-            }));
-
-          data = mappedSys;
-          setClientTotalCount(data.filter((n: any) => !n.read).length);
-        } else if (user.role === "Labour") {
-          // Use the unified overview endpoint for Labour to match the main notifications page
-          data = await notificationService.getNotificationsOverview();
-        } else {
-          data = await notificationService.getNotifications();
-        }
-        setNotifications(data);
-      } catch (err) {
-        console.error("Notifications fetch failed", err);
+        data = mappedSys;
+      } else if (user.role === "Labour") {
+        // Use the unified overview endpoint for Labour to match the main notifications page
+        data = await notificationService.getNotificationsOverview();
+      } else {
+        data = await notificationService.getNotifications();
       }
-    };
-
-    fetchNotifs();
+      setNotifications(data);
+    } catch (err) {
+      console.error("Notifications fetch failed", err);
+    }
   }, [user]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  useEffect(() => {
+    fetchNotifs();
+  }, [fetchNotifs]);
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      const detail = e.detail;
+      if (detail && typeof detail.unreadCount === "number") {
+        setBadgeCountOverride(detail.unreadCount);
+      }
+      fetchNotifs();
+    };
+
+    window.addEventListener("infrapilot-notifications-updated", handleUpdate);
+    return () => window.removeEventListener("infrapilot-notifications-updated", handleUpdate);
+  }, [fetchNotifs]);
+
+  const unreadCount = badgeCountOverride !== null ? badgeCountOverride : notifications.filter(n => !n.read).length;
   const bellBadgeCount = unreadCount;
 
   const handleNotifClick = async (notif: Notification) => {
     setIsNotificationOpen(false);
     await handleNotificationClick(notif, navigate, user?.role || "Client", {
       onMarkedRead: (id) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        setNotifications(prev => {
+          const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+          const newUnread = updated.filter(n => !n.read).length;
+          setBadgeCountOverride(newUnread);
+          emitNotificationUpdate(newUnread);
+          return updated;
+        });
       },
       onCloseDropdown: () => setIsNotificationOpen(false),
     });
@@ -143,6 +157,8 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const markAllRead = async () => {
     await notificationService.markAllAsRead("All", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setBadgeCountOverride(0);
+    emitNotificationUpdate(0);
   };
 
 
@@ -282,7 +298,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
                     <div key={notif.id} onClick={() => handleNotifClick(notif)} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.read ? 'opacity-80' : 'bg-blue-50/20'}`}>
                       <div className="flex justify-between items-start mb-1">
                         <p className="text-sm font-black text-black tracking-tight">{notif.title}</p>
-                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap ml-2">{formatToIST(notif.timestamp)}</span>
                       </div>
                       <p className="text-xs text-slate-600 line-clamp-2 font-bold tracking-tight">{notif.description}</p>
                     </div>
@@ -375,41 +391,6 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
           </div>
         </div>
       </div>
-
-      {/* Notification Detail Modal */}
-      <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Notification Details" maxWidth="max-w-md">
-        {selectedNotif && (
-          <div className="p-6 font-inter">
-            <div className="flex items-center gap-3 mb-6">
-              <div className={`p-3 rounded-xl ${selectedNotif.type === 'Alert' ? 'bg-rose-100 text-rose-600' : selectedNotif.type === 'Approval' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                <Bell className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-800 leading-tight">{selectedNotif.title}</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(selectedNotif.timestamp).toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-6">
-              <p className="text-sm text-slate-700 leading-relaxed font-medium">{selectedNotif.details || selectedNotif.description}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  const notif = selectedNotif;
-                  setIsDetailOpen(false);
-                  handleNotificationClick(notif, navigate, user?.role || "Client");
-                }}
-                className="py-2.5 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl transition-all uppercase tracking-widest text-xs shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
-              >
-                Open Page
-              </button>
-              <button onClick={() => setIsDetailOpen(false)} className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs cursor-pointer">
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </>
   );
 };

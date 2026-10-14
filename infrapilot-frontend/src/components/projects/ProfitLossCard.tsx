@@ -28,6 +28,17 @@ const ProfitLossCard = ({ data }: ProfitLossCardProps) => {
       <div className="space-y-4">
         <p className="text-[10px] font-bold text-slate-400 border-b border-slate-100 pb-2 uppercase tracking-wider">Revenue & Expenses</p>
 
+        {/* Total BOQ Value Card */}
+        <div className="bg-blue-50/60 rounded-xl p-4 border border-blue-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-blue-600 uppercase mb-0.5 tracking-wider">Total BOQ Value</p>
+            <p className="text-lg font-black text-blue-950">{formatCurrency(data.total_boq_value || 0)}</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+            ₹
+          </div>
+        </div>
+
         {/* 4 metrics in 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
