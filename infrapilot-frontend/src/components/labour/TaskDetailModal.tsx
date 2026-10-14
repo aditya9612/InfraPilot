@@ -8,27 +8,9 @@ import { useTextToAudio } from '../../utils/useTextToAudio';
 import { useAuth } from '../../context/AuthContext';
 import { projectService } from '../../services/projectService';
 import toast from 'react-hot-toast';
+import type { Task } from '../../types/task';
 
-interface Task {
-    id: string;
-    project_id?: number | string;
-    name: string;
-    project: string;
-    contractorId?: string;
-    assignedFrom?: 'Self' | 'Site Engineer' | string;
-    assignedTo?: string;
-    description: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned' | 'Cancelled';
-    priority: 'High' | 'Medium' | 'Low';
-    startDate: string;
-    endDate: string;
-    progress: number;
-    beforeImages?: string[];
-    afterImages?: string[];
-    comments?: string;
-    audioUrl?: string;
-    imageUrl?: string;
-}
+export type { Task };
 
 interface TaskDetailModalProps {
     task: Task | null;

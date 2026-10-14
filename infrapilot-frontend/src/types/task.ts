@@ -2,7 +2,7 @@ export interface Task {
     id: string;
     name: string;
     project: string;
-    project_id?: number;
+    project_id?: number | string;
     contractorId?: string;
     assignedFrom?: string;
     assignedTo: string;
@@ -14,4 +14,7 @@ export interface Task {
     progress: number;
     audioUrl?: string;
     imageUrl?: string;
+    beforeImages?: string[];
+    afterImages?: string[];
+    comments?: string;
 }

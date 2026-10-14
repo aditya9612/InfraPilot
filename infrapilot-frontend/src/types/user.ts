@@ -22,6 +22,10 @@ export interface User {
   department?: string;
   project_id?: number;
   project_name?: string;
+  contractor_name?: string;
+  contractor?: string;
+  name?: string;
+  id?: number;
 }
 
 export interface RoleCounts {
