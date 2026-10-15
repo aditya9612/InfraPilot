@@ -51,6 +51,14 @@ interface InvoiceItem {
   amount: number;
 }
 
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const CreateInvoicePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -71,7 +79,10 @@ const CreateInvoicePage = () => {
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
-  const isReadOnly = status === "approved";
+  const isApproved = status?.toLowerCase() === "approved";
+  const isConverted = status?.toLowerCase() === "converted";
+  const isRejected = status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled";
+  const isReadOnly = isApproved || isConverted;
 
   // Item delete modal state
   const [itemDeleteTarget, setItemDeleteTarget] = useState<string | null>(null);
@@ -490,12 +501,18 @@ const CreateInvoicePage = () => {
 
   const handleSendQuotation = async () => {
     if (!id) return;
+    if (isRejected) {
+      toast.error("Cannot send a rejected quotation. Please edit and update first.");
+      return;
+    }
     const toastId = toast.loading("Sending quotation...");
     try {
       await quotationService.sendQuotation(Number(id));
       toast.success("Quotation sent successfully", { id: toastId });
+      setStatus("sent");
     } catch (error: any) {
-      toast.error(error.message || "Failed to send quotation", { id: toastId });
+      const detail = error.response?.data?.detail || error.response?.data?.message || error.message;
+      toast.error(typeof detail === "string" ? detail : "Failed to send quotation", { id: toastId });
     }
   };
 
@@ -651,9 +668,16 @@ const CreateInvoicePage = () => {
       toast.error("Invalid UPI ID format (e.g. payal123@ybl)");
     }
 
+    const todayStr = getTodayDateString();
+    const currentDueDate = paymentDetails.due_date || invoiceDetails.dueDate;
+    if (currentDueDate && currentDueDate < todayStr) {
+      newErrors.dueDate = "Due date cannot be in the past";
+      toast.error("Due Date cannot be in the past. Please select today or a future date.");
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      if (newErrors.upi_id) {
+      if (newErrors.upi_id || newErrors.dueDate) {
         setActiveTab("payment");
       } else {
         const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
@@ -826,6 +850,9 @@ const CreateInvoicePage = () => {
       console.log(`${id ? "Updating" : "Creating"} Quotation Payload:`, JSON.stringify(payload, null, 2));
 
       if (id) {
+        if (isRejected) {
+          payload.status = "draft";
+        }
         await quotationService.updateQuotation(Number(id), payload);
 
         // POST new items
@@ -930,7 +957,12 @@ const CreateInvoicePage = () => {
           await quotationService.updateQuotationItem(Number(existingItem.id), itemPayload);
         }
 
-        toast.success("Quotation Updated Successfully!");
+        if (isRejected) {
+          setStatus("draft");
+          toast.success("Quotation updated and resubmitted as draft for review!");
+        } else {
+          toast.success("Quotation Updated Successfully!");
+        }
 
       } else {
         await quotationService.createQuotation(payload);
@@ -1418,9 +1450,14 @@ const CreateInvoicePage = () => {
                     <CheckCircle className="w-3 h-3" /> Approved
                   </span>
                 )}
-                {status === "declined" && (
+                {isConverted && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-200">
+                    <Zap className="w-3 h-3" /> Converted
+                  </span>
+                )}
+                {isRejected && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-rose-200">
-                    <XCircle className="w-3 h-3" /> Declined
+                    <XCircle className="w-3 h-3" /> Rejected
                   </span>
                 )}
               </h2>
@@ -1447,7 +1484,7 @@ const CreateInvoicePage = () => {
                 className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all ${isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95'}`}
               >
                 {isSaving ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {isReadOnly ? "Approved" : id ? "Update Quotation" : "Save Quotation"}
+                {isSaving ? "Saving..." : isConverted ? "Converted" : isApproved ? "Approved" : id ? "Update Quotation" : "Save Quotation"}
               </button>
             </div>
           </div>
@@ -1724,8 +1761,13 @@ const CreateInvoicePage = () => {
                       <div className="relative">
                         <input
                           type="date"
-                          value={invoiceDetails.dueDate}
-                          onChange={(e) => setInvoiceDetails({ ...invoiceDetails, dueDate: e.target.value })}
+                          value={invoiceDetails.dueDate || paymentDetails.due_date || ""}
+                          min={getTodayDateString()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setInvoiceDetails({ ...invoiceDetails, dueDate: val });
+                            setPaymentDetails(prev => ({ ...prev, due_date: val }));
+                          }}
                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-slate-900 placeholder-slate-500"
                         />
                       </div>
@@ -2513,8 +2555,13 @@ const CreateInvoicePage = () => {
                         <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Due Date</label>
                         <input
                           type="date"
-                          value={paymentDetails.due_date || ""}
-                          onChange={(e) => setPaymentDetails({ ...paymentDetails, due_date: e.target.value })}
+                          value={paymentDetails.due_date || invoiceDetails.dueDate || ""}
+                          min={getTodayDateString()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPaymentDetails({ ...paymentDetails, due_date: val });
+                            setInvoiceDetails(prev => ({ ...prev, dueDate: val }));
+                          }}
                           className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none"
                         />
                       </div>
@@ -2607,9 +2654,14 @@ const CreateInvoicePage = () => {
                         <CheckCircle className="w-3 h-3" /> Approved
                       </span>
                     )}
-                    {status === "declined" && (
+                    {isConverted && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-200">
+                        <Zap className="w-3 h-3" /> Converted
+                      </span>
+                    )}
+                    {isRejected && (
                       <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-rose-200">
-                        <XCircle className="w-3 h-3" /> Declined
+                        <XCircle className="w-3 h-3" /> Rejected
                       </span>
                     )}
                   </div>
@@ -2738,19 +2790,26 @@ const CreateInvoicePage = () => {
                 disabled={isSaving || isReadOnly}
                 className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
               >
-                <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
+                <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isConverted ? 'Converted' : isApproved ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
               </button>
 
               {id && !isReadOnly && (() => {
-                const isRejectedStatus = status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled";
+                const isRejectedStatus = isRejected;
                 return (
                   <div className={`grid ${isRejectedStatus ? "grid-cols-1" : "grid-cols-2"} gap-2`}>
                     <button
-                      onClick={handleApproveQuotation}
-                      title={isRejectedStatus ? "Cannot approve a rejected quotation" : "Approve Quotation"}
+                      onClick={() => {
+                        if (isRejectedStatus) {
+                          toast.error("Cannot approve a rejected quotation. Please edit and update first.");
+                          return;
+                        }
+                        handleApproveQuotation();
+                      }}
+                      disabled={isRejectedStatus}
+                      title={isRejectedStatus ? "Cannot approve a rejected quotation. Please edit and update first." : "Approve Quotation"}
                       className={`w-full py-1.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
                         isRejectedStatus
-                          ? "bg-slate-300 hover:bg-rose-500 cursor-not-allowed shadow-none"
+                          ? "bg-slate-300 opacity-60 cursor-not-allowed shadow-none"
                           : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
                       }`}
                     >
@@ -2768,7 +2827,7 @@ const CreateInvoicePage = () => {
                 );
               })()}
 
-              {id && (
+              {id && !isReadOnly && !isRejected && (
                 <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
                   <div className="flex items-center justify-center gap-2 mb-0.5">
                     <Zap className="w-3 h-3 text-indigo-500" />
@@ -2807,12 +2866,24 @@ const CreateInvoicePage = () => {
                 >
                   <Download className="w-3 h-3 text-indigo-600" /> Download PDF
                 </button>
-                {id && (
+                {id && !isConverted && (
                   <button
-                    onClick={handleSendQuotation}
-                    className="w-full py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
+                    onClick={() => {
+                      if (isRejected) {
+                        toast.error("Cannot send a rejected quotation. Please edit and update first.");
+                        return;
+                      }
+                      handleSendQuotation();
+                    }}
+                    disabled={isRejected}
+                    title={isRejected ? "Cannot send a rejected quotation. Please edit and update first." : "Send Quotation"}
+                    className={`w-full py-1.5 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
+                      isRejected
+                        ? "bg-slate-100 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                        : "bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100"
+                    }`}
                   >
-                    <Send className="w-3 h-3 text-indigo-600" /> Send Quotation
+                    <Send className="w-4 h-4 text-indigo-600" /> Send Quotation
                   </button>
                 )}
                 <button

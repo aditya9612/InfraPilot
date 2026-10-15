@@ -171,6 +171,20 @@ const QuotationsSection = () => {
 
     const handleDelete = async () => {
         if (!deleteTarget) return;
+
+        const target = (activeTab === "dummy_quotations" ? dummyQuotations : quotations).find(q => q.id === deleteTarget);
+        const targetStatus = target?.status?.toLowerCase();
+        if (targetStatus === "approved") {
+            toast.error("Approved quotations cannot be deleted.");
+            setDeleteTarget(null);
+            return;
+        }
+        if (targetStatus === "converted") {
+            toast.error("Converted quotations cannot be deleted.");
+            setDeleteTarget(null);
+            return;
+        }
+
         setIsDeleting(true);
         try {
             if (activeTab === "dummy_quotations") {
@@ -180,8 +194,9 @@ const QuotationsSection = () => {
             }
             toast.success("Quotation deleted");
             fetchQuotations();
-        } catch (error) {
-            toast.error("Failed to delete quotation");
+        } catch (error: any) {
+            const detail = error.response?.data?.detail || error.response?.data?.message || error.message;
+            toast.error(typeof detail === "string" ? detail : "Failed to delete quotation");
         } finally {
             setIsDeleting(false);
             setDeleteTarget(null);
@@ -246,7 +261,10 @@ const QuotationsSection = () => {
     const totalValue = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
     const approvedCount = quotations.filter(q => q.status?.toLowerCase() === "approved" || q.is_approved).length;
     const approvalRate = quotations.length > 0 ? Math.round((approvedCount / quotations.length) * 100) : 0;
-    const pendingDrafts = quotations.filter(q => q.status?.toLowerCase() === "draft" || q.status?.toLowerCase() === "sent").length;
+    const pendingDrafts = quotations.filter(q => {
+        const s = (q.status || "").toLowerCase();
+        return s === "draft" || s === "pending";
+    }).length;
 
     const handleApprove = async (id: number) => {
         const target = quotations.find(q => q.id === id);
@@ -543,15 +561,16 @@ const QuotationsSection = () => {
                                                                 <button
                                                                     onClick={() => {
                                                                         if (isRejected) {
-                                                                            toast.error("Cannot approve a rejected quotation.");
+                                                                            toast.error("Cannot approve a rejected quotation. Please edit and update first.");
                                                                             return;
                                                                         }
                                                                         if (q.id) handleApprove(q.id);
                                                                     }}
-                                                                    title={isRejected ? "Cannot approve a rejected quotation" : "Approve Quotation"}
+                                                                    disabled={isRejected}
+                                                                    title={isRejected ? "Cannot approve a rejected quotation. Please edit and update first." : "Approve Quotation"}
                                                                     className={`p-2 transition-colors ${
                                                                         isRejected
-                                                                            ? "text-slate-300 hover:text-rose-500 cursor-not-allowed"
+                                                                            ? "text-slate-300 opacity-40 cursor-not-allowed hover:text-slate-300"
                                                                             : "text-slate-400 hover:text-emerald-500"
                                                                     }`}
                                                                 >
@@ -578,18 +597,37 @@ const QuotationsSection = () => {
                                                         <Zap className="w-4 h-4 text-emerald-500" />
                                                     </button>
                                                 )}
-                                                {activeTab !== 'dummy_quotations' && (
-                                                    <button
-                                                        onClick={() => q.id && handleSendQuotation(q.id)}
-                                                        className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
-                                                        title="Send Quotation"
-                                                    >
-                                                        <Send className="w-4 h-4" />
-                                                    </button>
-                                                )}
+                                                {activeTab !== 'dummy_quotations' && (() => {
+                                                    const isRejected = q.status?.toLowerCase() === 'rejected' || q.status?.toLowerCase() === 'declined' || q.status?.toLowerCase() === 'cancelled';
+                                                    const isConverted = q.status?.toLowerCase() === 'converted';
+
+                                                    if (isConverted) return null;
+
+                                                    return (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isRejected) {
+                                                                    toast.error("Cannot send a rejected quotation. Please edit and update first.");
+                                                                    return;
+                                                                }
+                                                                if (q.id) handleSendQuotation(q.id);
+                                                            }}
+                                                            disabled={isRejected}
+                                                            className={`p-2 transition-colors ${
+                                                                isRejected
+                                                                    ? "text-slate-300 opacity-40 cursor-not-allowed hover:text-slate-300"
+                                                                    : "text-slate-400 hover:text-blue-500"
+                                                                }`}
+                                                            title={isRejected ? "Cannot send a rejected quotation. Please edit and update first." : "Send Quotation"}
+                                                        >
+                                                            <Send className="w-4 h-4" />
+                                                        </button>
+                                                    );
+                                                })()}
                                                 <button
                                                     onClick={() => navigate(activeTab === 'dummy_quotations' ? `/accountant/quotations/draft/${q.id}` : `/accountant/quotations/view/${q.id}`)}
                                                     className="p-2 text-slate-400 hover:text-primary transition-colors"
+                                                    title="View / Edit Quotation"
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
@@ -597,15 +635,44 @@ const QuotationsSection = () => {
                                                     onClick={() => q.id && handlePreviewPDF(q.id)}
                                                     disabled={isFetchingPreview}
                                                     className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block disabled:opacity-50"
+                                                    title="Download PDF"
                                                 >
                                                     <Download className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => q.id && setDeleteTarget(q.id)}
-                                                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                {(() => {
+                                                    const isApproved = q.status?.toLowerCase() === 'approved';
+                                                    const isConverted = q.status?.toLowerCase() === 'converted';
+                                                    const isProtected = isApproved || isConverted;
+                                                    const deleteTitle = isApproved
+                                                        ? "Approved quotations cannot be deleted"
+                                                        : isConverted
+                                                        ? "Converted quotations cannot be deleted"
+                                                        : "Delete Quotation";
+
+                                                    return (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isApproved) {
+                                                                    toast.error("Approved quotations cannot be deleted.");
+                                                                    return;
+                                                                }
+                                                                if (isConverted) {
+                                                                    toast.error("Converted quotations cannot be deleted.");
+                                                                    return;
+                                                                }
+                                                                if (q.id) setDeleteTarget(q.id);
+                                                            }}
+                                                            title={deleteTitle}
+                                                            className={`p-2 transition-colors ${
+                                                                isProtected
+                                                                    ? "text-slate-300 opacity-40 cursor-not-allowed hover:text-slate-300"
+                                                                    : "text-slate-400 hover:text-rose-500"
+                                                            }`}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    );
+                                                })()}
                                             </div>
                                         </td>
                                     </tr>

@@ -254,9 +254,24 @@ const AllInvoicesPage = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+
+    const itemToDelete = displayData.find((d: any) => d.id === deleteTarget);
+    if (itemToDelete?.isQuotation) {
+      const qStatus = (itemToDelete.status || "").toLowerCase();
+      if (qStatus === "approved") {
+        toast.error("Approved quotations cannot be deleted.");
+        setDeleteTarget(null);
+        return;
+      }
+      if (qStatus === "converted") {
+        toast.error("Converted quotations cannot be deleted.");
+        setDeleteTarget(null);
+        return;
+      }
+    }
+
     setIsDeleting(true);
     try {
-      const itemToDelete = displayData.find((d: any) => d.id === deleteTarget);
       if (itemToDelete?.isQuotation) {
         if (activeTab === "dummy_quotations") {
           await quotationService.deleteDummyQuotation(deleteTarget);
@@ -273,8 +288,9 @@ const AllInvoicesPage = () => {
         setInvoices(Array.isArray(invData) ? invData : []);
       }
       toast.success("Deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete");
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || error.response?.data?.message || error.message;
+      toast.error(typeof detail === "string" ? detail : "Failed to delete");
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -817,13 +833,41 @@ const AllInvoicesPage = () => {
                                   <Eye className="w-4 h-4" />
                                 </button>
                               )}
-                              <button
-                                onClick={() => inv.id && setDeleteTarget(inv.id)}
-                                className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                title="Delete Invoice"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {(() => {
+                                const isQuotation = inv.isQuotation;
+                                const isApproved = isQuotation && (inv.status || "").toLowerCase() === "approved";
+                                const isConverted = isQuotation && (inv.status || "").toLowerCase() === "converted";
+                                const isProtected = isApproved || isConverted;
+                                const deleteTitle = isApproved
+                                  ? "Approved quotations cannot be deleted"
+                                  : isConverted
+                                  ? "Converted quotations cannot be deleted"
+                                  : isQuotation ? "Delete Quotation" : "Delete Invoice";
+
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      if (isApproved) {
+                                        toast.error("Approved quotations cannot be deleted.");
+                                        return;
+                                      }
+                                      if (isConverted) {
+                                        toast.error("Converted quotations cannot be deleted.");
+                                        return;
+                                      }
+                                      if (inv.id) setDeleteTarget(inv.id);
+                                    }}
+                                    className={`p-2 rounded-lg transition-all ${
+                                      isProtected
+                                        ? "text-slate-300 opacity-40 cursor-not-allowed hover:text-slate-300"
+                                        : "text-slate-300 hover:text-rose-600 hover:bg-rose-50"
+                                    }`}
+                                    title={deleteTitle}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </td>
                         </tr>
