@@ -34,12 +34,15 @@ import type { Invoice, InvoiceType } from "../../types/invoice";
 
 
 const STATUS_BADGE: Record<string, string> = {
-  approved: "bg-emerald-100 text-emerald-600",
-  draft: "bg-slate-100 text-slate-600",
-  converted: "bg-amber-100 text-amber-600",
-  paid: "bg-emerald-100 text-emerald-700",
-  pending: "bg-amber-100 text-amber-700",
-  partial: "bg-orange-100 text-orange-700",
+  approved: "bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold",
+  draft: "bg-slate-100 text-slate-700 border border-slate-300 font-bold",
+  converted: "bg-blue-100 text-blue-700 border border-blue-300 font-bold",
+  paid: "bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold",
+  pending: "bg-amber-100 text-amber-700 border border-amber-300 font-bold",
+  partial: "bg-orange-100 text-orange-700 border border-orange-300 font-bold",
+  rejected: "bg-rose-100 text-rose-700 border border-rose-300 font-bold",
+  declined: "bg-rose-100 text-rose-700 border border-rose-300 font-bold",
+  cancelled: "bg-rose-100 text-rose-700 border border-rose-300 font-bold",
 };
 
 const AllInvoicesPage = () => {
@@ -764,7 +767,7 @@ const AllInvoicesPage = () => {
                             {formatCompactCurrency(Number(inv.pending_amount) || 0)}
                           </td>
                           <td className="px-4 py-4">
-                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${STATUS_BADGE[inv.status || "pending"] || "bg-emerald-100 text-emerald-600"}`}>
+                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${STATUS_BADGE[String(inv.status || "pending").toLowerCase()] || (String(inv.status).toLowerCase().includes("reject") ? "bg-rose-100 text-rose-600 border border-rose-200" : "bg-slate-100 text-slate-600 border border-slate-200")}`}>
                               {inv.status || "pending"}
                             </span>
                           </td>

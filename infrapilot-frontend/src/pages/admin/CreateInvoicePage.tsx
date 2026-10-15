@@ -525,12 +525,21 @@ const CreateInvoicePage = () => {
   // Approve / Reject handlers
   const handleApproveQuotation = async () => {
     if (!id) return;
+    if (status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled") {
+      toast.error("Cannot approve a rejected quotation.");
+      return;
+    }
     try {
       await quotationService.approveQuotation(Number(id));
       toast.success("Quotation approved!");
       setStatus("approved");
-    } catch {
-      toast.error("Failed to approve quotation");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.response?.data?.message || "";
+      if (typeof msg === "string" && (msg.toLowerCase().includes("reject") || msg.toLowerCase().includes("cannot approve"))) {
+        toast.error("Cannot approve a rejected quotation.");
+      } else {
+        toast.error(msg || "Failed to approve quotation");
+      }
     }
   };
 
@@ -625,11 +634,31 @@ const CreateInvoicePage = () => {
       newErrors.siteAddress = "Site Address is required";
     }
 
+    const isUpiMode = (paymentDetails.payment_mode || "UPI").toUpperCase() === "UPI";
+    const upiVal = (paymentDetails.upi_id || "").trim();
+    const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9]{2,64}$/;
+
+    if (isUpiMode) {
+      if (!upiVal) {
+        newErrors.upi_id = "UPI is required";
+        toast.error("UPI is required");
+      } else if (!upiRegex.test(upiVal)) {
+        newErrors.upi_id = "Invalid UPI ID format (e.g. payal123@ybl)";
+        toast.error("Invalid UPI ID format (e.g. payal123@ybl)");
+      }
+    } else if (upiVal && !upiRegex.test(upiVal)) {
+      newErrors.upi_id = "Invalid UPI ID format (e.g. payal123@ybl)";
+      toast.error("Invalid UPI ID format (e.g. payal123@ybl)");
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      // Focus client section if client errors exist, else project section
-      const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
-      setActiveHeaderSection(hasClientErrors ? "client" : "project");
+      if (newErrors.upi_id) {
+        setActiveTab("payment");
+      } else {
+        const hasClientErrors = newErrors.clientName || newErrors.clientMobile || newErrors.clientEmail;
+        setActiveHeaderSection(hasClientErrors ? "client" : "project");
+      }
       return;
     }
 
@@ -683,7 +712,7 @@ const CreateInvoicePage = () => {
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
+            itemType = (item.item_type && ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type)) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
@@ -739,7 +768,7 @@ const CreateInvoicePage = () => {
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
           } else {
-            itemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
+            itemType = (item.item_type && ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(item.item_type)) ? item.item_type : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
             measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
@@ -2378,12 +2407,65 @@ const CreateInvoicePage = () => {
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">
+                            Payment Mode <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            value={paymentDetails.payment_mode || "UPI"}
+                            onChange={(e) => {
+                              const newMode = e.target.value;
+                              setPaymentDetails({ ...paymentDetails, payment_mode: newMode });
+                              if (newMode !== "UPI" && errors.upi_id) {
+                                setErrors(prev => {
+                                  const updated = { ...prev };
+                                  delete updated.upi_id;
+                                  return updated;
+                                });
+                              }
+                            }}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none cursor-pointer focus:bg-white focus:border-indigo-400"
+                          >
+                            <option value="UPI">UPI</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Cheque">Cheque</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">
+                            UPI ID {(paymentDetails.payment_mode || "UPI").toUpperCase() === "UPI" && <span className="text-rose-500">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. payal123@ybl"
+                            value={paymentDetails.upi_id}
+                            onChange={(e) => {
+                              setPaymentDetails({ ...paymentDetails, upi_id: e.target.value });
+                              if (errors.upi_id) {
+                                setErrors(prev => {
+                                  const updated = { ...prev };
+                                  delete updated.upi_id;
+                                  return updated;
+                                });
+                              }
+                            }}
+                            className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm font-bold outline-none transition-all ${
+                              errors.upi_id ? "border-rose-400 bg-rose-50/20 focus:border-rose-500" : "border-slate-100 focus:bg-white focus:border-indigo-400"
+                            }`}
+                          />
+                          {errors.upi_id && (
+                            <p className="text-[11px] text-rose-500 font-bold mt-1 ml-0.5">{errors.upi_id}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
                           <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Bank Name</label>
                           <input
                             type="text"
                             value={paymentDetails.bank_name}
                             onChange={(e) => setPaymentDetails({ ...paymentDetails, bank_name: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none"
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-400"
                           />
                         </div>
                         <div>
@@ -2392,7 +2474,7 @@ const CreateInvoicePage = () => {
                             type="text"
                             value={paymentDetails.ifsc_code}
                             onChange={(e) => setPaymentDetails({ ...paymentDetails, ifsc_code: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none"
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-400"
                           />
                         </div>
                       </div>
@@ -2402,16 +2484,7 @@ const CreateInvoicePage = () => {
                           type="text"
                           value={paymentDetails.account_number}
                           onChange={(e) => setPaymentDetails({ ...paymentDetails, account_number: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono tracking-wider"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1.5">UPI ID</label>
-                        <input
-                          type="text"
-                          value={paymentDetails.upi_id}
-                          onChange={(e) => setPaymentDetails({ ...paymentDetails, upi_id: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none"
+                          className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono tracking-wider focus:bg-white focus:border-indigo-400"
                         />
                       </div>
                     </div>
@@ -2668,22 +2741,32 @@ const CreateInvoicePage = () => {
                 <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
               </button>
 
-              {id && !isReadOnly && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={handleApproveQuotation}
-                    className="w-full py-1.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle className="w-3 h-3" /> Approve
-                  </button>
-                  <button
-                    onClick={() => setIsRejectModalOpen(true)}
-                    className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <XCircle className="w-3 h-3" /> Reject
-                  </button>
-                </div>
-              )}
+              {id && !isReadOnly && (() => {
+                const isRejectedStatus = status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled";
+                return (
+                  <div className={`grid ${isRejectedStatus ? "grid-cols-1" : "grid-cols-2"} gap-2`}>
+                    <button
+                      onClick={handleApproveQuotation}
+                      title={isRejectedStatus ? "Cannot approve a rejected quotation" : "Approve Quotation"}
+                      className={`w-full py-1.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
+                        isRejectedStatus
+                          ? "bg-slate-300 hover:bg-rose-500 cursor-not-allowed shadow-none"
+                          : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
+                      }`}
+                    >
+                      <CheckCircle className="w-3 h-3" /> Approve
+                    </button>
+                    {!isRejectedStatus && (
+                      <button
+                        onClick={() => setIsRejectModalOpen(true)}
+                        className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <XCircle className="w-3 h-3" /> Reject
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {id && (
                 <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
@@ -2746,7 +2829,11 @@ const CreateInvoicePage = () => {
                 </button>
               </div>
 
-              <button className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/quotations')}
+                className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
                 <X className="w-3 h-3" /> Cancel
               </button>
             </div>

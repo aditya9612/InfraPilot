@@ -515,24 +515,79 @@ const CreateDraftQuotationPage = () => {
   // Approve / Reject handlers
   const handleApproveQuotation = async () => {
     if (!id) return;
+    if (status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled") {
+      toast.error("Cannot approve a rejected quotation.");
+      return;
+    }
     try {
       await quotationService.approveQuotation(Number(id));
       toast.success("Quotation approved!");
       setStatus("approved");
-    } catch {
-      toast.error("Failed to approve quotation");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.response?.data?.message || "";
+      if (typeof msg === "string" && (msg.toLowerCase().includes("reject") || msg.toLowerCase().includes("cannot approve"))) {
+        toast.error("Cannot approve a rejected quotation.");
+      } else {
+        toast.error(msg || "Failed to approve quotation");
+      }
     }
   };
 
   const handleRejectQuotation = async (reason: string) => {
     if (!id) return;
     try {
-      await quotationService.rejectQuotation(Number(id), reason);
-      toast.success("Quotation rejected");
+      await quotationService.rejectDraftQuotation(Number(id), reason);
+      toast.success("Quotation rejected successfully");
+      setStatus("rejected");
       setIsRejectModalOpen(false);
-    } catch {
-      toast.error("Failed to reject quotation");
+    } catch (err: any) {
+      console.error("Failed to reject draft quotation", err);
+      toast.error(err.response?.data?.detail || err.message || "Failed to reject quotation");
     }
+  };
+
+  const handleCancel = () => {
+    setClientDetails({
+      clientId: null,
+      name: "",
+      company: "",
+      mobile: "",
+      email: "",
+      address: "",
+      gst: ""
+    });
+    setProjectDetails({
+      name: "",
+      type: "",
+      engineer: "",
+      siteAddress: "",
+      workOrderNo: ""
+    });
+    setInvoiceDetails({
+      invoiceNo: "",
+      date: new Date().toISOString().split('T')[0],
+      paymentTerms: "30 Days",
+      dueDate: ""
+    });
+    setSelectedProjectId(0);
+    setItems([]);
+    setLabourItems([]);
+    setMaterialItems([]);
+    setMeasurementData({
+      soling: { l: 0, w: 0, h: 0, qty: 0 },
+      plum: { l: 0, w: 0, h: 0, cuft: 0, m3: 0 },
+      stone: [{ l: 0, w: 0, h: 0, v: 0 }]
+    });
+    setTransportCharge(0);
+    setOtherCharge(0);
+    setGstRates({ gst: 18, cgst: 9, sgst: 9 });
+    setNotes("");
+    setTerms("");
+    setErrors({});
+    setStatus("draft");
+    setSavedDraftId(null);
+    toast.success("Draft quotation form reset");
+    navigate("/admin/quotations");
   };
 
   const handleConvertToBill = async () => {
@@ -1355,22 +1410,32 @@ const CreateDraftQuotationPage = () => {
                 <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isReadOnly ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
               </button>
 
-              {id && !isReadOnly && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={handleApproveQuotation}
-                    className="w-full py-1.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle className="w-3 h-3" /> Approve
-                  </button>
-                  <button
-                    onClick={() => setIsRejectModalOpen(true)}
-                    className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <XCircle className="w-3 h-3" /> Reject
-                  </button>
-                </div>
-              )}
+              {id && !isReadOnly && (() => {
+                const isRejectedStatus = status?.toLowerCase() === "rejected" || status?.toLowerCase() === "declined" || status?.toLowerCase() === "cancelled";
+                return (
+                  <div className={`grid ${isRejectedStatus ? "grid-cols-1" : "grid-cols-2"} gap-2`}>
+                    <button
+                      onClick={handleApproveQuotation}
+                      title={isRejectedStatus ? "Cannot approve a rejected quotation" : "Approve Quotation"}
+                      className={`w-full py-1.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
+                        isRejectedStatus
+                          ? "bg-slate-300 hover:bg-rose-500 cursor-not-allowed shadow-none"
+                          : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
+                      }`}
+                    >
+                      <CheckCircle className="w-3 h-3" /> Approve
+                    </button>
+                    {!isRejectedStatus && (
+                      <button
+                        onClick={() => setIsRejectModalOpen(true)}
+                        className="w-full py-1.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <XCircle className="w-3 h-3" /> Reject
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {id && (
                 <div className="hidden flex-col gap-2 border-t border-slate-100 pt-2">
@@ -1433,7 +1498,11 @@ const CreateDraftQuotationPage = () => {
                 </button>
               </div>
 
-              <button className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="w-full mt-2 py-1.5 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
                 <X className="w-3 h-3" /> Cancel
               </button>
             </div>

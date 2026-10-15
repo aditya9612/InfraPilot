@@ -1,4 +1,18 @@
 import api from './api';
+import type { ProjectStatus } from '../types/project';
+
+export const normalizeProjectStatus = (rawStatus: any): ProjectStatus => {
+  if (!rawStatus) return "Planned";
+  const rawStatusStr = String(rawStatus || "").trim().toUpperCase().replace(/\s+/g, '_');
+  if (rawStatusStr === "PLANNED") return "Planned";
+  if (rawStatusStr === "ONGOING" || rawStatusStr === "ACTIVE" || rawStatusStr === "IN_PROGRESS") return "Ongoing";
+  if (rawStatusStr === "COMPLETED") return "Completed";
+  if (rawStatusStr === "ON_HOLD" || rawStatusStr === "ONHOLD" || rawStatusStr === "SUSPENDED" || rawStatusStr === "PAUSED") return "On Hold";
+  if (rawStatusStr === "DELAYED" || rawStatusStr === "DELAY" || rawStatusStr === "DELAY_ONGOING") return "Delayed";
+  if (rawStatusStr === "ON_TRACK" || rawStatusStr === "ON TRACK") return "On Track";
+  if (rawStatusStr === "CANCELLED") return "Planned";
+  return "Planned";
+};
 
 export const projectService = {
   /**
@@ -23,34 +37,26 @@ export const projectService = {
       // Handle different possible response structures (array or wrapper object)
       const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
 
+      // Check for locally synced overrides
+      let localOverrides: Record<string, string> = {};
+      try {
+        const stored = localStorage.getItem("infrapilot_project_status_overrides");
+        if (stored) localOverrides = JSON.parse(stored);
+      } catch (e) {
+        // ignore storage parse error
+      }
+
       // Map project_id to id and normalize status for frontend compatibility
       const mappedItems = items.map((p: any) => {
         if (!p) return null;
-        const rawStatus = p.status || "";
-        let normalizedStatus = rawStatus;
-
-        const rawStatusStr = String(rawStatus || "").trim().toUpperCase();
-        if (rawStatusStr === "PLANNED") normalizedStatus = "Planned";
-        else if (rawStatusStr === "ONGOING" || rawStatusStr === "ACTIVE") normalizedStatus = "Ongoing";
-        else if (rawStatusStr === "COMPLETED") normalizedStatus = "Completed";
-        else if (rawStatusStr === "ON_HOLD" || rawStatusStr === "ON HOLD" || rawStatusStr === "SUSPENDED") normalizedStatus = "On Hold";
-        else if (rawStatusStr === "DELAYED" || rawStatusStr === "DELAY" || rawStatusStr === "DELAY_ONGOING") normalizedStatus = "Delayed";
-        else if (rawStatusStr === "ON_TRACK" || rawStatusStr === "ON TRACK") normalizedStatus = "On Track";
-
-        const progressVal = Number(p.completion_percentage ?? p.progress ?? 0);
-        if (normalizedStatus !== "Completed" && p.end_date) {
-          const end = new Date(p.end_date).getTime();
-          if (!isNaN(end) && end < Date.now()) {
-            if (progressVal === 0 || normalizedStatus !== "On Hold") {
-              normalizedStatus = "Delayed";
-            }
-          }
-        }
+        const pId = p.project_id || p.id;
+        const rawStatus = (localOverrides && localOverrides[pId]) || p.status || "";
+        const normalizedStatus = normalizeProjectStatus(rawStatus);
 
         return {
           ...p,
-          id: p.project_id || p.id,
-          name: p.name || p.project_name || `Project ${p.project_id || p.id}`,
+          id: pId,
+          name: p.name || p.project_name || `Project ${pId}`,
           status: normalizedStatus as any
         };
       }).filter(Boolean);
@@ -116,6 +122,19 @@ export const projectService = {
       if (payload.status) {
         const s = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
         payload.status = s === "IN_PROGRESS" ? "ONGOING" : s === "ONHOLD" ? "ON_HOLD" : s;
+
+        // Persist status override locally so it immediately synchronizes across all modules
+        try {
+          const stored = localStorage.getItem("infrapilot_project_status_overrides");
+          const overrides = stored ? JSON.parse(stored) : {};
+          overrides[projectId] = normalizeProjectStatus(payload.status);
+          localStorage.setItem("infrapilot_project_status_overrides", JSON.stringify(overrides));
+          window.dispatchEvent(new CustomEvent("project-status-updated", {
+            detail: { projectId, status: overrides[projectId] }
+          }));
+        } catch (e) {
+          // ignore storage error
+        }
       }
       const response = await api.put(`projects/${projectId}`, payload);
       return response.data;

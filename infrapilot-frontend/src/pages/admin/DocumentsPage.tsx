@@ -5,7 +5,8 @@ import StatCard from "../../components/common/StatCard";
 import {
   Eye, Download, Trash2, Folder, FileText,
   ChevronRight, Search, Filter, FileImage,
-  FileSpreadsheet, FolderPlus, RefreshCcw, History, CheckCircle, Edit2, Upload
+  FileSpreadsheet, RefreshCcw, History, CheckCircle, Edit2, Upload,
+  ChevronDown, Check
 } from "lucide-react";
 import CreateFolderModal from "../../components/forms/CreateFolderModal";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
@@ -74,6 +75,8 @@ const DocumentsPage = () => {
   const [docToDelete, setDocToDelete] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
+  const projectFilterRef = React.useRef<HTMLDivElement>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [folderPath, setFolderPath] = useState<{ id: number; name: string }[]>([]);
@@ -82,6 +85,22 @@ const DocumentsPage = () => {
   const [uploaderName, setUploaderName] = useState<string>("");
 
   const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (projectFilterRef.current && !projectFilterRef.current.contains(e.target as Node)) {
+        setIsProjectFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedProjectName = useMemo(() => {
+    if (!selectedProjectId) return "All Projects";
+    const p = projects.find(proj => proj.id === selectedProjectId);
+    return p ? (p.project_name || p.name) : "All Projects";
+  }, [selectedProjectId, projects]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -107,14 +126,11 @@ const DocumentsPage = () => {
   }): Promise<{ items: any[]; total: number }> => {
     const BATCH = 100;
     let offset = 0;
-    let total = 0;
     const allItems: any[] = [];
 
     while (true) {
       const res = await documentService.listDocuments({ ...params, limit: BATCH, offset }) as any;
       const items: any[] = Array.isArray(res) ? res : (res.items || res.data || []);
-      const meta = res.meta;
-      if (offset === 0 && meta?.total !== undefined) total = meta.total;
       allItems.push(...items);
       if (items.length < BATCH) break; // last page
       offset += BATCH;
@@ -475,12 +491,6 @@ const DocumentsPage = () => {
     });
   }, [documents, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
 
-  const availableCategories = useMemo(() => {
-    const types = documents
-      .filter(d => !d.is_folder && d.document_type)
-      .map(d => d.document_type as string);
-    return Array.from(new Set(types)).sort();
-  }, [documents]);
 
   const derivedPendingCount = useMemo(() => {
     return documents.filter(d => {
@@ -554,38 +564,36 @@ const DocumentsPage = () => {
         </div>
 
         {/* Document Stats */}
-        {mainTab !== 'Drawings' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard
-              title="Total Storage"
-              icon={<FileText className="w-5 h-5" />}
-              value={stats ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : "..."}
-              sub={`${stats?.total_storage_gb || 0} GB used of 10 GB`}
-              accent="text-primary"
-            />
-            <StatCard
-              title="Total Storage Bytes"
-              icon={<Folder className="w-5 h-5 text-indigo-500" />}
-              value={stats ? stats.total_storage_bytes.toLocaleString() : "..."}
-              sub="Exact bytes on disk"
-              accent="text-indigo-500"
-            />
-            <StatCard
-              title="Pending Approval"
-              icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
-              value={derivedPendingCount.toString()}
-              sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
-              accent="text-amber-500"
-            />
-            <StatCard
-              title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
-              icon={<FileText className="w-5 h-5 text-emerald-500" />}
-              value={derivedTotalCount.toString()}
-              sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
-              accent="text-emerald-500"
-            />
-          </div>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Total Storage"
+            icon={<FileText className="w-5 h-5" />}
+            value={stats ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : "..."}
+            sub={`${stats?.total_storage_gb || 0} GB used of 10 GB`}
+            accent="text-primary"
+          />
+          <StatCard
+            title="Total Storage Bytes"
+            icon={<Folder className="w-5 h-5 text-indigo-500" />}
+            value={stats ? stats.total_storage_bytes.toLocaleString() : "..."}
+            sub="Exact bytes on disk"
+            accent="text-indigo-500"
+          />
+          <StatCard
+            title="Pending Approval"
+            icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
+            value={derivedPendingCount.toString()}
+            sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
+            accent="text-amber-500"
+          />
+          <StatCard
+            title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
+            icon={<FileText className="w-5 h-5 text-emerald-500" />}
+            value={derivedTotalCount.toString()}
+            sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
+            accent="text-emerald-500"
+          />
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
           {/* Toolbar */}
@@ -603,18 +611,57 @@ const DocumentsPage = () => {
               </div>
 
               {/* Project Filter */}
-              <div className="relative min-w-[200px]">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <select
-                  value={selectedProjectId || ""}
-                  onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer font-bold text-slate-700"
+              <div className="relative min-w-[220px]" ref={projectFilterRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsProjectFilterOpen(!isProjectFilterOpen)}
+                  className="w-full flex items-center justify-between pl-10 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-white hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-left shadow-sm cursor-pointer"
                 >
-                  <option value="">All Projects</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                  ))}
-                </select>
+                  <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <span className="truncate pr-2">{selectedProjectName}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isProjectFilterOpen ? "rotate-180 text-primary" : ""}`} />
+                </button>
+
+                {isProjectFilterOpen && (
+                  <div className="absolute left-0 mt-1.5 w-full min-w-[220px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5 divide-y-0 scrollbar-thin scrollbar-thumb-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProjectId(null);
+                          setIsProjectFilterOpen(false);
+                        }}
+                        className={`w-full h-10 px-3 flex items-center justify-between rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${!selectedProjectId
+                          ? "bg-primary text-white shadow-sm shadow-primary/20"
+                          : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <span className="truncate">All Projects</span>
+                        {!selectedProjectId && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+                      {projects.map(p => {
+                        const isSelected = selectedProjectId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(p.id);
+                              setIsProjectFilterOpen(false);
+                            }}
+                            className={`w-full h-10 px-3 flex items-center justify-between rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${isSelected
+                              ? "bg-primary text-white shadow-sm shadow-primary/20"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            }`}
+                          >
+                            <span className="truncate">{p.project_name || p.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
@@ -884,6 +931,7 @@ const DocumentsPage = () => {
           ...viewingDoc,
           name: viewingDoc.title,
           type: viewingDoc.document_type || "Folder",
+          isDrawing: mainTab === "Drawings" || viewingDoc.document_type === "Drawing" || (viewingDoc as any).type === "Drawing" || !!(viewingDoc as any).drawing_name,
           project: viewingDoc.project_name || "General",
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,

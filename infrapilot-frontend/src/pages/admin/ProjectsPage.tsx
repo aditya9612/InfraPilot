@@ -197,6 +197,18 @@ const ProjectsPage = () => {
     fetchProjects();
   }, [fetchProjects]);
 
+  useEffect(() => {
+    const handleStatusSync = () => {
+      fetchProjects();
+    };
+    window.addEventListener("project-status-updated", handleStatusSync);
+    window.addEventListener("focus", handleStatusSync);
+    return () => {
+      window.removeEventListener("project-status-updated", handleStatusSync);
+      window.removeEventListener("focus", handleStatusSync);
+    };
+  }, [fetchProjects]);
+
   const handleCreateProject = async (projectData: any) => {
     try {
       await projectService.createProject(projectData);

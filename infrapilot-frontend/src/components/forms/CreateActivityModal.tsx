@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
+import { ChevronDown, Check } from "lucide-react";
 import Modal from "../common/Modal";
 import { masterService, type MasterEntity } from "../../services/masterService";
 
@@ -26,8 +27,20 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
 
   const [units, setUnits] = useState<MasterEntity[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+  const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
+  const unitDropdownRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(event.target as Node)) {
+        setIsUnitDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchUnits = async () => {
@@ -139,23 +152,58 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 relative" ref={unitDropdownRef}>
             <label className="block text-sm font-medium text-gray-600 mb-1">
               Default Unit
             </label>
-            <select
-              className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.default_unit_id ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
-              value={formData.default_unit_id}
-              onChange={(e) => setFormData({ ...formData, default_unit_id: e.target.value })}
+            <button
+              type="button"
               disabled={isLoadingUnits}
+              onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
+              className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm font-medium flex items-center justify-between text-left transition-all ${
+                errors.default_unit_id
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+              } ${isUnitDropdownOpen ? "border-primary ring-2 ring-primary/20 bg-white" : ""}`}
             >
-              <option value="">Select Unit</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
+              <span className={formData.default_unit_id ? "text-slate-800 font-semibold" : "text-gray-400"}>
+                {units.find(u => String(u.id) === String(formData.default_unit_id))?.name || (isLoadingUnits ? "Loading units..." : "Select Unit")}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isUnitDropdownOpen ? "rotate-180 text-primary" : ""}`} />
+            </button>
+
+            {isUnitDropdownOpen && (
+              <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl divide-y divide-gray-50 py-1">
+                <div
+                  onClick={() => {
+                    setFormData({ ...formData, default_unit_id: "" });
+                    setIsUnitDropdownOpen(false);
+                  }}
+                  className="h-10 px-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <span>Select Unit</span>
+                  {!formData.default_unit_id && <Check className="w-4 h-4 text-primary" />}
+                </div>
+                {units.map((unit) => {
+                  const isSelected = String(unit.id) === String(formData.default_unit_id);
+                  return (
+                    <div
+                      key={unit.id}
+                      onClick={() => {
+                        setFormData({ ...formData, default_unit_id: unit.id });
+                        setIsUnitDropdownOpen(false);
+                      }}
+                      className={`h-10 px-3.5 flex items-center justify-between cursor-pointer text-sm font-medium transition-colors ${
+                        isSelected ? "bg-primary/5 text-primary font-semibold" : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>{unit.name}</span>
+                      {isSelected && <Check className="w-4 h-4 text-primary" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {errors.default_unit_id && (
               <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_unit_id}</p>
             )}

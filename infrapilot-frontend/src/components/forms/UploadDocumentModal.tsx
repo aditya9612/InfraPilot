@@ -119,24 +119,29 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 scale-in-center">
-                <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white">
-                            <Upload size={20} strokeWidth={2.5} />
+                <div className="p-6 border-b border-blue-100 flex items-center justify-between bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-slate-50">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-primary to-blue-600 shadow-lg shadow-primary/30 flex items-center justify-center text-white ring-4 ring-primary/10">
+                            <Upload size={22} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-slate-800 tracking-tight">
-                                {formData.document_type === "Drawing" ? "Upload Drawing" : "Upload Document"}
-                            </h2>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                                <CheckCircle2 size={12} className="text-emerald-500" />
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                                    {formData.document_type === "Drawing" ? "Upload Drawing" : "Upload Document"}
+                                </h2>
+                                <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 rounded-md">
+                                    {formData.document_type === "Drawing" ? "Drawing Form" : "Document Form"}
+                                </span>
+                            </div>
+                            <p className="text-[11px] font-black text-primary uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
+                                <CheckCircle2 size={13} className="text-emerald-500" />
                                 Secure Document Repository
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-650"
+                        className="p-2 hover:bg-slate-200/60 rounded-2xl transition-all text-slate-400 hover:text-slate-700"
                     >
                         <X size={20} strokeWidth={2.5} />
                     </button>
@@ -144,18 +149,18 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
                     <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-100">
                             <Layers className="w-4 h-4 text-primary" />
-                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Document Identity</h3>
+                            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Core Document Identity</h3>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                 Project Context <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 required
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                 value={formData.project_id}
                                 onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
                             >
@@ -168,13 +173,13 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                     {formData.document_type === "Drawing" ? "Drawing Name" : "Document Title"} <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     required
-                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                     value={formData.title}
                                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                                 />
@@ -183,24 +188,24 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             <div className="space-y-1.5">
                                 {formData.document_type === "Drawing" ? (
                                     <>
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                        <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                             Version <span className="text-rose-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             required
-                                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                             value={formData.version}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                                         />
                                     </>
                                 ) : (
                                     <>
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                        <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                             Document Type
                                         </label>
                                         <select
-                                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                             value={formData.document_type}
                                             onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
                                         >
@@ -221,23 +226,23 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                         {formData.document_type === "Drawing" && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                         Date
                                     </label>
                                     <input
                                         type="date"
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                         value={formData.date}
                                         onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                         Parent ID
                                     </label>
                                     <input
                                         type="text"
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                         value={formData.parent_id || ""}
                                         onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}
                                     />
@@ -248,12 +253,12 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                         <div className="grid grid-cols-2 gap-4">
                             {formData.document_type !== "Drawing" && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                         Parent ID
                                     </label>
                                     <input
                                         type="text"
-                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                         value={formData.parent_id || ""}
                                         onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}
                                     />
@@ -261,13 +266,13 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             )}
 
                             <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-2" : ""}`}>
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                     File <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     id="file-upload-input"
                                     type="file"
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium text-slate-600 cursor-pointer"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-700 cursor-pointer"
                                     onChange={handleFileChange}
                                 />
                             </div>
@@ -275,17 +280,17 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                     </div>
 
                     <div className="space-y-4 pt-2">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-100">
                             <FileText className="w-4 h-4 text-primary" />
-                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</h3>
+                            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Technical Specifications</h3>
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1">
                                 Remarks
                             </label>
                             <textarea
                                 rows={2}
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium text-slate-800 resize-none"
                                 value={formData.remarks}
                                 onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                             />

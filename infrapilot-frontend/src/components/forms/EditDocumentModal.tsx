@@ -76,7 +76,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 scale-in-center">
                 <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 flex items-center justify-center text-white">
+                        <div className="w-12 h-12 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white">
                             <FileText size={24} strokeWidth={2.5} />
                         </div>
                         <div>
@@ -91,7 +91,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-3 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-600"
+                        className="p-3 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
                         <X size={24} strokeWidth={2.5} />
                     </button>
@@ -100,7 +100,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 <form onSubmit={handleSubmit} className="p-8 space-y-6">
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <FileText className="w-4 h-4 text-amber-500" />
+                            <FileText className="w-4 h-4 text-primary" />
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Document Identity</h3>
                         </div>
 
@@ -111,7 +111,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                             <input
                                 type="text"
                                 required
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                 value={formData.title}
                                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                             />
@@ -127,7 +127,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                             </label>
                                             <select
                                                 required
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                                 value={formData.document_type || "General"}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
                                             >
@@ -147,7 +147,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                             </label>
                                             <select
                                                 required
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer text-slate-800"
                                                 value={formData.status || "PENDING"}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
                                             >
@@ -167,7 +167,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                         <input
                                             type="text"
                                             required
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                             value={formData.version || ""}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                                         />
@@ -181,7 +181,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                             <input
                                                 type="date"
                                                 required
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                                 value={formData.date || ""}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                                             />
@@ -202,12 +202,9 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                                     htmlFor="edit-file-upload"
                                                     className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all font-bold text-slate-800"
                                                 >
-                                                    <span className="text-slate-500 font-bold truncate max-w-[120px]">
+                                                    <span className="text-slate-500 font-bold truncate">
                                                         {selectedFile ? selectedFile.name : "Choose file..."}
                                                     </span>
-                                                    <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
-                                                        <Save size={14} strokeWidth={3} />
-                                                    </div>
                                                 </label>
                                             </div>
                                         </div>
@@ -218,7 +215,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2 mb-2">
-                                <FileText className="w-4 h-4 text-amber-500" />
+                                <FileText className="w-4 h-4 text-primary" />
                                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</h3>
                             </div>
                             <div className="space-y-1.5">
@@ -227,7 +224,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                 </label>
                                 <textarea
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium resize-none text-slate-800"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none text-slate-800"
                                     value={formData.remarks || ""}
                                     onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                                 />
@@ -239,14 +236,14 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                 type="button"
                                 disabled={isSubmitting}
                                 onClick={onClose}
-                                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+                                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={isSubmitting || !formData.title}
-                                className="flex-[2] px-8 py-4 bg-amber-500 text-white rounded-2xl text-sm font-black shadow-xl shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-[2] px-8 py-4 bg-primary text-white rounded-2xl text-sm font-black shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 {isSubmitting ? (
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

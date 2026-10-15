@@ -20,7 +20,7 @@ import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 
-import { projectService } from "../../services/projectService";
+import { projectService, normalizeProjectStatus } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
@@ -108,9 +108,10 @@ const AdminDashboard = () => {
       setIsLoading(true);
       console.log("Dashboard: Fetching from /api/v1/dashboard/admin...");
 
-      const [data, invoicesRes] = await Promise.all([
+      const [data, invoicesRes, liveProjectsRes] = await Promise.all([
         dashboardService.getAdminDashboard(),
         financeService.getInvoices(100, 0).catch(() => []),
+        projectService.getProjects(100, 0).catch(() => ({ items: [] })),
       ]);
       console.log("Dashboard: API response received", data);
 
@@ -129,32 +130,45 @@ const AdminDashboard = () => {
       const totalExpenses = Number(financial.expense) || 0;
       const profitLoss = resolvedTotalRevenue - totalExpenses;
 
-      // Projects: master_projects[] -> map to Project shape
-      const projectsList = (data.master_projects || []).map((p: any) => ({
-        id: p.id,
-        project_name: p.name,
-        start_date: p.start_date,
-        end_date: p.end_date,
-        completion_percentage: p.progress ?? 0,
-        status: (() => {
-          const name = (p.name || "").toLowerCase().trim();
-          const h = (p.health || "").toUpperCase();
-          const pStatus = (p.status || "").toUpperCase();
+      // Check for locally synced overrides from Projects module
+      let localOverrides: Record<string, string> = {};
+      try {
+        const stored = localStorage.getItem("infrapilot_project_status_overrides");
+        if (stored) localOverrides = JSON.parse(stored);
+      } catch (e) {
+        // ignore
+      }
 
-          // User Requirement: DELAYED PROJECTS card should show 1 (only counting rohan harita)
-          if (name.includes("rohan harita")) {
-            return "Delayed";
-          }
-          if (h === "ON_HOLD" || h === "PAUSED" || pStatus === "ON_HOLD" || pStatus === "PAUSED" || pStatus === "ON HOLD") {
-            return "On Hold";
-          }
-          if (h === "COMPLETED" || pStatus === "COMPLETED") return "Completed";
-          if (h === "DELAYED") return "Delayed";
-          if (h === "ONGOING" || h === "ON TRACK" || h === "ON_TRACK" || pStatus === "ONGOING" || pStatus === "ON TRACK" || pStatus === "ACTIVE") return "Ongoing";
-          return "Planned";
-        })(),
-        performance_score: p.performance_score,
-      } as unknown as Project));
+      const liveProjectsList = Array.isArray(liveProjectsRes) ? liveProjectsRes : ((liveProjectsRes as any)?.items || (liveProjectsRes as any)?.data || []);
+      const liveMap = new Map<number, Project>();
+      liveProjectsList.forEach((lp: Project) => {
+        if (lp && lp.id) liveMap.set(Number(lp.id), lp);
+      });
+
+      // Projects: master_projects[] -> map to Project shape with unified status
+      const projectsList = (data.master_projects || []).map((p: any) => {
+        const pId = Number(p.id);
+        const liveProj = liveMap.get(pId);
+
+        let resolvedStatus: ProjectStatus;
+        if (localOverrides && localOverrides[pId]) {
+          resolvedStatus = normalizeProjectStatus(localOverrides[pId]);
+        } else if (liveProj && liveProj.status) {
+          resolvedStatus = normalizeProjectStatus(liveProj.status);
+        } else {
+          resolvedStatus = normalizeProjectStatus(p.status || p.health);
+        }
+
+        return {
+          id: p.id,
+          project_name: (liveProj && liveProj.project_name) || p.name,
+          start_date: (liveProj && liveProj.start_date) || p.start_date,
+          end_date: (liveProj && liveProj.end_date) || p.end_date,
+          completion_percentage: (liveProj && liveProj.completion_percentage !== undefined) ? liveProj.completion_percentage : (p.progress ?? 0),
+          status: resolvedStatus,
+          performance_score: p.performance_score,
+        } as unknown as Project;
+      });
 
       // Ensure projects are sorted consistently by ID ascending (matching dashboard view)
       const sortedProjectsList = [...projectsList].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
@@ -169,9 +183,9 @@ const AdminDashboard = () => {
       const completedProjectsCount = hasProjects
         ? sortedProjectsList.filter(p => p.status === "Completed").length
         : (Number(po.completed) || 0);
-      const delayedFilteredCount = sortedProjectsList.filter(p => p.status === "Delayed").length;
-      // Delayed projects strictly shows 1 (only counting rohan harita)
-      const delayedProjectsCount = hasProjects ? (delayedFilteredCount > 0 ? delayedFilteredCount : 1) : 1;
+      const delayedProjectsCount = hasProjects
+        ? sortedProjectsList.filter(p => p.status === "Delayed").length
+        : (Number(po.delayed) || 0);
       const onHoldProjectsCount = hasProjects
         ? sortedProjectsList.filter(p => p.status === "On Hold").length
         : (Number(po.on_hold || po.paused) || 0);
@@ -244,6 +258,19 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Immediately reflect project status changes made from Projects module or other tabs
+  useEffect(() => {
+    const handleStatusSync = () => {
+      fetchDashboardData();
+    };
+    window.addEventListener("project-status-updated", handleStatusSync);
+    window.addEventListener("focus", handleStatusSync);
+    return () => {
+      window.removeEventListener("project-status-updated", handleStatusSync);
+      window.removeEventListener("focus", handleStatusSync);
+    };
   }, [fetchDashboardData]);
 
   // Generate timeline data for the graph depending on timeFilter

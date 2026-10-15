@@ -15,15 +15,37 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const userString = localStorage.getItem("infrapilot_user");
+    let token: string | null = null;
     if (userString) {
       try {
         const user = JSON.parse(userString);
-        const token = user.token?.access_token || user.token;
-        if (token && typeof token === 'string') {
-          config.headers.Authorization = `Bearer ${token}`;
+        if (typeof user?.token === "string") {
+          token = user.token;
+        } else if (user?.token?.access_token && typeof user.token.access_token === "string") {
+          token = user.token.access_token;
+        } else if (user?.access_token && typeof user.access_token === "string") {
+          token = user.access_token;
+        } else if (user?.data?.token?.access_token && typeof user.data.token.access_token === "string") {
+          token = user.data.token.access_token;
+        } else if (user?.data?.access_token && typeof user.data.access_token === "string") {
+          token = user.data.access_token;
         }
       } catch (e) {
         console.error("Auth Interceptor: Failed to parse user object", e);
+      }
+    }
+    if (!token) {
+      token = localStorage.getItem("token") || localStorage.getItem("access_token");
+    }
+
+    if (token && typeof token === "string") {
+      const cleanToken = token.trim().replace(/^Bearer\s+/i, "");
+      if (config.headers) {
+        if (typeof (config.headers as any).set === "function") {
+          (config.headers as any).set("Authorization", `Bearer ${cleanToken}`);
+        } else {
+          config.headers["Authorization"] = `Bearer ${cleanToken}`;
+        }
       }
     }
 

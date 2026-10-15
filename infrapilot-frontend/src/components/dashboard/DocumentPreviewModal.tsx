@@ -277,11 +277,20 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     </div>
   );
 
+  const isDrawing = Boolean(
+    document.isDrawing ||
+    document.type === "Drawing" ||
+    document.document_type === "Drawing" ||
+    (document as any).drawing_name ||
+    (typeof document.type === "string" && document.type.toLowerCase() === "drawing") ||
+    (typeof document.document_type === "string" && document.document_type.toLowerCase() === "drawing")
+  );
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={document.isFolder ? "Folder Details" : (document.isDrawing ? "Preview Drawing" : "Document Preview")}
+      title={document.isFolder ? "Folder Details" : (isDrawing ? "Drawings Preview" : "Document Preview")}
       footer={footer}
       maxWidth="max-w-3xl"
     >
@@ -316,11 +325,13 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           {/* Metadata Section */}
           <div className="md:col-span-1 space-y-6">
             <Section icon={<Info size={16} />} title="File Metadata">
-              <InfoItem label="File Type" value={document.type || document.document_type || (document.isDrawing ? "Drawing" : "Document")} />
+              <InfoItem label="File Type" value={document.type || document.document_type || (isDrawing ? "Drawing" : "Document")} />
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
               <InfoItem label="Remarks" value={document.remarks || "—"} />
-              <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || `User #${document.uploaded_by_user_id || document.uploaded_by || "Unknown"}`} />
+              {!isDrawing && (
+                <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || (document.uploaded_by_user_id || document.uploaded_by ? `User #${document.uploaded_by_user_id || document.uploaded_by}` : "NA")} />
+              )}
             </Section>
           </div>
 

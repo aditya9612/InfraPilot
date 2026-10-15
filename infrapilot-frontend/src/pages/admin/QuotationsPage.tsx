@@ -126,21 +126,29 @@ const QuotationsPage = () => {
     }, [searchQuery, statusFilter, activeTab]);
 
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case "Approved": return "bg-emerald-100 text-emerald-600";
-            case "Pending": return "bg-amber-100 text-amber-600";
-            case "Draft": return "bg-slate-100 text-slate-600";
-            case "Declined": return "bg-rose-100 text-rose-600";
-            default: return "bg-slate-100 text-slate-500";
+        const s = (status || "").toLowerCase();
+        switch (s) {
+            case "approved": return "bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold";
+            case "pending": return "bg-amber-100 text-amber-700 border border-amber-300 font-bold";
+            case "draft": return "bg-slate-100 text-slate-700 border border-slate-300 font-bold";
+            case "declined":
+            case "rejected":
+            case "cancelled": return "bg-rose-100 text-rose-700 border border-rose-300 font-bold";
+            case "converted": return "bg-blue-100 text-blue-700 border border-blue-300 font-bold";
+            default: return "bg-slate-100 text-slate-600 border border-slate-200 font-bold";
         }
     };
 
     const getStatusIcon = (status: string) => {
-        switch (status) {
-            case "Approved": return <CheckCircle className="w-3 h-3" />;
-            case "Pending": return <Clock className="w-3 h-3" />;
-            case "Draft": return <FileText className="w-3 h-3" />;
-            case "Declined": return <XCircle className="w-3 h-3" />;
+        const s = (status || "").toLowerCase();
+        switch (s) {
+            case "approved": return <CheckCircle className="w-3 h-3 text-emerald-600" />;
+            case "pending": return <Clock className="w-3 h-3 text-amber-600" />;
+            case "draft": return <FileText className="w-3 h-3 text-slate-500" />;
+            case "declined":
+            case "rejected":
+            case "cancelled": return <XCircle className="w-3 h-3 text-rose-600" />;
+            case "converted": return <Zap className="w-3 h-3 text-blue-600" />;
             default: return null;
         }
     };
@@ -151,12 +159,23 @@ const QuotationsPage = () => {
     const pendingDrafts = quotations.filter(q => q.status === "draft" || q.status === "sent").length;
 
     const handleApprove = async (id: number) => {
+        const target = quotations.find(q => q.id === id) || dummyQuotations.find(q => q.id === id);
+        const status = target?.status?.toLowerCase();
+        if (status === "rejected" || status === "declined" || status === "cancelled") {
+            toast.error("Cannot approve a rejected quotation.");
+            return;
+        }
         try {
             await quotationService.approveQuotation(id);
             toast.success("Quotation approved successfully");
             fetchQuotations();
-        } catch (error) {
-            toast.error("Failed to approve quotation");
+        } catch (error: any) {
+            const errorMsg = error?.response?.data?.detail || error?.response?.data?.message || "";
+            if (typeof errorMsg === "string" && (errorMsg.toLowerCase().includes("reject") || errorMsg.toLowerCase().includes("cannot approve"))) {
+                toast.error("Cannot approve a rejected quotation.");
+            } else {
+                toast.error(errorMsg || "Failed to approve quotation");
+            }
         }
     };
 
@@ -185,8 +204,12 @@ const QuotationsPage = () => {
         if (!rejectTarget) return;
         setIsRejecting(true);
         try {
-            await quotationService.rejectQuotation(rejectTarget, reason);
-            toast.success("Quotation rejected");
+            if (activeTab === "dummy_quotations") {
+                await quotationService.rejectDraftQuotation(rejectTarget, reason);
+            } else {
+                await quotationService.rejectQuotation(rejectTarget, reason);
+            }
+            toast.success("Quotation rejected successfully");
             fetchQuotations();
         } catch (error) {
             toast.error("Failed to reject quotation");
@@ -435,24 +458,44 @@ const QuotationsPage = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    {(activeTab !== 'dummy_quotations' && (q.status === 'draft' || q.status === 'sent' || String(q.status) === 'pending' || !q.is_approved)) && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => q.id && handleApprove(q.id)}
-                                                                title="Approve Quotation"
-                                                                className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => q.id && setRejectTarget(q.id)}
-                                                                title="Reject Quotation"
-                                                                className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                                                            >
-                                                                <XCircle className="w-4 h-4" />
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                    {activeTab !== 'dummy_quotations' && (() => {
+                                                        const isRejected = q.status?.toLowerCase() === 'rejected' || q.status?.toLowerCase() === 'declined' || q.status?.toLowerCase() === 'cancelled';
+                                                        const isApproved = q.status?.toLowerCase() === 'approved';
+                                                        const isConverted = q.status?.toLowerCase() === 'converted';
+
+                                                        if (isApproved || isConverted) return null;
+
+                                                        return (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (isRejected) {
+                                                                            toast.error("Cannot approve a rejected quotation.");
+                                                                            return;
+                                                                        }
+                                                                        if (q.id) handleApprove(q.id);
+                                                                    }}
+                                                                    title={isRejected ? "Cannot approve a rejected quotation" : "Approve Quotation"}
+                                                                    className={`p-2 transition-colors ${
+                                                                        isRejected
+                                                                            ? "text-slate-300 hover:text-rose-500 cursor-not-allowed"
+                                                                            : "text-slate-400 hover:text-emerald-500"
+                                                                    }`}
+                                                                >
+                                                                    <CheckCircle className="w-4 h-4" />
+                                                                </button>
+                                                                {!isRejected && (
+                                                                    <button
+                                                                        onClick={() => q.id && setRejectTarget(q.id)}
+                                                                        title="Reject Quotation"
+                                                                        className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                                    >
+                                                                        <XCircle className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
                                                     {q.status?.toLowerCase() === 'approved' && (
                                                         <button
                                                             onClick={() => q.id && handleConvertQuotation(q.id)}
