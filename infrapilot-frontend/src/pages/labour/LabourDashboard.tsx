@@ -20,7 +20,6 @@ import {
     ArrowRight,
     Loader2,
     Clock,
-    Info,
     Calendar,
     IndianRupee,
     Zap,
@@ -795,17 +794,6 @@ const LabourDashboard: React.FC = () => {
                                 ))}
                             </div>
                         )}
-                    </div>
-                </div>
-
-                {/* ═══════ INFO BANNER ═══════ */}
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
-                        <Info className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-bold text-slate-800">Keep your attendance updated and complete your tasks on time.</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Your daily work and attendance help us build better projects together.</p>
                     </div>
                 </div>
 

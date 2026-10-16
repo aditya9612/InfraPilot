@@ -260,7 +260,16 @@ const ProjectsPage = () => {
   const sortedProjects = useMemo(() => {
     const list = filterStatus === "All"
       ? projects
-      : projects.filter((p) => p.status?.toLowerCase() === filterStatus.toLowerCase());
+      : projects.filter((p) => {
+        const st = p.status?.toLowerCase();
+        if (filterStatus === "On Hold") {
+          return st === "on hold" || st === "on_hold" || st === "hold";
+        }
+        if (filterStatus === "Ongoing") {
+          return st === "ongoing" || st === "on track" || st === "on_track";
+        }
+        return st === filterStatus.toLowerCase();
+      });
 
     const searchTerm = search.trim().toLowerCase();
     const searchFiltered = searchTerm
@@ -296,7 +305,10 @@ const ProjectsPage = () => {
       completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
       delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
       planned: allProjects.filter((p) => p.status?.toLowerCase() === "planned").length,
-      onhold: allProjects.filter((p) => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "on_hold").length,
+      onhold: allProjects.filter((p) => {
+        const st = p.status?.toLowerCase();
+        return st === "on hold" || st === "on_hold" || st === "hold";
+      }).length,
     };
     return s;
   }, [allProjects]);
@@ -366,7 +378,7 @@ const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
           {[
             {
               title: "Total Projects",
@@ -395,6 +407,13 @@ const ProjectsPage = () => {
               sub: "Needs urgent attention",
               accent: "text-red-500",
               status: "Delayed",
+            },
+            {
+              title: "On Hold",
+              value: String(stats.onhold),
+              sub: "Currently on hold",
+              accent: "text-amber-500",
+              status: "On Hold",
             },
           ].map((s) => (
             <div

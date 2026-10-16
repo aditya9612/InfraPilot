@@ -17,7 +17,8 @@ import {
   Search,
   Edit3,
   Eye,
-  ChevronDown
+  ChevronDown,
+  Info
 } from "lucide-react";
 import { boqService } from "../../services/boqService";
 import type { BoqItem } from "../../types/boq";
@@ -58,6 +59,128 @@ const MeasurementPage = () => {
     retention_amount: "",
     status: "DRAFT"
   });
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const isRestricted = Boolean(
+    editingItem && (
+      (editingItem as any).status?.toUpperCase() === "SUBMITTED" ||
+      (editingItem as any).status?.toUpperCase() === "APPROVED"
+    )
+  );
+
+  const handleFieldChange = (field: string, value: string) => {
+    const updatedForm = { ...formData, [field]: value };
+    setFormData(updatedForm);
+
+    const standardSubtotal = (Number(updatedForm.final_area) || 0) * (Number(updatedForm.approved_rate) || 0);
+    const extraSubtotal = (Number(updatedForm.extra_area) || 0) * (Number(updatedForm.extra_rate) || 0);
+    const totalSubtotal = standardSubtotal + extraSubtotal;
+    const retention = Number(updatedForm.retention_amount) || 0;
+
+    setFormErrors(prev => {
+      const next = { ...prev };
+      
+      // Clear empty required error for this field if populated
+      if (value.trim() !== "") {
+        delete next[field];
+      }
+
+      // Real-time check: Retention Amount cannot exceed total subtotal amount
+      if (updatedForm.retention_amount && updatedForm.retention_amount.trim() !== "") {
+        if (retention > totalSubtotal) {
+          const formattedRetention = `₹${retention.toLocaleString('en-IN')}`;
+          const formattedSubtotal = `₹${totalSubtotal.toLocaleString('en-IN')}`;
+          const errorMsg = `Retention Amount (${formattedRetention}) cannot exceed total subtotal amount (${formattedSubtotal})`;
+          next.retention_amount = errorMsg;
+          if (field === "retention_amount") {
+            toast.error(errorMsg, { id: "retention-error" });
+          }
+        } else {
+          if (next.retention_amount && next.retention_amount.includes("cannot exceed")) {
+            delete next.retention_amount;
+            toast.dismiss("retention-error");
+          }
+        }
+      }
+
+      return next;
+    });
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    const standardSubtotal = (Number(formData.final_area) || 0) * (Number(formData.approved_rate) || 0);
+    const extraSubtotal = (Number(formData.extra_area) || 0) * (Number(formData.extra_rate) || 0);
+    const totalSubtotal = standardSubtotal + extraSubtotal;
+    const retention = Number(formData.retention_amount) || 0;
+
+    if (!formData.project_id || formData.project_id === "0") {
+      errors.project_id = "Project Node is required";
+    }
+    if (!formData.task_id || formData.task_id === "0") {
+      errors.task_id = "Target Task is required";
+    }
+    if (!formData.boq_item_id || formData.boq_item_id === "0") {
+      errors.boq_item_id = "BOQ Item is required";
+    }
+    if (!formData.retention_amount || formData.retention_amount.trim() === "") {
+      errors.retention_amount = "Retention Amount is required";
+    } else if (retention > totalSubtotal) {
+      const formattedRetention = `₹${retention.toLocaleString('en-IN')}`;
+      const formattedSubtotal = `₹${totalSubtotal.toLocaleString('en-IN')}`;
+      errors.retention_amount = `Retention Amount (${formattedRetention}) cannot exceed total subtotal amount (${formattedSubtotal})`;
+    }
+    if (!formData.status || formData.status.trim() === "") {
+      errors.status = "Current Status is required";
+    }
+    if (!formData.final_area || formData.final_area.trim() === "") {
+      errors.final_area = "Final Area is required";
+    }
+    if (!formData.approved_rate || formData.approved_rate.trim() === "") {
+      errors.approved_rate = "Apprv. Rate is required";
+    }
+    if (!formData.extra_area || formData.extra_area.trim() === "") {
+      errors.extra_area = "Extra Area is required";
+    }
+    if (!formData.extra_rate || formData.extra_rate.trim() === "") {
+      errors.extra_rate = "Extra Rate is required";
+    }
+    if (!formData.measured_qty || formData.measured_qty.trim() === "") {
+      errors.measured_qty = "Measured Qty is required";
+    }
+    if (!formData.certified_qty || formData.certified_qty.trim() === "") {
+      errors.certified_qty = "Certified Qty is required";
+    }
+    if (!formData.rejected_qty || formData.rejected_qty.trim() === "") {
+      errors.rejected_qty = "Rejected Qty is required";
+    }
+
+    setFormErrors(errors);
+    return errors;
+  };
+
+  const resetForm = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+    setFormErrors({});
+    setIsBoqDropdownOpen(false);
+    setFormData({
+      project_id: selectedProject,
+      task_id: "",
+      boq_item_id: "",
+      final_area: "",
+      approved_rate: "",
+      extra_area: "",
+      extra_rate: "",
+      measured_qty: "",
+      certified_qty: "",
+      rejected_qty: "",
+      retention_amount: "",
+      status: "DRAFT"
+    });
+  };
 
   const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
   const [boqSearch, setBoqSearch] = useState("");
@@ -166,8 +289,19 @@ const MeasurementPage = () => {
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_id || !formData.final_area || !formData.approved_rate) {
-      toast.error("Incomplete coordinate set detected");
+
+    if (isRestricted) {
+      toast.error("Cannot modify a measurement once it has been submitted for approval", { id: "save" });
+      return;
+    }
+
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      if (errors.retention_amount && errors.retention_amount.includes("cannot exceed")) {
+        toast.error(errors.retention_amount, { id: "save" });
+      } else {
+        toast.error("Please fill in all required measurement fields", { id: "save" });
+      }
       return;
     }
 
@@ -190,50 +324,40 @@ const MeasurementPage = () => {
 
       if (editingItem) {
         await measurementService.updateMeasurement(editingItem.id, data);
-        toast.success("Measurement record recalibrated", { id: "save" });
+        toast.success("Measurement updated successfully", { id: "save" });
       } else {
         await measurementService.createMeasurement(data);
         toast.success("New measurement synchronized", { id: "save" });
       }
 
       setIsModalOpen(false);
-      setEditingItem(null);
-      setFormData({
-        project_id: selectedProject,
-        task_id: "",
-        boq_item_id: "",
-        final_area: "",
-        approved_rate: "",
-        extra_area: "",
-        extra_rate: "",
-        measured_qty: "",
-        certified_qty: "",
-        rejected_qty: "",
-        retention_amount: "",
-        status: "DRAFT"
-      });
+      resetForm();
       fetchData();
-    } catch (error) {
-      toast.error("Transmission failed: Check node connectivity", { id: "save" });
+    } catch (error: any) {
+      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
+      const msg = serverMsg || "Cannot modify a measurement once it has been submitted for approval";
+      toast.error(msg, { id: "save" });
     }
   };
 
   const handleEdit = (m: Measurement) => {
     setEditingItem(m);
+    setFormErrors({});
+    setIsBoqDropdownOpen(false);
     setProjectTasks([]);
     setProjectBoqItems([]);
     setFormData({
       project_id: m.project_id.toString(),
       task_id: (m as any).task_id?.toString() || "",
       boq_item_id: (m as any).boq_item_id?.toString() || "",
-      final_area: m.final_area.toString(),
-      approved_rate: m.approved_rate.toString(),
-      extra_area: m.extra_area.toString(),
-      extra_rate: m.extra_rate.toString(),
-      measured_qty: (m as any).measured_qty?.toString() || "",
-      certified_qty: (m as any).certified_qty?.toString() || "",
-      rejected_qty: (m as any).rejected_qty?.toString() || "",
-      retention_amount: (m as any).retention_amount?.toString() || "",
+      final_area: m.final_area != null ? m.final_area.toString() : "",
+      approved_rate: m.approved_rate != null ? m.approved_rate.toString() : "",
+      extra_area: m.extra_area != null ? m.extra_area.toString() : "",
+      extra_rate: m.extra_rate != null ? m.extra_rate.toString() : "",
+      measured_qty: (m as any).measured_qty != null ? (m as any).measured_qty.toString() : "",
+      certified_qty: (m as any).certified_qty != null ? (m as any).certified_qty.toString() : "",
+      rejected_qty: (m as any).rejected_qty != null ? (m as any).rejected_qty.toString() : "",
+      retention_amount: (m as any).retention_amount != null ? (m as any).retention_amount.toString() : "",
       status: (m as any).status || "DRAFT"
     });
     setIsModalOpen(true);
@@ -256,8 +380,9 @@ const MeasurementPage = () => {
       await measurementService.updateMeasurementStatus(id, newStatus);
       toast.success(`Status updated to ${newStatus}`);
       fetchData();
-    } catch (error) {
-      toast.error("Failed to update status");
+    } catch (error: any) {
+      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
+      toast.error(serverMsg || "Failed to update status");
     }
   };
 
@@ -269,8 +394,9 @@ const MeasurementPage = () => {
       setIsDeleteOpen(false);
       setTargetId(null);
       fetchData();
-    } catch (error) {
-      toast.error("Failed to delete measurement record");
+    } catch (error: any) {
+      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
+      toast.error(serverMsg || "Failed to delete measurement record");
     }
   };
 
@@ -295,8 +421,7 @@ const MeasurementPage = () => {
           </div>
           <button
             onClick={() => {
-              setEditingItem(null);
-              setFormData({ ...formData, project_id: selectedProject });
+              resetForm();
               setIsModalOpen(true);
             }}
             className="flex items-center gap-2 px-6 py-3.5 bg-primary text-white rounded-2xl text-sm font-black shadow-2xl shadow-primary/30 hover:bg-blue-600 hover:-translate-y-1 transition-all active:scale-95"
@@ -493,14 +618,14 @@ const MeasurementPage = () => {
       {/* Form Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingItem(null); setIsBoqDropdownOpen(false); }}
+        onClose={resetForm}
         title={editingItem ? "Edit Field Measurement" : "Record New Area"}
         maxWidth="max-w-4xl"
         footer={
           <>
             <button
               type="button"
-              onClick={() => { setIsModalOpen(false); setEditingItem(null); setIsBoqDropdownOpen(false); }}
+              onClick={resetForm}
               className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
             >
               Cancel
@@ -508,7 +633,13 @@ const MeasurementPage = () => {
             <button
               form="measurement-form"
               type="submit"
-              className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95"
+              disabled={isRestricted}
+              className={`px-8 py-2.5 text-sm font-bold rounded-xl transition-all ${
+                isRestricted
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                  : "bg-primary text-white shadow-lg shadow-primary/25 hover:bg-blue-600 active:scale-95"
+              }`}
+              title={isRestricted ? "Cannot modify a measurement once it has been submitted for approval" : ""}
             >
               {editingItem ? "Update Measurement" : "Authorize Entry"}
             </button>
@@ -516,6 +647,21 @@ const MeasurementPage = () => {
         }
       >
         <form id="measurement-form" onSubmit={handleCreateOrUpdate} noValidate className="space-y-6">
+          {/* Warning Banner when restricted */}
+          {isRestricted && (
+            <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-semibold shadow-sm">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                <Info className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-amber-900">Modification Restricted</p>
+                <p className="text-amber-700 text-[11px] mt-0.5">
+                  Cannot modify a measurement once it has been submitted for approval.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Project & Work Scope */}
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
@@ -530,9 +676,16 @@ const MeasurementPage = () => {
                 </label>
                 <div className="relative">
                   <select
+                    disabled={isRestricted}
                     value={formData.project_id}
-                    onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700 truncate"
+                    onChange={(e) => handleFieldChange("project_id", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 truncate ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.project_id
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    }`}
                   >
                     <option value="">Select Project Node</option>
                     {projects.map(p => (
@@ -541,6 +694,11 @@ const MeasurementPage = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
+                {formErrors.project_id && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.project_id}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -549,9 +707,16 @@ const MeasurementPage = () => {
                 </label>
                 <div className="relative">
                   <select
+                    disabled={isRestricted}
                     value={formData.task_id}
-                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700 truncate"
+                    onChange={(e) => handleFieldChange("task_id", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 truncate ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.task_id
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    }`}
                   >
                     <option value="0">Select Task</option>
                     {projectTasks.map(t => (
@@ -560,6 +725,11 @@ const MeasurementPage = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
+                {formErrors.task_id && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.task_id}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -569,13 +739,25 @@ const MeasurementPage = () => {
                 <div className="relative" ref={boqDropdownRef}>
                   <button
                     type="button"
-                    onClick={() => setIsBoqDropdownOpen(!isBoqDropdownOpen)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none text-sm font-semibold flex items-center justify-between text-slate-700 text-left"
+                    disabled={isRestricted}
+                    onClick={() => !isRestricted && setIsBoqDropdownOpen(!isBoqDropdownOpen)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold flex items-center justify-between text-left ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.boq_item_id
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    }`}
                   >
                     <span className="truncate pr-2">{selectedBoqName}</span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isBoqDropdownOpen ? "rotate-180" : ""}`} />
                   </button>
-                  {isBoqDropdownOpen && (
+                  {formErrors.boq_item_id && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                      <span>•</span> {formErrors.boq_item_id}
+                    </p>
+                  )}
+                  {isBoqDropdownOpen && !isRestricted && (
                     <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col">
                       <div className="p-2 border-b border-slate-100 bg-slate-50/80">
                         <input
@@ -591,7 +773,7 @@ const MeasurementPage = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setFormData({ ...formData, boq_item_id: "0" });
+                            handleFieldChange("boq_item_id", "0");
                             setIsBoqDropdownOpen(false);
                             setBoqSearch("");
                           }}
@@ -604,7 +786,7 @@ const MeasurementPage = () => {
                             key={b.id}
                             type="button"
                             onClick={() => {
-                              setFormData({ ...formData, boq_item_id: String(b.id) });
+                              handleFieldChange("boq_item_id", String(b.id));
                               setIsBoqDropdownOpen(false);
                               setBoqSearch("");
                             }}
@@ -640,11 +822,24 @@ const MeasurementPage = () => {
                 <input
                   type="number"
                   step="0.01"
+                  disabled={isRestricted}
+                  readOnly={isRestricted}
                   value={formData.retention_amount}
-                  onChange={(e) => setFormData({ ...formData, retention_amount: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                  onChange={(e) => handleFieldChange("retention_amount", e.target.value)}
+                  className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                    isRestricted
+                      ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : formErrors.retention_amount
+                      ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                      : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-800 focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                  }`}
                   placeholder="0.00"
                 />
+                {formErrors.retention_amount && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.retention_amount}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -653,9 +848,16 @@ const MeasurementPage = () => {
                 </label>
                 <div className="relative">
                   <select
+                    disabled={isRestricted}
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 text-slate-700"
+                    onChange={(e) => handleFieldChange("status", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold appearance-none pr-9 ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.status
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                    }`}
                   >
                     <option value="DRAFT">DRAFT</option>
                     <option value="SUBMITTED">SUBMITTED</option>
@@ -666,6 +868,11 @@ const MeasurementPage = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
+                {formErrors.status && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.status}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -690,22 +897,48 @@ const MeasurementPage = () => {
                   <input
                     type="number"
                     step="0.01"
+                    disabled={isRestricted}
+                    readOnly={isRestricted}
                     value={formData.final_area}
-                    onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    onChange={(e) => handleFieldChange("final_area", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.final_area
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                    }`}
                     placeholder="0.00"
                   />
+                  {formErrors.final_area && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                      <span>•</span> {formErrors.final_area}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5">Apprv. Rate (₹) <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     step="0.01"
+                    disabled={isRestricted}
+                    readOnly={isRestricted}
                     value={formData.approved_rate}
-                    onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    onChange={(e) => handleFieldChange("approved_rate", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.approved_rate
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                    }`}
                     placeholder="0.00"
                   />
+                  {formErrors.approved_rate && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                      <span>•</span> {formErrors.approved_rate}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -728,22 +961,48 @@ const MeasurementPage = () => {
                   <input
                     type="number"
                     step="0.01"
+                    disabled={isRestricted}
+                    readOnly={isRestricted}
                     value={formData.extra_area}
-                    onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    onChange={(e) => handleFieldChange("extra_area", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.extra_area
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-amber-200 focus:border-amber-500"
+                    }`}
                     placeholder="0.00"
                   />
+                  {formErrors.extra_area && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                      <span>•</span> {formErrors.extra_area}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5">Extra Rate (₹) <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     step="0.01"
+                    disabled={isRestricted}
+                    readOnly={isRestricted}
                     value={formData.extra_rate}
-                    onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                    onChange={(e) => handleFieldChange("extra_rate", e.target.value)}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                      isRestricted
+                        ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : formErrors.extra_rate
+                        ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                        : "bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-amber-200 focus:border-amber-500"
+                    }`}
                     placeholder="0.00"
                   />
+                  {formErrors.extra_rate && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                      <span>•</span> {formErrors.extra_rate}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -762,11 +1021,24 @@ const MeasurementPage = () => {
                 <input
                   type="number"
                   step="0.01"
+                  disabled={isRestricted}
+                  readOnly={isRestricted}
                   value={formData.measured_qty}
-                  onChange={(e) => setFormData({ ...formData, measured_qty: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-purple-200 focus:border-purple-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                  onChange={(e) => handleFieldChange("measured_qty", e.target.value)}
+                  className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                    isRestricted
+                      ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : formErrors.measured_qty
+                      ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                      : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-800 focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                  }`}
                   placeholder="0.00"
                 />
+                {formErrors.measured_qty && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.measured_qty}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -774,11 +1046,24 @@ const MeasurementPage = () => {
                 <input
                   type="number"
                   step="0.01"
+                  disabled={isRestricted}
+                  readOnly={isRestricted}
                   value={formData.certified_qty}
-                  onChange={(e) => setFormData({ ...formData, certified_qty: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                  onChange={(e) => handleFieldChange("certified_qty", e.target.value)}
+                  className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                    isRestricted
+                      ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : formErrors.certified_qty
+                      ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                      : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                  }`}
                   placeholder="0.00"
                 />
+                {formErrors.certified_qty && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.certified_qty}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -786,11 +1071,24 @@ const MeasurementPage = () => {
                 <input
                   type="number"
                   step="0.01"
+                  disabled={isRestricted}
+                  readOnly={isRestricted}
                   value={formData.rejected_qty}
-                  onChange={(e) => setFormData({ ...formData, rejected_qty: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-rose-200 focus:border-rose-500 rounded-xl transition-all outline-none text-sm font-semibold text-slate-800"
+                  onChange={(e) => handleFieldChange("rejected_qty", e.target.value)}
+                  className={`w-full px-3.5 py-2.5 border rounded-xl transition-all outline-none text-sm font-semibold ${
+                    isRestricted
+                      ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : formErrors.rejected_qty
+                      ? "!border-rose-500 !bg-rose-50/20 text-slate-800 focus:ring-2 focus:ring-rose-200"
+                      : "bg-slate-50/50 hover:bg-slate-50 border-slate-200 text-slate-800 focus:ring-2 focus:ring-rose-200 focus:border-rose-500"
+                  }`}
                   placeholder="0.00"
                 />
+                {formErrors.rejected_qty && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    <span>•</span> {formErrors.rejected_qty}
+                  </p>
+                )}
               </div>
             </div>
           </div>

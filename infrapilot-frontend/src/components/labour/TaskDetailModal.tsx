@@ -4,13 +4,21 @@ import {
     History, MessageSquare, Play, 
     MoreHorizontal, Paperclip, Send, Volume2, Info
 } from 'lucide-react';
-import { useTextToAudio } from '../../utils/useTextToAudio';
 import { useAuth } from '../../context/AuthContext';
 import { projectService } from '../../services/projectService';
 import toast from 'react-hot-toast';
 import type { Task } from '../../types/task';
 
 export type { Task };
+
+const resolveUrl = (path: string | null | undefined): string | undefined => {
+    if (!path || path === 'null') return undefined;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+        : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+};
 
 interface TaskDetailModalProps {
     task: Task | null;
@@ -26,8 +34,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
     const [newComment, setNewComment] = useState('');
     const [activities, setActivities] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    const { speak } = useTextToAudio();
 
     const [detailedTask, setDetailedTask] = useState<Task | null>(null);
     const [isLoadingTask, setIsLoadingTask] = useState(false);
@@ -103,22 +109,27 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
     };
 
     const handlePlayPause = () => {
-        if (task?.audioUrl) {
-            if (!audioRef.current) {
-                audioRef.current = new Audio(task.audioUrl);
-                audioRef.current.onloadedmetadata = () => setDuration(audioRef.current!.duration);
-                audioRef.current.ontimeupdate = () => setCurrentTime(audioRef.current!.currentTime);
-                audioRef.current.onended = () => { setIsPlaying(false); setCurrentTime(0); };
-            }
-            if (isPlaying) {
-                audioRef.current.pause();
+        if (!task?.audioUrl) return;
+
+        if (!audioRef.current) {
+            audioRef.current = new Audio(task.audioUrl);
+            audioRef.current.onloadedmetadata = () => setDuration(audioRef.current!.duration);
+            audioRef.current.ontimeupdate = () => setCurrentTime(audioRef.current!.currentTime);
+            audioRef.current.onended = () => { setIsPlaying(false); setCurrentTime(0); };
+            audioRef.current.onerror = () => {
                 setIsPlaying(false);
-            } else {
-                audioRef.current.play();
-                setIsPlaying(true);
-            }
+                toast.error("Failed to play audio instruction");
+            };
+        }
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
         } else {
-            speak(task?.description || 'No instruction found.');
+            audioRef.current.play().catch(err => {
+                console.error("Audio playback error:", err);
+                setIsPlaying(false);
+            });
+            setIsPlaying(true);
         }
     };
 
@@ -146,12 +157,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
                                 ? data.assigned_users.map((u: any) => u.full_name || u.name || u.username).join(', ')
                                 : 'Unassigned';
 
+                            const rawAudio = (data as any).audio_instruction_url !== undefined ? (data as any).audio_instruction_url : (data as any).audio_url;
+                            const audioUrl = rawAudio !== undefined ? resolveUrl(rawAudio) : initialTask.audioUrl;
+                            const rawImage = (data as any).instruction_image_url !== undefined ? (data as any).instruction_image_url : (data as any).image_url;
+                            const imageUrl = rawImage !== undefined ? resolveUrl(rawImage) : initialTask.imageUrl;
+
                             setDetailedTask({
                                 id: String(data.id || initialTask.id),
                                 project_id: data.project_id || initialTask.project_id || rawProjId,
                                 name: data.title || data.name || initialTask.name,
                                 project: data.project_name || initialTask.project,
                                 assignedTo: assignee,
+                                assignedFrom: initialTask.assignedFrom || (data as any).created_by_name || (data as any).assigned_by_name || 'Unknown',
                                 description: data.description || initialTask.description,
                                 status: (() => {
                                     const statusStr = data.status || 'Pending';
@@ -165,8 +182,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
                                 startDate: data.start_date || initialTask.startDate,
                                 endDate: data.end_date || initialTask.endDate,
                                 progress: data.progress !== undefined ? data.progress : (data.completion_percentage || 0),
-                                audioUrl: data.audio_instruction_url || (data as any).audio_url || initialTask.audioUrl,
-                                imageUrl: (data as any).instruction_image_url || (data as any).image_url || initialTask.imageUrl
+                                audioUrl,
+                                imageUrl
                             });
                         } else {
                             setDetailedTask(initialTask);
@@ -472,69 +489,73 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
             </div>
 
             {/* Media & Instructions */}
-            <div>
-                <h3 className="text-sm font-black text-slate-800 mb-4 px-1">Media & Instructions</h3>
-                <div className="space-y-4">
-                    {/* Audio Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Audio Instruction</span>
-                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-                            {/* Play / Pause button */}
-                            <button
-                                onClick={handlePlayPause}
-                                className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-800 hover:text-blue-600 transition-colors flex-shrink-0"
-                            >
-                                {isPlaying ? (
-                                    /* Pause icon — two vertical bars */
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                                        <rect x="5" y="4" width="4" height="16" rx="1" />
-                                        <rect x="15" y="4" width="4" height="16" rx="1" />
-                                    </svg>
-                                ) : (
-                                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                                )}
-                            </button>
+            {(task.audioUrl || task.imageUrl) && (
+                <div>
+                    <h3 className="text-sm font-black text-slate-800 mb-4 px-1">Media & Instructions</h3>
+                    <div className="space-y-4">
+                        {/* Audio Card */}
+                        {task.audioUrl && (
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Audio Instruction</span>
+                                <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
+                                    {/* Play / Pause button */}
+                                    <button
+                                        onClick={handlePlayPause}
+                                        className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-800 hover:text-blue-600 transition-colors flex-shrink-0"
+                                    >
+                                        {isPlaying ? (
+                                            /* Pause icon — two vertical bars */
+                                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                <rect x="5" y="4" width="4" height="16" rx="1" />
+                                                <rect x="15" y="4" width="4" height="16" rx="1" />
+                                            </svg>
+                                        ) : (
+                                            <Play className="w-4 h-4 fill-current ml-0.5" />
+                                        )}
+                                    </button>
 
-                            {/* Progress track — clickable */}
-                            <div
-                                className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden cursor-pointer relative"
-                                onClick={handleSeek}
-                            >
-                                <div
-                                    className="h-full bg-slate-800 rounded-full transition-none"
-                                    style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
-                                />
-                            </div>
+                                    {/* Progress track — clickable */}
+                                    <div
+                                        className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden cursor-pointer relative"
+                                        onClick={handleSeek}
+                                    >
+                                        <div
+                                            className="h-full bg-slate-800 rounded-full transition-none"
+                                            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+                                        />
+                                    </div>
 
-                            {/* Time display */}
-                            <span className="text-[10px] font-black text-slate-400 whitespace-nowrap">
-                                {task?.audioUrl ? `${formatTime(currentTime)} / ${formatTime(duration)}` : '0:00'}
-                            </span>
-                            <Volume2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                            <button>
-                                <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Image Card */}
-                    {task.imageUrl && (
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Instruction Image</span>
-                            <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-50 border border-slate-100 group">
-                                <img 
-                                    src={task.imageUrl} 
-                                    alt="Instruction"
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Click to expand</span>
+                                    {/* Time display */}
+                                    <span className="text-[10px] font-black text-slate-400 whitespace-nowrap">
+                                        {task?.audioUrl ? `${formatTime(currentTime)} / ${formatTime(duration)}` : '0:00'}
+                                    </span>
+                                    <Volume2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                    <button>
+                                        <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Image Card */}
+                        {task.imageUrl && (
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Instruction Image</span>
+                                <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-50 border border-slate-100 group">
+                                    <img 
+                                        src={task.imageUrl} 
+                                        alt="Instruction"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                                        <span className="text-[10px] font-black text-white uppercase tracking-widest">Click to expand</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 

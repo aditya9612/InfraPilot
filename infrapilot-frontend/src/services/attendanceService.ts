@@ -29,6 +29,8 @@ export interface AttendanceRecord {
     check_in_image?: string;
     check_out_image?: string;
     check_out_address?: string;
+    contractor_name?: string;
+    contractor?: string;
 }
 
 export interface TodayStatusResponse {
@@ -41,6 +43,7 @@ export interface TodayStatusResponse {
 
 export interface AttendanceListResponse {
     data: AttendanceRecord[];
+    items?: AttendanceRecord[];
     total_count: number;
     page: number;
     page_size: number;

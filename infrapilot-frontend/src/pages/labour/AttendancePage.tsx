@@ -30,15 +30,14 @@ import {
     getISTDateString,
     formatToIST, 
     parseUTCToDate,
-    formatDateBySettings,
-    formatDateToIST
+    formatDateBySettings
 } from '../../utils/dateUtils';
 import { getLivePosition, formatDisplayAddress } from '../../utils/locationUtils';
 
 
 const AttendancePage: React.FC = () => {
     const { user } = useAuth();
-    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
+    const { projectId: activeProjectId } = useLabourProjectId();
     const [currentTime, setCurrentTime] = useState(new Date());
     const currentDateRef = React.useRef(getISTDateString());
 
@@ -140,7 +139,7 @@ const AttendancePage: React.FC = () => {
             ]);
             const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 
-            const rawItems = Array.isArray(list) ? list : (list?.data || list?.items || []);
+            const rawItems = Array.isArray(list) ? list : (list?.data || (list as any)?.items || []);
 
             let normalizedList: AttendanceRecord[] = rawItems.map((r: any) => ({
                 ...r,
@@ -310,6 +309,7 @@ const AttendancePage: React.FC = () => {
                     : data.out_time)
                 : nowIso;
 
+            const formData = new FormData();
             const summaryText = (data.work_summary || data.remarks || 'Work completed for the day').trim();
             formData.append('work_summary', summaryText);
 
@@ -375,7 +375,9 @@ const AttendancePage: React.FC = () => {
             toast.success('Check-out successful!');
             await fetchData(true);
         } catch (error: any) {
-            toast.error('Check-out failed');
+            console.error('Check-out error:', error);
+            const msg = error?.response?.data?.detail || error?.message || 'Check-out failed';
+            toast.error(typeof msg === 'string' ? msg : 'Check-out failed');
         } finally {
             setIsActionLoading(false);
             setIsCheckOutModalOpen(false);
@@ -1136,7 +1138,7 @@ const AttendancePage: React.FC = () => {
                                 <div className="space-y-1">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</span>
                                     <p className="text-xs font-black text-slate-700">
-                                        {selectedRecordForDetail.contractor_name || selectedRecordForDetail.contractor || user?.contractor_name || (user as any)?.contractor || "—"}
+                                        {selectedRecordForDetail.contractor_name || selectedRecordForDetail.contractor || user?.contractor_name || user?.contractor || "—"}
                                     </p>
                                 </div>
                                 <div className="space-y-1">

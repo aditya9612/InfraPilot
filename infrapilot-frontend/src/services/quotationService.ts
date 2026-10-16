@@ -290,7 +290,7 @@ export const quotationService = {
      * Reject a draft quotation (dummy quotation)
      * Handles /dummy-quotations/{id}/reject, fallback to /dummy-quotations/{id} update or /quotations/{id}/reject
      */
-    async rejectDraftQuotation(id: number, reason?: string): Promise<any> {
+    async rejectDraftQuotation(id: number, reason?: string, fullPayload?: any): Promise<any> {
         const payload = {
             status: "rejected",
             reason: reason || "Quotation rejected",
@@ -305,23 +305,25 @@ export const quotationService = {
                 return { success: true, id, status: "rejected", reason };
             }
             try {
-                const res = await api.put(`/dummy-quotations/${id}`, payload);
+                const res = await api.post(`/dummy-quotations/${id}/reject`, payload);
                 return res.data;
-            } catch (err2: any) {
-                if (err2.response?.status === 401) {
-                    console.warn(`Reject Draft Quotation ${id}: 401 on PUT /dummy-quotations, applying graceful rejection.`);
-                    return { success: true, id, status: "rejected", reason };
-                }
+            } catch (postErr) {
                 try {
-                    const res = await api.put(`/quotations/${id}/reject`, payload);
+                    const updateData = fullPayload ? { ...fullPayload, status: "rejected" } : payload;
+                    const res = await api.put(`/dummy-quotations/${id}`, updateData);
                     return res.data;
-                } catch (err3: any) {
-                    if (err3.response?.status === 401) {
-                        console.warn(`Reject Draft Quotation ${id}: 401 on /quotations reject, applying graceful rejection.`);
+                } catch (err2: any) {
+                    if (err2.response?.status === 401) {
+                        console.warn(`Reject Draft Quotation ${id}: 401 on PUT /dummy-quotations, applying graceful rejection.`);
                         return { success: true, id, status: "rejected", reason };
                     }
-                    console.warn(`Reject Draft Quotation ${id} remote endpoint error, applying local fallback:`, err3?.message);
-                    return { success: true, id, status: "rejected", reason };
+                    try {
+                        const res = await api.put(`/quotations/${id}/reject`, payload);
+                        return res.data;
+                    } catch (err3: any) {
+                        console.warn(`Reject Draft Quotation ${id} remote endpoint error, applying local fallback:`, err3?.message);
+                        return { success: true, id, status: "rejected", reason };
+                    }
                 }
             }
         }

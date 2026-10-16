@@ -13,6 +13,7 @@ import {
     ChevronRight
 } from 'lucide-react';
 import { projectService } from '../../services/projectService';
+import { userService } from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -23,12 +24,63 @@ import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import type { Task } from '../../types/task';
 
 const getFullUrl = (path: string | null | undefined): string | undefined => {
-    if (!path) return undefined;
+    if (!path || path === 'null') return undefined;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
     const baseUrl = import.meta.env.VITE_API_URL
         ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
         : 'http://127.0.0.1:8000';
     return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+};
+
+const resolveCreatorName = (
+    t: any,
+    userMap: Record<number, string>,
+    currentUser?: any
+): string => {
+    // 1. Check if the task payload directly includes a creator name
+    if (t.created_by_name && typeof t.created_by_name === 'string') return t.created_by_name;
+    if (t.creator_name && typeof t.creator_name === 'string') return t.creator_name;
+    if (t.creator_user_name && typeof t.creator_user_name === 'string') return t.creator_user_name;
+
+    // 2. Check nested creator objects (e.g. t.created_by, t.creator, t.created_by_user)
+    const creatorObj = (typeof t.created_by === 'object' && t.created_by !== null) ? t.created_by
+        : ((typeof t.creator === 'object' && t.creator !== null) ? t.creator
+        : ((typeof t.created_by_user === 'object' && t.created_by_user !== null) ? t.created_by_user : null));
+
+    if (creatorObj) {
+        const objName = creatorObj.full_name || creatorObj.name || creatorObj.username;
+        if (objName) return objName;
+    }
+
+    // 3. Extract numeric creator ID
+    const rawId = t.created_by_user_id ?? (typeof t.created_by === 'number' ? t.created_by : (creatorObj?.id || creatorObj?.user_id || t.creator_id));
+    const creatorId = rawId !== undefined && rawId !== null ? Number(rawId) : undefined;
+
+    if (creatorId && !isNaN(creatorId)) {
+        if (userMap[creatorId]) {
+            return userMap[creatorId];
+        }
+        if (currentUser) {
+            const currentUserId = Number(currentUser.id || currentUser.user_id || currentUser.user?.id);
+            if (currentUserId === creatorId) {
+                return currentUser.full_name || currentUser.name || currentUser.username || `User #${creatorId}`;
+            }
+        }
+        if (Array.isArray(t.assigned_users)) {
+            const foundInAssigned = t.assigned_users.find((u: any) => Number(u.id || u.user_id) === creatorId);
+            if (foundInAssigned) {
+                const name = foundInAssigned.full_name || foundInAssigned.name || foundInAssigned.username;
+                if (name) return name;
+            }
+        }
+        return `User #${creatorId}`;
+    }
+
+    if (t.assigned_by_name && typeof t.assigned_by_name === 'string' && t.assigned_by_name !== 'Site Engineer') {
+        return t.assigned_by_name;
+    }
+
+    return 'Site Engineer';
 };
 
 const MyTasksPage: React.FC = () => {
@@ -50,8 +102,13 @@ const MyTasksPage: React.FC = () => {
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [playingTaskId, setPlayingTaskId] = useState<string | null>(null);
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
+    const userMapRef = React.useRef<Record<number, string>>({});
 
     const handlePlayAudio = (task: Task) => {
+        if (!task.audioUrl) {
+            return;
+        }
+
         if (playingTaskId === task.id) {
             if (audioRef.current) {
                 audioRef.current.pause();
@@ -72,53 +129,24 @@ const MyTasksPage: React.FC = () => {
             window.speechSynthesis.cancel();
         }
 
-        if (task.audioUrl) {
-            const audio = new Audio(task.audioUrl);
-            audioRef.current = audio;
-            setPlayingTaskId(task.id);
-            
-            audio.onended = () => {
-                setPlayingTaskId(null);
-                audioRef.current = null;
-            };
-            audio.onerror = () => {
-                setPlayingTaskId(null);
-                audioRef.current = null;
-                toast.error("Failed to play audio instruction");
-            };
-            audio.play().catch(err => {
-                console.error("Audio playback error:", err);
-                setPlayingTaskId(null);
-                audioRef.current = null;
-            });
-        } else if (task.description && task.description !== 'NA') {
-            setPlayingTaskId(task.id);
-            
-            if (!window.speechSynthesis) {
-                setPlayingTaskId(null);
-                return;
-            }
-
-            const utterance = new SpeechSynthesisUtterance(task.description);
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-
-            const voices = window.speechSynthesis.getVoices();
-            const preferredVoice = voices.find(v =>
-                v.lang.includes('en') && (v.name.includes('Google') || v.name.includes('Female'))
-            );
-            if (preferredVoice) utterance.voice = preferredVoice;
-
-            utterance.onend = () => {
-                setPlayingTaskId(null);
-            };
-            utterance.onerror = () => {
-                setPlayingTaskId(null);
-            };
-
-            window.speechSynthesis.speak(utterance);
-        }
+        const audio = new Audio(task.audioUrl);
+        audioRef.current = audio;
+        setPlayingTaskId(task.id);
+        
+        audio.onended = () => {
+            setPlayingTaskId(null);
+            audioRef.current = null;
+        };
+        audio.onerror = () => {
+            setPlayingTaskId(null);
+            audioRef.current = null;
+            toast.error("Failed to play audio instruction");
+        };
+        audio.play().catch(err => {
+            console.error("Audio playback error:", err);
+            setPlayingTaskId(null);
+            audioRef.current = null;
+        });
     };
 
     useEffect(() => {
@@ -157,6 +185,64 @@ const MyTasksPage: React.FC = () => {
             const total = response.meta?.total || (Array.isArray(response) ? response.length : (response.total || response.items?.length || 0));
             setTotalTasks(total);
 
+            // Extract all unique creator IDs and project IDs from the tasks
+            const creatorIds: number[] = Array.from(new Set<number>(
+                taskItems.map((t: any) => {
+                    const rawId = t.created_by_user_id ?? (typeof t.created_by === 'number' ? t.created_by : (t.created_by?.id || t.created_by?.user_id || t.creator_id));
+                    return rawId !== undefined && rawId !== null ? Number(rawId) : null;
+                }).filter((id: any): id is number => typeof id === 'number' && !isNaN(id))
+            ));
+
+            const projectIds: number[] = Array.from(new Set<number>(
+                taskItems.map((t: any) => Number(t.project_id || projectId)).filter((id: any): id is number => typeof id === 'number' && id > 0)
+            ));
+
+            const currentMap = { ...userMapRef.current };
+            const missingCreatorIds = creatorIds.filter((id: number) => !currentMap[id]);
+
+            if (missingCreatorIds.length > 0 || Object.keys(currentMap).length === 0) {
+                try {
+                    const [usersRes, ...membersResults] = await Promise.all([
+                        userService.getAllUsers(100, 0).catch(() => []),
+                        ...projectIds.map((pid: number) => projectService.getProjectMembers(pid).catch(() => []))
+                    ]);
+
+                    const usersList = Array.isArray(usersRes) ? usersRes : (usersRes.items || usersRes.data || []);
+                    usersList.forEach((u: any) => {
+                        const uid = Number(u.id || u.user_id);
+                        const name = u.full_name || u.name || u.username;
+                        if (uid && name) currentMap[uid] = name;
+                    });
+
+                    membersResults.forEach((mRes: any) => {
+                        const mList = Array.isArray(mRes) ? mRes : (mRes.items || mRes.data || mRes.members || []);
+                        mList.forEach((m: any) => {
+                            const mid = Number(m.user_id || m.id);
+                            const name = m.full_name || m.name || m.username;
+                            if (mid && name) currentMap[mid] = name;
+                        });
+                    });
+
+                    // For any creatorId still missing, query getUserById directly
+                    const stillMissing: number[] = creatorIds.filter((id: number) => !currentMap[id]);
+                    if (stillMissing.length > 0) {
+                        const singleUserResults = await Promise.all(
+                            stillMissing.map((id: number) => userService.getUserById(id).catch(() => null))
+                        );
+                        singleUserResults.forEach((su: any, idx: number) => {
+                            if (su) {
+                                const name = su.full_name || su.name || su.username;
+                                if (name) currentMap[stillMissing[idx]] = name;
+                            }
+                        });
+                    }
+
+                    userMapRef.current = currentMap;
+                } catch (err) {
+                    console.warn("Failed to load user names for task creators:", err);
+                }
+            }
+
             const mappedTasks: Task[] = taskItems.map((t: any) => {
                 // Determine assignee from assigned_users array
                 const assignee = t.assigned_users && t.assigned_users.length > 0
@@ -170,12 +256,14 @@ const MyTasksPage: React.FC = () => {
                 const audioUrl = getFullUrl(t.audio_instruction_url || (t as any).audio_url || (t as any).audio_data);
                 const imageUrl = getFullUrl((t as any).instruction_image_url || (t as any).image_url);
 
+                const creatorName = resolveCreatorName(t, currentMap, user);
+
                 return {
                     id: t.id,
                     name: t.title || 'Untitled Task',
                     project: t.project_name || t.project?.name || t.project?.title || currentProjectName,
                     project_id: t.project_id || projectId,
-                    assignedFrom: (t.assigned_by_name || 'Site Engineer') as any,
+                    assignedFrom: creatorName,
                     assignedTo: assignee,
                     description: t.description === 'ffghj' ? 'NA' : (t.description || 'NA'),
                     priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
@@ -236,7 +324,7 @@ const handleTaskClick = (task: Task) => {
     navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || activeProjectId || ''}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
-const handleUpdateStatus = async (taskId: string, newStatus: string, taskProjectId?: number) => {
+const handleUpdateStatus = async (taskId: string, newStatus: string, taskProjectId?: number | string) => {
     try {
         // Map frontend display status to backend API status
         const apiStatusMap: Record<string, string> = {
@@ -249,7 +337,7 @@ const handleUpdateStatus = async (taskId: string, newStatus: string, taskProject
         const apiStatus = apiStatusMap[newStatus] || newStatus;
 
         // Resolve project ID for the API call
-        const pId = taskProjectId || activeProjectId || 0;
+        const pId = Number(taskProjectId) || activeProjectId || 0;
 
         await projectService.updateTaskStatus(pId, Number(taskId), apiStatus);
         localStorage.setItem(`task_status_${taskId}`, newStatus);
@@ -387,7 +475,7 @@ return (
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50/50">
-                                        {['PROJECT', 'TITLE', 'DESCRIPTION', 'PRIORITY', 'STATUS', 'START / END DATE', 'ACTUAL START / END', 'CREATED BY', 'ASSIGNED USERS', 'COMPLETION %', 'DELAY DAYS', 'AUDIO INSTRUCTION', 'INSTRUCTION IMAGE', 'ACTION'].map(header => (
+                                        {['PROJECT', 'TITLE', 'DESCRIPTION', 'PRIORITY', 'STATUS', 'START / END DATE', 'CREATED BY', 'ASSIGNED USERS', 'COMPLETION %', 'DELAY DAYS', 'AUDIO INSTRUCTION', 'INSTRUCTION IMAGE', 'ACTION'].map(header => (
                                             <th key={header} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 whitespace-nowrap">
                                                 {header}
                                             </th>
@@ -467,14 +555,6 @@ return (
                                                 </div>
                                             </td>
 
-                                            {/* ACTUAL START / END */}
-                                            <td className="px-6 py-5 whitespace-nowrap">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="text-[10px] font-bold text-slate-400">Start: <span className="font-black text-rose-400">NA</span></span>
-                                                    <span className="text-[10px] font-bold text-slate-400">End: <span className="font-black text-rose-400">NA</span></span>
-                                                </div>
-                                            </td>
-
                                             {/* CREATED BY */}
                                             <td className="px-6 py-5 whitespace-nowrap">
                                                 <span className="text-xs font-bold text-slate-600">{task.assignedFrom || 'Unknown'}</span>
@@ -510,7 +590,7 @@ return (
 
                                             {/* AUDIO INSTRUCTION */}
                                             <td className="px-6 py-5 whitespace-nowrap">
-                                                {!task.audioUrl && (!task.description || task.description === 'NA') ? (
+                                                {!task.audioUrl ? (
                                                     <span className="text-xs font-bold text-slate-400 font-inter">-</span>
                                                 ) : (
                                                     <div className={`flex items-center gap-2 rounded-full px-3 py-2 w-fit relative transition-all ${playingTaskId === task.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-50/50' : 'bg-slate-100'}`}>
@@ -586,27 +666,26 @@ return (
                                                 {task.priority}
                                             </span>
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        if (!task.audioUrl && (!task.description || task.description === 'NA')) {
-                                                            toast.error("No voice message available for this task");
-                                                            return;
-                                                        }
-                                                        handlePlayAudio(task); 
-                                                    }}
-                                                    className={`p-2 rounded-lg transition-all border ${
-                                                        playingTaskId === task.id
-                                                            ? 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm'
-                                                            : 'bg-slate-50 group-hover:bg-indigo-50 text-slate-300 group-hover:text-indigo-500 border-transparent'
-                                                    }`}
-                                                >
-                                                    {playingTaskId === task.id ? (
-                                                        <Pause className="w-3 h-3 fill-current animate-pulse" />
-                                                    ) : (
-                                                        <Play className="w-3 h-3 fill-current" />
-                                                    )}
-                                                </button>
+                                                {task.audioUrl && (
+                                                    <button
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            handlePlayAudio(task); 
+                                                        }}
+                                                        className={`p-2 rounded-lg transition-all border ${
+                                                            playingTaskId === task.id
+                                                                ? 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm'
+                                                                : 'bg-slate-50 group-hover:bg-indigo-50 text-slate-300 group-hover:text-indigo-500 border-transparent'
+                                                        }`}
+                                                        title="Play Audio Instruction"
+                                                    >
+                                                        {playingTaskId === task.id ? (
+                                                            <Pause className="w-3 h-3 fill-current animate-pulse" />
+                                                        ) : (
+                                                            <Play className="w-3 h-3 fill-current" />
+                                                        )}
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
                                                     className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"

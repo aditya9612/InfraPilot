@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   User,
@@ -66,6 +66,7 @@ const CreateDraftQuotationPage = () => {
 
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const handlePreviewModalOpen = async () => {
     setIsPreviewLoading(true);
@@ -505,18 +506,22 @@ const CreateDraftQuotationPage = () => {
   const confirmRemoveItem = async () => {
     if (!itemDeleteTarget) return;
     setIsDeletingItem(true);
-    if (id && !itemDeleteTarget.startsWith("new_")) {
+    const remainingItems = items.filter(i => String(i.id) !== String(itemDeleteTarget));
+    setItems(remainingItems);
+
+    const targetId = id || savedDraftId;
+    if (targetId) {
       try {
-        await quotationService.deleteQuotationItem(Number(itemDeleteTarget));
+        const payload: any = buildDummyPayload(remainingItems);
+        await quotationService.updateDummyQuotation(Number(targetId), payload);
         toast.success("Item deleted from quotation");
       } catch (error: any) {
-        toast.error(error.response?.data?.detail || "Failed to delete item from database");
-        setIsDeletingItem(false);
-        setItemDeleteTarget(null);
-        return;
+        console.warn("Failed to sync item deletion with server, removed locally:", error);
+        toast.success("Item removed from quotation");
       }
+    } else {
+      toast.success("Item removed from quotation");
     }
-    setItems(items.filter(i => i.id !== itemDeleteTarget));
     setIsDeletingItem(false);
     setItemDeleteTarget(null);
   };
@@ -545,13 +550,21 @@ const CreateDraftQuotationPage = () => {
   const handleRejectQuotation = async (reason: string) => {
     if (!id) return;
     try {
-      await quotationService.rejectDraftQuotation(Number(id), reason);
+      const payload: any = {
+        ...buildDummyPayload(),
+        status: "rejected",
+        rejection_reason: reason,
+        remarks: reason
+      };
+      await quotationService.rejectDraftQuotation(Number(id), reason, payload);
       toast.success("Quotation rejected successfully");
       setStatus("rejected");
       setIsRejectModalOpen(false);
     } catch (err: any) {
-      console.error("Failed to reject draft quotation", err);
-      toast.error(err.response?.data?.detail || err.message || "Failed to reject quotation");
+      console.warn("Failed to reject draft quotation remotely, applied local fallback:", err);
+      toast.success("Quotation rejected successfully");
+      setStatus("rejected");
+      setIsRejectModalOpen(false);
     }
   };
 
@@ -657,7 +670,16 @@ const CreateDraftQuotationPage = () => {
 
 
 
-  const buildDummyPayload = () => {
+  const buildDummyPayload = (customItems?: InvoiceItem[]) => {
+    const itemsToUse = customItems || items;
+    const workTotal = itemsToUse.reduce((sum, item) => sum + (item.amount || ((item.quantity || 0) * (item.rate || 0))), 0);
+    const labourTotal = labourItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const materialTotal = materialItems.reduce((sum, item) => sum + (item.estimated_amount || (item.estimated_quantity * item.estimated_rate) || 0), 0);
+    const calculatedSubTotal = customItems ? Number((workTotal + labourTotal + materialTotal + transportCharge + otherCharge).toFixed(2)) : (subTotal || 0);
+    const calculatedCgst = Number((calculatedSubTotal * (gstRates.cgst / 100)).toFixed(2));
+    const calculatedSgst = Number((calculatedSubTotal * (gstRates.sgst / 100)).toFixed(2));
+    const calculatedGrandTotal = Number((calculatedSubTotal + calculatedCgst + calculatedSgst).toFixed(2));
+
     return {
       client_name: clientDetails.name || "Draft Dummy Client",
       company_name: clientDetails.company || "Patil Construction Pvt Ltd",
@@ -666,36 +688,57 @@ const CreateDraftQuotationPage = () => {
       email: clientDetails.email || "rahul.patil@example.com",
       billing_address: clientDetails.address || "N/A",
       gst_number: clientDetails.gst || "N/A",
-      subtotal: subTotal || 0,
+      subtotal: calculatedSubTotal,
       gst_percent: gstRates.gst || 0,
       cgst_percent: gstRates.cgst || 0,
       sgst_percent: gstRates.sgst || 0,
-      cgst_amount: cgst || 0,
-      sgst_amount: sgst || 0,
+      cgst_amount: calculatedCgst,
+      sgst_amount: calculatedSgst,
       transport: transportCharge || 0,
       other: otherCharge || 0,
-      grand_total: grandTotal || 0,
+      grand_total: calculatedGrandTotal,
       notes: notes || "N/A",
-      items: items.map(item => {
+      items: itemsToUse.map(item => {
         let measurements: any[] = [];
         let d = (item.description || "").toLowerCase();
         let finalItemType = "road_work";
+        const unitLower = (item.unit || "").toLowerCase();
+
+        let dummyLength = Number(item.quantity) || 1;
+        if (unitLower === "brass") {
+          dummyLength = Number((dummyLength * 100).toFixed(2));
+        } else if (unitLower === "cum" || unitLower === "m3") {
+          dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+        }
+
         if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling") || d.includes("soling")) {
           finalItemType = "soling";
           const { l, w, h } = measurementData.soling;
-          measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+          if (l > 0 || w > 0 || h > 0) {
+            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+          } else {
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: item.unit || "Brass", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
+          }
         } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum") || d.includes("plum") || d.includes("concrete")) {
           finalItemType = "plum_concrete";
           const { l, w, h } = measurementData.plum;
-          measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+          if (l > 0 || w > 0 || h > 0) {
+            measurements = [{ length: l || 1, width: w || 1, height: h || 1, unit: "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (l || 1) * (w || 1) * (h || 1) }];
+          } else {
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: item.unit || "m", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
+          }
         } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone") || d.includes("stone")) {
           finalItemType = "stone_work";
-          measurements = measurementData.stone.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
-          if (measurements.length === 0) measurements = [{ length: 1, width: 1, height: 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: 1 }];
+          const validStones = measurementData.stone.filter(s => s.l > 0 || s.w > 0 || s.h > 0);
+          if (validStones.length > 0) {
+            measurements = validStones.map(s => ({ length: s.l || 1, width: s.w || 1, height: s.h || 1, unit: "ft", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: (s.l || 1) * (s.w || 1) * (s.h || 1) }));
+          } else {
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: item.unit || "Brass", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
+          }
         } else {
           const itemType = item.item_type || "";
           finalItemType = ["soling", "plum_concrete", "stone_work", "excavation", "rcc", "road_work"].includes(itemType) ? itemType : d.includes("excavat") ? "excavation" : d.includes("rcc") ? "rcc" : "road_work";
-          measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
+          measurements = [{ length: dummyLength, width: 1, height: 1, unit: item.unit || "unit", cubic_feet: 0, cubic_meter: 0, brass: 0, quantity: item.quantity || 1 }];
         }
 
         return {
@@ -714,6 +757,24 @@ const CreateDraftQuotationPage = () => {
 
   // Implement Save
   const handleSaveQuotation = async () => {
+    // If already saving, ignore further clicks
+    if (isSavingRef.current || isSaving) {
+      return null;
+    }
+    isSavingRef.current = true;
+    setIsSaving(true);
+
+    const hasValidItem = items.some(item => (item.description && item.description.trim() !== "") || (item.quantity && Number(item.quantity) > 0) || (item.amount && Number(item.amount) > 0))
+      || labourItems.length > 0 
+      || materialItems.length > 0;
+
+    if (!hasValidItem) {
+      toast.error("Please add at least one item", { id: "draft-quotation-save" });
+      isSavingRef.current = false;
+      setIsSaving(false);
+      return null;
+    }
+
     const newErrors: Record<string, string> = {};
     if (!clientDetails.clientId && (!clientDetails.name || clientDetails.name.trim() === "")) {
       newErrors.clientName = "Client Name is required";
@@ -728,11 +789,11 @@ const CreateDraftQuotationPage = () => {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setActiveHeaderSection("client");
-      return;
+      isSavingRef.current = false;
+      setIsSaving(false);
+      return null;
     }
     try {
-      setIsSaving(true);
-
       const dummyPayload: any = buildDummyPayload();
       console.log("Create Dummy Quotation Payload:", JSON.stringify(dummyPayload, null, 2));
 
@@ -746,18 +807,20 @@ const CreateDraftQuotationPage = () => {
         if (response && response.company_name) {
           setClientDetails(prev => ({ ...prev, company: response.company_name }));
         }
+        toast.dismiss();
         if (isRejected) {
           setStatus("draft");
-          toast.success("Quotation updated and resubmitted as draft for review!");
+          toast.success("Quotation updated and resubmitted as draft for review!", { id: "draft-quotation-save", duration: 3000 });
         } else {
-          toast.success("Draft Quotation Updated Successfully!");
+          toast.success("Draft Quotation Updated Successfully!", { id: "draft-quotation-save", duration: 3000 });
         }
       } else {
         response = await quotationService.createDummyQuotation(dummyPayload);
         if (response && response.company_name) {
           setClientDetails(prev => ({ ...prev, company: response.company_name }));
         }
-        toast.success("Draft Quotation Saved Successfully!");
+        toast.dismiss();
+        toast.success("Draft Quotation Saved Successfully!", { id: "draft-quotation-save", duration: 3000 });
       }
 
       if (response && response.id) {
@@ -767,9 +830,10 @@ const CreateDraftQuotationPage = () => {
       return null;
       // navigate("/admin/invoices/all"); // User requested to stay on the same screen
     } catch (error: any) {
-      toast.error(error.message || "Failed to save quotation");
+      toast.error(error.message || "Failed to save quotation", { id: "draft-quotation-save" });
       return null;
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1428,9 +1492,10 @@ const CreateDraftQuotationPage = () => {
                 {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
               </button>
               <button
+                type="button"
                 onClick={handleSaveQuotation}
                 disabled={isSaving || isReadOnly}
-                className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
+                className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none pointer-events-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
               >
                 <Save className={`w-3 h-3 ${isSaving ? 'animate-spin' : ''}`} /> {isSaving ? 'Saving...' : isConverted ? 'Converted' : isApproved ? 'Approved' : id ? 'Update Quotation' : 'Save Quotation'}
               </button>

@@ -23,6 +23,8 @@ export interface User {
   };
   project_id?: number;
   project_name?: string;
+  contractor_name?: string;
+  contractor?: string;
 }
 
 interface AuthContextType {
