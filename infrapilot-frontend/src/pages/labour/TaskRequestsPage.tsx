@@ -7,12 +7,11 @@ import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import { projectService } from '../../services/projectService';
 import { taskRequestService } from '../../services/taskRequestService';
 import type { TaskRequest } from '../../services/taskRequestService';
+import { userService } from '../../services/userService';
 import Modal from '../../components/common/Modal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import Pagination from '../../components/common/Pagination';
 import {
-    Send,
-    RotateCcw,
     ClipboardList,
     ChevronDown,
     Clock,
@@ -26,12 +25,19 @@ import {
     Eye,
     Trash2,
     ImagePlus,
-    X
+    X,
+    Plus
 } from 'lucide-react';
 
 interface Project {
     id: number;
     name: string;
+}
+
+interface UserOption {
+    id: number;
+    name: string;
+    role?: string;
 }
 
 const TaskRequestsPage: React.FC = () => {
@@ -98,6 +104,8 @@ const TaskRequestsPage: React.FC = () => {
     const [attachmentFileName, setAttachmentFileName] = useState('');
     const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
     const [assignedTo, setAssignedTo] = useState(0);
+    const [usersList, setUsersList] = useState<UserOption[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
@@ -106,6 +114,7 @@ const TaskRequestsPage: React.FC = () => {
     const [requests, setRequests] = useState<TaskRequest[]>([]);
     const [isLoadingRequests, setIsLoadingRequests] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
     const [viewingRequest, setViewingRequest] = useState<TaskRequest | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -124,6 +133,17 @@ const TaskRequestsPage: React.FC = () => {
             return Number(r.project_id) === Number(currentPid);
         });
     }, [requests, currentPid]);
+
+    const stats = useMemo(() => {
+        const total = filteredRequests.length;
+        const pending = filteredRequests.filter(r => (r.status || 'Pending').toLowerCase() === 'pending').length;
+        const rejected = filteredRequests.filter(r => (r.status || '').toLowerCase() === 'rejected').length;
+        const approval = filteredRequests.filter(r => {
+            const s = (r.status || '').toLowerCase();
+            return s === 'approved' || s.includes('approv');
+        }).length;
+        return { total, pending, rejected, approval };
+    }, [filteredRequests]);
 
     const paginatedRequests = useMemo(() => {
         const start = currentPage * pageSize;
@@ -217,6 +237,29 @@ const TaskRequestsPage: React.FC = () => {
         }
     }, [activeProjectId]);
 
+    useEffect(() => {
+        const fetchUsers = async () => {
+            setLoadingUsers(true);
+            try {
+                const res = await userService.getAllUsers(100, 0);
+                const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                const formatted: UserOption[] = list
+                    .map((u: any) => ({
+                        id: Number(u.id || u.user_id),
+                        name: u.full_name || u.name || u.username || `User ${u.id || u.user_id}`,
+                        role: u.role || ''
+                    }))
+                    .filter((u: UserOption) => u.id && !isNaN(u.id));
+                setUsersList(formatted);
+            } catch (err) {
+                console.error('Failed to load users for task assignment:', err);
+            } finally {
+                setLoadingUsers(false);
+            }
+        };
+        fetchUsers();
+    }, []);
+
     const formatApiError = (err: any, fallback: string): string => {
         if (!err) return fallback;
         if (typeof err === 'string') return err;
@@ -250,8 +293,8 @@ const TaskRequestsPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !description || !project) {
-            toast.error("Please provide all required fields");
+        if (!title.trim() || !description.trim() || !project || !priority) {
+            toast.error("Please fill in all mandatory fields (Task Title, Project Name, Priority, Description)");
             return;
         }
 
@@ -259,12 +302,12 @@ const TaskRequestsPage: React.FC = () => {
         try {
             const formData = new FormData();
             formData.append("project_id", String(project));
-            formData.append("title", title);
+            formData.append("title", title.trim());
             formData.append("category", category || "New Task");
             formData.append("priority", priority || "Medium");
 
-            if (description) {
-                formData.append("description", description);
+            if (description.trim()) {
+                formData.append("description", description.trim());
             }
 
             if (assignedTo && Number(assignedTo) > 0) {
@@ -293,12 +336,26 @@ const TaskRequestsPage: React.FC = () => {
                     localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
                     if (attachmentFileName) localStorage.setItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
                 }
-                toast.success("Task request submitted successfully!");
+                const newReq: TaskRequest = {
+                    id: createdId || Date.now(),
+                    title: title.trim(),
+                    description: description.trim(),
+                    category: category || "New Task",
+                    priority: priority || "Medium",
+                    status: "Pending",
+                    project_id: Number(project),
+                    assigned_to: assignedTo ? Number(assignedTo) : undefined,
+                    attachment_url: attachmentUrl || undefined,
+                    created_at: new Date().toISOString()
+                };
+                setRequests(prev => [newReq, ...prev.filter(r => r.id !== newReq.id)]);
+                toast.success("Task request saved successfully!");
             }
+            setIsFormModalOpen(false);
             handleReset();
             fetchRequests(); // Refresh the list
         } catch (err: any) {
-            const msg = formatApiError(err, editingRequest ? "Failed to update request" : "Failed to submit task request");
+            const msg = formatApiError(err, editingRequest ? "Failed to update request" : "Failed to save task request");
             toast.error(msg);
             console.error("Task request submit error:", err?.response?.data ?? err);
         } finally {
@@ -310,8 +367,8 @@ const TaskRequestsPage: React.FC = () => {
         setEditingRequest(req);
         setTitle(req.title);
         setDescription(req.description);
-        setCategory(req.category);
-        setPriority(req.priority as any);
+        setCategory(req.category || 'New Task');
+        setPriority((req.priority as any) || 'Medium');
         if (req.project_id) {
             setProject(String(req.project_id));
             setProjects(prev => {
@@ -331,8 +388,7 @@ const TaskRequestsPage: React.FC = () => {
         setAttachmentFileName('');
         setAssignedTo(req.assigned_to || 0);
 
-        // Scroll to form
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setIsFormModalOpen(true);
     };
 
     const handleDelete = (id: number) => {
@@ -377,49 +433,120 @@ const TaskRequestsPage: React.FC = () => {
             <PageTransition className="p-4 md:p-8 lg:p-12 font-inter pb-32">
                 <div className="max-w-[1600px] mx-auto space-y-10">
 
-                    {/* Header */}
-                    <div className="space-y-1">
-                        <h1 className="text-4xl font-black text-slate-800 tracking-tight">Request a Task</h1>
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                            SUBMIT NEW TASK REQUIREMENTS TO YOUR ENGINEER
-                        </p>
+                    {/* Header with side action button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">Request a Task</h1>
+                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                SUBMIT NEW TASK REQUIREMENTS TO YOUR ENGINEER
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleReset();
+                                setIsFormModalOpen(true);
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer self-start sm:self-auto shrink-0"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Request Task</span>
+                        </button>
                     </div>
 
-                    {/* Form Card */}
-                    <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-
-                        {/* Form Header */}
-                        <div className="p-8 border-b border-slate-50 flex items-center gap-5">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
-                                <ClipboardList className="w-7 h-7" />
+                    {/* Dashboard Cards: Total Tasks, Pending, Rejected, Approval */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Total Tasks */}
+                        <div className="bg-white p-7 rounded-[32px] border border-indigo-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Tasks</p>
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                    <ClipboardList className="w-5 h-5" />
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-800">
-                                    {editingRequest ? 'Edit Task Request' : 'Task Information'}
-                                </h2>
-                                <p className="text-sm text-slate-400 font-medium">
-                                    {editingRequest ? `Updating request #${editingRequest.id}` : 'Provide the details of the task you need'}
-                                </p>
-                            </div>
+                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.total}</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">All submitted requisitions</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                        {/* Pending */}
+                        <div className="bg-white p-7 rounded-[32px] border border-amber-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Pending</p>
+                                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                                    <Clock className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.pending}</h3>
+                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Awaiting engineer review</p>
+                        </div>
 
-                            {/* Title and Category Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="md:col-span-2 space-y-2">
+                        {/* Rejected */}
+                        <div className="bg-white p-7 rounded-[32px] border border-rose-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Rejected</p>
+                                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                                    <XCircle className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.rejected}</h3>
+                            <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">Declined requisitions</p>
+                        </div>
+
+                        {/* Approval */}
+                        <div className="bg-white p-7 rounded-[32px] border border-emerald-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Approval</p>
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                    <CheckCircle2 className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.approval}</h3>
+                            <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Approved & confirmed</p>
+                        </div>
+                    </div>
+
+                    {/* Request Task Form Modal */}
+                    <Modal
+                        isOpen={isFormModalOpen}
+                        onClose={() => {
+                            setIsFormModalOpen(false);
+                            handleReset();
+                        }}
+                        title={editingRequest ? "Edit Task Request" : "Request a Task"}
+                        maxWidth="max-w-2xl"
+                    >
+                        <form onSubmit={handleSubmit} className="space-y-6 p-1">
+                            {/* Form Header Info Banner */}
+                            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-4">
+                                <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                    <ClipboardList className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-slate-800">
+                                        {editingRequest ? `Updating Request #${editingRequest.id}` : 'Task Information'}
+                                    </h4>
+                                    <p className="text-xs text-slate-500">
+                                        Provide the details of the task you need. Mandatory fields (<span className="text-rose-500 font-bold">*</span>) are required.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Task Title & Category */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="sm:col-span-2 space-y-1.5">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Task Title <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"
+                                        required
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
                                         placeholder="What needs to be done?"
-                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all placeholder:text-slate-300"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
                                     />
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Category
                                     </label>
@@ -427,30 +554,30 @@ const TaskRequestsPage: React.FC = () => {
                                         <select
                                             value={category}
                                             onChange={(e) => setCategory(e.target.value)}
-                                            className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 appearance-none cursor-pointer focus:outline-none focus:border-indigo-400 transition-all"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 appearance-none cursor-pointer focus:outline-none focus:border-indigo-500 transition-all"
                                         >
-                                            <option value="">Select Category (Optional)</option>
                                             <option>New Task</option>
                                             <option>Support</option>
                                             <option>Repair</option>
                                             <option>Correction</option>
                                         </select>
-                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Project Selection — dynamically populated from API */}
-                            <div className="space-y-2">
+                            {/* Project Name (Mandatory) */}
+                            <div className="space-y-1.5">
                                 <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                     Project Name <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <select
+                                        required
                                         value={project}
                                         onChange={(e) => setProject(e.target.value)}
                                         disabled={loadingProjects}
-                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 appearance-none cursor-pointer focus:outline-none focus:border-indigo-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 appearance-none cursor-pointer focus:outline-none focus:border-indigo-500 transition-all disabled:opacity-60"
                                     >
                                         {loadingProjects ? (
                                             <option value="">Loading projects...</option>
@@ -462,32 +589,59 @@ const TaskRequestsPage: React.FC = () => {
                                             ))
                                         )}
                                     </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            {/* Priority Selection (Mandatory) */}
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
+                                    Priority <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                                    {(['Low', 'Medium', 'High'] as const).map(lvl => (
+                                        <button
+                                            key={lvl}
+                                            type="button"
+                                            onClick={() => setPriority(lvl)}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                priority === lvl
+                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                    : 'text-slate-600 hover:bg-white'
+                                            }`}
+                                        >
+                                            <div className={`w-2 h-2 rounded-full ${
+                                                lvl === 'Low' ? 'bg-emerald-400' :
+                                                lvl === 'Medium' ? 'bg-amber-400' : 'bg-rose-400'
+                                            } ${priority === lvl ? 'bg-white' : ''}`} />
+                                            {lvl}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
                             {/* Attachment and Assigned To Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                <div className="space-y-2 flex flex-col">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                <div className="space-y-1.5 flex flex-col">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Photo Attachment
                                     </label>
-                                    <div className="relative h-[104px]">
+                                    <div className="relative h-[96px]">
                                         {attachmentPreview ? (
                                             <div className="relative w-full h-full rounded-xl border border-indigo-300 overflow-hidden bg-slate-50">
-                                                <img src={attachmentPreview} alt="attachment preview" className="w-full h-full object-cover" />
+                                                <img src={attachmentPreview} alt="preview" className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => { setAttachmentPreview(null); setAttachmentUrl(''); setAttachmentFile(null); setAttachmentFileName(''); }}
-                                                    className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 transition-all"
+                                                    className="absolute top-1.5 right-1.5 w-6 h-6 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 cursor-pointer"
                                                 >
-                                                    <X className="w-4 h-4" />
+                                                    <X className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
                                         ) : (
-                                            <label className="flex flex-col items-center justify-center gap-1.5 w-full h-full bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group">
-                                                <ImagePlus className="w-6 h-6 text-slate-300 group-hover:text-indigo-400 transition-colors" />
-                                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500">Upload Photo</span>
+                                            <label className="flex flex-col items-center justify-center gap-1 w-full h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 transition-all group">
+                                                <ImagePlus className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-600">Upload Photo</span>
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -512,88 +666,78 @@ const TaskRequestsPage: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="space-y-2 flex flex-col">
+
+                                <div className="space-y-1.5 flex flex-col">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
-                                        Assigned To (ID)
+                                        Assigned To
                                     </label>
-                                    <div className="h-[104px] flex items-center px-5 bg-slate-50/50 border border-slate-200 rounded-xl focus-within:border-indigo-400 transition-all">
-                                        <input
-                                            type="number"
+                                    <div className="h-[96px] flex items-center px-4 bg-slate-50 border border-slate-200 rounded-xl focus-within:border-indigo-500 focus-within:bg-white transition-all relative">
+                                        <select
                                             value={assignedTo || ''}
                                             onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : 0)}
-                                            placeholder="Enter Engineer ID (Optional)"
-                                            className="w-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none placeholder:text-slate-400 placeholder:font-medium"
-                                        />
+                                            className="w-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer pr-8"
+                                        >
+                                            <option value="">{loadingUsers ? "Loading users..." : "Select Person / Engineer (Optional)"}</option>
+                                            {usersList.map((u) => (
+                                                <option key={u.id} value={u.id}>
+                                                    {u.name} {u.role ? `(${u.role})` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Priority Selection */}
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
-                                    Priority <span className="text-rose-500">*</span>
-                                </label>
-                                <div className="flex bg-slate-50/50 p-1 rounded-2xl border border-slate-200 gap-1">
-                                    {(['Low', 'Medium', 'High'] as const).map(lvl => (
-                                        <button
-                                            key={lvl}
-                                            type="button"
-                                            onClick={() => setPriority(lvl)}
-                                            className={`flex-1 flex items-center justify-center gap-3 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${priority === lvl
-                                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
-                                                : 'text-slate-500 hover:bg-white hover:text-slate-800'
-                                                }`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full ${lvl === 'Low' ? 'bg-emerald-400' :
-                                                lvl === 'Medium' ? 'bg-amber-400' : 'bg-rose-400'
-                                                } ${priority === lvl ? 'bg-white' : ''}`} />
-                                            {lvl}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Detailed Description */}
-                            <div className="space-y-2">
+                            {/* Detailed Description (Mandatory) */}
+                            <div className="space-y-1.5">
                                 <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                     Detailed Description <span className="text-rose-500">*</span>
                                 </label>
-                                <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:border-indigo-400 transition-all">
+                                <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all bg-white">
                                     <textarea
+                                        required
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
                                         placeholder="Provide more context about the task..."
-                                        className="w-full p-5 min-h-[160px] focus:outline-none text-slate-700 text-sm font-medium placeholder:text-slate-300 border-none bg-white"
+                                        rows={4}
+                                        className="w-full p-4 focus:outline-none text-slate-700 text-sm font-medium placeholder:text-slate-400 border-none bg-white resize-none"
                                     />
-                                    <div className="p-2 px-5 bg-slate-50/30 flex justify-end">
+                                    <div className="p-2 px-4 bg-slate-50/50 flex justify-end border-t border-slate-100">
                                         <span className="text-[10px] font-bold text-slate-400 tabular-nums">{description.length}/1000</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-50">
+                            <div className="flex gap-3 pt-3 border-t border-slate-100">
                                 <button
                                     type="button"
-                                    onClick={handleReset}
-                                    className="px-8 py-4 bg-white border border-slate-200 text-slate-500 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                                    onClick={() => {
+                                        setIsFormModalOpen(false);
+                                        handleReset();
+                                    }}
+                                    className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-200 transition-all cursor-pointer"
                                 >
-                                    {editingRequest ? 'CANCEL EDIT' : 'RESET FORM'}
-                                    {editingRequest ? <XCircle className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                                    Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className={`flex-1 py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70 ${editingRequest ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700'
-                                        }`}
+                                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                                 >
-                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingRequest ? <Edit3 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                                    {editingRequest ? 'UPDATE REQUEST' : 'SUBMIT REQUEST'}
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>Save</span>
+                                    )}
                                 </button>
                             </div>
-
                         </form>
-                    </div>
+                    </Modal>
 
                     {/* Active Requests List */}
                     <div className="space-y-6">
@@ -860,6 +1004,17 @@ const TaskRequestsPage: React.FC = () => {
                                     </span>
                                 </div>
                             </div>
+
+                            {viewingRequest.assigned_to ? (
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Assigned To
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-800">
+                                        {usersList.find(u => u.id === Number(viewingRequest.assigned_to))?.name || `User ID: ${viewingRequest.assigned_to}`}
+                                    </span>
+                                </div>
+                            ) : null}
 
                             {viewingRequest.attachment_url && (() => {
                                 const resolvedModalImg = formatImageUrl(viewingRequest.attachment_url, viewingRequest.id, viewingRequest.title);

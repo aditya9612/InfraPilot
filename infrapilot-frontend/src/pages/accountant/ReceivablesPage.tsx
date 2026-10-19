@@ -131,8 +131,20 @@ const statusBadge = (s: any) => {
 
 const QuotationsSection = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeTab, setActiveTab] = useState<"quotations" | "dummy_quotations">("quotations");
+    const initialTab = useMemo<"quotations" | "dummy_quotations">(() => {
+        const tabParam = searchParams.get("tab");
+        if (tabParam === "dummy_quotations" || tabParam === "draft" || tabParam === "draft_quotations") {
+            return "dummy_quotations";
+        }
+        const sessionTab = sessionStorage.getItem("admin_quotations_active_tab");
+        if (sessionTab === "dummy_quotations") {
+            return "dummy_quotations";
+        }
+        return "quotations";
+    }, [searchParams]);
+    const [activeTab, setActiveTab] = useState<"quotations" | "dummy_quotations">(initialTab);
     const [quotations, setQuotations] = useState<any[]>([]);
     const [dummyQuotations, setDummyQuotations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -168,6 +180,17 @@ const QuotationsSection = () => {
     useEffect(() => {
         fetchQuotations();
     }, []);
+
+    useEffect(() => {
+        const tabParam = searchParams.get("tab");
+        if (tabParam === "dummy_quotations" || tabParam === "draft" || tabParam === "draft_quotations") {
+            setActiveTab("dummy_quotations");
+            sessionStorage.setItem("admin_quotations_active_tab", "dummy_quotations");
+        } else if (tabParam === "quotations") {
+            setActiveTab("quotations");
+            sessionStorage.setItem("admin_quotations_active_tab", "quotations");
+        }
+    }, [searchParams]);
 
     const handleDelete = async () => {
         if (!deleteTarget) return;
@@ -420,7 +443,14 @@ const QuotationsSection = () => {
             {/* TABS */}
             <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit mb-6">
                 <button
-                    onClick={() => { setActiveTab("quotations"); setCurrentPage(1); setSearchQuery(""); setStatusFilter("all"); }}
+                    onClick={() => {
+                        setActiveTab("quotations");
+                        setCurrentPage(1);
+                        setSearchQuery("");
+                        setStatusFilter("all");
+                        sessionStorage.setItem("admin_quotations_active_tab", "quotations");
+                        setSearchParams({});
+                    }}
                     className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
                         ? "bg-primary text-white shadow-md shadow-primary/20"
                         : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -431,7 +461,14 @@ const QuotationsSection = () => {
                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{quotations.length}</span>
                 </button>
                 <button
-                    onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(1); setSearchQuery(""); setStatusFilter("all"); }}
+                    onClick={() => {
+                        setActiveTab("dummy_quotations");
+                        setCurrentPage(1);
+                        setSearchQuery("");
+                        setStatusFilter("all");
+                        sessionStorage.setItem("admin_quotations_active_tab", "dummy_quotations");
+                        setSearchParams({ tab: "dummy_quotations" });
+                    }}
                     className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
                         ? "bg-primary text-white shadow-md shadow-primary/20"
                         : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"

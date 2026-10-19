@@ -12,9 +12,9 @@ import {
     Calendar,
     Loader2,
     Search,
-    Download
+    Download,
+    X
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
@@ -42,12 +42,16 @@ const parseHours = (val: any): number => {
 };
 
 const PaymentsPage: React.FC = () => {
-    const { user } = useAuth();
-    const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
+    const { projectId: activeProjectId } = useLabourProjectId();
     const [filterPeriod, setFilterPeriod] = useState("Daily Analysis");
     const [searchTerm, setSearchTerm] = useState("");
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [tempStartDate, setTempStartDate] = useState("");
+    const [tempEndDate, setTempEndDate] = useState("");
+    const [appliedStartDate, setAppliedStartDate] = useState("");
+    const [appliedEndDate, setAppliedEndDate] = useState("");
+    const [isDateFilterApplied, setIsDateFilterApplied] = useState(false);
+    const dateFilterRef = useRef<HTMLDivElement>(null);
+
     const [recordsPerPage, setRecordsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const [showDateFilter, setShowDateFilter] = useState(false);
@@ -63,18 +67,72 @@ const PaymentsPage: React.FC = () => {
         advance_adjusted: 0
     });
 
-    const userName = user?.name || 'Gopal Yadav';
-
-    // Handle outside click for export dropdown
+    // Handle outside click for export and date filter dropdowns
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
                 setIsExportMenuOpen(false);
             }
+            if (dateFilterRef.current && !dateFilterRef.current.contains(event.target as Node)) {
+                setShowDateFilter(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const applyPreset = (preset: { days?: number; type?: string }) => {
+        const today = new Date();
+        const endStr = today.toISOString().split('T')[0];
+        let startStr = endStr;
+
+        if (preset.days !== undefined) {
+            if (preset.days === 0) {
+                startStr = endStr;
+            } else {
+                const past = new Date();
+                past.setDate(today.getDate() - preset.days);
+                startStr = past.toISOString().split('T')[0];
+            }
+        } else if (preset.type === 'month') {
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            startStr = firstDay.toISOString().split('T')[0];
+        } else if (preset.type === 'year') {
+            const firstDay = new Date(today.getFullYear(), 0, 1);
+            startStr = firstDay.toISOString().split('T')[0];
+        }
+
+        setTempStartDate(startStr);
+        setTempEndDate(endStr);
+    };
+
+    const handleApplyDateFilter = () => {
+        if (!tempStartDate || !tempEndDate) {
+            toast.error("Please select both start and end dates");
+            return;
+        }
+        if (tempStartDate > tempEndDate) {
+            toast.error("Start date cannot be after end date");
+            return;
+        }
+        setAppliedStartDate(tempStartDate);
+        setAppliedEndDate(tempEndDate);
+        setIsDateFilterApplied(true);
+        setShowDateFilter(false);
+        setCurrentPage(1);
+        toast.success(`Filter applied: ${tempStartDate} to ${tempEndDate}`);
+    };
+
+    const handleClearDateFilter = () => {
+        setTempStartDate("");
+        setTempEndDate("");
+        setAppliedStartDate("");
+        setAppliedEndDate("");
+        setIsDateFilterApplied(false);
+        setShowDateFilter(false);
+        setCurrentPage(1);
+        toast.success("Date filter cleared");
+    };
 
     const fetchPayments = useCallback(async () => {
         setIsLoading(true);
@@ -85,6 +143,12 @@ const PaymentsPage: React.FC = () => {
             };
             if (activeProjectId) {
                 params.project_id = activeProjectId;
+            }
+            if (isDateFilterApplied && appliedStartDate && appliedEndDate) {
+                params.start_date = appliedStartDate;
+                params.end_date = appliedEndDate;
+                params.from_date = appliedStartDate;
+                params.to_date = appliedEndDate;
             }
 
             const data = await dashboardService.getLabourPayments(params);
@@ -119,16 +183,17 @@ const PaymentsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [currentPage, recordsPerPage, activeProjectId]);
+    }, [currentPage, recordsPerPage, activeProjectId, isDateFilterApplied, appliedStartDate, appliedEndDate]);
 
     useEffect(() => {
         fetchPayments();
     }, [fetchPayments]);
 
     const displayData = useMemo(() => {
-        return payments.map(d => {
+        return payments.map((d: any, idx: number) => {
             const rawDate = d.date || d.payment_date || d.created_at || d.period || d.attendance_date || d.for_date || d.wage_date || d.shift_date || '';
             let periodDisplay = rawDate;
+            let isoDate = '';
             if (rawDate) {
                 const dateObj = new Date(rawDate);
                 if (!isNaN(dateObj.getTime())) {
@@ -136,6 +201,7 @@ const PaymentsPage: React.FC = () => {
                     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                     const year = dateObj.getFullYear();
                     periodDisplay = `${day}-${month}-${year}`;
+                    isoDate = dateObj.toISOString().split('T')[0];
                 }
             }
 
@@ -145,13 +211,15 @@ const PaymentsPage: React.FC = () => {
 
             return {
                 period: periodDisplay || '—',
+                rawDate: rawDate,
+                isoDate: isoDate,
                 skill: d.skill_type || d.skill || d.designation || d.labour_type || d.name || 'Skilled',
                 dailyWage: parseCurrency(rawWage),
                 otHours: parseHours(rawOT),
                 totalEarned: parseCurrency(rawTotal),
                 remarks: d.remarks || d.description || '—',
                 status: (d.status || d.payment_status || 'PAID').toUpperCase(),
-                id: d.id || d.payment_id || Math.random().toString()
+                id: d.id || d.payment_id || `pmt-${idx}`
             };
         });
     }, [payments]);
@@ -169,8 +237,15 @@ const PaymentsPage: React.FC = () => {
             );
         }
 
+        if (isDateFilterApplied && appliedStartDate && appliedEndDate) {
+            list = list.filter(item => {
+                if (!item.isoDate) return true;
+                return item.isoDate >= appliedStartDate && item.isoDate <= appliedEndDate;
+            });
+        }
+
         return list;
-    }, [displayData, searchTerm]);
+    }, [displayData, searchTerm, isDateFilterApplied, appliedStartDate, appliedEndDate]);
 
     const generateFrontendPDF = (data: any[]) => {
         const doc = new jsPDF();
@@ -266,8 +341,9 @@ const PaymentsPage: React.FC = () => {
             }
 
             // If date filter is enabled and user picked a date, extract year/month
-            if (showDateFilter && startDate) {
-                const dateObj = new Date(startDate);
+            const activeStart = appliedStartDate || tempStartDate;
+            if (activeStart) {
+                const dateObj = new Date(activeStart);
                 if (!isNaN(dateObj.getTime())) {
                     year = dateObj.getFullYear();
                     month = dateObj.getMonth() + 1;
@@ -442,18 +518,119 @@ const PaymentsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 ml-auto">
+                        <div className="flex items-center gap-4 ml-auto relative" ref={dateFilterRef}>
                             <button
                                 type="button"
-                                onClick={() => setShowDateFilter(!showDateFilter)}
+                                onClick={() => setShowDateFilter(prev => !prev)}
                                 className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer ${
-                                    showDateFilter
+                                    isDateFilterApplied
                                         ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25'
+                                        : showDateFilter
+                                        ? 'bg-blue-50 text-blue-600 border border-blue-300'
                                         : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
                                 }`}
                             >
-                                <Calendar className="w-4 h-4" /> Date
+                                <Calendar className="w-4 h-4" />
+                                <span>
+                                    {isDateFilterApplied
+                                        ? `${appliedStartDate} to ${appliedEndDate}`
+                                        : "Date"}
+                                </span>
+                                {isDateFilterApplied && (
+                                    <span
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleClearDateFilter();
+                                        }}
+                                        className="w-4 h-4 ml-1 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center cursor-pointer"
+                                        title="Clear date filter"
+                                    >
+                                        <X className="w-3 h-3 text-white" />
+                                    </span>
+                                )}
                             </button>
+
+                            {/* Date Filter Dropdown Popover */}
+                            {showDateFilter && (
+                                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-blue-600" />
+                                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">Filter by Date Range</h4>
+                                        </div>
+                                        {isDateFilterApplied && (
+                                            <span className="px-2 py-0.5 text-[9px] font-black bg-blue-50 text-blue-600 rounded-md uppercase">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Quick Presets */}
+                                    <div className="mb-4">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Quick Presets</p>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            {[
+                                                { label: 'Today', days: 0 },
+                                                { label: 'Last 7 Days', days: 7 },
+                                                { label: 'This Month', type: 'month' },
+                                                { label: 'Last 30 Days', days: 30 },
+                                                { label: 'Last 90 Days', days: 90 },
+                                                { label: 'This Year', type: 'year' },
+                                            ].map((preset, pIdx) => (
+                                                <button
+                                                    key={pIdx}
+                                                    type="button"
+                                                    onClick={() => applyPreset(preset)}
+                                                    className="px-2 py-1.5 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-600 transition-colors text-center cursor-pointer"
+                                                >
+                                                    {preset.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Inputs */}
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">From Date</label>
+                                            <input
+                                                type="date"
+                                                value={tempStartDate}
+                                                onChange={(e) => setTempStartDate(e.target.value)}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">To Date</label>
+                                            <input
+                                                type="date"
+                                                value={tempEndDate}
+                                                onChange={(e) => setTempEndDate(e.target.value)}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                        <button
+                                            type="button"
+                                            onClick={handleClearDateFilter}
+                                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                                        >
+                                            Clear
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyDateFilter}
+                                            disabled={!tempStartDate || !tempEndDate}
+                                            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            Apply Filter
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

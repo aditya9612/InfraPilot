@@ -58,6 +58,13 @@ const progressPulse: Record<ProjectStatus, string> = {
   "On Track": "bg-emerald-500",
 };
 
+export const formatProgress = (val: number | string | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return "0";
+  const num = Number(val);
+  if (isNaN(num)) return "0";
+  return parseFloat(num.toFixed(2)).toString();
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 const AdminDashboard = () => {
   const [timeFilter, setTimeFilter] = useState("This Year");
@@ -164,7 +171,11 @@ const AdminDashboard = () => {
           project_name: (liveProj && liveProj.project_name) || p.name,
           start_date: (liveProj && liveProj.start_date) || p.start_date,
           end_date: (liveProj && liveProj.end_date) || p.end_date,
-          completion_percentage: (liveProj && liveProj.completion_percentage !== undefined) ? liveProj.completion_percentage : (p.progress ?? 0),
+          completion_percentage: (() => {
+            const raw = (liveProj && liveProj.completion_percentage !== undefined) ? liveProj.completion_percentage : (p.progress ?? 0);
+            const num = typeof raw === 'number' ? raw : parseFloat(String(raw || 0));
+            return isNaN(num) ? 0 : parseFloat(num.toFixed(2));
+          })(),
           status: resolvedStatus,
           performance_score: p.performance_score,
         } as unknown as Project;
@@ -348,7 +359,7 @@ const AdminDashboard = () => {
       const name = (p.project_name || "").replace(/"/g, '""');
       const start = p.start_date || "-";
       const end = p.end_date || "-";
-      const completion = `${p.completion_percentage ?? 0}%`;
+      const completion = `${formatProgress(p.completion_percentage)}%`;
       const status = p.status || "-";
       lines.push(`"${id}","${name}","${start}","${end}","${completion}","${status}"`);
     });
@@ -778,7 +789,7 @@ const AdminDashboard = () => {
                           PRJ-{p.id}
                         </p>
                         <span className="text-[10px] font-bold text-slate-400">
-                          {p.completion_percentage}%
+                          {formatProgress(p.completion_percentage)}%
                         </span>
                       </div>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors mb-2 truncate">
@@ -787,7 +798,7 @@ const AdminDashboard = () => {
                       <div className="w-full h-1.5 bg-slate-50 rounded-full overflow-hidden">
                         <div
                           className={`h-full ${progressPulse[p.status] || "bg-slate-300"} transition-all duration-1000`}
-                          style={{ width: `${p.completion_percentage}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, Number(formatProgress(p.completion_percentage))))}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between mt-2">
@@ -918,11 +929,11 @@ const AdminDashboard = () => {
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className={`h-full ${progressPulse[p.status] || "bg-slate-300"}`}
-                                style={{ width: `${p.completion_percentage}%` }}
+                                style={{ width: `${Math.min(100, Math.max(0, Number(formatProgress(p.completion_percentage))))}%` }}
                               />
                             </div>
                             <span className="text-xs font-bold text-slate-400">
-                              {p.completion_percentage}%
+                              {formatProgress(p.completion_percentage)}%
                             </span>
                           </div>
                         </td>

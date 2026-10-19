@@ -68,7 +68,21 @@ const AllInvoicesPage = () => {
   const [activeCreateType, setActiveCreateType] = useState<InvoiceType>("owner");
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
-  const [activeTab, setActiveTab] = useState<"invoices" | "quotations" | "dummy_quotations">("invoices");
+  const initialTab = useMemo<"invoices" | "quotations" | "dummy_quotations">(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "dummy_quotations" || tabParam === "draft" || tabParam === "draft_quotations") {
+      return "dummy_quotations";
+    }
+    if (tabParam === "quotations") {
+      return "quotations";
+    }
+    const sessionTab = sessionStorage.getItem("admin_invoices_active_tab");
+    if (sessionTab === "dummy_quotations" || sessionTab === "quotations" || sessionTab === "invoices") {
+      return sessionTab as any;
+    }
+    return "invoices";
+  }, [searchParams]);
+  const [activeTab, setActiveTab] = useState<"invoices" | "quotations" | "dummy_quotations">(initialTab);
   const [sendTarget, setSendTarget] = useState<{ id: number; isQuotation: boolean } | null>(null);
 
   const PAGE_SIZE = 10;
@@ -88,6 +102,20 @@ const AllInvoicesPage = () => {
       setCurrentPage(0);
       setSearchTerm("");
       setStatusFilter("all");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "dummy_quotations" || tabParam === "draft" || tabParam === "draft_quotations") {
+      setActiveTab("dummy_quotations");
+      sessionStorage.setItem("admin_invoices_active_tab", "dummy_quotations");
+    } else if (tabParam === "quotations") {
+      setActiveTab("quotations");
+      sessionStorage.setItem("admin_invoices_active_tab", "quotations");
+    } else if (tabParam === "invoices") {
+      setActiveTab("invoices");
+      sessionStorage.setItem("admin_invoices_active_tab", "invoices");
     }
   }, [searchParams]);
 
@@ -597,7 +625,16 @@ const AllInvoicesPage = () => {
           {/* TABS */}
           <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit">
             <button
-              onClick={() => { setActiveTab("invoices"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
+              onClick={() => {
+                setActiveTab("invoices");
+                setCurrentPage(0);
+                setSearchTerm("");
+                setStatusFilter("all");
+                setType("all");
+                setProjectFilter("all");
+                sessionStorage.setItem("admin_invoices_active_tab", "invoices");
+                setSearchParams({ tab: "invoices" });
+              }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "invoices"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -609,7 +646,16 @@ const AllInvoicesPage = () => {
                 }`}>{invoices.length}</span>
             </button>
             <button
-              onClick={() => { setActiveTab("quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
+              onClick={() => {
+                setActiveTab("quotations");
+                setCurrentPage(0);
+                setSearchTerm("");
+                setStatusFilter("all");
+                setType("all");
+                setProjectFilter("all");
+                sessionStorage.setItem("admin_invoices_active_tab", "quotations");
+                setSearchParams({ tab: "quotations" });
+              }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -621,7 +667,16 @@ const AllInvoicesPage = () => {
                 }`}>{quotations.length}</span>
             </button>
             <button
-              onClick={() => { setActiveTab("dummy_quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); setType("all"); setProjectFilter("all"); }}
+              onClick={() => {
+                setActiveTab("dummy_quotations");
+                setCurrentPage(0);
+                setSearchTerm("");
+                setStatusFilter("all");
+                setType("all");
+                setProjectFilter("all");
+                sessionStorage.setItem("admin_invoices_active_tab", "dummy_quotations");
+                setSearchParams({ tab: "dummy_quotations" });
+              }}
               className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "dummy_quotations"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"

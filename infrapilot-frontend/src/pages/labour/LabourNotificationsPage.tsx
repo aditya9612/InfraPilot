@@ -5,10 +5,9 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
   Bell, CheckCheck, Eye,
-  CheckCircle, AlertCircle, Info, Search, ArrowRight
+  CheckCircle, AlertCircle, Info, Search
 } from "lucide-react";
-import { notificationService } from "../../services/notificationService";
-import { alertService } from "../../services/alertService";
+import { notificationService, emitNotificationUpdate } from "../../services/notificationService";
 import { handleNotificationClick } from "../../utils/notificationNavigator";
 import api from "../../services/api";
 
@@ -114,43 +113,8 @@ interface LocalNotification {
   type: string;
   read: boolean;
   created_at: string;
+  [key: string]: any;
 }
-
-/* ─── Fallback / Demo Notifications from Screenshot ─── */
-const MOCK_NOTIFICATIONS: LocalNotification[] = [
-  {
-    id: "notif-1",
-    title: "site flooring macking",
-    description: "Delayed Status: Delayed. Due Date: 01 Jul 2028",
-    type: "Task Alert",
-    read: false,
-    created_at: "2026-07-01T12:00:00Z"
-  },
-  {
-    id: "notif-2",
-    title: "Approval Rejected",
-    description: "Your material approval request was Rejected.",
-    type: "alert",
-    read: false,
-    created_at: "2026-06-22T08:28:00Z"
-  },
-  {
-    id: "notif-3",
-    title: "Approval Granted",
-    description: "Your design approval request has been Approved.",
-    type: "success",
-    read: true,
-    created_at: "2026-06-22T06:32:00Z"
-  },
-  {
-    id: "notif-4",
-    title: "Site Cleaning",
-    description: "Delayed Status: Delayed. Due Date: 08 Apr 2028",
-    type: "Task Alert",
-    read: true,
-    created_at: "2026-04-06T15:30:00Z"
-  }
-];
 
 const getSysTypeConfig = (type: string) => {
   const t = (type || "").toLowerCase();
@@ -196,8 +160,8 @@ const LabourNotificationsPage = () => {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch from overview API
-      const raw = await notificationService.getNotificationsOverview(100, 0).catch(() => []);
+      // Fetch from overview API with safe limit 50
+      const raw = await notificationService.getNotificationsOverview(50, 0);
       const readIds = getPersistedReadIds();
       const unreadIds = getPersistedUnreadIds();
 
@@ -219,23 +183,11 @@ const LabourNotificationsPage = () => {
         }));
         setNotifications(mapped);
       } else {
-        // Fallback to MOCK_NOTIFICATIONS to match screenshot
-        setNotifications(MOCK_NOTIFICATIONS.map(n => ({
-          ...n,
-          read: resolveIsRead(n)
-        })));
+        setNotifications([]);
       }
     } catch (err) {
-      console.error("fetchNotifications failed, loading fallback mock data:", err);
-      const readIds = getPersistedReadIds();
-      const unreadIds = getPersistedUnreadIds();
-      setNotifications(MOCK_NOTIFICATIONS.map(n => {
-        const strId = String(n.id);
-        let r = n.read;
-        if (unreadIds.includes(strId)) r = false;
-        else if (readIds.includes(strId)) r = true;
-        return { ...n, read: r };
-      }));
+      console.error("fetchNotifications failed:", err);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -253,10 +205,15 @@ const LabourNotificationsPage = () => {
       const numericId = typeof notif.id === "number" ? notif.id : parseInt(String(notif.id).replace(/\D/g, ""), 10);
       if (!isNaN(numericId) && numericId > 0) {
         await Promise.allSettled([
+          api.patch(`/notifications/${numericId}/read`),
           api.put(`/notifications/${numericId}/read`),
+          api.patch(`/notifications/${numericId}`, { is_read: true }),
+          api.put(`/notifications/${numericId}`, { is_read: true }),
+          api.patch(`/alerts/${numericId}/read`),
           api.put(`/alerts/${numericId}/read`)
         ]);
       }
+      emitNotificationUpdate();
     } catch (err) {
       console.warn("API markRead failed:", err);
     }
@@ -270,10 +227,15 @@ const LabourNotificationsPage = () => {
       const numericId = typeof notif.id === "number" ? notif.id : parseInt(String(notif.id).replace(/\D/g, ""), 10);
       if (!isNaN(numericId) && numericId > 0) {
         await Promise.allSettled([
+          api.patch(`/notifications/${numericId}/unread`),
           api.put(`/notifications/${numericId}/unread`),
+          api.patch(`/notifications/${numericId}`, { is_read: false }),
+          api.put(`/notifications/${numericId}`, { is_read: false }),
+          api.patch(`/alerts/${numericId}/unread`),
           api.put(`/alerts/${numericId}/unread`)
         ]);
       }
+      emitNotificationUpdate();
     } catch (err) {
       console.warn("API markUnread failed:", err);
     }
@@ -302,12 +264,21 @@ const LabourNotificationsPage = () => {
     toast.success("All notifications marked as read.");
     try {
       await Promise.allSettled([
+        api.patch('/notifications/read-all'),
         api.put('/notifications/read-all'),
         ...unread.map(n => {
           const num = typeof n.id === "number" ? n.id : parseInt(String(n.id).replace(/\D/g, ""), 10);
-          return !isNaN(num) && num > 0 ? api.put(`/notifications/${num}/read`) : Promise.resolve();
+          return !isNaN(num) && num > 0
+            ? Promise.allSettled([
+                api.patch(`/notifications/${num}/read`),
+                api.put(`/notifications/${num}/read`),
+                api.patch(`/notifications/${num}`, { is_read: true }),
+                api.put(`/notifications/${num}`, { is_read: true })
+              ])
+            : Promise.resolve();
         })
       ]);
+      emitNotificationUpdate(0);
     } catch (err) {
       console.warn("Mark all read API error:", err);
     }
@@ -345,7 +316,7 @@ const LabourNotificationsPage = () => {
         activeTabFilter === "All" ||
         (activeTabFilter === "Unread" && !n.read) ||
         (activeTabFilter === "Read" && n.read) ||
-        (activeTabFilter === "Delayed" && n.type.toLowerCase().includes("task") || n.description.toLowerCase().includes("delayed"));
+        (activeTabFilter === "Delayed" && (n.type.toLowerCase().includes("task") || n.description.toLowerCase().includes("delayed") || n.title.toLowerCase().includes("task")));
 
       // Search filter
       const q = searchQuery.toLowerCase();
@@ -560,7 +531,7 @@ const LabourNotificationsPage = () => {
                         </td>
                         <td 
                           className="px-6 py-4 cursor-pointer"
-                          onClick={() => handleNotificationClick(notif, navigate, "Labour")}
+                          onClick={() => handleNotificationClick(notif as any, navigate, "Labour")}
                         >
                           <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-primary transition-colors">{notif.title}</p>
                           <p className="text-xs text-slate-500 max-w-lg truncate">{notif.description}</p>
@@ -616,12 +587,12 @@ const LabourNotificationsPage = () => {
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
-                {currentPage + 1}
+              <div className="h-8 px-2.5 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter whitespace-nowrap">
+                {currentPage + 1} / {totalPages}
               </div>
               <button
                 onClick={() => setCurrentPage(p => p + 1)}
-                disabled={(currentPage + 1) * PAGE_SIZE >= filteredNotifs.length}
+                disabled={currentPage + 1 >= totalPages}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>

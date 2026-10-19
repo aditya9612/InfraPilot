@@ -549,14 +549,19 @@ const CreateDraftQuotationPage = () => {
 
   const handleRejectQuotation = async (reason: string) => {
     if (!id) return;
+    const trimmed = (reason || "").trim();
+    if (trimmed.length < 3) {
+      toast.error("Reason must be at least 3 characters long.");
+      return;
+    }
     try {
       const payload: any = {
         ...buildDummyPayload(),
         status: "rejected",
-        rejection_reason: reason,
-        remarks: reason
+        rejection_reason: trimmed,
+        remarks: trimmed
       };
-      await quotationService.rejectDraftQuotation(Number(id), reason, payload);
+      await quotationService.rejectDraftQuotation(Number(id), trimmed, payload);
       toast.success("Quotation rejected successfully");
       setStatus("rejected");
       setIsRejectModalOpen(false);
@@ -609,7 +614,12 @@ const CreateDraftQuotationPage = () => {
     setStatus("draft");
     setSavedDraftId(null);
     toast.success("Draft quotation form reset");
-    navigate("/admin/quotations");
+    sessionStorage.setItem("admin_quotations_active_tab", "dummy_quotations");
+    sessionStorage.setItem("admin_invoices_active_tab", "dummy_quotations");
+    const targetUrl = location.pathname.includes('/accountant')
+      ? "/accountant/receivables?tab=dummy_quotations"
+      : "/admin/quotations?tab=dummy_quotations";
+    navigate(targetUrl);
   };
 
   const handleConvertToBill = async () => {
@@ -756,7 +766,7 @@ const CreateDraftQuotationPage = () => {
   };
 
   // Implement Save
-  const handleSaveQuotation = async () => {
+  const handleSaveQuotation = async (shouldNavigate: boolean = false) => {
     // If already saving, ignore further clicks
     if (isSavingRef.current || isSaving) {
       return null;
@@ -823,12 +833,23 @@ const CreateDraftQuotationPage = () => {
         toast.success("Draft Quotation Saved Successfully!", { id: "draft-quotation-save", duration: 3000 });
       }
 
+      sessionStorage.setItem("admin_quotations_active_tab", "dummy_quotations");
+      sessionStorage.setItem("admin_invoices_active_tab", "dummy_quotations");
+
       if (response && response.id) {
         setSavedDraftId(String(response.id));
-        return String(response.id);
       }
-      return null;
-      // navigate("/admin/invoices/all"); // User requested to stay on the same screen
+
+      if (shouldNavigate) {
+        const targetUrl = location.pathname.includes('/accountant')
+          ? "/accountant/receivables?tab=dummy_quotations"
+          : "/admin/quotations?tab=dummy_quotations";
+        setTimeout(() => {
+          navigate(targetUrl);
+        }, 600);
+      }
+
+      return response && response.id ? String(response.id) : null;
     } catch (error: any) {
       toast.error(error.message || "Failed to save quotation", { id: "draft-quotation-save" });
       return null;
@@ -1022,7 +1043,12 @@ const CreateDraftQuotationPage = () => {
     <>
       <Navbar
         title={id ? "View/Edit Quotation" : "Create Draft Quotation"}
-        breadcrumb={["Dashboard", "Invoices", id ? "View Quotation" : "Create Invoice"]}
+        breadcrumb={[
+          "Dashboard",
+          { label: "Invoices", path: "/admin/invoices/all?tab=dummy_quotations" },
+          { label: "Quotations", path: location.pathname.includes('/accountant') ? "/accountant/receivables?tab=dummy_quotations" : "/admin/quotations?tab=dummy_quotations" },
+          id ? "View Quotation" : "Create Draft Quotation"
+        ]}
       />
 
       <PageTransition className="p-4 lg:p-6 bg-[#f8fafc] min-h-screen">
@@ -1031,7 +1057,11 @@ const CreateDraftQuotationPage = () => {
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
                 <button
-                  onClick={() => navigate(-1)}
+                  onClick={() => {
+                    sessionStorage.setItem("admin_quotations_active_tab", "dummy_quotations");
+                    sessionStorage.setItem("admin_invoices_active_tab", "dummy_quotations");
+                    navigate(location.pathname.includes('/accountant') ? "/accountant/receivables?tab=dummy_quotations" : "/admin/quotations?tab=dummy_quotations");
+                  }}
                   className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
                   title="Go Back"
                 >
@@ -1493,7 +1523,7 @@ const CreateDraftQuotationPage = () => {
               </button>
               <button
                 type="button"
-                onClick={handleSaveQuotation}
+                onClick={() => handleSaveQuotation(true)}
                 disabled={isSaving || isReadOnly}
                 className={`w-full py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSaving || isReadOnly ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none pointer-events-none' : 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95'}`}
               >

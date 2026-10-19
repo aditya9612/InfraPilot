@@ -668,6 +668,10 @@ export const dashboardService = {
     if (params?.page) cleanParams.page = params.page;
     if (params?.page_size) cleanParams.page_size = params.page_size;
     if (params?.project_id) cleanParams.project_id = params.project_id;
+    if (params?.start_date) cleanParams.start_date = params.start_date;
+    if (params?.end_date) cleanParams.end_date = params.end_date;
+    if (params?.from_date) cleanParams.from_date = params.from_date;
+    if (params?.to_date) cleanParams.to_date = params.to_date;
 
     const response = await api.get<any>('dashboard/labour/payments', {
       params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,

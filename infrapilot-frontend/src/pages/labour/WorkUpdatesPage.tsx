@@ -31,14 +31,14 @@ import {
     Camera
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Modal from '../../components/common/Modal';
 
 import { projectService } from '../../services/projectService';
 import { masterService, type MasterEntity } from '../../services/masterService';
 import { useLabourProjectId } from '../../hooks/useLabourProjectId';
 import type { 
     CreateWorkUpdatePayload, 
-    SubmitWorkUpdatePayload,
-    WorkUpdateItem
+    SubmitWorkUpdatePayload
 } from '../../services/workUpdateService';
 import { workUpdateService } from '../../services/workUpdateService';
 import { safeSetItem, compressImageFile } from '../../utils/storageUtils';
@@ -74,7 +74,7 @@ const ACTIVITY_TYPE_NAMES: Record<number, string> = {
     11: "Waterproofing",
 };
 
-const getActivityBadgeClass = (categoryName?: string): string => {
+export const getActivityBadgeClass = (categoryName?: string): string => {
     const cat = (categoryName || '').toLowerCase();
     if (cat.includes('reinforce')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
     if (cat.includes('concrete')) return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -90,7 +90,7 @@ const getActivityBadgeClass = (categoryName?: string): string => {
     return 'bg-blue-50 text-blue-700 border-blue-200';
 };
 
-const getStatusBadgeClass = (status?: string): string => {
+export const getStatusBadgeClass = (status?: string): string => {
     const s = (status || '').toLowerCase();
     if (s === 'completed' || s === 'done' || s === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     if (s === 'submitted') return 'bg-blue-50 text-blue-700 border-blue-200';
@@ -350,6 +350,9 @@ const WorkUpdatesPage: React.FC = () => {
     const [myUpdates, setMyUpdates] = useState<any[]>([]);
     const [timeline, setTimeline] = useState<any[]>([]);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(Boolean(taskId));
+    const replaceImageRef = useRef<HTMLInputElement>(null);
+    const [replacingImageId, setReplacingImageId] = useState<number | string | null>(null);
 
     // History Table States
     const [historySearch, setHistorySearch] = useState('');
@@ -390,7 +393,7 @@ const WorkUpdatesPage: React.FC = () => {
 
     // Filter tasks for CURRENT PROJECT, strictly excluding completed tasks
     const displayTasks = useMemo(() => {
-        const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
+        const currentUserName = (user?.name || (user as any)?.username || 'Ramesh Sharma').toLowerCase();
         const currentUserId = user?.id ? Number(user.id) : null;
 
         // 1. Is task completed? (Strictly check rawStatus, localStatus, is_completed, and progress)
@@ -711,7 +714,7 @@ const WorkUpdatesPage: React.FC = () => {
             if (after.length > 0) setAfterPhotos(after);
             
             toast.success(`Loaded Work Update #${id} into editor form`, { id: loadingToast });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setIsFormModalOpen(true);
         } catch (err: any) {
             console.error("Failed to fetch work update:", err);
             toast.error(formatApiErrorMessage(err, "Failed to load work update details"), { id: loadingToast });
@@ -744,9 +747,90 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    // 1. Create Work Update API
+    // DELETE /api/v1/work-updates/images/{image_id}
+    const handleDeleteImage = async (imageId: number | string) => {
+        if (!window.confirm("Are you sure you want to delete this image?")) return;
+        const t = toast.loading("Deleting image...");
+        try {
+            await workUpdateService.deleteWorkUpdateImage(imageId);
+            toast.success("Image deleted successfully", { id: t });
+            if (selectedHistoryItem) {
+                const updatedImages = (selectedHistoryItem.images || []).filter((img: any) => String(img.id) !== String(imageId));
+                const { before, after } = extractUpdateImages({ ...selectedHistoryItem, images: updatedImages });
+                setSelectedHistoryItem((prev: any) => ({
+                    ...prev,
+                    images: updatedImages,
+                    before_images_list: before,
+                    after_images_list: after,
+                    total_images_count: before.length + after.length
+                }));
+            }
+            fetchInitialData();
+        } catch (err: any) {
+            toast.error(formatApiErrorMessage(err, "Failed to delete image"), { id: t });
+        }
+    };
+
+    // PUT /api/v1/work-updates/images/{image_id}
+    const handleReplaceImage = async (imageId: number | string, file: File) => {
+        const t = toast.loading("Replacing image...");
+        try {
+            await workUpdateService.replaceWorkUpdateImage(imageId, file);
+            toast.success("Image replaced successfully", { id: t });
+            fetchInitialData();
+            if (selectedHistoryItem) {
+                const updated = await workUpdateService.getWorkUpdate(selectedHistoryItem.id);
+                const { before, after } = extractUpdateImages(updated);
+                setSelectedHistoryItem((prev: any) => ({
+                    ...prev,
+                    ...updated,
+                    before_images_list: before,
+                    after_images_list: after,
+                    total_images_count: before.length + after.length
+                }));
+            }
+        } catch (err: any) {
+            toast.error(formatApiErrorMessage(err, "Failed to replace image"), { id: t });
+        }
+    };
+
+    const triggerReplaceImage = (imgId: number | string) => {
+        setReplacingImageId(imgId);
+        replaceImageRef.current?.click();
+    };
+
+    const handleReplaceFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && replacingImageId) {
+            await handleReplaceImage(replacingImageId, e.target.files[0]);
+        }
+        e.target.value = '';
+        setReplacingImageId(null);
+    };
+
+    // 1. Create or Update Work Update API
     const getOrCreateWorkUpdateId = async (): Promise<number | null> => {
-        if (editingUpdateId) return editingUpdateId;
+        if (editingUpdateId) {
+            // Patch existing update metadata (PUT /api/v1/work-updates/{work_update_id})
+            try {
+                const targetTaskId = selectedTaskId || taskId || (displayTasks.length > 0 ? String(displayTasks[0].id) : '1');
+                const currentTask = tasks.find((t: any) => String(t.id) === String(targetTaskId));
+                const activityTypeId = resolveActivityTypeId(category, currentTask, activityTypes);
+                
+                const updatePayload: Partial<CreateWorkUpdatePayload> = {
+                    work_description: description.trim() || undefined,
+                    work_date: workDate || today,
+                    start_time: formatTimeToHms(startTime, "09:00:00"),
+                    location: location?.trim() || undefined,
+                    before_remarks: beforeRemarks?.trim() || undefined,
+                    activity_type_id: activityTypeId,
+                    task_id: Number(targetTaskId)
+                };
+                await workUpdateService.updateWorkUpdate(editingUpdateId, updatePayload);
+            } catch (err) {
+                console.warn("[getOrCreateWorkUpdateId] Warning updating work update:", err);
+            }
+            return editingUpdateId;
+        }
 
         const targetTaskId = selectedTaskId || taskId || (displayTasks.length > 0 ? String(displayTasks[0].id) : tasks.length > 0 ? String(tasks[0].id) : '1');
         if (!selectedTaskId) setSelectedTaskId(targetTaskId);
@@ -957,6 +1041,7 @@ const WorkUpdatesPage: React.FC = () => {
             setAfterRemarks('');
 
             await fetchInitialData();
+            setIsFormModalOpen(false);
         } catch (err: any) {
             console.error("handleSubmit error:", err);
             const errMsg = formatApiErrorMessage(err, "Failed to submit work update");
@@ -1276,427 +1361,97 @@ const WorkUpdatesPage: React.FC = () => {
             <Navbar title="Work Update" breadcrumb={['InfraPilot', 'Labour', 'Daily Update', 'Work Update']} />
             <PageTransition className="p-4 md:p-8 bg-[#f8fafc] min-h-screen font-inter pb-24 space-y-8">
                 
-                {/* ── 1. Top Section: Daily Work Update Submission Form ──────────── */}
-                <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                    
-                    {/* Header Section */}
-                    <div className="p-6 md:p-8 pb-4 flex items-center justify-between gap-5 flex-wrap border-b border-slate-100">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
-                                <FileText className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-slate-800">
-                                    {editingUpdateId ? `Edit Work Update #${editingUpdateId}` : 'Update Your Work Progress'}
-                                </h1>
-                                <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photo verification</p>
-                            </div>
+                {/* ── 1. Top Section: Header, Actions & Stats ──────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                            <FileText className="w-6 h-6" />
                         </div>
-
-                        {editingUpdateId && (
-                            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl text-amber-800">
-                                <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs font-bold">Editing Existing Update #{editingUpdateId}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setEditingUpdateId(null);
-                                        setDescription('');
-                                        setBeforePhotos([]);
-                                        setAfterPhotos([]);
-                                        setBeforeRemarks('');
-                                        setAfterRemarks('');
-                                        toast.success("Switched to New Update mode");
-                                    }}
-                                    className="ml-2 text-xs font-black text-blue-600 hover:text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-xs"
-                                >
-                                    + New Update
-                                </button>
-                            </div>
-                        )}
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800">
+                                Work Updates
+                            </h1>
+                            <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photo verification</p>
+                        </div>
                     </div>
 
-                    <div className="p-6 md:p-8 space-y-8">
+                    {/* Top Side Actions */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                            type="button"
+                            onClick={() => fetchInitialData(true)}
+                            disabled={isHistoryRefreshing}
+                            className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-600 transition-all active:scale-95 cursor-pointer"
+                            title="Refresh History Data"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isHistoryRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleExportPDF}
+                            className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                        >
+                            <Download className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Export PDF</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditingUpdateId(null);
+                                setIsFormModalOpen(true);
+                            }}
+                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/25 flex items-center gap-2 cursor-pointer active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Work Update</span>
+                        </button>
+                    </div>
+                </div>
 
-                        {/* Task Selection Section */}
-                        <div className="space-y-4">
-                            {!taskId ? (
-                                <div className="space-y-3">
-                                    <label className="text-sm font-bold text-slate-700">Select Task <span className="text-red-500">*</span></label>
-                                    <div className="relative group">
-                                        <select 
-                                            value={selectedTaskId}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSelectedTaskId(val);
-                                                const found = tasks.find((t: any) => String(t.id) === String(val));
-                                                if (found) {
-                                                    if (!description || description.trim() === '') {
-                                                        setDescription(found.description && found.description !== 'NA' ? found.description : (found.title || found.name || ''));
-                                                    }
-                                                    if (found.category || found.activity_type) {
-                                                        setCategory(found.category || found.activity_type);
-                                                    }
-                                                    if (found.location || found.area || found.site_location) {
-                                                        setLocation(found.location || found.area || found.site_location);
-                                                    }
-                                                }
-                                            }}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
-                                        >
-                                            <option value="">{displayTasks.length > 0 ? "Select an Active Task to Update" : "No Active Tasks Available"}</option>
-                                            {displayTasks.map(t => (
-                                                <option key={t.id} value={t.id}>
-                                                    #{t.id} - {t.title || t.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Active Task</label>
-                                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                                                <FileText className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800">{taskName || 'Selected Task'}</p>
-                                                <p className="text-[10px] font-bold text-blue-600 uppercase">Mission Update in Progress</p>
-                                            </div>
-                                        </div>
-                                        <div className="px-3 py-1.5 bg-white rounded-lg border border-blue-200 shadow-xs">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mr-1">Task ID</span>
-                                            <span className="text-sm font-black text-blue-600">#{taskId}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {/* Work Description Section */}
-                        <div className="space-y-3">
-                            <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
-                            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all bg-white">
-                                <textarea 
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
-                                    placeholder="Write a detailed description of the work completed on site..."
-                                    className="w-full p-4 min-h-[110px] focus:outline-none text-slate-700 text-sm placeholder:text-slate-300 font-medium"
-                                />
-                                <div className="p-2 px-4 bg-slate-50/50 flex justify-end border-t border-slate-100">
-                                    <span className="text-[10px] font-bold text-slate-400 tabular-nums">{description.length}/1000</span>
-                                </div>
+                {/* ── 2. Dashboard Stat Cards ──────────── */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Updates</span>
+                            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                <FolderKanban className="w-4 h-4" />
                             </div>
                         </div>
+                        <p className="text-2xl font-black text-slate-800">{historyStats.totalUpdates}</p>
+                        <p className="text-[10px] text-blue-600 font-bold mt-1">Logged work entries</p>
+                    </div>
 
-                        {/* Photo Upload Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            
-                            {/* Before Work Photos */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-bold text-slate-700">Before Work Photos <span className="text-red-500">*</span></label>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={handleSaveBeforePhotos}
-                                            disabled={isUploadingBefore || isCreating || isSubmitting}
-                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isUploadingBefore ? 'Saving...' : 'Save'}
-                                        </button>
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{beforePhotos.length} / 4</span>
-                                    </div>
-                                </div>
-                                <p className="text-[11px] text-slate-400 font-medium">Upload photos before starting the work (Max 4)</p>
-                                <input 
-                                    type="file" 
-                                    ref={beforeInputRef}
-                                    id="before-upload" 
-                                    accept="image/*" 
-                                    multiple
-                                    className="hidden" 
-                                    onChange={(e) => {
-                                        if (e.target.files) handleFiles(e.target.files, 'before');
-                                        e.target.value = '';
-                                    }} 
-                                />
-                                <div 
-                                    onClick={() => beforeInputRef.current?.click()}
-                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'before');
-                                    }}
-                                    className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
-                                >
-                                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
-                                        <Upload className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-xs font-bold text-slate-700">Drag &amp; drop Before photos</p>
-                                        <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
-                                        {beforePhotos.length > 0 ? (
-                                            <div className="flex flex-wrap gap-3">
-                                                {beforePhotos.map((url, i) => (
-                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
-                                                        <img src={url} alt="Before" className="w-full h-full object-cover" />
-                                                        <button 
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); handleRemovePhoto('before', i); }}
-                                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <X className="w-4 h-4 text-white" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 mt-3">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Before Work Remarks (Optional)</label>
-                                    <div className="relative">
-                                        <textarea 
-                                            value={beforeRemarks}
-                                            onChange={(e) => setBeforeRemarks(e.target.value.slice(0, 500))}
-                                            placeholder="Remarks on initial site conditions, materials, or preparations..."
-                                            className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
-                                        />
-                                        <div className="absolute right-3 bottom-2">
-                                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">{beforeRemarks.length}/500</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* After Work Photos */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-bold text-slate-700">After Work Photos <span className="text-red-500">*</span></label>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={handleSaveAfterPhotos}
-                                            disabled={isUploadingAfter || isCreating || isSubmitting}
-                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isUploadingAfter ? 'Saving...' : 'Save'}
-                                        </button>
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{afterPhotos.length} / 4</span>
-                                    </div>
-                                </div>
-                                <p className="text-[11px] text-slate-400 font-medium">Upload photos after completing the work (Max 4)</p>
-                                <input 
-                                    type="file" 
-                                    ref={afterInputRef}
-                                    id="after-upload" 
-                                    accept="image/*" 
-                                    multiple
-                                    className="hidden" 
-                                    onChange={(e) => {
-                                        if (e.target.files) handleFiles(e.target.files, 'after');
-                                        e.target.value = '';
-                                    }} 
-                                />
-                                <div 
-                                    onClick={() => afterInputRef.current?.click()}
-                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'after');
-                                    }}
-                                    className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
-                                >
-                                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
-                                        <Upload className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-xs font-bold text-slate-700">Drag &amp; drop After photos</p>
-                                        <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
-                                        {afterPhotos.length > 0 ? (
-                                            <div className="flex flex-wrap gap-3">
-                                                {afterPhotos.map((url, i) => (
-                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
-                                                        <img src={url} alt="After" className="w-full h-full object-cover" />
-                                                        <button 
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); handleRemovePhoto('after', i); }}
-                                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <X className="w-4 h-4 text-white" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 mt-3">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">After Work Remarks (Optional)</label>
-                                    <div className="relative">
-                                        <textarea 
-                                            value={afterRemarks}
-                                            onChange={(e) => setAfterRemarks(e.target.value.slice(0, 500))}
-                                            placeholder="Remarks on completed quality, finishing, or handover status..."
-                                            className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
-                                        />
-                                        <div className="absolute right-3 bottom-2">
-                                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">{afterRemarks.length}/500</span>
-                                        </div>
-                                    </div>
-                                </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Hours</span>
+                            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                <Clock className="w-4 h-4" />
                             </div>
                         </div>
+                        <p className="text-2xl font-black text-slate-800">{historyStats.totalHours} <span className="text-xs font-semibold text-slate-400">hrs</span></p>
+                        <p className="text-[10px] text-amber-600 font-bold mt-1">On-site logged duration</p>
+                    </div>
 
-                        {/* Date and Time Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Work Date <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="date" 
-                                        value={workDate}
-                                        onChange={(e) => setWorkDate(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Start Time <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="time" 
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">End Time <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="time" 
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Total Hours</label>
-                                <div className="relative">
-                                    <Timer className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="text" 
-                                        readOnly
-                                        value={totalHours}
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600"
-                                    />
-                                </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-purple-300 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Photo Proofs</span>
+                            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                                <Camera className="w-4 h-4" />
                             </div>
                         </div>
+                        <p className="text-2xl font-black text-slate-800">{historyStats.totalPhotos} <span className="text-xs font-semibold text-slate-400">files</span></p>
+                        <p className="text-[10px] text-purple-600 font-bold mt-1">Before &amp; After proofs</p>
+                    </div>
 
-                        {/* Dropdowns Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Activity Type <span className="text-red-500">*</span></label>
-                                <div className="relative group">
-                                    <select 
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Select Activity Type</option>
-                                        {activityTypes.length > 0 ? (
-                                            activityTypes.map((at) => (
-                                                <option key={at.id} value={at.name}>{at.name}</option>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <option value="Reinforcement">Reinforcement</option>
-                                                <option value="Concreting">Concreting</option>
-                                                <option value="Masonry">Masonry</option>
-                                                <option value="Excavation">Excavation</option>
-                                                <option value="Plastering">Plastering</option>
-                                                <option value="Painting">Painting</option>
-                                                <option value="Electrical">Electrical</option>
-                                                <option value="Plumbing">Plumbing</option>
-                                                <option value="Carpentry">Carpentry</option>
-                                                <option value="Flooring">Flooring</option>
-                                                <option value="Waterproofing">Waterproofing</option>
-                                                <option value="General">General</option>
-                                            </>
-                                        )}
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Location / Area <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="text" 
-                                        value={location}
-                                        onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="e.g. Block B, 2nd Floor, Pillar P14"
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 transition-all font-medium"
-                                    />
-                                </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Completed</span>
+                            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                <CheckCircle2 className="w-4 h-4" />
                             </div>
                         </div>
-
-                        {/* Footer Buttons */}
-                        <div className="flex items-center justify-between pt-6 border-t border-slate-100 flex-wrap gap-4">
-                            <button 
-                                type="button"
-                                onClick={handleCancel}
-                                disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
-                                className="px-8 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
-                            >
-                                Reset Form
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={handleSubmit}
-                                disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
-                                className="px-10 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center gap-3 hover:bg-blue-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Daily Update'}
-                                <Send className="w-4 h-4" />
-                            </button>
-                        </div>
-
+                        <p className="text-2xl font-black text-slate-800">{historyStats.completedCount}</p>
+                        <p className="text-[10px] text-emerald-600 font-bold mt-1">Verified work updates</p>
                     </div>
                 </div>
 
@@ -1843,6 +1598,11 @@ const WorkUpdatesPage: React.FC = () => {
                                                     <p className="font-bold text-slate-900 hover:text-blue-600 transition-colors cursor-pointer" onClick={() => setSelectedHistoryItem(item)}>
                                                         {item.task_title || 'Work Update'}
                                                     </p>
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        <span className={`inline-flex items-center text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${getActivityBadgeClass(item.activity_name)}`}>
+                                                            {item.activity_name || 'General'}
+                                                        </span>
+                                                    </div>
                                                 </td>
 
                                                 {/* Date & Time */}
@@ -1929,14 +1689,45 @@ const WorkUpdatesPage: React.FC = () => {
 
                                                 {/* Action Buttons */}
                                                 <td className="py-4 px-6 text-right">
-                                                    <div className="flex items-center justify-end">
+                                                    <div className="flex items-center justify-end gap-1.5">
                                                         <button
                                                             type="button"
-                                                            onClick={() => setSelectedHistoryItem(item)}
-                                                            className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer p-1"
+                                                            onClick={async () => {
+                                                                setSelectedHistoryItem(item);
+                                                                try {
+                                                                    const full = await workUpdateService.getWorkUpdate(item.id);
+                                                                    if (full) {
+                                                                        const { before, after } = extractUpdateImages(full);
+                                                                        setSelectedHistoryItem((prev: any) => ({
+                                                                            ...prev,
+                                                                            ...full,
+                                                                            before_images_list: before.length > 0 ? before : prev?.before_images_list || [],
+                                                                            after_images_list: after.length > 0 ? after : prev?.after_images_list || [],
+                                                                            total_images_count: (before.length || prev?.before_images_list?.length || 0) + (after.length || prev?.after_images_list?.length || 0)
+                                                                        }));
+                                                                    }
+                                                                } catch (_) {}
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                                                             title="View Full Details"
                                                         >
                                                             <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleLoadWorkUpdate(item.id)}
+                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Edit Work Update"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleDeleteWorkUpdate(item.id, e)}
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Delete Work Update"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -2032,7 +1823,424 @@ const WorkUpdatesPage: React.FC = () => {
 
             </PageTransition>
 
-            {/* ── 3. Work Update Detail Modal ───────────────────────────────────── */}
+            {/* ── 3. Work Update Submission / Edit Modal Form ──────────────────── */}
+            <Modal
+                isOpen={isFormModalOpen}
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                }}
+                title={editingUpdateId ? `Edit Work Update #${editingUpdateId}` : "Submit Daily Work Update"}
+                maxWidth="max-w-4xl"
+                bodyPadding="p-6 md:p-8"
+            >
+                <div className="space-y-6">
+                    {editingUpdateId && (
+                        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl text-amber-800">
+                            <div className="flex items-center gap-2.5">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span className="text-xs font-bold">Editing Existing Update #{editingUpdateId}</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditingUpdateId(null);
+                                    setDescription('');
+                                    setBeforePhotos([]);
+                                    setAfterPhotos([]);
+                                    setBeforeRemarks('');
+                                    setAfterRemarks('');
+                                    toast.success("Switched to New Update mode");
+                                }}
+                                className="text-xs font-black text-blue-600 hover:text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-xs cursor-pointer"
+                            >
+                                + New Update
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Task Selection Section */}
+                    <div className="space-y-2">
+                        {!taskId ? (
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Select Task <span className="text-red-500">*</span></label>
+                                <div className="relative group">
+                                    <select 
+                                        value={selectedTaskId}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSelectedTaskId(val);
+                                            const found = tasks.find((t: any) => String(t.id) === String(val));
+                                            if (found) {
+                                                if (!description || description.trim() === '') {
+                                                    setDescription(found.description && found.description !== 'NA' ? found.description : (found.title || found.name || ''));
+                                                }
+                                                if (found.category || found.activity_type) {
+                                                    setCategory(found.category || found.activity_type);
+                                                }
+                                                if (found.location || found.area || found.site_location) {
+                                                    setLocation(found.location || found.area || found.site_location);
+                                                }
+                                            }
+                                        }}
+                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">{displayTasks.length > 0 ? "Select an Active Task to Update" : "No Active Tasks Available"}</option>
+                                        {displayTasks.map(t => (
+                                            <option key={t.id} value={t.id}>
+                                                #{t.id} - {t.title || t.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Active Task</label>
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">{taskName || 'Selected Task'}</p>
+                                            <p className="text-[10px] font-bold text-blue-600 uppercase">Mission Update in Progress</p>
+                                        </div>
+                                    </div>
+                                    <div className="px-3 py-1.5 bg-white rounded-lg border border-blue-200 shadow-xs">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mr-1">Task ID</span>
+                                        <span className="text-sm font-black text-blue-600">#{taskId}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Work Description Section */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
+                        <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all bg-white">
+                            <textarea 
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+                                placeholder="Write a detailed description of the work completed on site..."
+                                className="w-full p-4 min-h-[110px] focus:outline-none text-slate-700 text-sm placeholder:text-slate-300 font-medium"
+                            />
+                            <div className="p-2 px-4 bg-slate-50/50 flex justify-end border-t border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 tabular-nums">{description.length}/1000</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Photo Upload Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* Before Work Photos */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <label className="text-sm font-bold text-slate-700">Before Work Photos <span className="text-red-500">*</span></label>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveBeforePhotos}
+                                        disabled={isUploadingBefore || isCreating || isSubmitting}
+                                        className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        {isUploadingBefore ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{beforePhotos.length} / 4</span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium">Upload photos before starting the work (Max 4)</p>
+                            <input 
+                                type="file" 
+                                ref={beforeInputRef}
+                                id="before-upload" 
+                                accept="image/*" 
+                                multiple
+                                className="hidden" 
+                                onChange={(e) => {
+                                    if (e.target.files) handleFiles(e.target.files, 'before');
+                                    e.target.value = '';
+                                }} 
+                            />
+                            <div 
+                                onClick={() => beforeInputRef.current?.click()}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'before');
+                                }}
+                                className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
+                            >
+                                <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
+                                    <Upload className="w-5 h-5" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-xs font-bold text-slate-700">Drag &amp; drop Before photos</p>
+                                    <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
+                                    {beforePhotos.length > 0 ? (
+                                        <div className="flex flex-wrap gap-3">
+                                            {beforePhotos.map((url, i) => (
+                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
+                                                    <img src={url} alt="Before" className="w-full h-full object-cover" />
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleRemovePhoto('before', i); }}
+                                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                    >
+                                                        <X className="w-4 h-4 text-white" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 mt-3">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Before Work Remarks (Optional)</label>
+                                <div className="relative">
+                                    <textarea 
+                                        value={beforeRemarks}
+                                        onChange={(e) => setBeforeRemarks(e.target.value.slice(0, 500))}
+                                        placeholder="Remarks on initial site conditions, materials, or preparations..."
+                                        className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                    />
+                                    <div className="absolute right-3 bottom-2">
+                                        <span className="text-[9px] font-bold text-slate-400 tabular-nums">{beforeRemarks.length}/500</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* After Work Photos */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <label className="text-sm font-bold text-slate-700">After Work Photos <span className="text-red-500">*</span></label>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveAfterPhotos}
+                                        disabled={isUploadingAfter || isCreating || isSubmitting}
+                                        className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        {isUploadingAfter ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{afterPhotos.length} / 4</span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium">Upload photos after completing the work (Max 4)</p>
+                            <input 
+                                type="file" 
+                                ref={afterInputRef}
+                                id="after-upload" 
+                                accept="image/*" 
+                                multiple
+                                className="hidden" 
+                                onChange={(e) => {
+                                    if (e.target.files) handleFiles(e.target.files, 'after');
+                                    e.target.value = '';
+                                }} 
+                            />
+                            <div 
+                                onClick={() => afterInputRef.current?.click()}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files, 'after');
+                                }}
+                                className="w-full py-7 border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2.5 hover:bg-blue-50/40 hover:border-blue-400 transition-all group cursor-pointer"
+                            >
+                                <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform border border-blue-100">
+                                    <Upload className="w-5 h-5" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-xs font-bold text-slate-700">Drag &amp; drop After photos</p>
+                                    <p className="text-[11px] font-bold text-blue-600">or click to browse files</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 15MB</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
+                                    {afterPhotos.length > 0 ? (
+                                        <div className="flex flex-wrap gap-3">
+                                            {afterPhotos.map((url, i) => (
+                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
+                                                    <img src={url} alt="After" className="w-full h-full object-cover" />
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleRemovePhoto('after', i); }}
+                                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                    >
+                                                        <X className="w-4 h-4 text-white" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 mt-3">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">After Work Remarks (Optional)</label>
+                                <div className="relative">
+                                    <textarea 
+                                        value={afterRemarks}
+                                        onChange={(e) => setAfterRemarks(e.target.value.slice(0, 500))}
+                                        placeholder="Remarks on completed quality, finishing, or handover status..."
+                                        className="w-full p-3 min-h-[75px] border border-slate-200 rounded-xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                    />
+                                    <div className="absolute right-3 bottom-2">
+                                        <span className="text-[9px] font-bold text-slate-400 tabular-nums">{afterRemarks.length}/500</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Date and Time Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Work Date <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input 
+                                    type="date" 
+                                    value={workDate}
+                                    onChange={(e) => setWorkDate(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Start Time <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input 
+                                    type="time" 
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">End Time <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input 
+                                    type="time" 
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Total Hours</label>
+                            <div className="relative">
+                                <Timer className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input 
+                                    type="text" 
+                                    readOnly
+                                    value={totalHours}
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Dropdowns Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Activity Type <span className="text-red-500">*</span></label>
+                            <div className="relative group">
+                                <select 
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                                >
+                                    <option value="">Select Activity Type</option>
+                                    {activityTypes.length > 0 ? (
+                                        activityTypes.map((at) => (
+                                            <option key={at.id} value={at.name}>{at.name}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="Reinforcement">Reinforcement</option>
+                                            <option value="Concreting">Concreting</option>
+                                            <option value="Masonry">Masonry</option>
+                                            <option value="Excavation">Excavation</option>
+                                            <option value="Plastering">Plastering</option>
+                                            <option value="Painting">Painting</option>
+                                            <option value="Electrical">Electrical</option>
+                                            <option value="Plumbing">Plumbing</option>
+                                            <option value="Carpentry">Carpentry</option>
+                                            <option value="Flooring">Flooring</option>
+                                            <option value="Waterproofing">Waterproofing</option>
+                                            <option value="General">General</option>
+                                        </>
+                                    )}
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Location / Area <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input 
+                                    type="text" 
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value)}
+                                    placeholder="e.g. Block B, 2nd Floor, Pillar P14"
+                                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Buttons */}
+                    <div className="flex items-center justify-between pt-5 border-t border-slate-100 flex-wrap gap-4">
+                        <button 
+                            type="button"
+                            onClick={handleCancel}
+                            disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                            Reset Form
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
+                            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center gap-2.5 hover:bg-blue-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Daily Update'}
+                            <Send className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                </div>
+            </Modal>
+
+            {/* ── 4. Work Update Detail Modal ───────────────────────────────────── */}
             {selectedHistoryItem && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
                     <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 shadow-2xl overflow-hidden">
@@ -2100,15 +2308,48 @@ const WorkUpdatesPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
                                         {selectedHistoryItem.before_images_list?.length > 0 ? (
-                                            selectedHistoryItem.before_images_list.map((url: string, i: number) => (
-                                                <div 
-                                                    key={i} 
-                                                    onClick={() => setLightboxImage({ url, title: `Before Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
-                                                    className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer group shadow-xs"
-                                                >
-                                                    <img src={url} alt="Before" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                                </div>
-                                            ))
+                                            selectedHistoryItem.before_images_list.map((url: string, i: number) => {
+                                                const matchedImg = (selectedHistoryItem.images || []).find((img: any) => getFullUrl(img?.image_url || img?.url || img?.path) === url);
+                                                return (
+                                                    <div 
+                                                        key={i} 
+                                                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-xs"
+                                                    >
+                                                        <img 
+                                                            src={url} 
+                                                            alt="Before" 
+                                                            onClick={() => setLightboxImage({ url, title: `Before Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                                        />
+                                                        {matchedImg?.id && (
+                                                            <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 backdrop-blur-xs p-1 rounded-md z-10">
+                                                                <button
+                                                                    type="button"
+                                                                    title="Replace Image (PUT /api/v1/work-updates/images/{image_id})"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        triggerReplaceImage(matchedImg.id);
+                                                                    }}
+                                                                    className="p-1 text-white hover:text-blue-300 transition-colors cursor-pointer"
+                                                                >
+                                                                    <RefreshCw className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Delete Image (DELETE /api/v1/work-updates/images/{image_id})"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteImage(matchedImg.id);
+                                                                    }}
+                                                                    className="p-1 text-white hover:text-rose-400 transition-colors cursor-pointer"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         ) : (
                                             <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No Before photos attached</p>
                                         )}
@@ -2131,15 +2372,48 @@ const WorkUpdatesPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
                                         {selectedHistoryItem.after_images_list?.length > 0 ? (
-                                            selectedHistoryItem.after_images_list.map((url: string, i: number) => (
-                                                <div 
-                                                    key={i} 
-                                                    onClick={() => setLightboxImage({ url, title: `After Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
-                                                    className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer group shadow-xs"
-                                                >
-                                                    <img src={url} alt="After" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                                </div>
-                                            ))
+                                            selectedHistoryItem.after_images_list.map((url: string, i: number) => {
+                                                const matchedImg = (selectedHistoryItem.images || []).find((img: any) => getFullUrl(img?.image_url || img?.url || img?.path) === url);
+                                                return (
+                                                    <div 
+                                                        key={i} 
+                                                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-xs"
+                                                    >
+                                                        <img 
+                                                            src={url} 
+                                                            alt="After" 
+                                                            onClick={() => setLightboxImage({ url, title: `After Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                                        />
+                                                        {matchedImg?.id && (
+                                                            <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 backdrop-blur-xs p-1 rounded-md z-10">
+                                                                <button
+                                                                    type="button"
+                                                                    title="Replace Image (PUT /api/v1/work-updates/images/{image_id})"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        triggerReplaceImage(matchedImg.id);
+                                                                    }}
+                                                                    className="p-1 text-white hover:text-blue-300 transition-colors cursor-pointer"
+                                                                >
+                                                                    <RefreshCw className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Delete Image (DELETE /api/v1/work-updates/images/{image_id})"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteImage(matchedImg.id);
+                                                                    }}
+                                                                    className="p-1 text-white hover:text-rose-400 transition-colors cursor-pointer"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         ) : (
                                             <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No After photos attached</p>
                                         )}
@@ -2234,6 +2508,15 @@ const WorkUpdatesPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Hidden input for replacing images */}
+            <input 
+                type="file" 
+                ref={replaceImageRef} 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleReplaceFileSelected} 
+            />
         </>
     );
 };

@@ -44,8 +44,8 @@ export const notificationService = {
     getAllNotifications: async (): Promise<Notification[]> => {
         try {
             const [genRes, nRes] = await Promise.all([
-                api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
-                api.get('/notifications', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] }))
+                api.get('/alerts', { params: { limit: 50, offset: 0 } }).catch(() => ({ data: [] })),
+                api.get('/notifications', { params: { limit: 50, offset: 0 } }).catch(() => ({ data: [] }))
             ]);
             // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
             // and return 422 when called without one. They are intentionally excluded here.
@@ -175,7 +175,7 @@ export const notificationService = {
     async getAlertsOnly(): Promise<Notification[]> {
         try {
             const [genRes] = await Promise.all([
-                api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
+                api.get('/alerts', { params: { limit: 50, offset: 0 } }).catch(() => ({ data: [] })),
             ]);
             // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
             // and return 422 when called without one. They are excluded here.
@@ -257,7 +257,7 @@ export const notificationService = {
      */
     async getSystemNotificationsOnly(): Promise<Notification[]> {
         try {
-            const response = await api.get('/notifications', { params: { limit: 100, offset: 0 } });
+            const response = await api.get('/notifications', { params: { limit: 50, offset: 0 } });
             const rawItems = response.data?.items || response.data?.data || response.data || [];
             if (!Array.isArray(rawItems)) return [];
 
@@ -285,10 +285,19 @@ export const notificationService = {
                 // Determine if ID is virtual or numeric
                 const numericId = String(id).replace('sys-', '').replace('notif-', '');
                 if (!isNaN(Number(numericId))) {
-                    await api.put(`/notifications/${numericId}/read`);
+                    await Promise.allSettled([
+                        api.patch(`/notifications/${numericId}/read`),
+                        api.put(`/notifications/${numericId}/read`),
+                        api.patch(`/notifications/${numericId}`, { is_read: true }),
+                        api.put(`/notifications/${numericId}`, { is_read: true })
+                    ]);
                 }
             } else if (source === "general" && !String(id).includes('proj-') && !String(id).includes('task-') && !String(id).includes('.')) {
-                await api.put(`/alerts/${id}/read`).catch(() => { });
+                await Promise.allSettled([
+                    api.patch(`/alerts/${id}/read`),
+                    api.put(`/alerts/${id}/read`),
+                    api.patch(`/alerts/${id}`, { is_read: true })
+                ]).catch(() => { });
                 const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
                 const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
                 if (!readIds.includes(String(id))) {
@@ -318,8 +327,11 @@ export const notificationService = {
             // Use bulk endpoint for system notifications
             const hasSystemNotifs = unread.some(n => n.source === 'system' || n.source === 'direct');
             if (hasSystemNotifs) {
-                await api.put('/notifications/read-all').catch(e =>
-                    console.warn('PUT /notifications/read-all failed, falling back to individual calls:', e)
+                await Promise.allSettled([
+                    api.patch('/notifications/read-all'),
+                    api.put('/notifications/read-all'),
+                ]).catch(e =>
+                    console.warn('PUT/PATCH /notifications/read-all failed:', e)
                 );
             }
 
@@ -411,8 +423,21 @@ export const notificationService = {
      */
     getNotificationsOverview: async (limit = 50, offset = 0): Promise<Notification[]> => {
         try {
-            const response = await api.get(`/notifications?limit=${limit}&offset=${offset}`);
-            const rawItems = response.data?.items || response.data?.data || response.data || [];
+            const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 50);
+            const safeOffset = Math.max(Number(offset) || 0, 0);
+            let response: any;
+            try {
+                response = await api.get('/notifications', { params: { limit: safeLimit, offset: safeOffset } });
+            } catch {
+                try {
+                    response = await api.get(`/notifications?limit=${safeLimit}&offset=${safeOffset}`);
+                } catch {
+                    response = await api.get('/notifications');
+                }
+            }
+            const rawItems = Array.isArray(response.data)
+                ? response.data
+                : (response.data?.items || response.data?.data || response.data?.notifications || []);
 
             if (!Array.isArray(rawItems)) return [];
 
@@ -423,7 +448,7 @@ export const notificationService = {
 
             return rawItems.map((item: any) => {
                 const strId = String(item.id || item.notification_id);
-                let isRead = !!(item.is_read || item.read || item.status === 'read');
+                let isRead = item.is_read !== undefined ? !!item.is_read : (item.read !== undefined ? !!item.read : item.status === 'read');
                 if (unreadIds.includes(strId)) {
                     isRead = false;
                 } else if (readIds.includes(strId)) {
@@ -433,8 +458,8 @@ export const notificationService = {
                 return {
                     id: item.id || item.notification_id,
                     title: item.title || item.alert_type || "Notification",
-                    description: item.message || item.description || "",
-                    details: item.message || item.details || item.content || "",
+                    description: item.message || item.description || item.details || "",
+                    details: item.message || item.details || item.content || item.description || "",
                     type: (item.type || "Info") as any,
                     timestamp: normalizeNotificationTimestamp(item.created_at || item.timestamp),
                     created_at: normalizeNotificationTimestamp(item.created_at || item.timestamp),

@@ -106,13 +106,18 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
           }));
 
         data = mappedSys;
-      } else if (user.role === "Labour") {
-        // Use the unified overview endpoint for Labour to match the main notifications page
-        data = await notificationService.getNotificationsOverview();
       } else {
-        data = await notificationService.getNotifications();
+        const roleLower = String(user.role || (user as any)?.role_name || (user as any)?.role?.name || '').toLowerCase();
+        if (roleLower === "labour") {
+          data = await notificationService.getNotificationsOverview(50, 0);
+          if (!data || data.length === 0) {
+            data = await notificationService.getNotifications();
+          }
+        } else {
+          data = await notificationService.getNotifications();
+        }
       }
-      setNotifications(data);
+      setNotifications(data || []);
     } catch (err) {
       console.error("Notifications fetch failed", err);
     }
@@ -271,7 +276,13 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
           {/* Notification Dropdown */}
           <div className="relative" ref={notifRef}>
             <button
-              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+              onClick={() => {
+                const nextOpen = !isNotificationOpen;
+                setIsNotificationOpen(nextOpen);
+                if (nextOpen) {
+                  fetchNotifs();
+                }
+              }}
               className={`relative w-8 h-8 flex items-center justify-center text-white rounded-lg transition-colors ${isNotificationOpen ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
               title="Notifications"
             >

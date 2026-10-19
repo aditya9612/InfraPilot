@@ -73,7 +73,8 @@ export const generateProjectListPDF = (projects: Project[]) => {
     const tableData = sortedProjects.map(p => {
         const idStr = p.id ? `PRJ00${p.id}` : "-";
         const datesStr = p.start_date && p.end_date ? `${p.start_date} to ${p.end_date}` : (p.start_date || p.end_date || "-");
-        const progressStr = `${p.completion_percentage ?? 0}%`;
+        const numProgress = Number(p.completion_percentage ?? 0);
+        const progressStr = `${isNaN(numProgress) ? 0 : parseFloat(numProgress.toFixed(2))}%`;
         const statusStr = (p.status || "").toUpperCase();
         return [
             idStr,

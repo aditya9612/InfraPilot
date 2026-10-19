@@ -86,18 +86,18 @@ const CreateMilestoneModal = ({
 
     setIsLoading(true);
     try {
-      const statusMap: Record<string, string> = {
-        "Planned": "PLANNED",
-        "In Progress": "IN_PROGRESS",
-        "Completed": "COMPLETED",
-        "Delayed": "DELAYED",
+      const formatMilestoneStatus = (status: string) => {
+        const s = String(status || "").trim().toUpperCase().replace(/[\s_-]+/g, "");
+        if (s === "INPROGRESS") return "In Progress";
+        if (s === "COMPLETED") return "Completed";
+        if (s === "DELAYED") return "Delayed";
+        return "Planned";
       };
-      const formattedStatus = statusMap[formData.status] || formData.status.toUpperCase().replace(/\s+/g, "_");
 
       const requestBody = {
         project_id: projectId,
         ...formData,
-        status: formattedStatus,
+        status: formatMilestoneStatus(formData.status),
       };
 
       console.log("Creating Milestone (Request Body):", requestBody);

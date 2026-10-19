@@ -318,7 +318,11 @@ export const projectService = {
   async createMilestone(projectId: number, milestoneData: any) {
     const payload = { ...milestoneData };
     if (payload.status) {
-      payload.status = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+      const s = String(payload.status).trim().toUpperCase().replace(/[\s_-]+/g, "");
+      if (s === "INPROGRESS") payload.status = "In Progress";
+      else if (s === "COMPLETED") payload.status = "Completed";
+      else if (s === "DELAYED") payload.status = "Delayed";
+      else payload.status = "Planned";
     }
     const response = await api.post(`projects/${projectId}/milestones`, payload);
     return response.data;
@@ -332,7 +336,11 @@ export const projectService = {
   async updateMilestone(projectId: number, milestoneId: number, milestoneData: any) {
     const payload = { ...milestoneData };
     if (payload.status) {
-      payload.status = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
+      const s = String(payload.status).trim().toUpperCase().replace(/[\s_-]+/g, "");
+      if (s === "INPROGRESS") payload.status = "In Progress";
+      else if (s === "COMPLETED") payload.status = "Completed";
+      else if (s === "DELAYED") payload.status = "Delayed";
+      else payload.status = "Planned";
     }
     const response = await api.put(`projects/${projectId}/milestones/${milestoneId}`, payload);
     return response.data;

@@ -14,6 +14,8 @@ export type Role =
 export interface User {
   id: string;
   name: string;
+  username?: string;
+  email?: string;
   mobile: string;
   role: Role;
   profile_image?: string | null;

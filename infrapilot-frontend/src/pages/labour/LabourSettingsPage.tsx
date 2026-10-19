@@ -9,7 +9,8 @@ import { projectService } from '../../services/projectService';
 import type { UserProfile, UserSettings, UpdateProfileRequest, UpdateSettingsRequest } from '../../types/settings';
 
 const LabourSettingsPage: React.FC = () => {
-    const { refreshUser } = useAuth();
+    const { user, refreshUser } = useAuth();
+    const isAdmin = user?.role === 'Admin' || (user as any)?.role?.name === 'Admin' || (user as any)?.role_name === 'Admin';
 
     // Loading States
     const [isLoading, setIsLoading] = useState(true);
@@ -347,11 +348,11 @@ const LabourSettingsPage: React.FC = () => {
                                         { label: 'FULL NAME', value: profile?.full_name || '', key: 'full_name' },
                                         { label: 'DESIGNATION', value: profile?.designation || '', key: 'designation' },
                                         { label: 'EMAIL ADDRESS', value: profile?.email || '', key: 'email' },
-                                        { label: 'MOBILE NUMBER', value: profile?.mobile_number || '', key: 'mobile_number' },
+                                        { label: 'MOBILE NUMBER', value: profile?.mobile_number || '', key: 'mobile_number', disabled: !isAdmin },
                                         { label: 'PAN NUMBER', value: profile?.pan_number || '', key: 'pan_number' },
                                         { label: 'AADHAAR NUMBER', value: profile?.aadhaar_number || '', key: 'aadhaar_number' },
-                                        { label: 'ROLE', value: profile?.role || '', key: 'role', disabled: true },
-                                        { label: 'JOINING DATE', value: profile?.joining_date || '', key: 'joining_date', isDate: true },
+                                        { label: 'ROLE', value: profile?.role || '', key: 'role', disabled: !isAdmin },
+                                        { label: 'JOINING DATE', value: profile?.joining_date || '', key: 'joining_date', isDate: true, disabled: !isAdmin },
                                     ].map((field, i) => (
                                         <div key={i} className="space-y-1.5">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
