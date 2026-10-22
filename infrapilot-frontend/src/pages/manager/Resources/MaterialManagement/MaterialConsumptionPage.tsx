@@ -43,6 +43,7 @@ const MaterialConsumptionPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState("");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Modal States
     const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
@@ -57,7 +58,8 @@ const MaterialConsumptionPage = () => {
 
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
-    const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
+    const [usageForm, setUsageForm] = useState<any>({ quantity: "", project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
+    const [usageErrors, setUsageErrors] = useState<{ project_id?: string; quantity?: string; issue_type?: string }>({});
     const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string; transport_mode: string; vehicle_number: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
@@ -177,13 +179,34 @@ const MaterialConsumptionPage = () => {
     }, [activeTab, projectId, selectedMaterialId, selectedIssueType]);
 
     // Derived Data
-    const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
+    const filteredInventory = useMemo(() => {
+        const list = inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.updated_at || a.created_at ? new Date(a.updated_at || a.created_at).getTime() : (Number(a.material_id || a.id) || 0);
+            const timeB = b.updated_at || b.created_at ? new Date(b.updated_at || b.created_at).getTime() : (Number(b.material_id || b.id) || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [inventory, searchTerm, sortOrder]);
     const paginatedInventory = useMemo(() => filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredInventory, currentPage, itemsPerPage]);
 
-    const filteredTransfers = useMemo(() => transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm)), [transfers, searchTerm]);
+    const filteredTransfers = useMemo(() => {
+        const list = transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm));
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id || 0);
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [transfers, searchTerm, sortOrder]);
     const paginatedTransfers = useMemo(() => filteredTransfers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransfers, currentPage, itemsPerPage]);
 
-    const filteredTransactions = useMemo(() => transactions.filter(t => (t.type.toLowerCase().includes(searchTerm.toLowerCase()) || (t.issue_type || '').toLowerCase().includes(searchTerm.toLowerCase())) && (selectedIssueType ? t.issue_type === selectedIssueType || t.type === selectedIssueType : true)), [transactions, searchTerm, selectedIssueType]);
+    const filteredTransactions = useMemo(() => {
+        const list = transactions.filter(t => (t.type.toLowerCase().includes(searchTerm.toLowerCase()) || (t.issue_type || '').toLowerCase().includes(searchTerm.toLowerCase())) && (selectedIssueType ? t.issue_type === selectedIssueType || t.type === selectedIssueType : true));
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id || 0);
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [transactions, searchTerm, selectedIssueType, sortOrder]);
     const paginatedTransactions = useMemo(() => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransactions, currentPage, itemsPerPage]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -194,36 +217,45 @@ const MaterialConsumptionPage = () => {
         e.preventDefault();
         setFormNotification(null);
 
-        const missingFields: string[] = [];
-        if (!usageForm.issue_type) missingFields.push("Issue Type");
-        if (!usageForm.quantity || usageForm.quantity <= 0) missingFields.push("Quantity");
-        if (!usageForm.issued_to?.trim()) missingFields.push("Issued To");
+        const errors: { project_id?: string; quantity?: string; issue_type?: string } = {};
+        if (!usageForm.project_id) errors.project_id = "Project is required.";
+        if (usageForm.quantity === "" || usageForm.quantity === undefined || usageForm.quantity === null || Number(usageForm.quantity) <= 0) {
+            errors.quantity = "Quantity must be greater than 0.";
+        } else if (selectedInventory && Number(usageForm.quantity) > selectedInventory.remaining_stock) {
+            errors.quantity = `Quantity cannot exceed available stock (${selectedInventory.remaining_stock}).`;
+        }
+        if (!usageForm.issue_type) errors.issue_type = "Issue Type is required.";
 
-        if (missingFields.length > 0) {
-            setFormNotification({
-                type: 'error',
-                message: 'Please fill all mandatory fields.',
-                fields: missingFields
-            });
+        const totalRequiredFields = 3; // project_id, quantity, issue_type
+        const missingCount = Object.keys(errors).length;
+
+        if (missingCount > 0) {
+            setUsageErrors(errors);
+            // Rule 3: generic toast only when all required fields are blank
+            if (missingCount >= totalRequiredFields) {
+                toast.error("Please fill in all mandatory fields.");
+            }
+            // Keep the popup open!
+            setIsUsageModalOpen(true);
             return;
         }
 
+        setUsageErrors({});
         if (!selectedInventory) return;
-        if (usageForm.quantity > selectedInventory.remaining_stock) {
-            setFormNotification({ type: 'error', message: 'Quantity cannot exceed available stock' });
-            return;
-        }
         setIsSubmitting(true);
         try {
-            const payload = { ...usageForm, issue_type: usageForm.issue_type as IssueType };
+            const payload = { ...usageForm, quantity: Number(usageForm.quantity), issue_type: usageForm.issue_type as IssueType };
             if (!payload.task_id) delete payload.task_id;
             if (!payload.boq_item_id) delete payload.boq_item_id;
             await materialService.recordUsage(selectedInventory.material_id, payload);
-            setFormNotification({ type: 'success', message: "Usage recorded!" });
-            setTimeout(() => setFormNotification(null), 3000);
-            setIsUsageModalOpen(false); fetchInventory();
-        } catch (e) { setFormNotification({ type: 'error', message: "Failed to record usage" }); }
-        finally { setIsSubmitting(false); }
+            toast.success("Usage recorded successfully!");
+            setIsUsageModalOpen(false);
+            fetchInventory();
+        } catch (e: any) {
+            toast.error(e?.response?.data?.message || "Failed to record usage");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleTransferSubmit = async (e: React.FormEvent) => {
@@ -417,6 +449,18 @@ const MaterialConsumptionPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => {
+                                    setSortOrder(e.target.value as "latest" | "oldest");
+                                    setCurrentPage(1);
+                                }}
+                                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
+                                title="Sort by latest or oldest"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                             {activeTab === "Transactions" && (
                                 <>
                                     <select
@@ -476,7 +520,7 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: "", project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
+                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: "", project_id: projectId, issue_type: "SITE" }); setUsageErrors({}); setFormNotification(null); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
                                                 </td>
                                             </tr>
                                         )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
@@ -518,26 +562,28 @@ const MaterialConsumptionPage = () => {
 
             {/* Modals */}
             {/* Usage Modal */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
+            <Modal isOpen={isUsageModalOpen} onClose={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
                 <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
-                    {/* Inline Validation Error Banner */}
-                    {formNotification && formNotification.type === 'error' && (
-                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
-                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                            </svg>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
-                            </div>
-                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
-                        </div>
-                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div>
+                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                                <select
+                                    required
+                                    value={usageForm.project_id || ""}
+                                    onChange={e => {
+                                        setUsageForm({ ...usageForm, project_id: Number(e.target.value) });
+                                        if (usageErrors.project_id) setUsageErrors(prev => ({ ...prev, project_id: undefined }));
+                                    }}
+                                    className={`${inputClasses} ${usageErrors.project_id ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-400/20' : ''}`}
+                                >
+                                    <option value="">Select Project</option>
+                                    {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
+                                </select>
+                                {usageErrors.project_id && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{usageErrors.project_id}</p>}
+                            </div>
                             <div>
                                 <label className={labelClasses}>Task Name</label>
                                 <select value={usageForm.task_id || ""} onChange={e => setUsageForm({ ...usageForm, task_id: Number(e.target.value) || 0 })} className={inputClasses}>
@@ -552,11 +598,42 @@ const MaterialConsumptionPage = () => {
                                     {boqsList.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}
                                 </select>
                             </div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={usageForm.quantity} onChange={e => setUsageForm({ ...usageForm, quantity: e.target.value === '' ? '' : Number(e.target.value) })} className={`${inputClasses} ${usageForm.quantity > (selectedInventory?.remaining_stock || 0) ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : ''}`} />
-                                {usageForm.quantity > (selectedInventory?.remaining_stock || 0) && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Cannot exceed available stock ({selectedInventory?.remaining_stock}).</p>}
-                                {usageForm.quantity !== "" && usageForm.quantity <= 0 && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Quantity must be greater than 0.</p>}
+                            <div>
+                                <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="number"
+                                    required
+                                    value={usageForm.quantity}
+                                    onChange={e => {
+                                        setUsageForm({ ...usageForm, quantity: e.target.value === '' ? '' : Number(e.target.value) });
+                                        if (usageErrors.quantity) setUsageErrors(prev => ({ ...prev, quantity: undefined }));
+                                    }}
+                                    className={`${inputClasses} ${usageErrors.quantity || (selectedInventory && Number(usageForm.quantity) > selectedInventory.remaining_stock) ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-400/20' : ''}`}
+                                />
+                                {usageErrors.quantity && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{usageErrors.quantity}</p>}
+                                {!usageErrors.quantity && selectedInventory && Number(usageForm.quantity) > selectedInventory.remaining_stock && (
+                                    <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Cannot exceed available stock ({selectedInventory.remaining_stock}).</p>
+                                )}
+                                {!usageErrors.quantity && usageForm.quantity !== "" && Number(usageForm.quantity) <= 0 && (
+                                    <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">Quantity must be greater than 0.</p>
+                                )}
                             </div>
-                            <div className="md:col-span-2"><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label>
+                                <select
+                                    required
+                                    value={usageForm.issue_type || ""}
+                                    onChange={e => {
+                                        setUsageForm({ ...usageForm, issue_type: e.target.value });
+                                        if (usageErrors.issue_type) setUsageErrors(prev => ({ ...prev, issue_type: undefined }));
+                                    }}
+                                    className={`${inputClasses} ${usageErrors.issue_type ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-400/20' : ''}`}
+                                >
+                                    <option value="">Select Issue Type</option>
+                                    {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+                                </select>
+                                {usageErrors.issue_type && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{usageErrors.issue_type}</p>}
+                            </div>
                         </div>
                     </div>
                 </form>

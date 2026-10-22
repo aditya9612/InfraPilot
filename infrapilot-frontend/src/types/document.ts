@@ -1,3 +1,15 @@
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "UNDER_REVIEW";
+
+export const resolveApprovalStatus = (d: any): ApprovalStatus => {
+    const s1 = String(d?.approval_status || "").trim().toLowerCase();
+    const s2 = String(d?.status || "").trim().toLowerCase();
+
+    if (s1 === "approved" || s2 === "approved") return "APPROVED";
+    if (s1 === "rejected" || s2 === "rejected") return "REJECTED";
+    if (s1.includes("review") || s2.includes("review")) return "UNDER_REVIEW";
+    return "PENDING";
+};
+
 export interface Document {
     id: number;
     project_id: number;
@@ -7,7 +19,8 @@ export interface Document {
     file_url: string | null;
     file_size: number | null;
     version: string;
-    status: "PENDING" | "APPROVED" | "REJECTED" | "UNDER_REVIEW";
+    status: ApprovalStatus;
+    approval_status?: ApprovalStatus;
     is_folder: boolean;
     parent_id: number | null;
     uploaded_by_user_id: number;

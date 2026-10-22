@@ -41,11 +41,30 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
         return "PLANNED";
     };
 
+    const formatDateToYYYYMMDD = (dateVal: any): string => {
+        if (!dateVal) return "";
+        const str = String(dateVal).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        if (str.includes("T")) return str.split("T")[0];
+        const dmy = /^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/.exec(str);
+        if (dmy) {
+            return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+        }
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+        return str.slice(0, 10);
+    };
+
     useEffect(() => {
         if (project) {
             setFormData({
-                project_name: project.project_name,
-                description: project.description,
+                project_name: project.project_name || "",
+                description: project.description || "",
                 type: project.type || "RESIDENTIAL",
                 location_type: project.location_type || "URBAN",
                 site_address: project.site_address || "",
@@ -53,10 +72,10 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                 state: project.state || "",
                 country: project.country || "India",
                 pincode: project.pincode || "",
-                latitude: project.latitude || "",
-                longitude: project.longitude || "",
-                start_date: project.start_date,
-                end_date: project.end_date,
+                latitude: project.latitude !== null && project.latitude !== undefined ? String(project.latitude) : "",
+                longitude: project.longitude !== null && project.longitude !== undefined ? String(project.longitude) : "",
+                start_date: formatDateToYYYYMMDD(project.start_date),
+                end_date: formatDateToYYYYMMDD(project.end_date),
                 status: normalizeProjectStatus(project.status),
             });
         }
@@ -156,10 +175,20 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
         setIsLoading(true);
         try {
             const requestBody = {
-                ...formData,
+                project_name: formData.project_name.trim(),
+                description: formData.description.trim(),
+                type: formData.type || "RESIDENTIAL",
+                location_type: formData.location_type || "URBAN",
+                site_address: formData.site_address.trim(),
+                city: formData.city.trim(),
+                state: formData.state.trim() || null,
+                country: formData.country.trim() || "India",
+                pincode: formData.pincode.trim(),
+                latitude: formData.latitude !== "" && !isNaN(Number(formData.latitude)) ? Number(formData.latitude) : null,
+                longitude: formData.longitude !== "" && !isNaN(Number(formData.longitude)) ? Number(formData.longitude) : null,
+                start_date: formatDateToYYYYMMDD(formData.start_date) || null,
+                end_date: formatDateToYYYYMMDD(formData.end_date) || null,
                 status: normalizeProjectStatus(formData.status),
-                latitude: formData.latitude ? Number(formData.latitude) : undefined,
-                longitude: formData.longitude ? Number(formData.longitude) : undefined,
             };
             if (onSubmit) await onSubmit(requestBody);
             onClose();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, FileText, CheckCircle2 } from "lucide-react";
+import toast from "react-hot-toast";
 import type { Document, DocumentUpdateParams } from "../../types/document";
 
 interface EditDocumentModalProps {
@@ -46,22 +47,54 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         e.preventDefault();
         if (!document) return;
 
+        const trimmedTitle = (formData.title || "").trim();
+        const isDrawing = formData.document_type === "Drawing" || (document as any).document_type === "Drawing";
+        const fieldLabel = document.is_folder ? "Folder Name" : (isDrawing ? "Drawing Name" : "Document Title");
+
+        if (!trimmedTitle) {
+            toast.error(`${fieldLabel} is required.`);
+            return;
+        }
+
+        const MAX_TITLE_LENGTH = 100;
+        if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+            toast.error(`${fieldLabel} cannot exceed ${MAX_TITLE_LENGTH} characters.`);
+            return;
+        }
+
+        const trimmedVersion = (formData.version || "").trim();
+        if (isDrawing) {
+            if (!trimmedVersion) {
+                toast.error("Version is required.");
+                return;
+            }
+            if (trimmedVersion.length > 30) {
+                toast.error("Version cannot exceed 30 characters.");
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         try {
             if (selectedFile) {
                 const fd = new FormData();
-                fd.append("title", formData.title || "");
+                fd.append("title", trimmedTitle);
                 fd.append("document_type", formData.document_type || "");
-                fd.append("remarks", formData.remarks || "");
+                fd.append("remarks", (formData.remarks || "").trim());
                 fd.append("status", formData.status || "");
-                fd.append("version", formData.version || "");
+                fd.append("version", trimmedVersion || "1.0");
                 if (formData.date) {
                     fd.append("date", formData.date);
                 }
                 fd.append("file", selectedFile);
                 await onSubmit(document.id, fd);
             } else {
-                await onSubmit(document.id, formData);
+                await onSubmit(document.id, {
+                    ...formData,
+                    title: trimmedTitle,
+                    version: trimmedVersion || "1.0",
+                    remarks: (formData.remarks || "").trim()
+                });
             }
             onClose();
         } catch (error) {
@@ -106,14 +139,17 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
                         <div className="space-y-1.5">
                             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                {document.is_folder ? "Folder Name" : "Document Title"} <span className="text-rose-500">*</span>
+                                {document.is_folder ? "Folder Name" : (formData.document_type === "Drawing" ? "Drawing Name" : "Document Title")} <span className="text-rose-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 required
+                                maxLength={100}
+                                placeholder={formData.document_type === "Drawing" ? "e.g., Structural Plan A1" : "e.g., Site Contract"}
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                 value={formData.title}
                                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                                onBlur={() => setFormData(prev => ({ ...prev, title: (prev.title || "").trim() }))}
                             />
                         </div>
 
@@ -167,9 +203,11 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                         <input
                                             type="text"
                                             required
+                                            maxLength={30}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                             value={formData.version || ""}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                            onBlur={() => setFormData(prev => ({ ...prev, version: (prev.version || "").trim() }))}
                                         />
                                     </div>
 
@@ -224,6 +262,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                 </label>
                                 <textarea
                                     rows={3}
+                                    maxLength={500}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none text-slate-800"
                                     value={formData.remarks || ""}
                                     onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}

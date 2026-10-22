@@ -11,12 +11,22 @@ export const exportToCSV = (data: any[], filename: string, headers?: Record<stri
     return;
   }
 
+  // Ensure "Sr. No." is present as the first column sequentially
+  const hasSrNo = "Sr. No." in (data[0] || {}) || "sr_no" in (data[0] || {}) || "Sr No" in (data[0] || {});
+  const processedData = hasSrNo
+    ? data
+    : data.map((item, idx) => ({ "Sr. No.": idx + 1, ...item }));
+
+  const processedHeaders = headers
+    ? (hasSrNo ? headers : { "Sr. No.": "Sr. No.", ...headers })
+    : undefined;
+
   // 1. Determine columns (keys)
-  const keys = headers ? Object.keys(headers) : Object.keys(data[0]);
-  const headerRow = headers ? Object.values(headers) : keys;
+  const keys = processedHeaders ? Object.keys(processedHeaders) : Object.keys(processedData[0]);
+  const headerRow = processedHeaders ? Object.values(processedHeaders) : keys;
 
   // 2. Build rows
-  const rows = data.map((item) =>
+  const rows = processedData.map((item) =>
     keys
       .map((key) => {
         let val = item[key] !== undefined && item[key] !== null ? item[key] : "";

@@ -34,6 +34,7 @@ const TaskRequestModal = ({
         assigned_to: "",
         assigned_project: "",
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
     const [projectMembersForSelectedProject, setProjectMembersForSelectedProject] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
@@ -51,6 +52,7 @@ const TaskRequestModal = ({
                 assigned_to: editingRequest.assigned_to ? String(editingRequest.assigned_to) : "",
                 assigned_project: editingRequest.assigned_project ? String(editingRequest.assigned_project) : (projectId ? String(projectId) : ""),
             });
+            setErrors({});
         } else {
             setFormData({
                 title: "",
@@ -63,6 +65,7 @@ const TaskRequestModal = ({
                 assigned_to: "",
                 assigned_project: projectId ? String(projectId) : "",
             });
+            setErrors({});
         }
     }, [editingRequest, isOpen, projectId]);
 
@@ -93,22 +96,47 @@ const TaskRequestModal = ({
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        if (value && errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: "" }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || !formData.category || !formData.priority) {
-            toast.error("Title, Category, and Priority are required");
+        const hasProject = Boolean(formData.assigned_project || projectId);
+        const newErrors: Record<string, string> = {};
+
+        if (!hasProject) {
+            newErrors.assigned_project = "Assigned Project is required";
+        }
+        if (!formData.title?.trim()) {
+            newErrors.title = "Title is required";
+        }
+        if (!formData.category?.trim()) {
+            newErrors.category = "Category is required";
+        }
+        if (!formData.priority) {
+            newErrors.priority = "Priority is required";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            const totalRequired = 4;
+            if (Object.keys(newErrors).length === totalRequired) {
+                toast.error("Please fill in all required fields.");
+            }
             return;
         }
 
+        setErrors({});
         setSubmitting(true);
         try {
+            const targetProjectId = formData.assigned_project ? Number(formData.assigned_project) : projectId;
             const submitData = {
                 ...formData,
                 assigned_to: formData.assigned_to ? Number(formData.assigned_to) : null,
-                assigned_project: formData.assigned_project ? Number(formData.assigned_project) : projectId,
-                project_id: formData.assigned_project ? Number(formData.assigned_project) : projectId,
+                assigned_project: targetProjectId,
+                project_id: targetProjectId,
             };
             await onSubmit(submitData);
             setFormData({
@@ -128,6 +156,8 @@ const TaskRequestModal = ({
         }
     };
 
+    const hasSelectedProject = Boolean(formData.assigned_project || projectId);
+
     return (
         <Modal
             isOpen={isOpen}
@@ -146,8 +176,8 @@ const TaskRequestModal = ({
                     <button
                         type="submit"
                         form="task-request-form"
-                        disabled={submitting || isLoading}
-                        className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+                        disabled={submitting || isLoading || !hasSelectedProject}
+                        className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {submitting ? "Saving..." : editingRequest ? "Update" : "Create"}
                     </button>
@@ -227,12 +257,20 @@ const TaskRequestModal = ({
                     </div>
 
                     <div className="col-span-2">
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Assigned Project</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">
+                            Assigned Project <span className="text-rose-500">*</span>
+                        </label>
                         <select
+                            required
                             name="assigned_project"
                             value={formData.assigned_project}
-                            onChange={handleChange}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all cursor-pointer"
+                            onChange={(e) => {
+                                handleChange(e);
+                                if (e.target.value) {
+                                    setErrors(prev => ({ ...prev, assigned_project: "" }));
+                                }
+                            }}
+                            className={`w-full px-4 py-2.5 bg-white border ${errors.assigned_project ? 'border-rose-400 ring-2 ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} focus:ring-2 rounded-xl text-sm outline-none transition-all cursor-pointer`}
                         >
                             <option value="">Select Project</option>
                             {assignedProjects.map(p => (
@@ -241,6 +279,9 @@ const TaskRequestModal = ({
                                 </option>
                             ))}
                         </select>
+                        {errors.assigned_project && (
+                            <p className="mt-1 text-xs text-rose-500 font-semibold">{errors.assigned_project}</p>
+                        )}
                     </div>
                 </div>
 

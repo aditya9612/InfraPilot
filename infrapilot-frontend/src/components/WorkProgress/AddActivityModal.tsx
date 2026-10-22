@@ -3,6 +3,7 @@ import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface AddActivityModalProps {
   isOpen: boolean;
@@ -180,13 +181,18 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     const missingFields: string[] = [];
 
     if (!formData.project_id) {
-      errs.project_id = "Required";
+      errs.project_id = "Project is required";
       missingFields.push("Project");
     }
 
     if (!formData.boq_item_id) {
-      errs.boq_item_id = "Required";
+      errs.boq_item_id = "BOQ Item is required";
       missingFields.push("BOQ Item");
+    }
+
+    if (!formData.engineer_id) {
+      errs.engineer_id = "Assign Site Engineer is required";
+      missingFields.push("Assign Site Engineer");
     }
 
     if (formData.work_order_id && Number(formData.work_order_id) <= 0) {
@@ -194,11 +200,11 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
 
     if (!formData.start_date) {
-      errs.start_date = "Required";
+      errs.start_date = "Start Date is required";
       missingFields.push("Start Date");
     }
     if (!formData.end_date) {
-      errs.end_date = "Required";
+      errs.end_date = "End Date is required";
       missingFields.push("End Date");
     }
 
@@ -207,9 +213,17 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
 
     setErrors(errs);
-    if (missingFields.length > 0) {
-      setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(', ')}`, fields: missingFields });
+
+    const totalRequiredCount = 5;
+    if (missingFields.length === totalRequiredCount) {
+      // All required fields are blank: display generic toast message
+      setFormNotification({ type: 'error', message: 'Please fill in all required fields.' });
+      toast.error('Please fill in all required fields.');
+    } else {
+      // If only one or partial required fields are missing: highlight specific field(s) with inline message, no generic toast
+      setFormNotification(null);
     }
+
     return Object.keys(errs).length === 0;
   };
 
@@ -521,14 +535,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className={labelClasses}>Assign Site Engineer</label>
+              <label className={labelClasses}>Assign Site Engineer <span className="text-rose-500">*</span></label>
               <select
                 name="engineer_id"
                 className={inputClasses(errors.engineer_id)}
                 value={formData.engineer_id}
                 onChange={handleChange}
               >
-                <option value="">No Assignment (Select to Assign)</option>
+                <option value="">-- Select Site Engineer --</option>
                 {siteEngineers.map(eng => (
                   <option key={eng.id} value={eng.id}>
                     {eng.name}

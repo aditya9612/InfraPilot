@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 
 interface PaginationProps {
     currentPage: number; // 0-indexed
@@ -25,23 +26,41 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalItems, pageSi
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hidden sm:block">
                 Showing {Math.min(currentPage * pageSize + 1, totalItems)}–{Math.min((currentPage + 1) * pageSize, totalItems)} of {totalItems} {label}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+                <button
+                    onClick={() => onPageChange(0)}
+                    disabled={currentPage === 0}
+                    title="First page"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                    <ChevronsLeft className="w-4 h-4" />
+                </button>
                 <button
                     onClick={() => onPageChange(Math.max(0, currentPage - 1))}
                     disabled={currentPage === 0}
+                    title="Previous page"
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                    <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                <div className="min-w-[32px] h-8 px-2 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter bg-white shadow-xs">
                     {currentPage + 1}
                 </div>
                 <button
                     onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))}
                     disabled={currentPage >= totalPages - 1}
+                    title="Next page"
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                    onClick={() => onPageChange(totalPages - 1)}
+                    disabled={currentPage >= totalPages - 1}
+                    title="Last page"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                    <ChevronsRight className="w-4 h-4" />
                 </button>
             </div>
         </div>

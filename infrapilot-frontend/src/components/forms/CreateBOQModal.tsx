@@ -148,6 +148,12 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
     setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const fieldError = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
+  };
+
   const validateAll = () => {
     const fieldsToCheck = initialData
       ? ['item_name', 'activity_type_id', 'quantity', 'unit_cost', 'status']
@@ -159,7 +165,14 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
       if (error) newErrors[key] = error;
     });
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    const errorCount = Object.keys(newErrors).length;
+    if (errorCount === fieldsToCheck.length) {
+      // When all required fields are left blank, display a generic toast message
+      toast.error("Please fill in all required fields.");
+    }
+
+    return errorCount === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,7 +208,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      toast.error("Please fix the errors in the form.");
+      // Don't show generic toast - highlight fields and display specific inline error messages directly
     }
   };
 
@@ -348,14 +361,15 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
               name="activity_type_id"
               value={formData.activity_type_id}
               onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-red-500 ring-2 ring-red-100 focus:border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer`}
             >
               <option value="">Select Activity Type</option>
               {activityTypes?.map(type => (
                 <option key={type.id} value={type.id}>{type.name}</option>
               ))}
             </select>
-            {errors.activity_type_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>}
+            {errors.activity_type_id && <p className="mt-1 text-xs text-red-500 font-bold ml-1">{errors.activity_type_id}</p>}
           </div>
 
           {/* Estimated total */}

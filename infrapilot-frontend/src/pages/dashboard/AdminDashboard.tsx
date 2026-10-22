@@ -158,12 +158,14 @@ const AdminDashboard = () => {
         const liveProj = liveMap.get(pId);
 
         let resolvedStatus: ProjectStatus;
-        if (localOverrides && localOverrides[pId]) {
-          resolvedStatus = normalizeProjectStatus(localOverrides[pId]);
-        } else if (liveProj && liveProj.status) {
+        if (liveProj && liveProj.status) {
           resolvedStatus = normalizeProjectStatus(liveProj.status);
-        } else {
+        } else if (p.status || p.health) {
           resolvedStatus = normalizeProjectStatus(p.status || p.health);
+        } else if (localOverrides && localOverrides[pId]) {
+          resolvedStatus = normalizeProjectStatus(localOverrides[pId]);
+        } else {
+          resolvedStatus = "Planned";
         }
 
         return {

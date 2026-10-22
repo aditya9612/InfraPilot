@@ -244,9 +244,12 @@ const ProjectsPage = () => {
       setIsEditModalOpen(false);
       setEditingProject(null);
       fetchProjects();
-    } catch (error) {
-      toast.error("Failed to update project");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail[0]?.msg : (error?.response?.data?.message || "Failed to update project"));
+      toast.error(msg);
       console.error(error);
+      throw error;
     }
   };
 

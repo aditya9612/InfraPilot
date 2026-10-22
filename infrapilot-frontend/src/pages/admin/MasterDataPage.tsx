@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -15,6 +15,14 @@ import { masterService } from "../../services/masterService";
 import type { MasterEntity, MasterStats } from "../../services/masterService";
 import SortDropdown from "../../components/common/SortDropdown";
 
+const getTabFromPath = (path: string) => {
+  if (path.endsWith("/materials")) return "Material";
+  if (path.endsWith("/labour")) return "Labour";
+  if (path.endsWith("/activities")) return "Activity";
+  if (path.endsWith("/units")) return "Unit";
+  return "All";
+};
+
 const MasterDataPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,22 +35,19 @@ const MasterDataPage = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState<string>(() => getTabFromPath(location.pathname));
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [showInactive, setShowInactive] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [unitsMap, setUnitsMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
+  const activeRequestRef = useRef(0);
 
   // Sync tab state with URL path
   useEffect(() => {
-    const path = location.pathname;
-    if (path.endsWith("/materials")) setActiveTab("Material");
-    else if (path.endsWith("/labour")) setActiveTab("Labour");
-    else if (path.endsWith("/activities")) setActiveTab("Activity");
-    else if (path.endsWith("/units")) setActiveTab("Unit");
-    else setActiveTab("All");
+    const tab = getTabFromPath(location.pathname);
+    setActiveTab(tab);
   }, [location.pathname]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,6 +69,7 @@ const MasterDataPage = () => {
   }, []);
 
   const fetchMasterData = useCallback(async () => {
+    const requestId = ++activeRequestRef.current;
     setIsLoading(true);
     try {
       const tagMap: Record<string, string> = {
@@ -96,20 +102,29 @@ const MasterDataPage = () => {
         data = await masterService.getAllMasterData(searchTerm, tag);
       }
 
+      // Ignore stale response if another request has started
+      if (requestId !== activeRequestRef.current) return;
+
       setItems(data);
 
       // Always fetch stats to keep counters fresh
       try {
         const sysStats = await masterService.getMasterStats();
-        setStats(sysStats);
+        if (requestId === activeRequestRef.current) {
+          setStats(sysStats);
+        }
       } catch (e) {
         // Keep current stats if /stats fails
       }
     } catch (error) {
-      console.error("Master Data Fetch Error:", error);
-      toast.error("Failed to load master data. Individual endpoints are being checked.");
+      if (requestId === activeRequestRef.current) {
+        console.error("Master Data Fetch Error:", error);
+        toast.error("Failed to load master data. Individual endpoints are being checked.");
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === activeRequestRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [activeTab, searchTerm]);
 

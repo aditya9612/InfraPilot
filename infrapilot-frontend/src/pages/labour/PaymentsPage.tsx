@@ -305,7 +305,8 @@ const PaymentsPage: React.FC = () => {
     };
 
     const generateFrontendExcel = (data: any[]) => {
-        const rows = data.map(item => ({
+        const rows = data.map((item, index) => ({
+            "Sr. No.": index + 1,
             "Period / Date": item.period,
             "Skill Type": item.skill,
             "Daily Wage (₹)": item.dailyWage,

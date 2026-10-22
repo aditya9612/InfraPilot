@@ -3,6 +3,7 @@ import Modal from "../common/Modal";
 import type { ActivityItem } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
 import api from "../../services/api";
+import { formatDateBySettings, formatDateTimeToIST } from "../../utils/dateUtils";
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -13,9 +14,13 @@ interface ActivityDetailModalProps {
 
 const statusBadge: Record<string, string> = {
   "On Track": "bg-emerald-100 text-emerald-600",
+  "ON_TRACK": "bg-emerald-100 text-emerald-600",
   "Delay": "bg-red-100 text-red-600",
+  "DELAY": "bg-red-100 text-red-600",
   "Completed": "bg-blue-100 text-blue-600",
-  "Not Started": "bg-slate-100 text-slate-500"
+  "COMPLETED": "bg-blue-100 text-blue-600",
+  "Not Started": "bg-slate-100 text-slate-500",
+  "NOT_STARTED": "bg-slate-100 text-slate-500"
 };
 
 const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDetailModalProps) => {
@@ -107,95 +112,105 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
   if (!activity) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Activity Details" maxWidth="max-w-lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Activity Details" maxWidth="max-w-xl">
       <div className="p-0 overflow-hidden">
-        {/* Blue Header Section */}
-        <div className="bg-blue-600 p-8 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-2xl font-black">{activity.activity_name}</h3>
-            <span className="px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest">BOQ: {boqName}</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Completion Intensity</span>
-              <span className="text-2xl font-black">{Number(activity.completion_percentage || 0).toFixed(1)}%</span>
+        {/* Blue Header Section with responsive layout to prevent text overlaps */}
+        <div className="bg-blue-600 p-6 sm:p-8 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xl sm:text-2xl font-black break-words break-all leading-snug">
+                {activity.activity_name}
+              </h3>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+            <span className="self-start shrink-0 px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest break-all max-w-full">
+              BOQ: {boqName}
+            </span>
+          </div>
+          <div className="space-y-2 pt-3 border-t border-white/10">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/80 shrink-0">
+                Completion Intensity
+              </span>
+              <span className="text-xl sm:text-2xl font-black shrink-0">
+                {Number(activity.completion_percentage || 0).toFixed(1)}%
+              </span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
               <div
                 className="h-full bg-white rounded-full transition-all duration-700"
-                style={{ width: `${activity.completion_percentage || 0}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, Number(activity.completion_percentage || 0)))}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* Info Grid */}
-        <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        {/* Info Grid with break-all and consistent date formatting */}
+        <div className="p-6 sm:p-8 space-y-6 max-h-[60vh] overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created At</p>
-              <p className="text-sm font-bold text-slate-700">{activity.created_at ? new Date(activity.created_at).toLocaleString() : "-"}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.created_at ? formatDateTimeToIST(activity.created_at) : "-"}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Completed</p>
-              <p className="text-sm font-bold text-slate-700">{activity.total_completed} {activity.unit}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.total_completed} {activity.unit}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Updated At</p>
-              <p className="text-sm font-bold text-slate-700">{activity.updated_at ? new Date(activity.updated_at).toLocaleString() : "-"}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.updated_at ? formatDateTimeToIST(activity.updated_at) : "-"}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Remaining Quantity</p>
-              <p className="text-sm font-bold text-slate-700">{activity.remaining_quantity} {activity.unit}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.remaining_quantity} {activity.unit}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Activity Name</p>
-              <p className="text-sm font-bold text-slate-700">{activity.activity_name}</p>
+              <p className="text-sm font-bold text-slate-700 break-words break-all">{activity.activity_name}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">BOQ Name / Code</p>
-              <p className="text-sm font-bold text-slate-700">{boqName}</p>
+              <p className="text-sm font-bold text-slate-700 break-words break-all">{boqName}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Completion Percentage</p>
-              <p className="text-sm font-bold text-slate-700">{Number(activity.completion_percentage || 0).toFixed(1)}%</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{Number(activity.completion_percentage || 0).toFixed(1)}%</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Planned Quantity</p>
-              <p className="text-sm font-bold text-slate-700">{activity.planned_quantity} {activity.unit}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.planned_quantity} {activity.unit}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Unit</p>
-              <p className="text-sm font-bold text-slate-700">{activity.unit}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{activity.unit}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-              <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-lg ${statusBadge[activity.status] || "bg-slate-100 text-slate-500"}`}>
+              <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-lg ${statusBadge[activity.status] || "bg-slate-100 text-slate-500"}`}>
                 {activity.status}
               </span>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Start Date</p>
-              <p className="text-sm font-bold text-slate-700">{activity.start_date}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{formatDateBySettings(activity.start_date)}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">End Date</p>
-              <p className="text-sm font-bold text-slate-700">{activity.end_date}</p>
+              <p className="text-sm font-bold text-slate-700 break-words">{formatDateBySettings(activity.end_date)}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order</p>
-              <p className="text-sm font-bold text-slate-700">{workOrderName}</p>
+              <p className="text-sm font-bold text-slate-700 break-words break-all">{workOrderName}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Engineer Name</p>
-              <p className="text-sm font-bold text-slate-700">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
+              <p className="text-sm font-bold text-slate-700 break-words break-all">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
             </div>
           </div>
         </div>

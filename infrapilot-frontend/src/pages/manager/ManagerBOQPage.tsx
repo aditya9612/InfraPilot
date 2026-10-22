@@ -1415,10 +1415,10 @@ const ItemListView = ({
                 {items.length > itemsPerPage && (
                     <div className="p-4 border-t border-slate-50 flex justify-center bg-slate-50/30">
                         <Pagination
-                            currentPage={currentPage}
+                            currentPage={currentPage - 1}
                             totalItems={items.length}
                             pageSize={itemsPerPage}
-                            onPageChange={setCurrentPage}
+                            onPageChange={(page) => setCurrentPage(page + 1)}
                             onPageSizeChange={setItemsPerPage}
                             label="items"
                         />

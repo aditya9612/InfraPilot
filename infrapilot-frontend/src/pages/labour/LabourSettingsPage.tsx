@@ -39,85 +39,152 @@ const LabourSettingsPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
+    const [allAssignedProjects, setAllAssignedProjects] = useState<any[]>([]);
+
     useEffect(() => {
         fetchData();
     }, []);
 
-    const loadProjects = async (search: string, offsetValue: number) => {
+    const loadProjects = (search: string) => {
+        if (!search.trim()) {
+            setProjects(allAssignedProjects);
+            setProjectsTotal(allAssignedProjects.length);
+            return;
+        }
+        const q = search.toLowerCase().trim();
+        const filtered = allAssignedProjects.filter((p: any) =>
+            (p.name || p.project_name || '').toLowerCase().includes(q)
+        );
+        setProjects(filtered);
+        setProjectsTotal(filtered.length);
+    };
+
+    useEffect(() => {
+        if (!isLoading) {
+            loadProjects(projectsSearchTerm);
+        }
+    }, [projectsSearchTerm, allAssignedProjects]);
+
+    const loadAssignedProjects = async (profileData?: any, settingsData?: any) => {
         setIsProjectsLoading(true);
         try {
-            const projectsData = await projectService.getProjects(20, offsetValue, search, "", offsetValue);
-            const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
-            setProjects(itemList);
-            if (projectsData.meta) {
-                setProjectsTotal(projectsData.meta.total || itemList.length);
-            } else {
-                setProjectsTotal(itemList.length);
+            const assignedMap = new Map<number, any>();
+
+            // 1. Gather all candidate assigned project IDs for this labour user
+            const candidateIds: number[] = [];
+            const userProjId = Number(user?.project_id || (user as any)?.projectId);
+            if (userProjId > 0) candidateIds.push(userProjId);
+
+            const profileProjId = Number(profileData?.project_id || profileData?.projectId);
+            if (profileProjId > 0) candidateIds.push(profileProjId);
+
+            const settingsProjId = Number(settingsData?.default_project_id);
+            if (settingsProjId > 0) candidateIds.push(settingsProjId);
+
+            const savedPid = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
+            if (savedPid && Number(savedPid) > 0) candidateIds.push(Number(savedPid));
+
+            // Direct assigned_projects on user object
+            const userAssigned = (user as any)?.assigned_projects || (user as any)?.assignedProjects;
+            if (Array.isArray(userAssigned)) {
+                userAssigned.forEach((p: any) => {
+                    const id = Number(p.id || p.project_id);
+                    if (id > 0) {
+                        assignedMap.set(id, {
+                            ...p,
+                            id,
+                            name: p.name || p.project_name || p.title || `Project #${id}`
+                        });
+                    }
+                });
+            }
+
+            // 2. Fetch verified assigned projects using projectService.getAssignedProjects
+            const userId = Number(user?.id);
+            if (userId > 0) {
+                try {
+                    const verified: any = await projectService.getAssignedProjects(userId);
+                    const list: any[] = Array.isArray(verified) ? verified : (verified?.items || verified?.data || []);
+                    list.forEach((p: any) => {
+                        const id = Number(p.id || p.project_id);
+                        if (id > 0) {
+                            assignedMap.set(id, {
+                                ...p,
+                                id,
+                                name: p.name || p.project_name || p.title || `Project #${id}`
+                            });
+                        }
+                    });
+                } catch (err) {
+                    console.warn("Failed to get assigned projects via membership:", err);
+                }
+            }
+
+            // 3. For any candidate IDs not yet fully populated, fetch their project details
+            for (const cid of candidateIds) {
+                if (cid > 0 && !assignedMap.has(cid)) {
+                    try {
+                        const pDetail = await projectService.getProjectById(cid);
+                        if (pDetail) {
+                            const id = Number(pDetail.id || pDetail.project_id || cid);
+                            assignedMap.set(id, {
+                                ...pDetail,
+                                id,
+                                name: pDetail.name || pDetail.project_name || pDetail.title || `Project #${id}`
+                            });
+                        }
+                    } catch (_) {
+                        const fallbackName = (cid === userProjId && user?.project_name)
+                            ? user.project_name
+                            : (localStorage.getItem("client_selected_project_name") || `Project #${cid}`);
+                        assignedMap.set(cid, {
+                            id: cid,
+                            name: fallbackName,
+                            project_name: fallbackName
+                        });
+                    }
+                }
+            }
+
+            const allList = Array.from(assignedMap.values());
+            setAllAssignedProjects(allList);
+            setProjects(allList);
+            setProjectsTotal(allList.length);
+
+            // Select active project if default_project_id is set or if there is an assigned project
+            const targetId = settingsProjId || (savedPid ? Number(savedPid) : null) || (allList[0]?.id ?? null);
+            if (targetId) {
+                const activeProj = allList.find(p => p.id === targetId) || allList[0];
+                if (activeProj) {
+                    const pName = activeProj.name || activeProj.project_name;
+                    setSelectedProjectName(pName);
+                    localStorage.setItem("client_selected_project_id", String(activeProj.id));
+                    localStorage.setItem("client_selected_project_name", pName);
+                    localStorage.setItem("infrapilot_selected_project_id", String(activeProj.id));
+                    localStorage.setItem("infrapilot_selected_project_name", pName);
+                }
             }
         } catch (error) {
-            console.error("Failed to load projects:", error);
+            console.error("Failed to load assigned projects:", error);
         } finally {
             setIsProjectsLoading(false);
         }
     };
 
-    useEffect(() => {
-        if (!isLoading) {
-            const delayDebounceFn = setTimeout(() => {
-                loadProjects(projectsSearchTerm, projectsOffset);
-            }, 300);
-
-            return () => clearTimeout(delayDebounceFn);
-        }
-    }, [projectsSearchTerm, projectsOffset]);
-
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [profileData, settingsData, projectsData] = await Promise.all([
+            const [profileData, settingsData] = await Promise.all([
                 settingsService.getProfile(),
-                settingsService.getSettings(),
-                projectService.getProjects(20, 0, "", "", 0)
+                settingsService.getSettings()
             ]);
 
             setProfile(profileData);
             setSettings(settingsData);
 
-            const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
-            setProjects(itemList);
-            if (projectsData.meta) {
-                setProjectsTotal(projectsData.meta.total || itemList.length);
-            } else {
-                setProjectsTotal(itemList.length);
-            }
+            await loadAssignedProjects(profileData, settingsData);
 
-            if (settingsData?.default_project_id) {
-                const activeProj = itemList.find((p: any) => p.id === settingsData.default_project_id);
-                if (activeProj) {
-                    const pName = activeProj.name || activeProj.project_name;
-                    setSelectedProjectName(pName);
-                    localStorage.setItem("client_selected_project_id", String(settingsData.default_project_id));
-                    localStorage.setItem("client_selected_project_name", pName);
-                    localStorage.setItem("infrapilot_selected_project_id", String(settingsData.default_project_id));
-                    localStorage.setItem("infrapilot_selected_project_name", pName);
-                } else {
-                    try {
-                        const projDetail = await projectService.getProjectById(settingsData.default_project_id);
-                        if (projDetail) {
-                            const pName = projDetail.name || projDetail.project_name || `Project ${settingsData.default_project_id}`;
-                            setSelectedProjectName(pName);
-                            localStorage.setItem("client_selected_project_id", String(settingsData.default_project_id));
-                            localStorage.setItem("client_selected_project_name", pName);
-                            localStorage.setItem("infrapilot_selected_project_id", String(settingsData.default_project_id));
-                            localStorage.setItem("infrapilot_selected_project_name", pName);
-                        }
-                    } catch (e) {
-                        setSelectedProjectName(`Project ${settingsData.default_project_id}`);
-                    }
-                }
-            }
-
-            if (profileData.profile_image) {
+            if (profileData?.profile_image) {
                 setProfilePicPreview(settingsService.resolveUrl(profileData.profile_image));
             }
         } catch (error: any) {
@@ -481,7 +548,7 @@ const LabourSettingsPage: React.FC = () => {
                                                 <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                                                     {projects.length === 0 ? (
                                                         <div className="py-8 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                                            No projects found
+                                                            {allAssignedProjects.length === 0 ? "No assigned projects found" : "No matching projects found"}
                                                         </div>
                                                     ) : (
                                                         projects.map((p) => {

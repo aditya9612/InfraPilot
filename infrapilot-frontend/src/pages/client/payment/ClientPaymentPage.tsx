@@ -1242,11 +1242,11 @@ const ClientPaymentPage = () => {
     const dataToExport = activeTab === "quotation" ? filteredQuotations : filteredPayments;
     if (dataToExport.length === 0) { toast.error("No data to export"); return; }
     const headers = activeTab === "quotation"
-      ? ["ID", "Type", "Requested By", "Status", "Approved By", "Date"]
-      : ["ID", "Expense ID", "Category", "Amount", "Status", "Date"];
-    const rows = dataToExport.map((item: any) => activeTab === "quotation"
-      ? [item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at]
-      : [item.id, item.id, item.type, item.amount, item.status, item.date]);
+      ? ["Sr. No.", "ID", "Type", "Requested By", "Status", "Approved By", "Date"]
+      : ["Sr. No.", "ID", "Expense ID", "Category", "Amount", "Status", "Date"];
+    const rows = dataToExport.map((item: any, idx: number) => activeTab === "quotation"
+      ? [idx + 1, item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at]
+      : [idx + 1, item.id, item.id, item.type, item.amount, item.status, item.date]);
     const csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map((e: any[]) => e.join(",")).join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
@@ -1436,7 +1436,8 @@ const ClientPaymentPage = () => {
     } catch {
       // Fallback: local XLSX generation
       try {
-        const rows = filteredClientPayments.map(p => ({
+        const rows = filteredClientPayments.map((p, idx) => ({
+          "Sr. No.": idx + 1,
           "Payment No": p.paymentId,
           "Client": p.clientName,
           "Project": p.projectName,

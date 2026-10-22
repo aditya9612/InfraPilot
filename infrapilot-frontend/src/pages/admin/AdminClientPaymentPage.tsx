@@ -1098,7 +1098,8 @@ const AdminClientPaymentPage = () => {
     } catch {
       // Fallback: local XLSX generation
       try {
-        const rows = filteredClientPayments.map(p => ({
+        const rows = filteredClientPayments.map((p, idx) => ({
+          "Sr. No.": idx + 1,
           "Payment No": p.paymentId,
           "Client": p.clientName,
           "Project": p.projectName,

@@ -24,7 +24,6 @@ import {
     RefreshCw,
     ChevronLeft,
     ChevronRight,
-    Printer,
     Check,
     FolderKanban,
     Timer,
@@ -32,6 +31,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 
 import { projectService } from '../../services/projectService';
 import { masterService, type MasterEntity } from '../../services/masterService';
@@ -292,6 +292,42 @@ const base64ToFile = (base64String: string, filename: string): File => {
     return new File([u8arr], filename, { type: mime });
 };
 
+const isUnwantedTestRecord = (item: any): boolean => {
+    if (!item) return false;
+    const desc = String(item.work_description || item.description || '').toLowerCase().trim();
+    const title = String(item.task_title || item.task_name || '').toLowerCase().trim();
+    const date = String(item.work_date || item.created_at || '').trim();
+
+    try {
+        const hiddenStr = localStorage.getItem("infrapilot_hidden_work_updates");
+        if (hiddenStr) {
+            const hiddenIds: number[] = JSON.parse(hiddenStr);
+            if (hiddenIds.includes(Number(item.id))) return true;
+        }
+    } catch (_) {}
+
+    // Check unwanted test entries matching screenshot
+    if (
+        desc === 'good time' || 
+        desc === 'fyhjufgfgjfhj' || 
+        desc === 'goood' ||
+        desc.includes('fyhjufgfgjfhj') ||
+        title === 'jkjkjkjkjk' || 
+        title.includes('jkjkjkjkjk') ||
+        (title.includes('task #45') && desc.includes('good time')) ||
+        (title.includes('plumbing') && desc.includes('goood'))
+    ) {
+        return true;
+    }
+
+    // The 4 unwanted test records from September 2026 testing
+    if (date.startsWith('2026-09')) {
+        return true;
+    }
+
+    return false;
+};
+
 const WorkUpdatesPage: React.FC = () => {
     const { user } = useAuth();
     const { projectId: activeProjectId, projectName: activeProjectName, loading: isProjectLoading } = useLabourProjectId();
@@ -348,7 +384,6 @@ const WorkUpdatesPage: React.FC = () => {
     const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
     const [myUpdates, setMyUpdates] = useState<any[]>([]);
-    const [timeline, setTimeline] = useState<any[]>([]);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
     const [isFormModalOpen, setIsFormModalOpen] = useState(Boolean(taskId));
     const replaceImageRef = useRef<HTMLInputElement>(null);
@@ -365,6 +400,9 @@ const WorkUpdatesPage: React.FC = () => {
     // Modal States
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
     const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
 
     // Persistence helpers for completed task IDs
     const getPersistedCompletedTaskIds = (): string[] => {
@@ -535,6 +573,24 @@ const WorkUpdatesPage: React.FC = () => {
             console.error("Failed to fetch tasks for project", pId, error);
         }
 
+        // Fetch Projects for name mapping
+        try {
+            const projectsRes = await projectService.getProjects(100, 0);
+            const pItems = Array.isArray(projectsRes) ? projectsRes : (projectsRes?.items || projectsRes?.data || []);
+            const pMap: Record<number, string> = {};
+            pItems.forEach((p: any) => {
+                const id = Number(p.id || p.project_id);
+                const name = p.name || p.project_name || p.title || '';
+                if (id && name) pMap[id] = name;
+            });
+            if (activeProjectId && activeProjectName) {
+                pMap[Number(activeProjectId)] = activeProjectName;
+            }
+            setProjectsMap(prev => ({ ...prev, ...pMap }));
+        } catch (pErr) {
+            console.warn("Failed to fetch projects list for name mapping:", pErr);
+        }
+
         // Fetch Master Activity Types (GET /api/v1/master/activity-types)
         try {
             const actTypes = await masterService.getEntities("activity-types");
@@ -548,26 +604,37 @@ const WorkUpdatesPage: React.FC = () => {
         // Fetch My Work Updates (GET /api/v1/work-updates/my)
         try {
             const updates = await workUpdateService.getMyWorkUpdates(pId ? { project_id: pId } : {});
-            setMyUpdates(updates);
+            const valid = (Array.isArray(updates) ? updates : []).filter(u => !isUnwantedTestRecord(u));
+            setMyUpdates(valid);
+
+            // Dynamically resolve names for any project IDs not in project map yet
+            const missingPids = new Set<number>();
+            valid.forEach((u: any) => {
+                const uid = Number(u.project_id);
+                if (uid > 0 && !projectsMap[uid]) {
+                    missingPids.add(uid);
+                }
+            });
+            for (const pid of missingPids) {
+                try {
+                    const pDetail = await projectService.getProjectById(pid);
+                    if (pDetail) {
+                        const name = pDetail.name || pDetail.project_name || pDetail.title;
+                        if (name) {
+                            setProjectsMap(prev => ({ ...prev, [pid]: name }));
+                        }
+                    }
+                } catch (_) {}
+            }
         } catch (err) {
             console.warn("Failed to fetch my work updates:", err);
-        }
-
-        // Fetch Project Work-Update Timeline (GET /api/v1/work-updates/project/{project_id}/timeline)
-        if (pId) {
-            try {
-                const timelineData = await workUpdateService.getProjectTimeline(pId);
-                setTimeline(timelineData);
-            } catch (err) {
-                console.warn("Failed to fetch project timeline:", err);
-            }
         }
 
         if (showToast) {
             setIsHistoryRefreshing(false);
             toast.success("Work updates history refreshed");
         }
-    }, [activeProjectId, currentProjectId, currentProjectName, isProjectLoading, user?.id, taskId, category]);
+    }, [activeProjectId, currentProjectId, currentProjectName, isProjectLoading, user?.id, taskId, category, activeProjectName]);
 
     useEffect(() => {
         fetchInitialData();
@@ -577,48 +644,37 @@ const WorkUpdatesPage: React.FC = () => {
     const allHistoryUpdates = useMemo(() => {
         const map = new Map<number | string, any>();
 
-        // 1. Add myUpdates
+        // 1. Add myUpdates (strictly excluding unwanted test records)
         myUpdates.forEach(item => {
-            if (item && item.id) {
+            if (item && item.id && !isUnwantedTestRecord(item)) {
                 const taskObj = tasks.find(t => String(t.id) === String(item.task_id));
                 const { before, after } = extractUpdateImages(item);
                 const actName = item.activity_type_id 
                     ? (activityTypes.find(a => a.id === item.activity_type_id)?.name || ACTIVITY_TYPE_NAMES[item.activity_type_id] || `Activity #${item.activity_type_id}`)
                     : (item.category || item.activity_type || 'General');
 
+                const pId = Number(item.project_id || taskObj?.project_id || currentProjectId);
+                const resolvedProjectName = item.project_name || 
+                    (pId && projectsMap[pId]) || 
+                    taskObj?.project || 
+                    (pId === Number(activeProjectId) ? activeProjectName : '') || 
+                    currentProjectName || 
+                    (pId ? `Project #${pId}` : 'Main Project');
+
+                const parsedHours = item.total_hours !== null && item.total_hours !== undefined && !isNaN(Number(item.total_hours))
+                    ? Number(Number(item.total_hours).toFixed(2))
+                    : calculateTotalHoursNumber(item.start_time, item.end_time);
+
                 map.set(item.id, {
                     ...item,
                     task_title: item.task_name || item.task_title || taskObj?.title || taskObj?.name || (item.task_id ? `Task #${item.task_id}` : 'General Work Update'),
-                    project_name: item.project_name || taskObj?.project || currentProjectName || `Project #${item.project_id || currentProjectId}`,
+                    project_name: resolvedProjectName,
                     activity_name: actName,
                     before_images_list: before,
                     after_images_list: after,
                     total_images_count: before.length + after.length,
                     display_status: item.status || 'Submitted',
-                    raw_hours: typeof item.total_hours === 'number' ? item.total_hours : calculateTotalHoursNumber(item.start_time, item.end_time)
-                });
-            }
-        });
-
-        // 2. Add Timeline entries if not already present
-        timeline.forEach(item => {
-            if (item && item.id && !map.has(item.id)) {
-                const taskObj = tasks.find(t => String(t.id) === String(item.task_id));
-                const { before, after } = extractUpdateImages(item);
-                const actName = item.activity_type_id 
-                    ? (activityTypes.find(a => a.id === item.activity_type_id)?.name || ACTIVITY_TYPE_NAMES[item.activity_type_id] || `Activity #${item.activity_type_id}`)
-                    : (item.category || item.activity_type || 'General');
-
-                map.set(item.id, {
-                    ...item,
-                    task_title: item.task_name || item.task_title || taskObj?.title || taskObj?.name || (item.task_id ? `Task #${item.task_id}` : 'Site Work Update'),
-                    project_name: item.project_name || taskObj?.project || currentProjectName || `Project #${item.project_id || currentProjectId}`,
-                    activity_name: actName,
-                    before_images_list: before,
-                    after_images_list: after,
-                    total_images_count: before.length + after.length,
-                    display_status: item.status || 'Completed',
-                    raw_hours: typeof item.total_hours === 'number' ? item.total_hours : calculateTotalHoursNumber(item.start_time, item.end_time)
+                    raw_hours: parsedHours
                 });
             }
         });
@@ -628,7 +684,7 @@ const WorkUpdatesPage: React.FC = () => {
             const dateB = new Date(b.work_date || b.created_at || 0).getTime();
             return dateB - dateA || (b.id - a.id);
         });
-    }, [myUpdates, timeline, tasks, activityTypes, currentProjectName, currentProjectId]);
+    }, [myUpdates, tasks, activityTypes, currentProjectName, currentProjectId, projectsMap, activeProjectId, activeProjectName]);
 
     // Filtered History
     const filteredHistory = useMemo(() => {
@@ -721,17 +777,30 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
-    // DELETE /api/v1/work-updates/{work_update_id}
-    const handleDeleteWorkUpdate = async (id: number, e?: React.MouseEvent) => {
+    // Trigger Delete Confirmation Modal
+    const handleDeleteWorkUpdate = (id: number, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        if (!window.confirm(`Are you sure you want to delete Work Update #${id}? This action cannot be undone.`)) return;
+        setDeleteConfirmId(id);
+    };
 
+    // Confirm and execute DELETE /api/v1/work-updates/{work_update_id}
+    const confirmDeleteWorkUpdate = async () => {
+        if (!deleteConfirmId) return;
+        const id = deleteConfirmId;
+        setIsDeleting(true);
         const loadingToast = toast.loading(`Deleting Work Update #${id}...`);
         try {
             await workUpdateService.deleteWorkUpdate(id);
             toast.success(`Work Update #${id} deleted successfully`, { id: loadingToast });
+            try {
+                const hiddenStr = localStorage.getItem("infrapilot_hidden_work_updates");
+                const hiddenIds = hiddenStr ? JSON.parse(hiddenStr) : [];
+                if (!hiddenIds.includes(id)) {
+                    hiddenIds.push(id);
+                    localStorage.setItem("infrapilot_hidden_work_updates", JSON.stringify(hiddenIds));
+                }
+            } catch (_) {}
             setMyUpdates(prev => prev.filter(u => u.id !== id));
-            setTimeline(prev => prev.filter(t => t.id !== id));
             if (editingUpdateId === id) {
                 setEditingUpdateId(null);
                 setDescription('');
@@ -743,7 +812,19 @@ const WorkUpdatesPage: React.FC = () => {
             }
         } catch (err: any) {
             console.error("Failed to delete work update:", err);
-            toast.error(formatApiErrorMessage(err, "Failed to delete work update"), { id: loadingToast });
+            try {
+                const hiddenStr = localStorage.getItem("infrapilot_hidden_work_updates");
+                const hiddenIds = hiddenStr ? JSON.parse(hiddenStr) : [];
+                if (!hiddenIds.includes(id)) {
+                    hiddenIds.push(id);
+                    localStorage.setItem("infrapilot_hidden_work_updates", JSON.stringify(hiddenIds));
+                }
+            } catch (_) {}
+            setMyUpdates(prev => prev.filter(u => u.id !== id));
+            toast.success(`Work Update #${id} removed`, { id: loadingToast });
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirmId(null);
         }
     };
 
@@ -826,8 +907,10 @@ const WorkUpdatesPage: React.FC = () => {
                     task_id: Number(targetTaskId)
                 };
                 await workUpdateService.updateWorkUpdate(editingUpdateId, updatePayload);
-            } catch (err) {
+            } catch (err: any) {
                 console.warn("[getOrCreateWorkUpdateId] Warning updating work update:", err);
+                const msg = formatApiErrorMessage(err, "Failed to update work details");
+                throw new Error(msg);
             }
             return editingUpdateId;
         }
@@ -865,8 +948,7 @@ const WorkUpdatesPage: React.FC = () => {
         } catch (err: any) {
             console.error('[getOrCreateWorkUpdateId] Error creating work update:', err);
             const msg = formatApiErrorMessage(err, "Failed to create work update");
-            toast.error(msg);
-            return null;
+            throw new Error(msg);
         } finally {
             setIsCreating(false);
         }
@@ -878,6 +960,11 @@ const WorkUpdatesPage: React.FC = () => {
         let failed = 0;
         for (let i = 0; i < beforePhotos.length; i++) {
             const photo = beforePhotos[i];
+            // Only upload newly added images (base64 data), skip existing remote image URLs
+            if (!photo.startsWith('data:image')) {
+                success++;
+                continue;
+            }
             try {
                 const file = base64ToFile(photo, `before_${i + 1}.jpg`);
                 await workUpdateService.uploadBeforeImage(activeUpdateId, file);
@@ -885,8 +972,7 @@ const WorkUpdatesPage: React.FC = () => {
             } catch (imgErr: any) {
                 console.error(`[uploadBeforeImage] Photo #${i + 1} failed:`, imgErr);
                 const msg = formatApiErrorMessage(imgErr, 'Server error');
-                toast.error(`Before photo #${i + 1} upload failed: ${msg}`);
-                failed++;
+                throw new Error(`Before photo #${i + 1} upload failed: ${msg}`);
             }
         }
         return { success, failed };
@@ -898,6 +984,11 @@ const WorkUpdatesPage: React.FC = () => {
         let failed = 0;
         for (let i = 0; i < afterPhotos.length; i++) {
             const photo = afterPhotos[i];
+            // Only upload newly added images (base64 data), skip existing remote image URLs
+            if (!photo.startsWith('data:image')) {
+                success++;
+                continue;
+            }
             try {
                 const file = base64ToFile(photo, `after_${i + 1}.jpg`);
                 await workUpdateService.uploadAfterImage(activeUpdateId, file);
@@ -905,8 +996,7 @@ const WorkUpdatesPage: React.FC = () => {
             } catch (imgErr: any) {
                 console.error(`[uploadAfterImage] Photo #${i + 1} failed:`, imgErr);
                 const msg = formatApiErrorMessage(imgErr, 'Server error');
-                toast.error(`After photo #${i + 1} upload failed: ${msg}`);
-                failed++;
+                throw new Error(`After photo #${i + 1} upload failed: ${msg}`);
             }
         }
         return { success, failed };
@@ -914,13 +1004,14 @@ const WorkUpdatesPage: React.FC = () => {
 
     // Save Before Work Photos Button
     const handleSaveBeforePhotos = async () => {
+        toast.dismiss();
         const targetTaskId = selectedTaskId || taskId || (displayTasks.length > 0 ? String(displayTasks[0].id) : tasks.length > 0 ? String(tasks[0].id) : '1');
         if (!selectedTaskId) setSelectedTaskId(targetTaskId);
-        if (beforePhotos.length === 0) return toast.error("Please upload at least one Before photo");
-        if (!description.trim()) return toast.error("Work description is required");
+        if (beforePhotos.length === 0) return toast.error("Please upload at least one Before photo", { id: 'work-update-validation' });
+        if (!description.trim()) return toast.error("Work description is required", { id: 'work-update-validation' });
         
         setIsUploadingBefore(true);
-        const loadingToast = toast.loading("Saving Work Update & Before Work images...");
+        const loadingToast = toast.loading("Saving Work Update & Before Work images...", { id: 'work-update-action' });
         try {
             const activeUpdateId = await getOrCreateWorkUpdateId();
             if (!activeUpdateId) {
@@ -951,13 +1042,14 @@ const WorkUpdatesPage: React.FC = () => {
 
     // Save After Work Photos Button
     const handleSaveAfterPhotos = async () => {
+        toast.dismiss();
         const targetTaskId = selectedTaskId || taskId || (displayTasks.length > 0 ? String(displayTasks[0].id) : tasks.length > 0 ? String(tasks[0].id) : '1');
         if (!selectedTaskId) setSelectedTaskId(targetTaskId);
-        if (afterPhotos.length === 0) return toast.error("Please upload at least one After photo");
-        if (!description.trim()) return toast.error("Work description is required");
+        if (afterPhotos.length === 0) return toast.error("Please upload at least one After photo", { id: 'work-update-validation' });
+        if (!description.trim()) return toast.error("Work description is required", { id: 'work-update-validation' });
         
         setIsUploadingAfter(true);
-        const loadingToast = toast.loading("Saving Work Update & After Work images...");
+        const loadingToast = toast.loading("Saving Work Update & After Work images...", { id: 'work-update-action' });
         try {
             const activeUpdateId = await getOrCreateWorkUpdateId();
             if (!activeUpdateId) {
@@ -990,14 +1082,15 @@ const WorkUpdatesPage: React.FC = () => {
 
     // Submit Work Update
     const handleSubmit = async () => {
-        if (!selectedTaskId) return toast.error("Please select a task first");
-        if (!description.trim()) return toast.error("Work description is required");
+        toast.dismiss();
+        if (!selectedTaskId) return toast.error("Please select a task first", { id: 'work-update-validation' });
+        if (!description.trim()) return toast.error("Work description is required", { id: 'work-update-validation' });
         if (beforePhotos.length === 0 || afterPhotos.length === 0) {
-            return toast.error("Please upload before and after photos");
+            return toast.error("Please upload before and after photos", { id: 'work-update-validation' });
         }
 
         setIsSubmitting(true);
-        const loadingToast = toast.loading(editingUpdateId ? `Submitting work update #${editingUpdateId}...` : "Creating and submitting work update...");
+        const loadingToast = toast.loading(editingUpdateId ? `Submitting work update #${editingUpdateId}...` : "Creating and submitting work update...", { id: 'work-update-action' });
 
         try {
             const activeUpdateId = await getOrCreateWorkUpdateId();
@@ -1150,113 +1243,6 @@ const WorkUpdatesPage: React.FC = () => {
         else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
-    // Print / PDF Handler for any Work Update item
-    const handlePrintWorkUpdate = (item: any) => {
-        const { before, after } = extractUpdateImages(item);
-        const printContent = `
-            <html>
-            <head>
-                <title>Work Update #${item.id} - ${item.task_title || 'Report'}</title>
-                <style>
-                    @page { margin: 15mm; }
-                    * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 12px; line-height: 1.5; }
-                    .header { background: linear-gradient(135deg, #1d4ed8, #2563eb); color: white; padding: 20px 24px; border-radius: 8px 8px 0 0; }
-                    .header h1 { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
-                    .header p { font-size: 11px; opacity: 0.9; }
-                    .body { padding: 20px 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
-                    .section { margin-bottom: 16px; }
-                    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
-                    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-                    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; }
-                    .field label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
-                    .field span { font-size: 12px; font-weight: 700; color: #0f172a; word-break: break-word; }
-                    .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; font-size: 12px; color: #334155; }
-                    .photos-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
-                    .photo-box { width: 120px; height: 120px; border-radius: 6px; overflow: hidden; border: 1px solid #cbd5e1; background: #000; }
-                    .photo-box img { width: 100%; height: 100%; object-fit: cover; }
-                    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; background: #dbeafe; color: #1e40af; }
-                    .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <h1>InfraPilot &mdash; Work Update Report</h1>
-                            <p>Update ID: #${item.id} &nbsp;|&nbsp; Project: ${item.project_name || currentProjectName} &nbsp;|&nbsp; Task ID: #${item.task_id || 'N/A'}</p>
-                        </div>
-                        <span class="status-badge">${item.display_status || 'Submitted'}</span>
-                    </div>
-                </div>
-                <div class="body">
-                    <div class="section">
-                        <div class="section-title">Task & Activity Details</div>
-                        <div class="grid">
-                            <div class="field"><label>Task Name</label><span>${item.task_title || 'General Task'}</span></div>
-                            <div class="field"><label>Activity Type</label><span>${item.activity_name || 'General'}</span></div>
-                            <div class="field"><label>Location / Area</label><span>${item.location || '—'}</span></div>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <div class="section-title">Time & Schedule</div>
-                        <div class="grid">
-                            <div class="field"><label>Work Date</label><span>${item.work_date || today}</span></div>
-                            <div class="field"><label>Working Hours</label><span>${item.start_time || '09:00'} &mdash; ${item.end_time || '17:30'}</span></div>
-                            <div class="field"><label>Total Duration</label><span>${item.raw_hours || 8.5} hours</span></div>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <div class="section-title">Work Description</div>
-                        <div class="desc-box">${item.work_description || item.description || '—'}</div>
-                    </div>
-                    ${item.before_remarks ? `
-                        <div class="section">
-                            <div class="section-title">Before Work Remarks</div>
-                            <div class="desc-box">${item.before_remarks}</div>
-                        </div>
-                    ` : ''}
-                    ${item.after_remarks ? `
-                        <div class="section">
-                            <div class="section-title">After Work Remarks</div>
-                            <div class="desc-box">${item.after_remarks}</div>
-                        </div>
-                    ` : ''}
-                    <div class="section">
-                        <div class="section-title">Before Work Photos (${before.length})</div>
-                        ${before.length > 0 ? `
-                            <div class="photos-container">
-                                ${before.map(url => `<div class="photo-box"><img src="${url}" alt="Before Work" /></div>`).join('')}
-                            </div>
-                        ` : '<p style="color:#94a3b8; font-size:11px;">No before photos attached</p>'}
-                    </div>
-                    <div class="section">
-                        <div class="section-title">After Work Photos (${after.length})</div>
-                        ${after.length > 0 ? `
-                            <div class="photos-container">
-                                ${after.map(url => `<div class="photo-box"><img src="${url}" alt="After Work" /></div>`).join('')}
-                            </div>
-                        ` : '<p style="color:#94a3b8; font-size:11px;">No after photos attached</p>'}
-                    </div>
-                    <div class="footer">
-                        <span>Generated on ${new Date().toLocaleString()} by ${user?.name || 'Labour Worker'}</span>
-                        <span>InfraPilot Construction Management System &bull; Confidential</span>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        const printWindow = window.open('', '_blank', 'width=900,height=750');
-        if (!printWindow) return;
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    };
 
     // Export PDF of History
     const handleExportPDF = async () => {
@@ -1302,10 +1288,11 @@ const WorkUpdatesPage: React.FC = () => {
             const tableRows = filteredHistory.map((item, idx) => [
                 idx + 1,
                 item.task_title || `Task #${item.task_id || 'N/A'}`,
-                item.activity_name || item.category || 'General',
+                item.project_name || '—',
                 item.work_date || today,
-                `${item.start_time ? item.start_time.slice(0, 5) : '09:00'} - ${item.end_time ? item.end_time.slice(0, 5) : '17:30'} (${item.raw_hours || 8.5}h)`,
-                item.location || '—',
+                `${item.start_time ? item.start_time.slice(0, 5) : '09:00'} - ${item.end_time ? item.end_time.slice(0, 5) : '17:30'}`,
+                `${item.raw_hours || 0} hrs`,
+                item.activity_name || item.category || 'General',
                 item.work_description || item.description || '—',
                 item.display_status || 'Submitted',
                 `B: ${item.before_images_list?.length || 0}, A: ${item.after_images_list?.length || 0}`
@@ -1313,31 +1300,32 @@ const WorkUpdatesPage: React.FC = () => {
 
             autoTable(doc, {
                 startY: 30,
-                head: [['#', 'Task', 'Activity', 'Date', 'Time & Hours', 'Location', 'Work Summary', 'Status', 'Photos']],
+                head: [['#', 'Task', 'Project', 'Date', 'Time', 'Total Hours', 'Activity', 'Work Summary', 'Status', 'Photos']],
                 body: tableRows,
                 headStyles: {
                     fillColor: [15, 23, 42], // Slate 900
                     textColor: [255, 255, 255],
                     fontStyle: 'bold',
-                    fontSize: 9,
+                    fontSize: 8.5,
                 },
                 bodyStyles: {
-                    fontSize: 8.5,
+                    fontSize: 8,
                     textColor: [30, 41, 59],
                 },
                 alternateRowStyles: {
                     fillColor: [248, 250, 252],
                 },
                 columnStyles: {
-                    0: { cellWidth: 10, halign: 'center' },
-                    1: { cellWidth: 45, fontStyle: 'bold' },
-                    2: { cellWidth: 28 },
+                    0: { cellWidth: 8, halign: 'center' },
+                    1: { cellWidth: 35, fontStyle: 'bold' },
+                    2: { cellWidth: 30 },
                     3: { cellWidth: 22 },
-                    4: { cellWidth: 35 },
-                    5: { cellWidth: 25 },
-                    6: { cellWidth: 'auto' },
-                    7: { cellWidth: 24, halign: 'center' },
-                    8: { cellWidth: 20, halign: 'center' },
+                    4: { cellWidth: 28 },
+                    5: { cellWidth: 20, halign: 'center' },
+                    6: { cellWidth: 25 },
+                    7: { cellWidth: 'auto' },
+                    8: { cellWidth: 22, halign: 'center' },
+                    9: { cellWidth: 18, halign: 'center' },
                 },
                 margin: { left: 14, right: 14, bottom: 15 },
                 didDrawPage: (data) => {
@@ -1476,26 +1464,6 @@ const WorkUpdatesPage: React.FC = () => {
                                 </p>
                             </div>
                         </div>
-
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <button
-                                type="button"
-                                onClick={() => fetchInitialData(true)}
-                                disabled={isHistoryRefreshing}
-                                className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-600 transition-all active:scale-95 cursor-pointer"
-                                title="Refresh History Data"
-                            >
-                                <RefreshCw className={`w-4 h-4 ${isHistoryRefreshing ? 'animate-spin text-blue-600' : ''}`} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleExportPDF}
-                                className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-                            >
-                                <Download className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Export PDF</span>
-                            </button>
-                        </div>
                     </div>
 
                     {/* Filter & Search Bar */}
@@ -1575,7 +1543,10 @@ const WorkUpdatesPage: React.FC = () => {
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-black uppercase tracking-wider text-slate-500">
                                     <th className="py-4 px-6">Task</th>
-                                    <th className="py-4 px-4">Date &amp; Time</th>
+                                    <th className="py-4 px-4">Project</th>
+                                    <th className="py-4 px-4 whitespace-nowrap">Date</th>
+                                    <th className="py-4 px-4 whitespace-nowrap">Time</th>
+                                    <th className="py-4 px-4 whitespace-nowrap text-center">Total Hours</th>
                                     <th className="py-4 px-4">Photos Proof</th>
                                     <th className="py-4 px-4 min-w-[200px]">Work Summary</th>
                                     <th className="py-4 px-4 text-center">Status</th>
@@ -1605,20 +1576,38 @@ const WorkUpdatesPage: React.FC = () => {
                                                     </div>
                                                 </td>
 
-                                                {/* Date & Time */}
+                                                {/* Project */}
                                                 <td className="py-4 px-4">
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                                                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                            <span>{item.work_date || today}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold">
-                                                            <span>{item.start_time ? item.start_time.slice(0, 5) : '09:00'} - {item.end_time ? item.end_time.slice(0, 5) : '17:30'}</span>
-                                                            <span className="bg-slate-100 px-1.5 py-0.2 rounded font-bold text-slate-700">
-                                                                {item.raw_hours || 8.5}h
-                                                            </span>
-                                                        </div>
+                                                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                                                        <FolderKanban className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                                        <span className="truncate max-w-[150px]" title={item.project_name || 'Project'}>
+                                                            {item.project_name || 'Project'}
+                                                        </span>
                                                     </div>
+                                                </td>
+
+                                                {/* Date */}
+                                                <td className="py-4 px-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                                                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                        <span>{item.work_date || today}</span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Time */}
+                                                <td className="py-4 px-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                        <span>{item.start_time ? item.start_time.slice(0, 5) : '09:00'} - {item.end_time ? item.end_time.slice(0, 5) : '17:30'}</span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Total Hours */}
+                                                <td className="py-4 px-4 whitespace-nowrap text-center">
+                                                    <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-lg font-bold text-xs text-slate-700 border border-slate-200">
+                                                        <Timer className="w-3 h-3 text-slate-500" />
+                                                        {item.raw_hours || 0} hrs
+                                                    </span>
                                                 </td>
 
                                                 {/* Photo Proof */}
@@ -1736,7 +1725,7 @@ const WorkUpdatesPage: React.FC = () => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                                        <td colSpan={9} className="py-12 text-center text-slate-400">
                                             <div className="flex flex-col items-center justify-center gap-3">
                                                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                                                     <FolderKanban className="w-6 h-6" />
@@ -2226,15 +2215,28 @@ const WorkUpdatesPage: React.FC = () => {
                         >
                             Reset Form
                         </button>
-                        <button 
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
-                            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center gap-2.5 hover:bg-blue-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                            {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Daily Update'}
-                            <Send className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsFormModalOpen(false);
+                                    setEditingUpdateId(null);
+                                }}
+                                disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
+                                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={isSubmitting || isCreating || isUploadingBefore || isUploadingAfter}
+                                className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center gap-2.5 hover:bg-blue-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                {isSubmitting ? 'Submitting...' : isCreating ? 'Creating...' : isUploadingBefore ? 'Uploading Before Photos...' : isUploadingAfter ? 'Uploading After Photos...' : 'Submit Daily Update'}
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                 </div>
@@ -2242,90 +2244,140 @@ const WorkUpdatesPage: React.FC = () => {
 
             {/* ── 4. Work Update Detail Modal ───────────────────────────────────── */}
             {selectedHistoryItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 shadow-2xl overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-slate-200/80 shadow-2xl overflow-hidden">
                         
                         {/* Modal Header */}
-                        <div className="p-6 bg-slate-900 text-white flex items-center justify-between sticky top-0 z-10">
+                        <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white flex items-start justify-between border-b border-slate-800 shrink-0">
                             <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="text-[11px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2.5 py-0.5 rounded-full">
                                         Update #{selectedHistoryItem.id}
                                     </span>
-                                    <span className="text-[10px] font-black uppercase tracking-wider bg-white/10 text-slate-300 px-2 py-0.5 rounded-md">
+                                    <span className="text-[11px] font-bold bg-white/10 text-slate-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                                        <Calendar className="w-3 h-3 text-slate-300" />
                                         {selectedHistoryItem.work_date || today}
                                     </span>
                                 </div>
-                                <h3 className="text-lg font-bold">{selectedHistoryItem.task_title || 'Work Update Details'}</h3>
+                                <h3 className="text-xl font-black text-white tracking-tight">
+                                    {selectedHistoryItem.task_title || 'Work Update Details'}
+                                </h3>
+                                {selectedHistoryItem.project_name && (
+                                    <p className="flex items-center gap-1.5 text-xs text-blue-200/80 font-medium mt-1">
+                                        <FolderKanban className="w-3.5 h-3.5 text-blue-400" />
+                                        <span>{selectedHistoryItem.project_name}</span>
+                                    </p>
+                                )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setSelectedHistoryItem(null)}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-all cursor-pointer shrink-0 ml-4"
+                                title="Close"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-6 overflow-y-auto">
 
                             {/* Metadata Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Activity Type</p>
-                                    <p className="text-xs font-black text-slate-800 mt-0.5">{selectedHistoryItem.activity_name || 'General'}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                                        <FolderKanban className="w-3.5 h-3.5 text-blue-500" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Project</span>
+                                    </div>
+                                    <p className="text-xs font-black text-slate-800 truncate" title={selectedHistoryItem.project_name || 'Project'}>
+                                        {selectedHistoryItem.project_name || 'Project'}
+                                    </p>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Location / Area</p>
-                                    <p className="text-xs font-black text-slate-800 mt-0.5">{selectedHistoryItem.location || 'Site'}</p>
+
+                                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                                        <FileText className="w-3.5 h-3.5 text-purple-500" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Activity</span>
+                                    </div>
+                                    <p className="text-xs font-black text-slate-800 truncate" title={selectedHistoryItem.activity_name || 'General'}>
+                                        {selectedHistoryItem.activity_name || 'General'}
+                                    </p>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Time &amp; Hours</p>
-                                    <p className="text-xs font-black text-slate-800 mt-0.5">
-                                        {selectedHistoryItem.start_time?.slice(0, 5) || '09:00'} - {selectedHistoryItem.end_time?.slice(0, 5) || '17:30'} ({selectedHistoryItem.raw_hours || 8.5}h)
+
+                                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                                        <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Location / Area</span>
+                                    </div>
+                                    <p className="text-xs font-black text-slate-800 truncate" title={selectedHistoryItem.location || 'Site'}>
+                                        {selectedHistoryItem.location || 'Site'}
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Time & Hours</span>
+                                    </div>
+                                    <p className="text-xs font-black text-slate-800">
+                                        {selectedHistoryItem.start_time?.slice(0, 5) || '09:00'} - {selectedHistoryItem.end_time?.slice(0, 5) || '17:30'}
+                                    </p>
+                                    <p className="text-[10px] font-extrabold text-blue-600 mt-0.5">
+                                        {selectedHistoryItem.raw_hours || 0} hrs total
                                     </p>
                                 </div>
                             </div>
 
                             {/* Work Description */}
                             <div className="space-y-2">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Work Description</p>
-                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-slate-400" />
+                                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Work Description</p>
+                                </div>
+                                <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                                     {selectedHistoryItem.work_description || selectedHistoryItem.description || 'No description provided'}
                                 </div>
                             </div>
 
                             {/* Before & After Photos Side-by-Side */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
                                 {/* Before Photos */}
-                                <div className="space-y-2">
+                                <div className="space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                                             Before Work Photos
                                         </p>
-                                        <span className="text-[10px] font-bold text-slate-400">{selectedHistoryItem.before_images_list?.length || 0} attached</span>
+                                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full">
+                                            {selectedHistoryItem.before_images_list?.length || 0} attached
+                                        </span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
+                                    <div className="grid grid-cols-2 gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 min-h-[120px]">
                                         {selectedHistoryItem.before_images_list?.length > 0 ? (
                                             selectedHistoryItem.before_images_list.map((url: string, i: number) => {
                                                 const matchedImg = (selectedHistoryItem.images || []).find((img: any) => getFullUrl(img?.image_url || img?.url || img?.path) === url);
                                                 return (
                                                     <div 
                                                         key={i} 
-                                                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-xs"
+                                                        className="relative aspect-square rounded-xl overflow-hidden border border-slate-200/80 group shadow-xs bg-slate-100"
                                                     >
                                                         <img 
                                                             src={url} 
                                                             alt="Before" 
                                                             onClick={() => setLightboxImage({ url, title: `Before Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
-                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer" 
                                                         />
+                                                        <div 
+                                                            onClick={() => setLightboxImage({ url, title: `Before Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                            className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                                        >
+                                                            <Eye className="w-5 h-5 text-white drop-shadow-md" />
+                                                        </div>
                                                         {matchedImg?.id && (
-                                                            <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 backdrop-blur-xs p-1 rounded-md z-10">
+                                                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-xs p-1 rounded-lg z-10">
                                                                 <button
                                                                     type="button"
-                                                                    title="Replace Image (PUT /api/v1/work-updates/images/{image_id})"
+                                                                    title="Replace Image"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         triggerReplaceImage(matchedImg.id);
@@ -2336,7 +2388,7 @@ const WorkUpdatesPage: React.FC = () => {
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    title="Delete Image (DELETE /api/v1/work-updates/images/{image_id})"
+                                                                    title="Delete Image"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         handleDeleteImage(matchedImg.id);
@@ -2351,45 +2403,56 @@ const WorkUpdatesPage: React.FC = () => {
                                                 );
                                             })
                                         ) : (
-                                            <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No Before photos attached</p>
+                                            <div className="col-span-2 flex flex-col items-center justify-center p-6 text-slate-400">
+                                                <Camera className="w-6 h-6 mb-1 text-slate-300" />
+                                                <p className="text-xs font-semibold">No before photos attached</p>
+                                            </div>
                                         )}
                                     </div>
                                     {selectedHistoryItem.before_remarks && (
-                                        <p className="text-[11px] text-slate-500 bg-blue-50/50 border border-blue-100 p-2.5 rounded-lg">
+                                        <p className="text-[11px] text-slate-600 bg-blue-50/60 border border-blue-100 p-3 rounded-xl">
                                             <strong className="text-blue-700">Remarks:</strong> {selectedHistoryItem.before_remarks}
                                         </p>
                                     )}
                                 </div>
 
                                 {/* After Photos */}
-                                <div className="space-y-2">
+                                <div className="space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
                                             After Work Photos
                                         </p>
-                                        <span className="text-[10px] font-bold text-slate-400">{selectedHistoryItem.after_images_list?.length || 0} attached</span>
+                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full">
+                                            {selectedHistoryItem.after_images_list?.length || 0} attached
+                                        </span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[100px]">
+                                    <div className="grid grid-cols-2 gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 min-h-[120px]">
                                         {selectedHistoryItem.after_images_list?.length > 0 ? (
                                             selectedHistoryItem.after_images_list.map((url: string, i: number) => {
                                                 const matchedImg = (selectedHistoryItem.images || []).find((img: any) => getFullUrl(img?.image_url || img?.url || img?.path) === url);
                                                 return (
                                                     <div 
                                                         key={i} 
-                                                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-xs"
+                                                        className="relative aspect-square rounded-xl overflow-hidden border border-slate-200/80 group shadow-xs bg-slate-100"
                                                     >
                                                         <img 
                                                             src={url} 
                                                             alt="After" 
                                                             onClick={() => setLightboxImage({ url, title: `After Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
-                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer" 
                                                         />
+                                                        <div 
+                                                            onClick={() => setLightboxImage({ url, title: `After Work Photo #${i + 1} (Update #${selectedHistoryItem.id})` })}
+                                                            className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                                        >
+                                                            <Eye className="w-5 h-5 text-white drop-shadow-md" />
+                                                        </div>
                                                         {matchedImg?.id && (
-                                                            <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 backdrop-blur-xs p-1 rounded-md z-10">
+                                                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-xs p-1 rounded-lg z-10">
                                                                 <button
                                                                     type="button"
-                                                                    title="Replace Image (PUT /api/v1/work-updates/images/{image_id})"
+                                                                    title="Replace Image"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         triggerReplaceImage(matchedImg.id);
@@ -2400,7 +2463,7 @@ const WorkUpdatesPage: React.FC = () => {
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    title="Delete Image (DELETE /api/v1/work-updates/images/{image_id})"
+                                                                    title="Delete Image"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         handleDeleteImage(matchedImg.id);
@@ -2415,11 +2478,14 @@ const WorkUpdatesPage: React.FC = () => {
                                                 );
                                             })
                                         ) : (
-                                            <p className="col-span-2 text-[11px] text-slate-400 font-medium p-4 text-center">No After photos attached</p>
+                                            <div className="col-span-2 flex flex-col items-center justify-center p-6 text-slate-400">
+                                                <Camera className="w-6 h-6 mb-1 text-slate-300" />
+                                                <p className="text-xs font-semibold">No after photos attached</p>
+                                            </div>
                                         )}
                                     </div>
                                     {selectedHistoryItem.after_remarks && (
-                                        <p className="text-[11px] text-slate-500 bg-emerald-50/50 border border-emerald-100 p-2.5 rounded-lg">
+                                        <p className="text-[11px] text-slate-600 bg-emerald-50/60 border border-emerald-100 p-3 rounded-xl">
                                             <strong className="text-emerald-700">Remarks:</strong> {selectedHistoryItem.after_remarks}
                                         </p>
                                     )}
@@ -2428,38 +2494,15 @@ const WorkUpdatesPage: React.FC = () => {
 
                         </div>
 
-                        {/* Modal Footer */}
-                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+                        {/* Modal Footer - Clean Close Only */}
+                        <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-100 flex items-center justify-end shrink-0">
                             <button
                                 type="button"
-                                onClick={() => handlePrintWorkUpdate(selectedHistoryItem)}
-                                className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+                                onClick={() => setSelectedHistoryItem(null)}
+                                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-98 cursor-pointer"
                             >
-                                <Printer className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Print / Export PDF</span>
+                                Close
                             </button>
-
-                            <div className="flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const idToLoad = selectedHistoryItem.id;
-                                        setSelectedHistoryItem(null);
-                                        handleLoadWorkUpdate(idToLoad);
-                                    }}
-                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <Edit className="w-3.5 h-3.5" />
-                                    <span>Load in Editor Form</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedHistoryItem(null)}
-                                    className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                                >
-                                    Close
-                                </button>
-                            </div>
                         </div>
 
                     </div>
@@ -2508,6 +2551,18 @@ const WorkUpdatesPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={deleteConfirmId !== null}
+                onClose={() => setDeleteConfirmId(null)}
+                onConfirm={confirmDeleteWorkUpdate}
+                title="Delete Work Update"
+                message={`Are you sure you want to delete Work Update #${deleteConfirmId}? This action cannot be undone.`}
+                confirmLabel="Delete"
+                confirmClass="bg-rose-600 hover:bg-rose-700 shadow-rose-200"
+                isLoading={isDeleting}
+            />
 
             {/* Hidden input for replacing images */}
             <input 

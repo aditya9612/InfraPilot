@@ -19,7 +19,7 @@ import { projectService } from "../../services/projectService";
 import { userService } from "../../services/userService";
 import UploadDocumentModal from "../../components/forms/UploadDocumentModal";
 import EditDocumentModal from "../../components/forms/EditDocumentModal";
-import type { Document, DocumentStats } from "../../types/document";
+import { resolveApprovalStatus, type Document, type DocumentStats } from "../../types/document";
 import SortDropdown from "../../components/common/SortDropdown";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -169,41 +169,81 @@ const DocumentsPage = () => {
 
             await Promise.allSettled(batchPromises);
 
-            const seen = new Set();
-            return rawAcc.filter(d => {
-              if (seen.has(d.id)) return false;
-              seen.add(d.id);
-              return true;
-            });
+            const drawingMap = new Map<number, any>();
+            for (const d of rawAcc) {
+              if (!d || !d.id) continue;
+              const numId = Number(d.id);
+              const existing = drawingMap.get(numId);
+              if (!existing) {
+                drawingMap.set(numId, { ...d });
+              } else {
+                drawingMap.set(numId, {
+                  ...existing,
+                  ...d,
+                  approval_status: d.approval_status || existing.approval_status,
+                  status: d.status || existing.status,
+                  drawing_name: d.drawing_name || existing.drawing_name,
+                  file_url: d.file_url || existing.file_url,
+                  version: d.version || existing.version,
+                  created_at: d.created_at || existing.created_at,
+                  date: d.date || existing.date,
+                  project_id: d.project_id || existing.project_id,
+                  remarks: d.remarks || existing.remarks,
+                });
+              }
+            }
+            return Array.from(drawingMap.values());
           })()
           : Promise.resolve([])
       ]);
 
       // Map standard Documents
-      const mappedDocs = docResult.items
-        .filter((d: any) => !d.is_folder && d.type !== "Folder")
-        .map((d: any) => ({
+      const mappedDocs = docResult.items.map((d: any) => {
+        const isFolder = d.is_folder === true || String(d.is_folder) === "true" || d.type === "Folder" || d.document_type === "Folder";
+        const status = resolveApprovalStatus(d);
+        return {
           ...d,
-          type: "Document",
-          display_name: d.title
-        }));
+          id: Number(d.id),
+          is_folder: isFolder,
+          type: isFolder ? "Folder" : (d.type || (d.document_type === "Drawing" ? "Drawing" : "Document")),
+          status: isFolder ? undefined : status,
+          approval_status: isFolder ? undefined : status,
+          display_name: d.title,
+          project_name: projects.find(p => p.id === Number(d.project_id))?.project_name || projects.find(p => p.id === Number(d.project_id))?.name || (d.project_id ? "Project #" + d.project_id : "General")
+        };
+      });
 
       // Map specialized Drawings from drawing service
       const mappedDrawings = (apiDrawings as any[])
         .filter((d: any) => !d.is_folder && d.type !== "Folder" && d.document_type !== "Folder")
-        .map((d: any) => ({
-          ...d,
-          id: d.id,
-          title: d.drawing_name,
-          display_name: d.drawing_name,
-          document_type: "Drawing",
-          type: "Drawing",
-          uploaded_at: d.created_at || d.date,
-          file_url: d.file_url,
-          project_name: projects.find(p => p.id === d.project_id)?.project_name || projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
-        }));
+        .map((d: any) => {
+          const status = resolveApprovalStatus(d);
+          return {
+            ...d,
+            id: Number(d.id),
+            title: d.drawing_name || d.title || "Untitled Drawing",
+            display_name: d.drawing_name || d.title || "Untitled Drawing",
+            document_type: "Drawing",
+            type: "Drawing",
+            status,
+            approval_status: status,
+            version: d.version || "v1.0",
+            uploaded_at: d.created_at || d.date || "",
+            file_url: d.file_url,
+            remarks: d.remarks || null,
+            project_id: Number(d.project_id || 0),
+            project_name: projects.find(p => p.id === Number(d.project_id))?.project_name || projects.find(p => p.id === Number(d.project_id))?.name || (d.project_id ? "Project #" + d.project_id : "General")
+          };
+        });
 
-      const combined = [...mappedDrawings, ...mappedDocs];
+      let combined: any[] = [];
+      if (mainTab === "Drawings") {
+        const drawingIds = new Set(mappedDrawings.map((d: any) => Number(d.id)));
+        const nonDuplicateDocs = mappedDocs.filter((d: any) => d.is_folder || (!drawingIds.has(Number(d.id)) && (d.document_type || "").toLowerCase() === "drawing"));
+        combined = [...mappedDrawings, ...nonDuplicateDocs];
+      } else {
+        combined = mappedDocs.filter((d: any) => d.is_folder || ((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
+      }
 
       // Client-side search filter (type/tab filtering is in the filteredDocuments useMemo)
       const filtered = query
@@ -254,16 +294,22 @@ const DocumentsPage = () => {
   };
 
   const handleNewFolder = async (folderData: { title: string; project_id: number; remarks?: string }) => {
+    const trimmedTitle = (folderData.title || "").trim();
+    if (!trimmedTitle) {
+      toast.error("Folder Name is required.");
+      return;
+    }
     const toastId = toast.loading("Creating folder...");
     try {
       if (mainTab === "Drawings") {
         await drawingService.createFolder(folderData.project_id, {
-          drawing_name: folderData.title,
+          drawing_name: trimmedTitle,
           parent_id: currentFolderId || 0
         });
       } else {
         await documentService.createFolder({
           ...folderData,
+          title: trimmedTitle,
           parent_id: currentFolderId
         });
       }
@@ -281,17 +327,32 @@ const DocumentsPage = () => {
       toast.error("File is too large. Max size is 5MB.");
       return;
     }
-    const toastId = toast.loading("Uploading document...");
+
+    const titleRaw = (uploadFormData.get("title") as string) || "";
+    const trimmedTitle = titleRaw.trim();
+    const isDrawing = uploadFormData.get("document_type") === "Drawing";
+    if (!trimmedTitle) {
+      toast.error(isDrawing ? "Drawing Name is required." : "Document Title is required.");
+      return;
+    }
+
+    const MAX_NAME_LENGTH = 100;
+    if (trimmedTitle.length > MAX_NAME_LENGTH) {
+      toast.error(isDrawing ? `Drawing Name cannot exceed ${MAX_NAME_LENGTH} characters.` : `Document Title cannot exceed ${MAX_NAME_LENGTH} characters.`);
+      return;
+    }
+
+    const toastId = toast.loading(isDrawing ? "Uploading drawing..." : "Uploading document...");
     try {
-      if (uploadFormData.get("document_type") === "Drawing") {
+      if (isDrawing) {
         const drawingProjectId = parseInt(uploadFormData.get("project_id") as string);
         await drawingService.uploadDrawing({
           project_id: drawingProjectId,
-          drawing_name: uploadFormData.get("title") as string,
-          version: (uploadFormData.get("version") as string) || "v1.0",
-          approved_by: (uploadFormData.get("approved_by") as string) || "Site Engineer",
+          drawing_name: trimmedTitle,
+          version: ((uploadFormData.get("version") as string) || "").trim() || "v1.0",
+          approved_by: ((uploadFormData.get("approved_by") as string) || "").trim() || "Site Engineer",
           date: (uploadFormData.get("date") as string) || new Date().toISOString().split('T')[0],
-          remarks: uploadFormData.get("remarks") as string,
+          remarks: ((uploadFormData.get("remarks") as string) || "").trim(),
           file: uploadFormData.get("file") as File
         });
         // Switch project filter to match the uploaded drawing's project
@@ -302,10 +363,10 @@ const DocumentsPage = () => {
       } else {
         await documentService.uploadDocument({
           project_id: parseInt(uploadFormData.get("project_id") as string),
-          title: uploadFormData.get("title") as string,
+          title: trimmedTitle,
           document_type: uploadFormData.get("document_type") as string,
           parent_id: currentFolderId,
-          remarks: uploadFormData.get("remarks") as string,
+          remarks: ((uploadFormData.get("remarks") as string) || "").trim(),
           file: uploadFormData.get("file") as File
         });
       }
@@ -314,6 +375,7 @@ const DocumentsPage = () => {
     } catch (err: any) {
       let errMsg = "Process failed";
       const detail = err?.response?.data?.detail;
+      const status = err?.response?.status;
       if (typeof detail === "string") {
         errMsg = detail;
       } else if (Array.isArray(detail)) {
@@ -323,38 +385,74 @@ const DocumentsPage = () => {
       } else if (err?.message) {
         errMsg = err.message;
       }
+
+      // Handle 500 or database/string length overflow error gracefully
+      if (status === 500 || /database|value too long|varying|truncation|sql/i.test(errMsg)) {
+        errMsg = isDrawing 
+          ? `Failed to upload drawing. Please ensure the drawing name does not exceed ${MAX_NAME_LENGTH} characters.`
+          : `Failed to upload document. Please ensure fields do not exceed ${MAX_NAME_LENGTH} characters.`;
+      }
+
       toast.error(errMsg, { id: toastId });
       throw err;
     }
   };
 
   const handleUpdateSubmit = async (id: number, data: any) => {
+    const isDrawing = editingDoc?.document_type === "Drawing" || (editingDoc as any)?.drawing_name !== undefined;
+    const titleRaw = data instanceof FormData ? (data.get("title") as string) : data.title;
+    const trimmedTitle = (titleRaw || "").trim();
+
+    if (!trimmedTitle) {
+      toast.error(isDrawing ? "Drawing Name is required." : "Document Title is required.");
+      return;
+    }
+
+    const MAX_NAME_LENGTH = 100;
+    if (trimmedTitle.length > MAX_NAME_LENGTH) {
+      toast.error(isDrawing ? `Drawing Name cannot exceed ${MAX_NAME_LENGTH} characters.` : `Document Title cannot exceed ${MAX_NAME_LENGTH} characters.`);
+      return;
+    }
+
     const toastId = toast.loading("Updating details...");
     try {
       if (editingDoc?.document_type === "Drawing") {
         await drawingService.updateDrawing(id, {
-          drawing_name: data.title,
-          version: data.version,
+          drawing_name: trimmedTitle,
+          version: ((data.version as string) || "").trim() || undefined,
           date: data.date,
-          remarks: data.remarks
+          remarks: ((data.remarks as string) || "").trim(),
+          ...(editingDoc?.status ? { approval_status: editingDoc.status, status: editingDoc.status } : {})
         });
       } else {
         if (!(data instanceof FormData)) {
           const fd = new FormData();
           Object.keys(data).forEach(key => {
             if (data[key] !== undefined && data[key] !== null) {
-              fd.append(key, String(data[key]));
+              const val = key === "title" ? trimmedTitle : (typeof data[key] === "string" ? data[key].trim() : data[key]);
+              fd.append(key, String(val));
             }
           });
           await documentService.updateDocument(id, fd);
         } else {
+          data.set("title", trimmedTitle);
           await documentService.updateDocument(id, data);
         }
       }
       toast.success("Details updated successfully", { id: toastId });
       fetchDocs();
-    } catch (err) {
-      toast.error("Update failed", { id: toastId });
+    } catch (err: any) {
+      let errMsg = "Update failed";
+      const status = err?.response?.status;
+      const rawMsg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "";
+      if (status === 500 || /database|value too long|varying|truncation|sql/i.test(String(rawMsg))) {
+        errMsg = isDrawing 
+          ? `Update failed. Please ensure the drawing name does not exceed ${MAX_NAME_LENGTH} characters.`
+          : `Update failed. Please ensure fields do not exceed ${MAX_NAME_LENGTH} characters.`;
+      } else if (typeof rawMsg === "string" && rawMsg) {
+        errMsg = rawMsg;
+      }
+      toast.error(errMsg, { id: toastId });
       throw err;
     }
   };
@@ -495,7 +593,8 @@ const DocumentsPage = () => {
   const derivedPendingCount = useMemo(() => {
     return documents.filter(d => {
       const isDrawing = (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing";
-      const isPending = d.status === "PENDING" || d.status === "UNDER_REVIEW";
+      const st = String(d.status || d.approval_status || "").toUpperCase();
+      const isPending = st === "PENDING" || st === "UNDER_REVIEW";
       if (mainTab === "Drawings") return isDrawing && isPending && !d.is_folder;
       return !isDrawing && isPending && !d.is_folder;
     }).length;
@@ -726,16 +825,18 @@ const DocumentsPage = () => {
                               onClick={() => handleFolderClick(doc)}
                               className="text-sm font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-left cursor-pointer"
                             >
-                              {doc.title}
+                              {(doc.title || "").trim() || "Untitled Folder"}
                             </button>
                           ) : (
                             <div
                               onClick={() => openPreview(doc)}
-                              className="cursor-pointer"
+                              className="cursor-pointer max-w-[280px] sm:max-w-md"
                             >
-                              <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{doc.title}</p>
+                              <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors break-words whitespace-normal leading-snug">
+                                {(doc.title || "").trim() || (mainTab === "Drawings" ? `Drawing #${doc.id}` : `Document #${doc.id}`)}
+                              </p>
                               {doc.remarks && mainTab !== "Drawings" && (
-                                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px]">{doc.remarks}</p>
+                                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px] mt-0.5">{doc.remarks}</p>
                               )}
                             </div>
                           )}
@@ -748,8 +849,16 @@ const DocumentsPage = () => {
                         <td className="hidden md:table-cell px-6 py-4 text-xs font-bold text-slate-500 whitespace-nowrap">{doc.project_name || "General"}</td>
                         <td className="px-6 py-4">
                           {!doc.is_folder ? (
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
-                              {doc.status || "PENDING"}
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
+                              doc.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-600"
+                                : doc.status === "REJECTED"
+                                ? "bg-rose-100 text-rose-600"
+                                : doc.status === "UNDER_REVIEW"
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-amber-100 text-amber-600"
+                            }`}>
+                              {doc.status ? doc.status.replace("_", " ") : "PENDING"}
                             </span>
                           ) : (
                             <span className="text-slate-400 font-medium">—</span>

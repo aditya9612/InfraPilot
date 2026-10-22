@@ -78,9 +78,32 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             toast.error("Please select a project.");
             return;
         }
-        if (formData.document_type === "Drawing" && !formData.title.trim()) {
-            toast.error("Drawing name is required.");
+
+        const trimmedTitle = (formData.title || "").trim();
+        const isDrawing = formData.document_type === "Drawing";
+        const fieldLabel = isDrawing ? "Drawing Name" : "Document Title";
+
+        if (!trimmedTitle) {
+            toast.error(`${fieldLabel} is required.`);
             return;
+        }
+
+        const MAX_TITLE_LENGTH = 100;
+        if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+            toast.error(`${fieldLabel} cannot exceed ${MAX_TITLE_LENGTH} characters.`);
+            return;
+        }
+
+        const trimmedVersion = (formData.version || "").trim() || "v1.0";
+        if (isDrawing) {
+            if (!trimmedVersion) {
+                toast.error("Version is required.");
+                return;
+            }
+            if (trimmedVersion.length > 30) {
+                toast.error("Version cannot exceed 30 characters.");
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -88,14 +111,14 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             const data = new FormData();
             data.append("file", selectedFile);
             data.append("project_id", formData.project_id);
-            data.append("title", formData.title);
+            data.append("title", trimmedTitle);
             if (formData.document_type) data.append("document_type", formData.document_type);
             if (formData.document_type === "Drawing") {
-                if (formData.version) data.append("version", formData.version);
+                data.append("version", trimmedVersion);
                 if (formData.date) data.append("date", formData.date);
             }
             if (formData.parent_id) data.append("parent_id", formData.parent_id);
-            if (formData.remarks) data.append("remarks", formData.remarks);
+            if (formData.remarks) data.append("remarks", (formData.remarks || "").trim());
 
             await onSubmit(data);
             onClose();
@@ -179,9 +202,12 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                 <input
                                     type="text"
                                     required
+                                    maxLength={100}
+                                    placeholder={formData.document_type === "Drawing" ? "e.g., Structural Plan A1" : "e.g., Site Contract"}
                                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                     value={formData.title}
                                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                                    onBlur={() => setFormData(prev => ({ ...prev, title: prev.title.trim() }))}
                                 />
                             </div>
 
@@ -194,9 +220,12 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                         <input
                                             type="text"
                                             required
+                                            maxLength={30}
+                                            placeholder="e.g., v1.0"
                                             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800"
                                             value={formData.version}
                                             onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                            onBlur={() => setFormData(prev => ({ ...prev, version: prev.version.trim() }))}
                                         />
                                     </>
                                 ) : (
@@ -290,6 +319,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             </label>
                             <textarea
                                 rows={2}
+                                maxLength={500}
                                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium text-slate-800 resize-none"
                                 value={formData.remarks}
                                 onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}

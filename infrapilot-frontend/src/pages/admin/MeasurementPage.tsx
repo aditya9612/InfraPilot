@@ -24,6 +24,57 @@ import { boqService } from "../../services/boqService";
 import type { BoqItem } from "../../types/boq";
 import type { Task } from "../../types/project";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
+const formatApiErrorMessage = (error: any, fallbackMessage = "An unexpected error occurred"): string => {
+  if (!error) return fallbackMessage;
+  if (typeof error === "string") return error;
+
+  const resData = error?.response?.data;
+  if (resData) {
+    if (typeof resData === "string") return resData;
+
+    // FastAPI detail validation handling
+    if (resData.detail) {
+      if (typeof resData.detail === "string") {
+        return resData.detail;
+      }
+      if (Array.isArray(resData.detail)) {
+        const messages = resData.detail.map((d: any) => {
+          if (typeof d === "string") return d;
+          const locArr = Array.isArray(d?.loc) ? d.loc.filter((l: any) => l !== "body") : [];
+          const fieldName = locArr.join(".");
+          const msg = d?.msg || d?.message || "Validation error";
+          if (fieldName) {
+            const formattedField = fieldName.replace(/_/g, " ");
+            const capitalizedField = formattedField.charAt(0).toUpperCase() + formattedField.slice(1);
+            return `${capitalizedField}: ${msg}`;
+          }
+          return msg;
+        }).filter(Boolean);
+
+        if (messages.length > 0) {
+          return messages.join(", ");
+        }
+      }
+      if (typeof resData.detail === "object") {
+        const d = resData.detail;
+        if (typeof d.msg === "string") return d.msg;
+        if (typeof d.message === "string") return d.message;
+        try {
+          return JSON.stringify(d);
+        } catch {
+          return fallbackMessage;
+        }
+      }
+    }
+
+    if (typeof resData.message === "string") return resData.message;
+    if (typeof resData.error === "string") return resData.error;
+  }
+
+  if (typeof error?.message === "string") return error.message;
+
+  return fallbackMessage;
+};
 
 const MeasurementPage = () => {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -116,14 +167,16 @@ const MeasurementPage = () => {
     const totalSubtotal = standardSubtotal + extraSubtotal;
     const retention = Number(formData.retention_amount) || 0;
 
-    if (!formData.project_id || formData.project_id === "0") {
-      errors.project_id = "Project Node is required";
-    }
-    if (!formData.task_id || formData.task_id === "0") {
-      errors.task_id = "Target Task is required";
-    }
-    if (!formData.boq_item_id || formData.boq_item_id === "0") {
-      errors.boq_item_id = "BOQ Item is required";
+    if (!editingItem) {
+      if (!formData.project_id || formData.project_id === "0") {
+        errors.project_id = "Project Node is required";
+      }
+      if (!formData.task_id || formData.task_id === "0") {
+        errors.task_id = "Target Task is required";
+      }
+      if (!formData.boq_item_id || formData.boq_item_id === "0") {
+        errors.boq_item_id = "BOQ Item is required";
+      }
     }
     if (!formData.retention_amount || formData.retention_amount.trim() === "") {
       errors.retention_amount = "Retention Amount is required";
@@ -307,26 +360,40 @@ const MeasurementPage = () => {
 
     try {
       toast.loading("Broadcasting field data...", { id: "save" });
-      const data = {
-        project_id: Number(formData.project_id),
-        task_id: Number(formData.task_id || 0),
-        boq_item_id: Number(formData.boq_item_id || 0),
-        final_area: Number(formData.final_area),
-        approved_rate: Number(formData.approved_rate),
-        extra_area: Number(formData.extra_area || 0),
-        extra_rate: Number(formData.extra_rate || 0),
-        measured_qty: Number(formData.measured_qty || 0),
-        certified_qty: Number(formData.certified_qty || 0),
-        rejected_qty: Number(formData.rejected_qty || 0),
-        retention_amount: Number(formData.retention_amount || 0),
-        status: formData.status
-      };
 
       if (editingItem) {
-        await measurementService.updateMeasurement(editingItem.id, data);
+        // Only include fields defined in MeasurementUpdateData
+        const updatePayload = {
+          final_area: Number(formData.final_area),
+          approved_rate: Number(formData.approved_rate),
+          extra_area: Number(formData.extra_area || 0),
+          extra_rate: Number(formData.extra_rate || 0),
+          measured_qty: Number(formData.measured_qty || 0),
+          certified_qty: Number(formData.certified_qty || 0),
+          rejected_qty: Number(formData.rejected_qty || 0),
+          retention_amount: Number(formData.retention_amount || 0),
+          status: formData.status
+        };
+
+        await measurementService.updateMeasurement(editingItem.id, updatePayload);
         toast.success("Measurement updated successfully", { id: "save" });
       } else {
-        await measurementService.createMeasurement(data);
+        const createPayload = {
+          project_id: Number(formData.project_id),
+          task_id: Number(formData.task_id || 0),
+          boq_item_id: Number(formData.boq_item_id || 0),
+          final_area: Number(formData.final_area),
+          approved_rate: Number(formData.approved_rate),
+          extra_area: Number(formData.extra_area || 0),
+          extra_rate: Number(formData.extra_rate || 0),
+          measured_qty: Number(formData.measured_qty || 0),
+          certified_qty: Number(formData.certified_qty || 0),
+          rejected_qty: Number(formData.rejected_qty || 0),
+          retention_amount: Number(formData.retention_amount || 0),
+          status: formData.status
+        };
+
+        await measurementService.createMeasurement(createPayload);
         toast.success("New measurement synchronized", { id: "save" });
       }
 
@@ -334,8 +401,7 @@ const MeasurementPage = () => {
       resetForm();
       fetchData();
     } catch (error: any) {
-      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
-      const msg = serverMsg || "Cannot modify a measurement once it has been submitted for approval";
+      const msg = formatApiErrorMessage(error, "Failed to save measurement. Please check your inputs.");
       toast.error(msg, { id: "save" });
     }
   };
@@ -352,12 +418,12 @@ const MeasurementPage = () => {
       boq_item_id: (m as any).boq_item_id?.toString() || "",
       final_area: m.final_area != null ? m.final_area.toString() : "",
       approved_rate: m.approved_rate != null ? m.approved_rate.toString() : "",
-      extra_area: m.extra_area != null ? m.extra_area.toString() : "",
-      extra_rate: m.extra_rate != null ? m.extra_rate.toString() : "",
-      measured_qty: (m as any).measured_qty != null ? (m as any).measured_qty.toString() : "",
-      certified_qty: (m as any).certified_qty != null ? (m as any).certified_qty.toString() : "",
-      rejected_qty: (m as any).rejected_qty != null ? (m as any).rejected_qty.toString() : "",
-      retention_amount: (m as any).retention_amount != null ? (m as any).retention_amount.toString() : "",
+      extra_area: m.extra_area != null ? m.extra_area.toString() : "0",
+      extra_rate: m.extra_rate != null ? m.extra_rate.toString() : "0",
+      measured_qty: (m as any).measured_qty != null ? (m as any).measured_qty.toString() : "0",
+      certified_qty: (m as any).certified_qty != null ? (m as any).certified_qty.toString() : "0",
+      rejected_qty: (m as any).rejected_qty != null ? (m as any).rejected_qty.toString() : "0",
+      retention_amount: (m as any).retention_amount != null ? (m as any).retention_amount.toString() : "0",
       status: (m as any).status || "DRAFT"
     });
     setIsModalOpen(true);
@@ -371,7 +437,8 @@ const MeasurementPage = () => {
       setIsViewModalOpen(true);
       toast.dismiss("view");
     } catch (error) {
-      toast.error("Failed to fetch measurement", { id: "view" });
+      const msg = formatApiErrorMessage(error, "Failed to fetch measurement");
+      toast.error(msg, { id: "view" });
     }
   };
 
@@ -381,8 +448,8 @@ const MeasurementPage = () => {
       toast.success(`Status updated to ${newStatus}`);
       fetchData();
     } catch (error: any) {
-      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
-      toast.error(serverMsg || "Failed to update status");
+      const msg = formatApiErrorMessage(error, "Failed to update status");
+      toast.error(msg);
     }
   };
 
@@ -395,8 +462,8 @@ const MeasurementPage = () => {
       setTargetId(null);
       fetchData();
     } catch (error: any) {
-      const serverMsg = error?.response?.data?.detail || error?.response?.data?.message || (typeof error?.response?.data === 'string' ? error.response.data : '');
-      toast.error(serverMsg || "Failed to delete measurement record");
+      const msg = formatApiErrorMessage(error, "Failed to delete measurement record");
+      toast.error(msg);
     }
   };
 

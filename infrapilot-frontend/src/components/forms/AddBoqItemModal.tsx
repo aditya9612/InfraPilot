@@ -128,6 +128,12 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
     setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const fieldError = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
+  };
+
   const validateAll = () => {
     const fieldsToCheck = ['project_id', 'item_name', 'activity_type_id'];
 
@@ -173,7 +179,7 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      toast.error("Please fix the errors in the form.");
+      // Don't show generic toast - highlight fields and display specific inline error messages directly
     }
   };
 
@@ -323,14 +329,15 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
               name="activity_type_id"
               value={formData.activity_type_id}
               onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-red-500 ring-2 ring-red-100 focus:border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer`}
             >
               <option value="">Select Activity Type</option>
               {activityTypes?.map(type => (
                 <option key={type.id} value={type.id}>{type.name}</option>
               ))}
             </select>
-            {errors.activity_type_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>}
+            {errors.activity_type_id && <p className="mt-1 text-xs text-red-500 font-bold ml-1">{errors.activity_type_id}</p>}
           </div>
 
           {/* Estimated total */}

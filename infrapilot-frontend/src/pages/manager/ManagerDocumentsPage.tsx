@@ -9,7 +9,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import { documentService } from "../../services/documentService";
-import type { Document, DocumentUpdateParams, DocumentStats } from "../../types/document";
+import { resolveApprovalStatus, type Document, type DocumentUpdateParams, type DocumentStats } from "../../types/document";
 import {
     Download, Folder,
     Upload, Trash2, X, FileImage, FileSpreadsheet,
@@ -56,14 +56,7 @@ const colorMap: Record<string, string> = {
 const DOC_TYPES = ["Drawing", "Contract", "Report", "Specification", "Schedule", "Invoice", "Other"];
 
 const normalizeDrawingToDocument = (drawing: any, projectName?: string): Document => {
-    const approvalStatus = String(drawing.approval_status || drawing.status || "").toLowerCase();
-    const status: Document["status"] = approvalStatus === "approved"
-        ? "APPROVED"
-        : approvalStatus === "rejected"
-            ? "REJECTED"
-            : approvalStatus === "under_review" || approvalStatus === "under review"
-                ? "UNDER_REVIEW"
-                : "PENDING";
+    const status = resolveApprovalStatus(drawing);
 
     return {
         id: Number(drawing.id),
@@ -75,6 +68,7 @@ const normalizeDrawingToDocument = (drawing: any, projectName?: string): Documen
         file_size: 0,
         version: drawing.version || "",
         status,
+        approval_status: status,
         is_folder: false,
         parent_id: null,
         uploaded_by_user_id: Number(drawing.uploaded_by_user_id || 0),
@@ -184,12 +178,30 @@ const ManagerDocumentsPage = () => {
                         .catch(err => console.warn("getVersions failed:", err)),
                 ]);
 
-                const seen = new Set<number>();
-                const deduped = rawAccumulator.filter((d: any) => {
-                    if (seen.has(Number(d.id))) return false;
-                    seen.add(Number(d.id));
-                    return true;
-                });
+                const drawingMap = new Map<number, any>();
+                for (const d of rawAccumulator) {
+                    if (!d || !d.id) continue;
+                    const numId = Number(d.id);
+                    const existing = drawingMap.get(numId);
+                    if (!existing) {
+                        drawingMap.set(numId, { ...d });
+                    } else {
+                        drawingMap.set(numId, {
+                            ...existing,
+                            ...d,
+                            approval_status: d.approval_status || existing.approval_status,
+                            status: d.status || existing.status,
+                            drawing_name: d.drawing_name || existing.drawing_name,
+                            file_url: d.file_url || existing.file_url,
+                            version: d.version || existing.version,
+                            created_at: d.created_at || existing.created_at,
+                            date: d.date || existing.date,
+                            project_id: d.project_id || existing.project_id,
+                            remarks: d.remarks || existing.remarks,
+                        });
+                    }
+                }
+                const deduped = Array.from(drawingMap.values());
                 deduped.sort((a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
                 items = deduped.map((drawing: any) =>
@@ -201,9 +213,14 @@ const ManagerDocumentsPage = () => {
                     limit: 100,
                 });
 
-                items = Array.isArray(listRes)
+                const rawItems = Array.isArray(listRes)
                     ? listRes
                     : (listRes as any).items || (listRes as any).data || [];
+                items = rawItems.map((doc: any) => ({
+                    ...doc,
+                    status: resolveApprovalStatus(doc),
+                    approval_status: resolveApprovalStatus(doc),
+                }));
             }
 
             // Apply global folder filter and sort by timestamp
@@ -240,13 +257,26 @@ const ManagerDocumentsPage = () => {
             toast.error("Please select a file.");
             return;
         }
-        if (mainTab === "Drawings") {
-            if (!uploadForm.title.trim()) {
-                toast.error("Drawing name is required.");
-                return;
-            }
+        const isDrawing = mainTab === "Drawings";
+        const trimmedUploadTitle = (uploadForm.title || "").trim();
+        if (!trimmedUploadTitle) {
+            toast.error(isDrawing ? "Drawing Name is required." : "Document Title is required.");
+            return;
+        }
+
+        const MAX_NAME_LENGTH = 100;
+        if (trimmedUploadTitle.length > MAX_NAME_LENGTH) {
+            toast.error(isDrawing ? `Drawing Name cannot exceed ${MAX_NAME_LENGTH} characters.` : `Document Title cannot exceed ${MAX_NAME_LENGTH} characters.`);
+            return;
+        }
+
+        if (isDrawing) {
             if (!uploadForm.version.trim()) {
                 toast.error("Version is required.");
+                return;
+            }
+            if (uploadForm.version.trim().length > 30) {
+                toast.error("Version cannot exceed 30 characters.");
                 return;
             }
         }
@@ -254,13 +284,13 @@ const ManagerDocumentsPage = () => {
         if (!targetProjectId) { toast.error("Please select a project."); return; }
         setIsSubmitting(true);
         try {
-            if (mainTab === "Drawings") {
+            if (isDrawing) {
                 await drawingService.uploadDrawing({
                     project_id: targetProjectId,
-                    drawing_name: uploadForm.title,
-                    version: uploadForm.version,
+                    drawing_name: trimmedUploadTitle,
+                    version: uploadForm.version.trim() || "v1.0",
                     date: uploadForm.date || new Date().toISOString().split("T")[0],
-                    remarks: uploadForm.remarks || "",
+                    remarks: (uploadForm.remarks || "").trim(),
                     approved_by: "Manager",
                     file: uploadFile,
                 });
@@ -268,7 +298,7 @@ const ManagerDocumentsPage = () => {
             } else {
                 await documentService.uploadDocument({
                     project_id: targetProjectId,
-                    title: uploadForm.title || undefined,
+                    title: trimmedUploadTitle,
                     document_type: uploadForm.document_type || undefined,
                     remarks: uploadForm.remarks || undefined,
                     version: uploadForm.version || undefined,
@@ -288,7 +318,13 @@ const ManagerDocumentsPage = () => {
             // Small delay to allow backend to commit before re-fetching
             setTimeout(() => fetchDocs(), 500);
         } catch (error: any) {
-            toast.error(error.response?.data?.detail || error.response?.data?.message || "Upload failed.");
+            let msg = error.response?.data?.detail || error.response?.data?.message || "Upload failed.";
+            if (error.response?.status === 500 || /database|value too long|varying|truncation|sql/i.test(msg)) {
+                msg = isDrawing 
+                    ? `Failed to upload drawing. Please ensure the drawing name does not exceed ${MAX_NAME_LENGTH} characters.` 
+                    : `Failed to upload document. Please ensure fields do not exceed ${MAX_NAME_LENGTH} characters.`;
+            }
+            toast.error(msg);
         } finally {
             setIsSubmitting(false);
         }
@@ -423,20 +459,24 @@ const ManagerDocumentsPage = () => {
     };
 
     const handleUpdate = async () => {
-        if (!editForm.title.trim()) {
-            toast.error("Title is required.");
+        const isDrawing = mainTab === "Drawings";
+        const trimmedEditTitle = (editForm.title || "").trim();
+        if (!trimmedEditTitle) {
+            toast.error(isDrawing ? "Drawing Name is required." : "Document Title is required.");
             return;
         }
         setIsSubmitting(true);
         const toastId = toast.loading("Updating metadata...");
         try {
-            if (mainTab === "Drawings") {
+            if (isDrawing) {
+                const existingDoc = docs.find(d => d.id === editForm.id);
                 // PUT /api/v1/drawings/{id} — application/json
                 await drawingService.updateDrawing(editForm.id, {
-                    drawing_name: editForm.title,
-                    version: editForm.version,
+                    drawing_name: trimmedEditTitle,
+                    version: (editForm.version || "").trim() || undefined,
                     date: editForm.date || null,
-                    remarks: editForm.remarks || null,
+                    remarks: (editForm.remarks || "").trim() || null,
+                    ...(existingDoc?.status ? { approval_status: existingDoc.status, status: existingDoc.status } : {})
                 });
             } else {
                 let payload: DocumentUpdateParams | FormData;
@@ -718,9 +758,14 @@ const ManagerDocumentsPage = () => {
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4">
-                                                                <div className="max-w-[250px]">
-                                                                    <p className="text-sm font-bold text-slate-800 break-words whitespace-normal">{doc.title}</p>
-                                                                    <p className="text-[10px] text-slate-400 font-medium break-words whitespace-normal mt-0.5">{doc.remarks || "—"}</p>
+                                                                <div className="max-w-[260px]">
+                                                                    <p className="text-sm font-bold text-slate-800 truncate" title={doc.title}>{doc.title}</p>
+                                                                    <p
+                                                                        className={`text-[10px] text-slate-400 font-medium truncate mt-0.5 ${doc.remarks ? "cursor-help" : ""}`}
+                                                                        title={doc.remarks || "No remarks"}
+                                                                    >
+                                                                        {doc.remarks || "No remarks"}
+                                                                    </p>
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4">
@@ -894,13 +939,13 @@ const ManagerDocumentsPage = () => {
                             <div>
                                 <label className={labelCls}>Drawing Name <span className="text-rose-500">*</span></label>
                                 <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                                    placeholder="e.g. Foundation Drawing Rev-2" className={inputCls} />
+                                    maxLength={100} placeholder="e.g. Foundation Drawing Rev-2" className={inputCls} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
                                     <input value={uploadForm.version} onChange={e => setUploadForm(p => ({ ...p, version: e.target.value }))}
-                                        placeholder="e.g. V1" className={inputCls} />
+                                        maxLength={30} placeholder="e.g. V1" className={inputCls} />
                                 </div>
                                 <div>
                                     <label className={labelCls}>Date</label>
@@ -912,7 +957,7 @@ const ManagerDocumentsPage = () => {
                             <div>
                                 <label className={labelCls}>Remarks</label>
                                 <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
-                                    placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                                    maxLength={500} placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
                             </div>
                         </>
                     ) : (
@@ -921,7 +966,7 @@ const ManagerDocumentsPage = () => {
                             <div>
                                 <label className={labelCls}>Document Title</label>
                                 <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                                    placeholder="e.g. Site Contract 2026" className={inputCls} />
+                                    maxLength={100} placeholder="e.g. Site Contract 2026" className={inputCls} />
                             </div>
                             <div>
                                 <label className={labelCls}>Document Type</label>
@@ -933,7 +978,7 @@ const ManagerDocumentsPage = () => {
                             <div>
                                 <label className={labelCls}>Remarks</label>
                                 <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
-                                    placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                                    maxLength={500} placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
                             </div>
                         </>
                     )}

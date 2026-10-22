@@ -79,7 +79,6 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
               <th className="p-4 whitespace-nowrap text-slate-800 text-center">Priority</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Status</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Start / End Date</th>
-              <th className="p-4 whitespace-nowrap text-slate-800">Actual Start / End</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Assigned Users</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Delay Days</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Audio Instruction</th>
@@ -125,12 +124,6 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{formatDisplayDate(task.start_date)}</span></span>
                     <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{formatDisplayDate(task.end_date)}</span></span>
-                  </div>
-                </td>
-                <td className="p-4 whitespace-nowrap block md:table-cell">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{formatDisplayDate((task as any).actual_start_date)}</span></span>
-                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{formatDisplayDate((task as any).actual_end_date)}</span></span>
                   </div>
                 </td>
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getMemberName(task) || '-'}</td>
@@ -186,7 +179,7 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
             ))}
             {tasks.length === 0 && (
               <tr className="block md:table-row">
-                <td colSpan={12} className="p-12 text-center text-sm font-bold text-slate-800 bg-white block md:table-cell">
+                <td colSpan={11} className="p-12 text-center text-sm font-bold text-slate-800 bg-white block md:table-cell">
                   No matching tasks found.
                 </td>
               </tr>

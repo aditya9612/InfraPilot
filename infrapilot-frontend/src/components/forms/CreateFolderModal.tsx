@@ -38,8 +38,14 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!folderName.trim()) {
-      toast.error("Please enter a folder name.");
+    const trimmedFolderName = folderName.trim();
+    if (!trimmedFolderName) {
+      toast.error("Folder Name is required.");
+      return;
+    }
+    const MAX_FOLDER_NAME_LENGTH = 100;
+    if (trimmedFolderName.length > MAX_FOLDER_NAME_LENGTH) {
+      toast.error(`Folder Name cannot exceed ${MAX_FOLDER_NAME_LENGTH} characters.`);
       return;
     }
     if (!projectId) {
@@ -50,7 +56,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
     setIsSubmitting(true);
     try {
       onSubmit({
-        title: folderName,
+        title: trimmedFolderName,
         project_id: parseInt(projectId),
         remarks: remarks.trim() || undefined,
       });
@@ -117,10 +123,12 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
               type="text"
               autoFocus
               required
+              maxLength={100}
               placeholder="e.g. Architectural Drawings"
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
+              onBlur={() => setFolderName(prev => prev.trim())}
             />
           </div>
 
@@ -130,6 +138,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             </label>
             <textarea
               rows={2}
+              maxLength={500}
               placeholder="Brief description..."
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none"
               value={remarks}

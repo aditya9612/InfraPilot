@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
+import { masterService } from "../../services/masterService";
 
 interface CreateLabourModalProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
 
     // Auto-hide form notification after 3 seconds
@@ -39,16 +41,11 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
     }, [formNotification]);
 
     useEffect(() => {
-        if (initialData) {
-            setFormData({
-                ...initialData,
-                default_daily_wage: initialData.default_daily_wage ?? "",
-                default_working_hours: initialData.default_working_hours ?? "",
-                default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? "",
-                is_active: initialData.is_active ?? true,
-                type: "Labour"
-            });
-        } else {
+        let isCancelled = false;
+
+        if (!isOpen) return;
+
+        if (!initialData) {
             setFormData({
                 name: "",
                 category: "",
@@ -59,8 +56,56 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                 is_active: true,
                 type: "Labour"
             });
+            setErrors({});
+            return;
         }
+
+        const workingData = {
+            ...initialData,
+            default_daily_wage: initialData.default_daily_wage ?? "",
+            default_working_hours: initialData.default_working_hours ?? "",
+            default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? "",
+            skill_category: initialData.skill_category ?? "",
+            is_active: initialData.is_active ?? true,
+            type: "Labour"
+        };
+        setFormData(workingData);
         setErrors({});
+
+        // If extended fields are missing
+        const isMissingExtended =
+            initialData.id &&
+            (initialData.default_daily_wage === undefined ||
+             initialData.skill_category === undefined);
+
+        if (isMissingExtended) {
+            setIsLoadingDetails(true);
+            masterService.getEntities("labour-types")
+                .then((allLabour) => {
+                    const fullItem = allLabour.find((l) => l.id === initialData.id);
+                    if (fullItem && !isCancelled) {
+                        setFormData({
+                            ...fullItem,
+                            name: fullItem.name ?? workingData.name,
+                            category: fullItem.category ?? workingData.category,
+                            skill_category: fullItem.skill_category ?? workingData.skill_category,
+                            default_daily_wage: fullItem.default_daily_wage ?? "",
+                            default_working_hours: fullItem.default_working_hours ?? "",
+                            default_ot_rate_per_hour: fullItem.default_ot_rate_per_hour ?? "",
+                            is_active: fullItem.is_active ?? workingData.is_active,
+                            type: "Labour"
+                        });
+                    }
+                })
+                .catch((err) => console.error("Failed to load labour details", err))
+                .finally(() => {
+                    if (!isCancelled) setIsLoadingDetails(false);
+                });
+        }
+
+        return () => {
+            isCancelled = true;
+        };
     }, [initialData, isOpen]);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -150,7 +195,13 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                     </div>
                 </div>
             )}
-            <form id="labour-master-form" onSubmit={handleSubmit} className="space-y-6">
+            <form id="labour-master-form" onSubmit={handleSubmit} className="space-y-6 relative">
+                {isLoadingDetails && (
+                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center rounded-xl min-h-[300px]">
+                        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-semibold text-slate-500 mt-2.5">Loading labour details...</span>
+                    </div>
+                )}
                 {/* Inline Validation Error Banner */}
                 {formNotification && formNotification.type === 'error' && (
                     <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">

@@ -31,32 +31,74 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
 
   const [units, setUnits] = useState<MasterEntity[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const fetchUnits = async () => {
-      setIsLoadingUnits(true);
-      try {
-        const data = await masterService.getEntities("units");
-        setUnits(data);
-      } catch (error) {
-        console.error("Failed to fetch units", error);
-      } finally {
-        setIsLoadingUnits(false);
+    let isCancelled = false;
+
+    const resolveUnitId = (unitVal: any, unitList: MasterEntity[]) => {
+      if (!unitVal && unitVal !== 0) return "";
+      if (typeof unitVal === "object" && unitVal !== null) {
+        if (unitVal.id) return unitVal.id;
+        unitVal = unitVal.name || "";
       }
+      const strVal = String(unitVal).trim();
+      const byId = unitList.find((u) => String(u.id) === strVal);
+      if (byId) return byId.id;
+      const byName = unitList.find(
+        (u) => u.name && u.name.trim().toLowerCase() === strVal.toLowerCase()
+      );
+      if (byName) return byName.id;
+      return unitVal;
     };
-    if (isOpen) fetchUnits();
 
-    if (initialData) {
-      let resolvedUnitId = initialData.unit_id ?? initialData.default_unit_id ?? initialData.unitId ?? "";
-      if (!resolvedUnitId && typeof initialData.unit === 'object' && initialData.unit !== null) {
-        resolvedUnitId = initialData.unit.id || "";
-      } else if (!resolvedUnitId && initialData.unit) {
-        resolvedUnitId = initialData.unit;
+    const loadModalData = async () => {
+      if (!isOpen) return;
+
+      // 1. Fetch units if not yet loaded
+      let currentUnits = units;
+      if (currentUnits.length === 0) {
+        setIsLoadingUnits(true);
+        try {
+          currentUnits = await masterService.getEntities("units");
+          if (!isCancelled) {
+            setUnits(currentUnits);
+          }
+        } catch (error) {
+          console.error("Failed to fetch units", error);
+        } finally {
+          if (!isCancelled) {
+            setIsLoadingUnits(false);
+          }
+        }
       }
 
-      setFormData({
+      if (!initialData) {
+        if (!isCancelled) {
+          setFormData({
+            name: "",
+            category: "",
+            unit_id: "",
+            brand: "",
+            specification: "",
+            hsn_code: "",
+            default_rate: "",
+            minimum_stock_level: "",
+            is_active: true,
+            type: "Material"
+          });
+          setErrors({});
+        }
+        return;
+      }
+
+      // Populate immediately with initialData
+      const rawUnit = initialData.unit_id ?? initialData.default_unit_id ?? initialData.unitId ?? initialData.unit ?? "";
+      const resolvedUnitId = resolveUnitId(rawUnit, currentUnits);
+
+      const workingData = {
         ...initialData,
         name: initialData.name ?? "",
         category: initialData.category ?? "",
@@ -68,22 +110,61 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
         minimum_stock_level: initialData.minimum_stock_level ?? "",
         is_active: initialData.is_active ?? true,
         type: "Material"
-      });
-    } else {
-      setFormData({
-        name: "",
-        category: "",
-        unit_id: "",
-        brand: "",
-        specification: "",
-        hsn_code: "",
-        default_rate: "",
-        minimum_stock_level: "",
-        is_active: true,
-        type: "Material"
-      });
-    }
-    setErrors({});
+      };
+
+      if (!isCancelled) {
+        setFormData(workingData);
+        setErrors({});
+      }
+
+      // If extended fields are missing (e.g. opened from "All" tab or stale data)
+      const isMissingExtended =
+        initialData.id &&
+        (initialData.brand === undefined ||
+         initialData.specification === undefined ||
+         initialData.hsn_code === undefined ||
+         initialData.default_rate === undefined ||
+         initialData.minimum_stock_level === undefined ||
+         !resolvedUnitId);
+
+      if (isMissingExtended) {
+        setIsLoadingDetails(true);
+        try {
+          const allMaterials = await masterService.getEntities("materials");
+          const fullItem = allMaterials.find((m) => m.id === initialData.id);
+          if (fullItem && !isCancelled) {
+            const fullRawUnit = fullItem.unit_id ?? fullItem.default_unit_id ?? fullItem.unitId ?? fullItem.unit ?? rawUnit;
+            const fullResolvedUnitId = resolveUnitId(fullRawUnit, currentUnits);
+
+            setFormData({
+              ...fullItem,
+              name: fullItem.name ?? workingData.name,
+              category: fullItem.category ?? workingData.category,
+              unit_id: fullResolvedUnitId || resolvedUnitId,
+              brand: fullItem.brand ?? "",
+              specification: fullItem.specification ?? "",
+              hsn_code: fullItem.hsn_code ?? "",
+              default_rate: fullItem.default_rate ?? "",
+              minimum_stock_level: fullItem.minimum_stock_level ?? "",
+              is_active: fullItem.is_active ?? workingData.is_active,
+              type: "Material"
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load full material details:", err);
+        } finally {
+          if (!isCancelled) {
+            setIsLoadingDetails(false);
+          }
+        }
+      }
+    };
+
+    loadModalData();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [initialData, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,7 +206,8 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
       <button
         form="material-master-form"
         type="submit"
-        className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
+        disabled={isLoadingDetails}
+        className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
       >
         {initialData ? "Save changes" : "Save Material"}
       </button>
@@ -139,7 +221,13 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
       title={initialData ? "Edit Material Master" : "Create Material Master"}
       footer={modalFooter}
     >
-      <form id="material-master-form" onSubmit={handleSubmit} className="space-y-6">
+      <form id="material-master-form" onSubmit={handleSubmit} className="space-y-6 relative">
+        {isLoadingDetails && (
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center rounded-xl min-h-[300px]">
+            <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-slate-500 mt-2.5">Loading material details...</span>
+          </div>
+        )}
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -176,11 +264,11 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
               </label>
               <select
                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.unit_id ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 transition-all font-medium"}`}
-                value={formData.unit_id}
+                value={formData.unit_id ?? ""}
                 onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
                 disabled={isLoadingUnits}
               >
-                <option value="">Select Unit</option>
+                <option value="">{isLoadingUnits ? "Loading units..." : "Select Unit"}</option>
                 {units.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}

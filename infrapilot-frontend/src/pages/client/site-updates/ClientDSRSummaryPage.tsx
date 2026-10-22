@@ -283,7 +283,8 @@ const ClientDSRSummaryPage = () => {
       }
 
       const XLSX = await import("xlsx");
-      const rows = exportList.map(r => ({
+      const rows = exportList.map((r, index) => ({
+        "Sr. No.": index + 1,
         "Date": r.formattedDate || r.report_date || "—",
         "Work Summary": r.work_done || "—",
         "Contractor": r.contractor_name || "—",

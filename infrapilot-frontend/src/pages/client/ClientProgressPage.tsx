@@ -161,7 +161,8 @@ const ClientProgressPage = () => {
         }
       }
 
-      const rows = activities.map((act) => ({
+      const rows = activities.map((act, index) => ({
+        "Sr. No.": index + 1,
         "Activity Name": act.activity_name || "—",
         "Discipline": act.discipline || "—",
         "Planned Quantity": act.planned_quantity ?? 0,

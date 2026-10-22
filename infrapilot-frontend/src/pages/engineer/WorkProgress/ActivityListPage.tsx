@@ -22,6 +22,9 @@ import { reportService } from "../../../services/reportService";
 import api from "../../../services/api";
 import type { ActivityItem } from "../../../types/workProgress";
 import { useProject } from "../../../context/ProjectContext";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // Modular Components
 import AddActivityModal from "../../../components/WorkProgress/AddActivityModal";
@@ -50,14 +53,93 @@ const ActivityListPage = () => {
     setIsExportingPdf(true);
     const toastId = toast.loading("Generating PDF report...");
     try {
-      const blob = await reportService.exportWeeklyPDF(projectId);
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Work_Progress_Report_${projectId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const doc = new jsPDF() as any;
+      const projName = selectedProject?.project_name || `Project #${projectId}`;
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      const genOn = `${day}-${month}-${year} ${hours}:${mins}`;
+
+      // Document Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(20, 20, 20);
+      doc.text("WORK PROGRESS REPORT", 105, 18, { align: "center" });
+
+      // Project Meta
+      doc.setFontSize(11);
+      doc.text(`Project : ${projName}`, 14, 30);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Project ID : ${projectId}`, 14, 36);
+      doc.text(`Generated On : ${genOn}`, 14, 42);
+
+      const tableData = activities.map((a) => {
+        const planned = Number(a.planned_quantity || 0);
+        const completed = Number(a.total_completed || 0);
+        const remaining = a.remaining_quantity !== undefined && a.remaining_quantity !== null
+          ? Number(a.remaining_quantity)
+          : Math.max(0, planned - completed);
+        const pct = a.completion_percentage !== undefined && a.completion_percentage !== null
+          ? Number(a.completion_percentage)
+          : (planned > 0 ? (completed / planned) * 100 : 0);
+
+        return [
+          a.activity_name || "—",
+          planned.toFixed(2),
+          completed.toFixed(2),
+          remaining.toFixed(2),
+          pct.toFixed(2),
+          (a.status || "NOT_STARTED").replace(/\s+/g, "_").toUpperCase()
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 48,
+        head: [["Activity", "Planned", "Completed", "Remaining", "%", "Status"]],
+        body: tableData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [27, 77, 126],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 9,
+          halign: "left"
+        },
+        styles: {
+          fontSize: 8.5,
+          textColor: [20, 20, 20],
+          cellPadding: 3,
+          lineColor: [60, 60, 60],
+          lineWidth: 0.2
+        },
+        alternateRowStyles: {
+          fillColor: [255, 255, 255]
+        }
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 120;
+      const totalActivities = activities.length;
+      const totalPlanned = activities.reduce((acc, a) => acc + Number(a.planned_quantity || 0), 0);
+      const totalCompleted = activities.reduce((acc, a) => acc + Number(a.total_completed || 0), 0);
+      const overallCompletion = totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(20, 20, 20);
+      doc.text("PROJECT SUMMARY", 14, finalY + 12);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Total Activities : ${totalActivities}`, 14, finalY + 20);
+      doc.text(`Total Planned Quantity : ${totalPlanned.toFixed(2)}`, 14, finalY + 26);
+      doc.text(`Total Completed Quantity : ${totalCompleted.toFixed(2)}`, 14, finalY + 32);
+      doc.text(`Overall Completion : ${overallCompletion.toFixed(2)}%`, 14, finalY + 38);
+
+      doc.save(`Progress_Report_${projectId}.pdf`);
       toast.success("PDF report exported!", { id: toastId });
     } catch (err: any) {
       console.error("PDF Export failed:", err);
@@ -75,14 +157,34 @@ const ActivityListPage = () => {
     setIsExportingExcel(true);
     const toastId = toast.loading("Generating Excel report...");
     try {
-      const blob = await reportService.exportWeeklyExcel(projectId);
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Work_Progress_Report_${projectId}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const rows = activities.map((a, index) => {
+        const planned = Number(a.planned_quantity || 0);
+        const completed = Number(a.total_completed || 0);
+        const remaining = a.remaining_quantity !== undefined && a.remaining_quantity !== null
+          ? Number(a.remaining_quantity)
+          : Math.max(0, planned - completed);
+        const pct = a.completion_percentage !== undefined && a.completion_percentage !== null
+          ? Number(a.completion_percentage)
+          : (planned > 0 ? (completed / planned) * 100 : 0);
+
+        return {
+          "Sr. No.": index + 1,
+          "Activity": a.activity_name || "—",
+          "Planned": Number(planned.toFixed(2)),
+          "Completed": Number(completed.toFixed(2)),
+          "Remaining": Number(remaining.toFixed(2)),
+          "%": Number(pct.toFixed(2)),
+          "Status": (a.status || "NOT_STARTED").replace(/\s+/g, "_").toUpperCase(),
+          "Unit": a.unit || "—",
+          "Start Date": a.start_date || "—",
+          "End Date": a.end_date || "—"
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Work Progress");
+      XLSX.writeFile(wb, `Progress_Report_${projectId}.xlsx`);
       toast.success("Excel report exported!", { id: toastId });
     } catch (err: any) {
       console.error("Excel Export failed:", err);
@@ -93,7 +195,7 @@ const ActivityListPage = () => {
   };
 
   // Using global context for project filter
-  const { selectedProjectId, setSelectedProjectId } = useProject();
+  const { selectedProjectId, setSelectedProjectId, selectedProject } = useProject();
   const projectId = selectedProjectId || 0;
 
   const handleProjectChange = (id: number) => {
@@ -165,13 +267,36 @@ const ActivityListPage = () => {
   const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch activities, passing projectId (defaults to 0 if 'All Projects')
-      const data = await workProgressService.listActivities(projectId || 0, undefined, 100, 0);
+      const [data, dailyEntries] = await Promise.all([
+        workProgressService.listActivities(projectId || 0, undefined, 100, 0),
+        (projectId ? workProgressService.listDailyEntries(undefined, undefined, projectId) : Promise.resolve([])).catch(() => [])
+      ]);
 
-      const normalizedData = data.map((a: any) => ({
-        ...a,
-        status: a.status || "NOT_STARTED"
-      }));
+      const entriesArr = Array.isArray(dailyEntries) ? dailyEntries : (dailyEntries?.data || []);
+      const progressMap: Record<number, number> = {};
+      entriesArr.forEach((e: any) => {
+        const actId = Number(e.activity_id);
+        const qty = Number(e.today_progress) || Number(e.actual_today_quantity) || 0;
+        progressMap[actId] = (progressMap[actId] || 0) + qty;
+      });
+
+      const normalizedData = (data || []).map((a: any) => {
+        const planned = Number(a.planned_quantity || 0);
+        const logged = progressMap[Number(a.id)] || 0;
+        const totalCompleted = Math.max(Number(a.total_completed || 0), logged);
+        const remaining = a.remaining_quantity !== undefined && a.remaining_quantity !== null && Number(a.remaining_quantity) >= 0
+          ? Math.min(Number(a.remaining_quantity), Math.max(0, planned - totalCompleted))
+          : Math.max(0, planned - totalCompleted);
+        const pct = planned > 0 ? Math.min(100, (totalCompleted / planned) * 100) : (Number(a.completion_percentage) || 0);
+
+        return {
+          ...a,
+          total_completed: totalCompleted,
+          remaining_quantity: remaining,
+          completion_percentage: Number(pct.toFixed(2)),
+          status: a.status || (pct >= 100 ? "COMPLETED" : pct > 0 ? "ON_TRACK" : "NOT_STARTED")
+        };
+      });
       setActivities(normalizedData);
     } catch (err) {
       console.error("Load Activities Error:", err);

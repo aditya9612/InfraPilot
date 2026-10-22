@@ -85,7 +85,12 @@ export default function CreateTaskRequestModal({ isOpen, onClose, onSuccess, pro
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setFormNotification({ type: 'error', message: `Mandatory fields required: ${missingFields.join(', ')}`, fields: missingFields });
+      if (missingFields.length === 4) {
+        setFormNotification({ type: 'error', message: 'Please fill in all required fields.' });
+        toast.error('Please fill in all required fields.');
+      } else {
+        setFormNotification(null);
+      }
       return;
     }
 

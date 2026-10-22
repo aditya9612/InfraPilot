@@ -50,8 +50,20 @@ export const projectService = {
       const mappedItems = items.map((p: any) => {
         if (!p) return null;
         const pId = p.project_id || p.id;
-        const rawStatus = (localOverrides && localOverrides[pId]) || p.status || "";
+        // Prioritize backend status as the single source of truth
+        const backendStatus = p.status || p.project_status || p.progress_status;
+        const rawStatus = backendStatus || (localOverrides && localOverrides[pId]) || "";
         const normalizedStatus = normalizeProjectStatus(rawStatus);
+
+        // If backend provided a status, clean up any conflicting local override
+        if (backendStatus && localOverrides && localOverrides[pId]) {
+          delete localOverrides[pId];
+          try {
+            localStorage.setItem("infrapilot_project_status_overrides", JSON.stringify(localOverrides));
+          } catch (e) {
+            // ignore
+          }
+        }
 
         return {
           ...p,
@@ -84,7 +96,8 @@ export const projectService = {
       const response = await api.get(`projects/${projectId}`);
       if (!response.data) throw new Error("Empty response from server");
       const p = response.data;
-      return { ...p, id: p.project_id || p.id };
+      const normalizedStatus = p.status ? normalizeProjectStatus(p.status) : undefined;
+      return { ...p, id: p.project_id || p.id, status: normalizedStatus || p.status };
     } catch (error: any) {
       console.error(`Get Project ${projectId} Error:`, error.response?.data || error.message);
       throw error;
@@ -118,10 +131,83 @@ export const projectService = {
    */
   async updateProject(projectId: number, projectData: any) {
     try {
-      const payload = { ...projectData };
+      const allowedKeys = [
+        "project_name",
+        "description",
+        "start_date",
+        "end_date",
+        "status",
+        "type",
+        "location_type",
+        "site_address",
+        "city",
+        "state",
+        "country",
+        "pincode",
+        "latitude",
+        "longitude",
+        "shift_start_time",
+        "shift_end_time",
+        "grace_period_minutes",
+        "budget_amount"
+      ];
+
+      const payload: any = {};
+      for (const key of allowedKeys) {
+        if (projectData[key] !== undefined) {
+          payload[key] = projectData[key];
+        }
+      }
+
+      // Format date fields strictly as YYYY-MM-DD or null
+      const toDateOnly = (val: any): string | null => {
+        if (!val) return null;
+        const str = String(val).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        if (str.includes("T")) return str.split("T")[0];
+        const dmy = /^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/.exec(str);
+        if (dmy) {
+          return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+        }
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        }
+        return str.slice(0, 10) || null;
+      };
+
+      if (payload.start_date !== undefined) {
+        payload.start_date = toDateOnly(payload.start_date);
+      }
+      if (payload.end_date !== undefined) {
+        payload.end_date = toDateOnly(payload.end_date);
+      }
+
+      // Format numeric coordinates or null
+      if (payload.latitude !== undefined && payload.latitude !== null && payload.latitude !== "") {
+        const numLat = Number(payload.latitude);
+        payload.latitude = isNaN(numLat) ? null : numLat;
+      } else if (payload.latitude === "" || payload.latitude === undefined) {
+        payload.latitude = null;
+      }
+
+      if (payload.longitude !== undefined && payload.longitude !== null && payload.longitude !== "") {
+        const numLng = Number(payload.longitude);
+        payload.longitude = isNaN(numLng) ? null : numLng;
+      } else if (payload.longitude === "" || payload.longitude === undefined) {
+        payload.longitude = null;
+      }
+
+      // Format and persist project status
       if (payload.status) {
         const s = String(payload.status).trim().toUpperCase().replace(/\s+/g, '_');
-        payload.status = s === "IN_PROGRESS" ? "ONGOING" : s === "ONHOLD" ? "ON_HOLD" : s;
+        payload.status = s === "IN_PROGRESS" || s === "ACTIVE" ? "ONGOING" : s === "ONHOLD" ? "ON_HOLD" : s;
+        if (!["PLANNED", "ONGOING", "COMPLETED", "ON_HOLD", "DELAYED", "CANCELLED"].includes(payload.status)) {
+          payload.status = "PLANNED";
+        }
 
         // Persist status override locally so it immediately synchronizes across all modules
         try {
@@ -136,6 +222,7 @@ export const projectService = {
           // ignore storage error
         }
       }
+
       const response = await api.put(`projects/${projectId}`, payload);
       return response.data;
     } catch (error: any) {

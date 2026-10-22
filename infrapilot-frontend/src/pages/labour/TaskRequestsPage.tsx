@@ -11,6 +11,7 @@ import { userService } from '../../services/userService';
 import Modal from '../../components/common/Modal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import Pagination from '../../components/common/Pagination';
+import { safeSetItem, compressImageFile } from '../../utils/storageUtils';
 import {
     ClipboardList,
     ChevronDown,
@@ -60,16 +61,18 @@ const TaskRequestsPage: React.FC = () => {
         }
 
         // Check local storage caches
-        if (requestId) {
-            const cachedById = localStorage.getItem(`task_req_att_${requestId}`);
-            if (cachedById) return cachedById;
-        }
-        if (title) {
-            const cachedByTitle = localStorage.getItem(`task_req_att_title_${title}`);
-            if (cachedByTitle) return cachedByTitle;
-        }
-        const cachedByName = localStorage.getItem(`task_req_att_name_${url}`);
-        if (cachedByName) return cachedByName;
+        try {
+            if (requestId) {
+                const cachedById = localStorage.getItem(`task_req_att_${requestId}`);
+                if (cachedById) return cachedById;
+            }
+            if (title) {
+                const cachedByTitle = localStorage.getItem(`task_req_att_title_${title}`);
+                if (cachedByTitle) return cachedByTitle;
+            }
+            const cachedByName = localStorage.getItem(`task_req_att_name_${url}`);
+            if (cachedByName) return cachedByName;
+        } catch (_) {}
 
         if (url.startsWith('http://') || url.startsWith('https://')) {
             return url;
@@ -237,28 +240,96 @@ const TaskRequestsPage: React.FC = () => {
         }
     }, [activeProjectId]);
 
-    useEffect(() => {
-        const fetchUsers = async () => {
-            setLoadingUsers(true);
+    const loadAssignableMembers = React.useCallback(async (targetProjectId?: number | string | null) => {
+        const pid = Number(targetProjectId || project || activeProjectId || (user as any)?.project_id);
+        if (!pid || isNaN(pid)) return;
+
+        setLoadingUsers(true);
+        try {
+            const memberMap = new Map<number, UserOption>();
+
+            // 1. Fetch project members (GET /api/v1/projects/{projectId}/members)
             try {
-                const res = await userService.getAllUsers(100, 0);
-                const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
-                const formatted: UserOption[] = list
-                    .map((u: any) => ({
-                        id: Number(u.id || u.user_id),
-                        name: u.full_name || u.name || u.username || `User ${u.id || u.user_id}`,
-                        role: u.role || ''
-                    }))
-                    .filter((u: UserOption) => u.id && !isNaN(u.id));
-                setUsersList(formatted);
+                const memsRes = await projectService.getProjectMembers(pid);
+                const mems = Array.isArray(memsRes) ? memsRes : (memsRes?.items || memsRes?.data || []);
+                mems.forEach((m: any) => {
+                    const u = m.user || m;
+                    const uid = Number(u.id || u.user_id || m.user_id);
+                    if (uid && !isNaN(uid)) {
+                        memberMap.set(uid, {
+                            id: uid,
+                            name: u.full_name || u.name || u.username || `Member #${uid}`,
+                            role: m.role || u.role || u.designation || 'Project Member'
+                        });
+                    }
+                });
             } catch (err) {
-                console.error('Failed to load users for task assignment:', err);
-            } finally {
-                setLoadingUsers(false);
+                console.warn(`Failed to fetch project members for project ${pid}:`, err);
             }
-        };
-        fetchUsers();
-    }, []);
+
+            // 2. Fetch project details to include Manager & Site Engineer if not already present
+            try {
+                const proj = await projectService.getProjectById(pid);
+                if (proj) {
+                    if (proj.owner_id && !memberMap.has(Number(proj.owner_id))) {
+                        memberMap.set(Number(proj.owner_id), {
+                            id: Number(proj.owner_id),
+                            name: proj.owner_name || `Manager (ID: ${proj.owner_id})`,
+                            role: 'Project Manager'
+                        });
+                    }
+                    if (proj.site_engineer_id && !memberMap.has(Number(proj.site_engineer_id))) {
+                        memberMap.set(Number(proj.site_engineer_id), {
+                            id: Number(proj.site_engineer_id),
+                            name: proj.site_engineer_name || `Site Engineer (ID: ${proj.site_engineer_id})`,
+                            role: 'Site Engineer'
+                        });
+                    }
+                }
+            } catch (_) {}
+
+            // 3. Fallback: try userService.getAllUsers if allowed
+            if (memberMap.size === 0) {
+                try {
+                    const res = await userService.getAllUsers(50, 0);
+                    const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                    list.forEach((u: any) => {
+                        const uid = Number(u.id || u.user_id);
+                        if (uid && !memberMap.has(uid)) {
+                            memberMap.set(uid, {
+                                id: uid,
+                                name: u.full_name || u.name || u.username || `User #${uid}`,
+                                role: u.role || ''
+                            });
+                        }
+                    });
+                } catch (_) {}
+            }
+
+            const formatted = Array.from(memberMap.values());
+            setUsersList(formatted);
+        } catch (err) {
+            console.error('Failed to load assignable members:', err);
+        } finally {
+            setLoadingUsers(false);
+        }
+    }, [project, activeProjectId, user]);
+
+    useEffect(() => {
+        loadAssignableMembers();
+    }, [loadAssignableMembers]);
+
+    useEffect(() => {
+        if (project) {
+            loadAssignableMembers(project);
+        }
+    }, [project, loadAssignableMembers]);
+
+    useEffect(() => {
+        if (isFormModalOpen) {
+            loadAssignableMembers(project || activeProjectId);
+        }
+    }, [isFormModalOpen, project, activeProjectId, loadAssignableMembers]);
 
     const formatApiError = (err: any, fallback: string): string => {
         if (!err) return fallback;
@@ -321,20 +392,28 @@ const TaskRequestsPage: React.FC = () => {
             if (editingRequest) {
                 // PUT /api/v1/projects/task-requests/{id} (multipart/form-data)
                 await taskRequestService.updateRequest(editingRequest.id, formData);
-                if (attachmentUrl) {
-                    localStorage.setItem(`task_req_att_${editingRequest.id}`, attachmentUrl);
-                    localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
-                    if (attachmentFileName) localStorage.setItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                try {
+                    if (attachmentUrl) {
+                        safeSetItem(`task_req_att_${editingRequest.id}`, attachmentUrl);
+                        safeSetItem(`task_req_att_title_${title.trim()}`, attachmentUrl);
+                        if (attachmentFileName) safeSetItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                    }
+                } catch (storageErr) {
+                    console.warn("Storage caching warning:", storageErr);
                 }
                 toast.success("Task request updated successfully!");
             } else {
                 // POST /api/v1/projects/task-requests (multipart/form-data)
                 const res: any = await taskRequestService.createRequest(formData);
                 const createdId = res?.id || res?.data?.id || res?.request_id;
-                if (attachmentUrl) {
-                    if (createdId) localStorage.setItem(`task_req_att_${createdId}`, attachmentUrl);
-                    localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
-                    if (attachmentFileName) localStorage.setItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                try {
+                    if (attachmentUrl) {
+                        if (createdId) safeSetItem(`task_req_att_${createdId}`, attachmentUrl);
+                        safeSetItem(`task_req_att_title_${title.trim()}`, attachmentUrl);
+                        if (attachmentFileName) safeSetItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                    }
+                } catch (storageErr) {
+                    console.warn("Storage caching warning:", storageErr);
                 }
                 const newReq: TaskRequest = {
                     id: createdId || Date.now(),
@@ -430,14 +509,14 @@ const TaskRequestsPage: React.FC = () => {
                 title="Task Requests"
                 breadcrumb={['InfraPilot', 'Labour', 'Requests', 'Request a Task']}
             />
-            <PageTransition className="p-4 md:p-8 lg:p-12 font-inter pb-32">
-                <div className="max-w-[1600px] mx-auto space-y-10">
+            <PageTransition className="p-3.5 sm:p-6 md:p-8 lg:p-12 font-inter pb-32 max-w-full overflow-x-hidden">
+                <div className="max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
 
                     {/* Header with side action button */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">Request a Task</h1>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 tracking-tight">Request a Task</h1>
+                            <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] sm:tracking-[0.3em]">
                                 SUBMIT NEW TASK REQUIREMENTS TO YOUR ENGINEER
                             </p>
                         </div>
@@ -447,7 +526,7 @@ const TaskRequestsPage: React.FC = () => {
                                 handleReset();
                                 setIsFormModalOpen(true);
                             }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-7 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer self-start sm:self-auto shrink-0"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 sm:px-7 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer w-full sm:w-auto shrink-0"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Request Task</span>
@@ -455,53 +534,53 @@ const TaskRequestsPage: React.FC = () => {
                     </div>
 
                     {/* Dashboard Cards: Total Tasks, Pending, Rejected, Approval */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                         {/* Total Tasks */}
-                        <div className="bg-white p-7 rounded-[32px] border border-indigo-100/80 shadow-sm transition-all hover:shadow-md">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Tasks</p>
-                                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                    <ClipboardList className="w-5 h-5" />
+                        <div className="bg-white p-4 sm:p-7 rounded-2xl sm:rounded-[32px] border border-indigo-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Tasks</p>
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                    <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.total}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">All submitted requisitions</p>
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.total}</h3>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider sm:tracking-widest truncate">All submitted requisitions</p>
                         </div>
 
                         {/* Pending */}
-                        <div className="bg-white p-7 rounded-[32px] border border-amber-100/80 shadow-sm transition-all hover:shadow-md">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Pending</p>
-                                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                    <Clock className="w-5 h-5" />
+                        <div className="bg-white p-4 sm:p-7 rounded-2xl sm:rounded-[32px] border border-amber-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Pending</p>
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.pending}</h3>
-                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Awaiting engineer review</p>
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.pending}</h3>
+                            <p className="text-[9px] sm:text-[10px] text-amber-500 font-bold uppercase tracking-wider sm:tracking-widest truncate">Awaiting review</p>
                         </div>
 
                         {/* Rejected */}
-                        <div className="bg-white p-7 rounded-[32px] border border-rose-100/80 shadow-sm transition-all hover:shadow-md">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Rejected</p>
-                                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
-                                    <XCircle className="w-5 h-5" />
+                        <div className="bg-white p-4 sm:p-7 rounded-2xl sm:rounded-[32px] border border-rose-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Rejected</p>
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
+                                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.rejected}</h3>
-                            <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">Declined requisitions</p>
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.rejected}</h3>
+                            <p className="text-[9px] sm:text-[10px] text-rose-500 font-bold uppercase tracking-wider sm:tracking-widest truncate">Declined</p>
                         </div>
 
                         {/* Approval */}
-                        <div className="bg-white p-7 rounded-[32px] border border-emerald-100/80 shadow-sm transition-all hover:shadow-md">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Approval</p>
-                                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                                    <CheckCircle2 className="w-5 h-5" />
+                        <div className="bg-white p-4 sm:p-7 rounded-2xl sm:rounded-[32px] border border-emerald-100/80 shadow-sm transition-all hover:shadow-md">
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Approval</p>
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.approval}</h3>
-                            <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Approved & confirmed</p>
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-1">{stats.approval}</h3>
+                            <p className="text-[9px] sm:text-[10px] text-emerald-500 font-bold uppercase tracking-wider sm:tracking-widest truncate">Approved</p>
                         </div>
                     </div>
 
@@ -646,20 +725,26 @@ const TaskRequestsPage: React.FC = () => {
                                                     type="file"
                                                     accept="image/*"
                                                     className="hidden"
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
                                                         setAttachmentFile(file);
                                                         setAttachmentFileName(file.name);
                                                         const preview = URL.createObjectURL(file);
                                                         setAttachmentPreview(preview);
-                                                        const reader = new FileReader();
-                                                        reader.onload = () => {
-                                                            const dataUrl = reader.result as string;
-                                                            setAttachmentUrl(dataUrl);
-                                                            localStorage.setItem(`task_req_att_name_${file.name}`, dataUrl);
-                                                        };
-                                                        reader.readAsDataURL(file);
+                                                        try {
+                                                            const compressed = await compressImageFile(file, 600, 600, 0.6);
+                                                            setAttachmentUrl(compressed);
+                                                            safeSetItem(`task_req_att_name_${file.name}`, compressed);
+                                                        } catch (_) {
+                                                            const reader = new FileReader();
+                                                            reader.onload = () => {
+                                                                const dataUrl = reader.result as string;
+                                                                setAttachmentUrl(dataUrl);
+                                                                safeSetItem(`task_req_att_name_${file.name}`, dataUrl);
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
                                                     }}
                                                 />
                                             </label>
@@ -673,18 +758,18 @@ const TaskRequestsPage: React.FC = () => {
                                     </label>
                                     <div className="h-[96px] flex items-center px-4 bg-slate-50 border border-slate-200 rounded-xl focus-within:border-indigo-500 focus-within:bg-white transition-all relative">
                                         <select
-                                            value={assignedTo || ''}
+                                            value={assignedTo ? String(assignedTo) : ''}
                                             onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : 0)}
-                                            className="w-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer pr-8"
+                                            className="w-full h-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer pr-8 z-10"
                                         >
-                                            <option value="">{loadingUsers ? "Loading users..." : "Select Person / Engineer (Optional)"}</option>
+                                            <option value="">{loadingUsers ? "Loading assignable members..." : "Select Person / Engineer (Optional)"}</option>
                                             {usersList.map((u) => (
-                                                <option key={u.id} value={u.id}>
+                                                <option key={u.id} value={String(u.id)}>
                                                     {u.name} {u.role ? `(${u.role})` : ''}
                                                 </option>
                                             ))}
                                         </select>
-                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-0" />
                                     </div>
                                 </div>
                             </div>
@@ -756,146 +841,268 @@ const TaskRequestsPage: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+                        <div className="bg-white rounded-2xl sm:rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[300px]">
                             {isLoadingRequests ? (
-                                <div className="flex flex-col items-center justify-center py-32 opacity-20">
-                                    <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                                <div className="flex flex-col items-center justify-center py-20 sm:py-32 opacity-30">
+                                    <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-indigo-600 animate-spin mb-3" />
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">Synchronizing Data...</p>
                                 </div>
                             ) : filteredRequests.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-32 opacity-30">
-                                    <ClipboardList className="w-16 h-16 text-slate-300 mb-4" />
-                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">No requests found</p>
-                                    <p className="text-[11px] font-medium text-slate-300 mt-2">Submit your first task request for this project using the form above</p>
+                                <div className="flex flex-col items-center justify-center py-20 sm:py-32 px-4 opacity-40 text-center">
+                                    <ClipboardList className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 mb-3" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">No requests found</p>
+                                    <p className="text-[11px] font-medium text-slate-400 mt-1 max-w-sm">Submit your first task request for this project using the Request Task button</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-50/50 border-b border-slate-50">
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Submitted</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {paginatedRequests.map((req, idx) => (
-                                                <tr key={req.id || idx} className="hover:bg-slate-50/30 transition-colors group">
-                                                    <td className="px-8 py-6">
-                                                        <h4 className="text-sm font-bold text-slate-800">{req.title}</h4>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <p className="text-sm text-slate-600 font-medium max-w-[200px] truncate" title={req.description}>
-                                                            {req.description}
-                                                        </p>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-tight w-fit">
-                                                            {req.category}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        {(() => {
-                                                            const p = (req.priority || '').toString().toUpperCase();
-                                                            const isHigh = p === 'HIGH';
-                                                            const isMedium = p === 'MEDIUM';
-                                                            return (
-                                                                <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full ${isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                                                    {req.priority}
+                                <>
+                                    {/* Mobile Cards View (< 768px) */}
+                                    <div className="block md:hidden divide-y divide-slate-100">
+                                        {paginatedRequests.map((req, idx) => {
+                                            const p = (req.priority || '').toString().toUpperCase();
+                                            const isHigh = p === 'HIGH';
+                                            const isMedium = p === 'MEDIUM';
+                                            const isApproved = req.status?.toLowerCase() === 'approved';
+                                            const isRejected = req.status?.toLowerCase() === 'rejected';
+
+                                            return (
+                                                <div key={req.id || idx} className="p-4 hover:bg-slate-50/50 transition-colors space-y-3">
+                                                    {/* Header: Status Pill + Priority & Category */}
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <div className="flex items-center gap-2">
+                                                            {isApproved ? (
+                                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100/60">
+                                                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-wider">{req.status || 'Approved'}</span>
                                                                 </div>
-                                                            );
-                                                        })()}
-                                                    </td>
-                                                    <td className="px-8 py-6">
+                                                            ) : isRejected ? (
+                                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-100/60">
+                                                                    <AlertCircle className="w-3.5 h-3.5" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-wider">{req.status || 'Rejected'}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100/60">
+                                                                    <Clock className="w-3.5 h-3.5" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-wider">{req.status || 'Pending'}</span>
+                                                                </div>
+                                                            )}
+                                                            {req.category && (
+                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[9px] font-black uppercase tracking-tight">
+                                                                    {req.category}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                            isHigh ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                            isMedium ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                            'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                        }`}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                            <span>{req.priority || 'Normal'}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Title & Description */}
+                                                    <div className="space-y-1">
+                                                        <h4 className="text-sm font-bold text-slate-800 break-words leading-snug">
+                                                            {req.title}
+                                                        </h4>
+                                                        {req.description && (
+                                                            <p className="text-xs text-slate-600 font-medium leading-relaxed break-words line-clamp-3">
+                                                                {req.description}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Meta: Attachment thumbnail & Date */}
+                                                    <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                                                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                                                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                            <span>{formatDate(req.created_at)}</span>
+                                                        </div>
+
                                                         {req.attachment_url ? (() => {
                                                             const resolvedImg = formatImageUrl(req.attachment_url, req.id, req.title);
                                                             const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
                                                             return (
-                                                                <div
+                                                                <button
+                                                                    type="button"
                                                                     onClick={() => setPreviewImage(resolvedImg || req.attachment_url || null)}
-                                                                    className="relative group/thumb w-12 h-12 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center"
-                                                                    title={`View ${fileName}`}
+                                                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/80 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors text-[10px] font-bold"
                                                                 >
-                                                                    <img
-                                                                        src={resolvedImg}
-                                                                        alt={fileName}
-                                                                        className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
-                                                                        onError={(e) => {
-                                                                            const target = e.target as HTMLElement;
-                                                                            target.style.display = 'none';
-                                                                            const parent = target.parentElement;
-                                                                            if (parent) {
-                                                                                const fallback = parent.querySelector('.img-thumb-fallback') as HTMLElement;
-                                                                                if (fallback) fallback.style.display = 'flex';
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <div className="img-thumb-fallback hidden flex-col items-center justify-center text-slate-400 p-1 text-center">
-                                                                        <ImagePlus className="w-5 h-5 text-indigo-400" />
-                                                                    </div>
-                                                                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                                                        <Eye className="w-4 h-4" />
-                                                                    </div>
-                                                                </div>
+                                                                    <ImagePlus className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                                                    <span className="truncate max-w-[120px]">{fileName}</span>
+                                                                    <Eye className="w-3 h-3 text-indigo-400 shrink-0 ml-0.5" />
+                                                                </button>
                                                             );
                                                         })() : (
-                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
+                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">No Attachment</span>
                                                         )}
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                                                            <Calendar className="w-3.5 h-3.5 text-slate-300" />
-                                                            {formatDate(req.created_at)}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <div className="flex items-center gap-2">
-                                                            {req.status?.toLowerCase() === 'approved' ? (
-                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                            ) : req.status?.toLowerCase() === 'rejected' ? (
-                                                                <AlertCircle className="w-4 h-4 text-rose-500" />
-                                                            ) : (
-                                                                <Clock className="w-4 h-4 text-amber-500" />
-                                                            )}
-                                                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
-                                                                {req.status || 'Pending'}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-6 text-right flex items-center justify-end gap-2">
+                                                    </div>
+
+                                                    {/* Actions Toolbar */}
+                                                    <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
                                                         <button
                                                             onClick={() => setViewingRequest(req)}
-                                                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-200 text-xs font-bold transition-all active:scale-95"
                                                             title="View Details"
                                                         >
-                                                            <Eye className="w-4 h-4" />
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                            <span>View</span>
                                                         </button>
                                                         <button
                                                             onClick={() => handleEdit(req)}
-                                                            className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:text-amber-600 hover:bg-amber-50/50 hover:border-amber-200 text-xs font-bold transition-all active:scale-95"
                                                             title="Edit Request"
                                                         >
-                                                            <Edit3 className="w-4 h-4" />
+                                                            <Edit3 className="w-3.5 h-3.5" />
+                                                            <span>Edit</span>
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(req.id)}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:text-rose-600 hover:bg-rose-50/50 hover:border-rose-200 text-xs font-bold transition-all active:scale-95"
                                                             title="Delete Request"
                                                         >
-                                                            <Trash2 className="w-4 h-4" />
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            <span>Delete</span>
                                                         </button>
-                                                    </td>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Desktop Table View (>= 768px) */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full text-left border-collapse min-w-[850px]">
+                                            <thead>
+                                                <tr className="bg-slate-50/50 border-b border-slate-100">
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Submitted</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {paginatedRequests.map((req, idx) => (
+                                                    <tr key={req.id || idx} className="hover:bg-slate-50/40 transition-colors group">
+                                                        <td className="px-5 py-4">
+                                                            <h4 className="text-sm font-bold text-slate-800 break-words">{req.title}</h4>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <p className="text-sm text-slate-600 font-medium max-w-[200px] truncate" title={req.description}>
+                                                                {req.description}
+                                                            </p>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-tight w-fit inline-block">
+                                                                {req.category}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            {(() => {
+                                                                const p = (req.priority || '').toString().toUpperCase();
+                                                                const isHigh = p === 'HIGH';
+                                                                const isMedium = p === 'MEDIUM';
+                                                                return (
+                                                                    <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                                        <div className={`w-1.5 h-1.5 rounded-full ${isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                                        {req.priority}
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            {req.attachment_url ? (() => {
+                                                                const resolvedImg = formatImageUrl(req.attachment_url, req.id, req.title);
+                                                                const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                                return (
+                                                                    <div
+                                                                        onClick={() => setPreviewImage(resolvedImg || req.attachment_url || null)}
+                                                                        className="relative group/thumb w-10 h-10 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center"
+                                                                        title={`View ${fileName}`}
+                                                                    >
+                                                                        <img
+                                                                            src={resolvedImg}
+                                                                            alt={fileName}
+                                                                            className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                                                                            onError={(e) => {
+                                                                                const target = e.target as HTMLElement;
+                                                                                target.style.display = 'none';
+                                                                                const parent = target.parentElement;
+                                                                                if (parent) {
+                                                                                    const fallback = parent.querySelector('.img-thumb-fallback') as HTMLElement;
+                                                                                    if (fallback) fallback.style.display = 'flex';
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <div className="img-thumb-fallback hidden flex-col items-center justify-center text-slate-400 p-1 text-center">
+                                                                            <ImagePlus className="w-4 h-4 text-indigo-400" />
+                                                                        </div>
+                                                                        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                            <Eye className="w-3.5 h-3.5" />
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })() : (
+                                                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                                                                <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                                                                {formatDate(req.created_at)}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center gap-2">
+                                                                {req.status?.toLowerCase() === 'approved' ? (
+                                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                                ) : req.status?.toLowerCase() === 'rejected' ? (
+                                                                    <AlertCircle className="w-4 h-4 text-rose-500" />
+                                                                ) : (
+                                                                    <Clock className="w-4 h-4 text-amber-500" />
+                                                                )}
+                                                                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                                                                    {req.status || 'Pending'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <button
+                                                                    onClick={() => setViewingRequest(req)}
+                                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                                    title="View Details"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleEdit(req)}
+                                                                    className="p-1.5 text-slate-400 hover:text-amber-500 transition-colors"
+                                                                    title="Edit Request"
+                                                                >
+                                                                    <Edit3 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(req.id)}
+                                                                    className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                                                                    title="Delete Request"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
                             )}
 
                             {!isLoadingRequests && filteredRequests.length > 0 && (

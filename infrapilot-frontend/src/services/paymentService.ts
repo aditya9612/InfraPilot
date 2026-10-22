@@ -392,9 +392,14 @@ export const paymentService = {
                             return false;
                         });
 
-                        const headers = Object.keys(rows[0] || {});
-                        const newWs = filteredRows.length > 0 
-                            ? XLSX.utils.json_to_sheet(filteredRows) 
+                        const numberedRows = filteredRows.map((r: any, idx: number) => {
+                            if ("Sr. No." in r || "Sr No" in r || "Sr.No." in r) return r;
+                            return { "Sr. No.": idx + 1, ...r };
+                        });
+
+                        const headers = Object.keys(numberedRows[0] || {});
+                        const newWs = numberedRows.length > 0 
+                            ? XLSX.utils.json_to_sheet(numberedRows) 
                             : XLSX.utils.json_to_sheet([], { header: headers });
                         const newWb = XLSX.utils.book_new();
                         XLSX.utils.book_append_sheet(newWb, newWs, firstSheetName || "Payments");
@@ -409,7 +414,8 @@ export const paymentService = {
                     const pName = String(p.project_name || p.projectName || "").toLowerCase().trim();
                     return !targetLower || pName.includes(targetLower) || targetLower.includes(pName);
                 });
-                const rows = filtered.map((p: any) => ({
+                const rows = filtered.map((p: any, idx: number) => ({
+                    "Sr. No.": idx + 1,
                     "Payment No": p.payment_no || p.paymentId || `CP${String(p.id).padStart(6, '0')}`,
                     "Client": p.client_name || p.clientName || "-",
                     "Project": p.project_name || p.projectName || targetProject || "-",

@@ -133,12 +133,39 @@ const DailyProgressEntryPage = () => {
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
+
+      // Resolve missing activity details so Activity Name is accurately displayed
+      const missingActivityIds = [...new Set(
+        entries
+          .map((e: any) => Number(e.activity_id))
+          .filter((id: number) => id && !activitiesList.some(a => Number(a.id) === id))
+      )] as number[];
+
+      if (missingActivityIds.length > 0) {
+        const fetched = await Promise.all(
+          missingActivityIds.map(async (actId) => {
+            try {
+              return await workProgressService.getActivity(actId);
+            } catch {
+              return null;
+            }
+          })
+        );
+        const validFetched = fetched.filter(Boolean) as ActivityItem[];
+        if (validFetched.length > 0) {
+          setActivitiesList(prev => {
+            const existingIds = new Set(prev.map(a => Number(a.id)));
+            const toAdd = validFetched.filter(a => !existingIds.has(Number(a.id)));
+            return [...prev, ...toAdd];
+          });
+        }
+      }
     } catch (err) {
       toast.error("Failed to load today's tasks");
     } finally {
       setLoading(false);
     }
-  }, [engineer_id, hasLoadedToday, projectId]);
+  }, [engineer_id, hasLoadedToday, projectId, activitiesList]);
 
   const loadAllEntries = useCallback(async () => {
     try {
@@ -146,15 +173,43 @@ const DailyProgressEntryPage = () => {
         setLoading(true);
       }
       const res = await workProgressService.listDailyEntries(undefined, undefined, projectId || undefined);
-      setAllEntries(res || []);
+      const entries = res || [];
+      setAllEntries(entries);
       setHasLoadedAll(true);
+
+      // Resolve missing activity details so Activity Name is accurately displayed
+      const missingActivityIds = [...new Set(
+        entries
+          .map((e: any) => Number(e.activity_id))
+          .filter((id: number) => id && !activitiesList.some(a => Number(a.id) === id))
+      )] as number[];
+
+      if (missingActivityIds.length > 0) {
+        const fetched = await Promise.all(
+          missingActivityIds.map(async (actId) => {
+            try {
+              return await workProgressService.getActivity(actId);
+            } catch {
+              return null;
+            }
+          })
+        );
+        const validFetched = fetched.filter(Boolean) as ActivityItem[];
+        if (validFetched.length > 0) {
+          setActivitiesList(prev => {
+            const existingIds = new Set(prev.map(a => Number(a.id)));
+            const toAdd = validFetched.filter(a => !existingIds.has(Number(a.id)));
+            return [...prev, ...toAdd];
+          });
+        }
+      }
     } catch (err) {
       console.error("Load Entries Error:", err);
       toast.error("Failed to load progress logs");
     } finally {
       setLoading(false);
     }
-  }, [hasLoadedAll, projectId]);
+  }, [hasLoadedAll, projectId, activitiesList]);
 
   const loadActivityHistory = useCallback(async () => {
     try {
@@ -721,18 +776,24 @@ const DailyProgressEntryPage = () => {
                             </td>
                           </tr>
                         ) : (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).length > 0 ? (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).map((e) => {
-                          const currentActivity = activitiesList.find(a => Number(a.id) === Number(e.activity_id));
+                          const currentActivity = activitiesList.find(a => Number(a.id) === Number(e.activity_id) || Number((a as any).activity_id) === Number(e.activity_id));
+                          const activityName = (e as any).activity_name
+                            || (e as any).activity?.activity_name
+                            || (e as any).activity?.name
+                            || (e as any).activity_title
+                            || currentActivity?.activity_name
+                            || "-";
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
-                                {currentActivity?.activity_name || "-"}
+                                {activityName}
                                 {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">
                                 {e.entry_date ? formatDateObj(e.entry_date) : "-"}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
-                                {e.today_progress} {currentActivity?.unit || ""}
+                                {e.today_progress} {(e as any).unit || currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks || (e as any).remark || (e as any).notes}>{e.remarks || (e as any).remark || (e as any).notes || "-"}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? formatDateTimeObj(e.created_at) : "-"}</td>

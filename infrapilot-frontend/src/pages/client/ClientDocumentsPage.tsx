@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
+import { resolveApprovalStatus } from "../../types/document";
 
 interface DrawingRecord {
   id: number;
@@ -290,7 +291,7 @@ const ClientDocumentsPage = () => {
       version: d.version || "V1.0",
       file_size: d.file_size || null,
       file_url: d.file_url || d.upload_file || "",
-      approval_status: d.approval_status || "Approved",
+      approval_status: resolveApprovalStatus(d),
       approval_id: d.approval_id,
       is_folder: false,
       remarks: d.remarks || "",
@@ -312,7 +313,7 @@ const ClientDocumentsPage = () => {
           version: d.version || "V1.0",
           file_size: d.file_size || null,
           file_url: d.file_url || "",
-          approval_status: d.status || d.approval_status || "Approved",
+          approval_status: resolveApprovalStatus(d),
           approval_id: null,
           is_folder: isFolder,
           remarks: d.remarks || "",
@@ -377,10 +378,10 @@ const ClientDocumentsPage = () => {
       } else {
         docsCount++;
       }
-      const s = (d.approval_status || "").toLowerCase();
-      if (s === "pending" || s === "under review" || s === "under_review" || s === "submitted") {
+      const s = resolveApprovalStatus(d);
+      if (s === "PENDING" || s === "UNDER_REVIEW") {
         pendingCount++;
-      } else if (s === "approved" || s === "verified" || s === "converted") {
+      } else if (s === "APPROVED") {
         approvedCount++;
       }
     });
@@ -611,9 +612,22 @@ const ClientDocumentsPage = () => {
                           <td className="px-4 py-3">{(drawing.is_folder || drawing.type === "Folder") ? "null" : (drawing.type !== undefined ? String(drawing.type) : "null")}</td>
                           <td className="px-4 py-3">{drawing.version}</td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                              {drawing.approval_status}
-                            </span>
+                            {(() => {
+                              const st = resolveApprovalStatus(drawing);
+                              return (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border ${
+                                  st === "APPROVED"
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                    : st === "REJECTED"
+                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                    : st === "UNDER_REVIEW"
+                                    ? "bg-blue-50 text-blue-600 border-blue-200"
+                                    : "bg-amber-50 text-amber-600 border-amber-200"
+                                }`}>
+                                  {st.replace("_", " ")}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3">{drawing.date || "null"}</td>
                           <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
@@ -741,14 +755,22 @@ const ClientDocumentsPage = () => {
                             </span>
                           </td>
                           <td className="px-4 py-4 font-inter">
-                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                              : drawing.approval_status === "Pending"
-                                ? "bg-amber-50 text-amber-600 border-amber-200"
-                                : "bg-slate-50 text-slate-500 border-slate-200"
-                              }`}>
-                              {drawing.approval_status || "Pending"}
-                            </span>
+                            {(() => {
+                              const st = resolveApprovalStatus(drawing);
+                              return (
+                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                  st === "APPROVED"
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                    : st === "REJECTED"
+                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                    : st === "UNDER_REVIEW"
+                                    ? "bg-blue-50 text-blue-600 border-blue-200"
+                                    : "bg-amber-50 text-amber-600 border-amber-200"
+                                }`}>
+                                  {st.replace("_", " ")}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-6 py-4 font-inter">
                             <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>

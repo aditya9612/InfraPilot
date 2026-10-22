@@ -94,6 +94,31 @@ const SectionHeader = ({ icon, title, sub }: { icon: React.ReactNode; title: str
   </div>
 );
 
+const CostTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-lg text-xs space-y-1.5">
+        <p className="font-bold text-slate-900 border-b border-slate-100 pb-1">{label}</p>
+        {payload.map((entry: any, index: number) => {
+          const isActual = entry.name === "Actual Cost" || entry.dataKey === "Actual Cost";
+          return (
+            <div key={`item-${index}`} className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <span className={`w-2.5 h-2.5 rounded-full ${isActual ? "bg-indigo-600" : "bg-slate-500"}`} />
+                {entry.name}:
+              </span>
+              <span className="font-bold text-slate-900">
+                ₹{Number(entry.value).toLocaleString("en-IN")}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+};
+
 // ─── Cost Chart ──────────────────────────────────────────────────────
 const CostTrackingChart = ({ data }: { data: PMCommandCenterData["cost_tracking"] }) => {
   const chartData = data.map((d) => ({
@@ -112,37 +137,32 @@ const CostTrackingChart = ({ data }: { data: PMCommandCenterData["cost_tracking"
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
             <XAxis
               dataKey="month"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              tick={{ fill: "#334155", fontSize: 11, fontWeight: 600 }}
               dy={6}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "#334155", fontSize: 10, fontWeight: 600 }}
               tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`)}
             />
             <Tooltip
-              cursor={{ fill: "#f8fafc" }}
-              formatter={(val: any) => [`₹${Number(val).toLocaleString()}`, ""]}
-              contentStyle={{
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                fontSize: "12px",
-              }}
+              cursor={{ fill: "#f1f5f9" }}
+              content={<CostTooltip />}
             />
             <Legend
               verticalAlign="top"
               align="right"
               iconType="circle"
-              wrapperStyle={{ paddingBottom: "12px", fontSize: "11px" }}
+              wrapperStyle={{ paddingBottom: "12px", fontSize: "11px", color: "#1e293b", fontWeight: 600 }}
             />
-            <Bar name="Budget" dataKey="Budget" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-            <Bar name="Actual Cost" dataKey="Actual Cost" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar name="Budget" dataKey="Budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+            <Bar name="Actual Cost" dataKey="Actual Cost" fill="#4f46e5" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -287,7 +307,6 @@ const ManagerDashboard = () => {
                   <thead>
                     <tr className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                       <th className="pb-3 text-left pl-1">Project</th>
-                      <th className="pb-3 text-left">ID</th>
                       <th className="pb-3 text-center">Progress</th>
                       <th className="pb-3 text-center">Status</th>
                       <th className="pb-3 text-right">Budget</th>
@@ -300,7 +319,6 @@ const ManagerDashboard = () => {
                       return (
                         <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 pl-1 font-semibold text-slate-700">{p.name}</td>
-                          <td className="py-3 text-slate-400 text-xs font-mono">{p.business_id}</td>
                           <td className="py-3">
                             <div className="flex items-center gap-2 justify-center">
                               <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">

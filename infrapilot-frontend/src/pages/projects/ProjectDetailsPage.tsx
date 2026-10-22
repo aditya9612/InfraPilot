@@ -2,7 +2,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import { projectService } from "../../services/projectService";
+import { projectService, normalizeProjectStatus } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import { expenseService } from "../../services/expenseService";
@@ -173,6 +173,10 @@ const ProjectDetailsPage = () => {
         // Process Schedule, Progress & Finance
         setSchedule(sData);
         setProgress(prData);
+        if (prData?.status) {
+          const normPrStatus = normalizeProjectStatus(prData.status);
+          setProject((prev: any) => prev ? { ...prev, status: normPrStatus } : prev);
+        }
         const boqItemsList = Array.isArray(boqItemsData) ? boqItemsData : (boqItemsData && 'items' in boqItemsData ? boqItemsData.items : []);
         const itemsBoqSum = boqItemsList.reduce((acc: number, curr: any) => acc + (Number(curr.total_cost) || 0), 0);
         const calculatedBoqValue = Number(
@@ -503,10 +507,13 @@ const ProjectDetailsPage = () => {
   const handleUpdateProject = async (updatedData: any) => {
     try {
       await projectService.updateProject(projectId, updatedData);
-      toast.success("Project updated");
+      toast.success("Project updated successfully");
       fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to update project");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail[0]?.msg : (error?.response?.data?.message || "Failed to update project"));
+      toast.error(msg);
+      throw error;
     }
   };
 

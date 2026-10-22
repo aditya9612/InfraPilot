@@ -101,6 +101,20 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
         }
     }, [filteredMaterials]);
 
+    const filteredBoqItems = useMemo(() => {
+        if (!boqSearch.trim()) return boqItems;
+        const q = boqSearch.toLowerCase();
+        return boqItems.filter(b => (b.item_name || b.name || "").toLowerCase().includes(q));
+    }, [boqItems, boqSearch]);
+
+    const selectedBoqLabel = useMemo(() => {
+        if (!formData.project_id) return "Select Project First";
+        if (loadingBoqs) return "Loading BOQ items...";
+        if (!formData.boq_item_id) return "None";
+        const b = boqItems.find(item => item.id === formData.boq_item_id);
+        return b ? (b.item_name || b.name) : "None";
+    }, [formData.project_id, formData.boq_item_id, loadingBoqs, boqItems]);
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -130,20 +144,6 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     };
 
     const selectedMaterial = inventory.find(m => m.id === formData.material_id);
-
-    const filteredBoqItems = useMemo(() => {
-        if (!boqSearch.trim()) return boqItems;
-        const q = boqSearch.toLowerCase();
-        return boqItems.filter(b => (b.item_name || b.name || "").toLowerCase().includes(q));
-    }, [boqItems, boqSearch]);
-
-    const selectedBoqLabel = useMemo(() => {
-        if (!formData.project_id) return "Select Project First";
-        if (loadingBoqs) return "Loading BOQ items...";
-        if (!formData.boq_item_id) return "None";
-        const b = boqItems.find(item => item.id === formData.boq_item_id);
-        return b ? (b.item_name || b.name) : "None";
-    }, [formData.project_id, formData.boq_item_id, loadingBoqs, boqItems]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity font-inter">

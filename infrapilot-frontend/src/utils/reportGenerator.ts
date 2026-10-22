@@ -24,25 +24,25 @@ export const generateProjectReport = (
 
   // 2. Team Members Section
   sections.push("--- TEAM MEMBERS ---");
-  sections.push("Name,Email,Role");
-  members.forEach(m => {
-    sections.push(`"${m.full_name}","${m.email}","${m.role}"`);
+  sections.push("Sr. No.,Name,Email,Role");
+  members.forEach((m, idx) => {
+    sections.push(`"${idx + 1}","${m.full_name}","${m.email}","${m.role}"`);
   });
   sections.push("");
 
   // 3. Milestones Section
   sections.push("--- MILESTONES ---");
-  sections.push("Title,Status,Target Date");
-  milestones.forEach(m => {
-    sections.push(`"${m.title}","${m.status || 'Pending'}","${m.end_date}"`);
+  sections.push("Sr. No.,Title,Status,Target Date");
+  milestones.forEach((m, idx) => {
+    sections.push(`"${idx + 1}","${m.title}","${m.status || 'Pending'}","${m.end_date}"`);
   });
   sections.push("");
 
   // 4. Work Items (Tasks) Section
   sections.push("--- WORK ITEMS (TASKS) ---");
-  sections.push("Title,Status,Completion %,Deadline");
-  tasks.forEach(t => {
-    sections.push(`"${t.title}","${t.status}","${t.completion_percentage}%","${t.end_date}"`);
+  sections.push("Sr. No.,Title,Status,Completion %,Deadline");
+  tasks.forEach((t, idx) => {
+    sections.push(`"${idx + 1}","${t.title}","${t.status}","${t.completion_percentage}%","${t.end_date}"`);
   });
   sections.push("");
 
@@ -51,9 +51,9 @@ export const generateProjectReport = (
   sections.push("--- FINANCIAL SUMMARY ---");
   sections.push(`Total Site Expenses,"₹${totalExpense.toLocaleString()}"`);
   sections.push("");
-  sections.push("Date,Description,Category,Status,Amount");
-  expenses.forEach(e => {
-    sections.push(`"${e.date}","${e.description}","${e.category}","${e.status}","₹${e.amount.toLocaleString()}"`);
+  sections.push("Sr. No.,Date,Description,Category,Status,Amount");
+  expenses.forEach((e, idx) => {
+    sections.push(`"${idx + 1}","${e.date}","${e.description}","${e.category}","${e.status}","₹${e.amount.toLocaleString()}"`);
   });
 
   const csvContent = sections.join("\n");

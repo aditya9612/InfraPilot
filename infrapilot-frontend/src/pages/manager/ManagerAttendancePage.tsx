@@ -766,7 +766,7 @@ const ManagerAttendancePage: React.FC = () => {
                                     <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200 backdrop-blur-sm">
                                         <tr>
                                             {[
-                                                'DATE', 'LABOUR NAME', 'DEPARTMENT',
+                                                'DATE', 'PROJECT MANAGER NAME', 'DEPARTMENT',
                                                 'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'WORKING HOURS',
                                                 'OVERTIME HOURS', 'LOCATION', 'STATUS', 'ACTION'
                                             ].map(head => (
@@ -788,9 +788,9 @@ const ManagerAttendancePage: React.FC = () => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 uppercase">
-                                                                {(record.full_name || user?.name || 'L').charAt(0)}
+                                                                {(record.full_name || user?.name || 'PM').charAt(0)}
                                                             </div>
-                                                            <span className="text-sm font-bold text-slate-700">{record.full_name || user?.name || 'Labour'}</span>
+                                                            <span className="text-sm font-bold text-slate-700">{record.full_name || user?.name || 'Project Manager'}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -807,7 +807,7 @@ const ManagerAttendancePage: React.FC = () => {
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div
-                                                            onClick={() => record.check_in_image && setPreviewImage({ url: record.check_in_image, title: "Check-In Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            onClick={() => record.check_in_image && setPreviewImage({ url: record.check_in_image, title: "Check-In Image - " + (record.full_name || user?.name || "Project Manager") })}
                                                             className={`w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_in_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-blue-400' : ''}`}
                                                         >
                                                             {record.check_in_image ? (
@@ -827,7 +827,7 @@ const ManagerAttendancePage: React.FC = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div
-                                                            onClick={() => record.check_out_image && setPreviewImage({ url: record.check_out_image, title: "Check-Out Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            onClick={() => record.check_out_image && setPreviewImage({ url: record.check_out_image, title: "Check-Out Image - " + (record.full_name || user?.name || "Project Manager") })}
                                                             className={`w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_out_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-rose-400' : ''}`}
                                                         >
                                                             {record.check_out_image ? (
@@ -1035,7 +1035,7 @@ const ManagerAttendancePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-0.5">
-                                    <h3 className="text-lg font-black text-white tracking-tight">{selectedRecordForDetail.full_name || user?.name || "Labour"}</h3>
+                                    <h3 className="text-lg font-black text-white tracking-tight">{selectedRecordForDetail.full_name || user?.name || "Project Manager"}</h3>
                                     <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">General</p>
                                 </div>
                             </div>
@@ -1075,7 +1075,7 @@ const ManagerAttendancePage: React.FC = () => {
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check In</span>
                                     <div
-                                        onClick={() => selectedRecordForDetail.check_in_image && setPreviewImage({ url: selectedRecordForDetail.check_in_image, title: "Check-In Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        onClick={() => selectedRecordForDetail.check_in_image && setPreviewImage({ url: selectedRecordForDetail.check_in_image, title: "Check-In Image - " + (selectedRecordForDetail.full_name || user?.name || "Project Manager") })}
                                         className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_in_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-blue-400' : ''}`}
                                     >
                                         <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
@@ -1094,7 +1094,7 @@ const ManagerAttendancePage: React.FC = () => {
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check Out</span>
                                     <div
-                                        onClick={() => selectedRecordForDetail.check_out_image && setPreviewImage({ url: selectedRecordForDetail.check_out_image, title: "Check-Out Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        onClick={() => selectedRecordForDetail.check_out_image && setPreviewImage({ url: selectedRecordForDetail.check_out_image, title: "Check-Out Image - " + (selectedRecordForDetail.full_name || user?.name || "Project Manager") })}
                                         className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_out_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-rose-400' : ''}`}
                                     >
                                         <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">

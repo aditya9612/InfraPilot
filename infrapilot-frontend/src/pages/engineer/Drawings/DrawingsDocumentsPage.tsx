@@ -27,6 +27,7 @@ import { documentService } from "../../../services/documentService";
 import { userService } from "../../../services/userService";
 import DocumentPreviewModal from "../../../components/dashboard/DocumentPreviewModal";
 import { useProject } from "../../../context/ProjectContext";
+import { resolveApprovalStatus } from "../../../types/document";
 
 // ————————————————————————————————————————————————————————————————————————————————
 interface DrawingRecord {
@@ -213,7 +214,29 @@ const DrawingsDocumentsPage = () => {
             let apiDocs: any[] = [];
 
             if (versionsResult.status === 'fulfilled') {
-                apiDrawings = Array.isArray(versionsResult.value) ? versionsResult.value : (versionsResult.value as any).items || [];
+                const rawDrawings = Array.isArray(versionsResult.value) ? versionsResult.value : (versionsResult.value as any).items || [];
+                const drawingMap = new Map<number, any>();
+                for (const d of rawDrawings) {
+                    if (!d || !d.id) continue;
+                    const numId = Number(d.id);
+                    const existing = drawingMap.get(numId);
+                    if (!existing) {
+                        drawingMap.set(numId, { ...d });
+                    } else {
+                        drawingMap.set(numId, {
+                            ...existing,
+                            ...d,
+                            approval_status: d.approval_status || existing.approval_status,
+                            status: d.status || existing.status,
+                            drawing_name: d.drawing_name || existing.drawing_name,
+                            file_url: d.file_url || existing.file_url,
+                            version: d.version || existing.version,
+                            date: d.date || existing.date,
+                            remarks: d.remarks || existing.remarks,
+                        });
+                    }
+                }
+                apiDrawings = Array.from(drawingMap.values());
             }
 
             if (docsResult.status === 'fulfilled') {
@@ -286,8 +309,14 @@ const DrawingsDocumentsPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
-        if (!formData.version?.trim()) newErrors.version = "Required";
+        const trimmedName = (formData.drawing_name || "").trim();
+        if (!trimmedName) newErrors.drawing_name = "Required";
+        else if (trimmedName.length > 100) newErrors.drawing_name = "Drawing Name cannot exceed 100 characters";
+
+        const trimmedVersion = (formData.version || "").trim();
+        if (!trimmedVersion) newErrors.version = "Required";
+        else if (trimmedVersion.length > 30) newErrors.version = "Version cannot exceed 30 characters";
+
         if (!isEditMode && !formData.project_id) newErrors.project_id = "Required";
         if (!isEditMode && !photoFile && !formData.file) newErrors.file = "Blueprint file is required";
         
@@ -296,11 +325,13 @@ const DrawingsDocumentsPage = () => {
         if (Object.keys(newErrors).length > 0) {
             const missingFields = [];
             if (newErrors.project_id) missingFields.push("Project ID");
-            if (newErrors.drawing_name) missingFields.push("Drawing Name");
-            if (newErrors.version) missingFields.push("Version");
+            if (newErrors.drawing_name) missingFields.push(newErrors.drawing_name === "Required" ? "Drawing Name" : newErrors.drawing_name);
+            if (newErrors.version) missingFields.push(newErrors.version === "Required" ? "Version" : newErrors.version);
             if (newErrors.file) missingFields.push("File");
 
-            const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
+            const errorMsg = missingFields.some(f => f.includes("exceed")) 
+                ? missingFields.join("; ") 
+                : `Mandatory fields required: ${missingFields.join(", ")}`;
             setFormNotification({ type: 'error', message: errorMsg });
             toast.error(errorMsg);
         }
@@ -318,10 +349,10 @@ const DrawingsDocumentsPage = () => {
         try {
             const payload: any = {
                 project_id: Number(formData.project_id),
-                drawing_name: formData.drawing_name,
-                version: formData.version,
+                drawing_name: (formData.drawing_name || "").trim(),
+                version: (formData.version || "").trim(),
                 date: formData.date || new Date().toISOString().split('T')[0],
-                remarks: formData.remarks || "",
+                remarks: (formData.remarks || "").trim(),
                 parent_id: formData.parent_id ? Number(formData.parent_id) : null,
                 file: photoFile || formData.file || "document.png"
             };
@@ -330,10 +361,10 @@ const DrawingsDocumentsPage = () => {
             if (isEditMode) {
                 try {
                     const updatePayload = {
-                        drawing_name: formData.drawing_name,
-                        version: formData.version,
+                        drawing_name: (formData.drawing_name || "").trim(),
+                        version: (formData.version || "").trim(),
                         date: formData.date || new Date().toISOString().split('T')[0],
-                        remarks: formData.remarks || ""
+                        remarks: (formData.remarks || "").trim()
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
                     setFormNotification({ type: 'success', message: 'Drawing updated successfully!' });
@@ -382,9 +413,16 @@ const DrawingsDocumentsPage = () => {
                     }, 1500);
                 }
             }
-        } catch (error) {
-            setFormNotification({ type: 'error', message: 'Failed to register asset. Please try again.' });
-            toast.error("Failed to register asset", { id: toastId });
+        } catch (error: any) {
+            let msg = 'Failed to register asset. Please try again.';
+            const rawMsg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '';
+            if (error?.response?.status === 500 || /database|value too long|varying|truncation|sql/i.test(String(rawMsg))) {
+                msg = 'Drawing Name exceeds maximum allowed length (100 characters) or is invalid.';
+            } else if (typeof rawMsg === 'string' && rawMsg) {
+                msg = rawMsg;
+            }
+            setFormNotification({ type: 'error', message: msg });
+            toast.error(msg, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -698,7 +736,8 @@ const DrawingsDocumentsPage = () => {
                     docsCount++;
                 }
                 
-                if (String(d.approval_status || "").toUpperCase() === "PENDING") {
+                const resolvedStatus = resolveApprovalStatus(d);
+                if (resolvedStatus === "PENDING" || resolvedStatus === "UNDER_REVIEW") {
                     pendingApprovals++;
                 }
 
@@ -976,19 +1015,24 @@ const DrawingsDocumentsPage = () => {
                                                     <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.version}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
-                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
-                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
-                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
-                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
-                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
-                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
-                                                            }`}>
-                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
-                                                        </span>
+                                                        {(() => {
+                                                            const st = resolveApprovalStatus(drawing);
+                                                            return (
+                                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                                    st === "APPROVED"
+                                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                        : st === "PENDING"
+                                                                            ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                            : st === "UNDER_REVIEW"
+                                                                                ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                                : st === "REJECTED"
+                                                                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                                    }`}>
+                                                                    {st.replace("_", " ")}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
                                                     <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
@@ -1119,19 +1163,24 @@ const DrawingsDocumentsPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4 font-inter">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
-                                                            String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "APPROVED"
-                                                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                                : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "PENDING"
-                                                                    ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                    : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "UNDER_REVIEW"
-                                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                                        : String(drawing.status || drawing.approval_status || "PENDING").toUpperCase() === "REJECTED"
-                                                                            ? "bg-rose-50 text-rose-600 border-rose-200"
-                                                                            : "bg-slate-50 text-slate-500 border-slate-200"
-                                                            }`}>
-                                                            {drawing.status || drawing.approval_status ? String(drawing.status || drawing.approval_status).replace("_", " ") : "PENDING"}
-                                                        </span>
+                                                        {(() => {
+                                                            const st = resolveApprovalStatus(drawing);
+                                                            return (
+                                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                                    st === "APPROVED"
+                                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                                        : st === "PENDING"
+                                                                            ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                            : st === "UNDER_REVIEW"
+                                                                                ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                                : st === "REJECTED"
+                                                                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                                    }`}>
+                                                                    {st.replace("_", " ")}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
                                                         <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
@@ -1319,13 +1368,13 @@ const DrawingsDocumentsPage = () => {
 
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
                                 <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
-                                <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
+                                <input name="drawing_name" maxLength={100} value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
 
                             <div className="font-inter">
                                 <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
-                                <input name="version" value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
+                                <input name="version" maxLength={30} value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
 
@@ -1336,7 +1385,7 @@ const DrawingsDocumentsPage = () => {
 
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Remarks</label>
-                                <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
+                                <textarea name="remarks" maxLength={500} rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
                             </div>
 
                             {!isEditMode && (

@@ -43,36 +43,71 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
   }, []);
 
   useEffect(() => {
-    const fetchUnits = async () => {
-      setIsLoadingUnits(true);
-      try {
-        const data = await masterService.getEntities("units");
-        setUnits(data);
-      } catch (error) {
-        console.error("Failed to fetch units", error);
-      } finally {
-        setIsLoadingUnits(false);
-      }
-    };
-    if (isOpen) fetchUnits();
+    let isCancelled = false;
 
-    if (initialData) {
-      setFormData({
-        ...initialData,
-        default_unit_id: initialData.default_unit_id ?? "",
-        is_active: initialData.is_active ?? true,
-        type: "Activity"
-      });
-    } else {
-      setFormData({
-        name: "",
-        category: "",
-        default_unit_id: "",
-        is_active: true,
-        type: "Activity"
-      });
-    }
-    setErrors({});
+    const resolveUnitId = (unitVal: any, unitList: MasterEntity[]) => {
+      if (!unitVal && unitVal !== 0) return "";
+      if (typeof unitVal === "object" && unitVal !== null) {
+        if (unitVal.id) return unitVal.id;
+        unitVal = unitVal.name || "";
+      }
+      const strVal = String(unitVal).trim();
+      const byId = unitList.find((u) => String(u.id) === strVal);
+      if (byId) return byId.id;
+      const byName = unitList.find(
+        (u) => u.name && u.name.trim().toLowerCase() === strVal.toLowerCase()
+      );
+      if (byName) return byName.id;
+      return unitVal;
+    };
+
+    const loadModalData = async () => {
+      if (!isOpen) return;
+
+      let currentUnits = units;
+      if (currentUnits.length === 0) {
+        setIsLoadingUnits(true);
+        try {
+          currentUnits = await masterService.getEntities("units");
+          if (!isCancelled) setUnits(currentUnits);
+        } catch (error) {
+          console.error("Failed to fetch units", error);
+        } finally {
+          if (!isCancelled) setIsLoadingUnits(false);
+        }
+      }
+
+      if (initialData) {
+        const rawUnit = initialData.default_unit_id ?? initialData.unit_id ?? initialData.unitId ?? initialData.unit ?? "";
+        const resolvedUnitId = resolveUnitId(rawUnit, currentUnits);
+
+        if (!isCancelled) {
+          setFormData({
+            ...initialData,
+            default_unit_id: resolvedUnitId,
+            is_active: initialData.is_active ?? true,
+            type: "Activity"
+          });
+        }
+      } else {
+        if (!isCancelled) {
+          setFormData({
+            name: "",
+            category: "",
+            default_unit_id: "",
+            is_active: true,
+            type: "Activity"
+          });
+        }
+      }
+      if (!isCancelled) setErrors({});
+    };
+
+    loadModalData();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [initialData, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
