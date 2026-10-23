@@ -162,7 +162,7 @@ const ApprovalsPage = () => {
 
   useEffect(() => {
     // Fetch users once to build an id→name lookup map
-    userService.getAllUsers(100, 0).then((data) => {
+    userService.getAllUsers(1000, 0).then((data) => {
       const list = Array.isArray(data) ? data : data?.items || data?.data || data?.users || [];
       const map: Record<number, string> = {};
       list.forEach((u: any) => {
@@ -228,11 +228,53 @@ const ApprovalsPage = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    let currentUsersMap = { ...usersMap };
+    if (Object.keys(currentUsersMap).length === 0) {
+      try {
+        const data = await userService.getAllUsers(1000, 0);
+        const list = Array.isArray(data) ? data : data?.items || data?.data || data?.users || [];
+        list.forEach((u: any) => {
+          const uid = u.user_id ?? u.id;
+          if (uid != null) currentUsersMap[Number(uid)] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
+        });
+        setUsersMap(currentUsersMap);
+      } catch (err) {
+        console.warn("Failed to fetch users for export lookup:", err);
+      }
+    }
+
+    const escapeCsv = (val: any) => {
+      const str = String(val ?? "");
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     const headers = ["ID", "EntityType", "EntityID", "Status", "RequestedBy", "ApprovedBy", "Remarks"];
-    const csvData = filteredApprovals.map(a =>
-      [a.id, a.entity_type, a.entity_id, a.status, a.requested_by, a.approved_by || "-", a.remarks || ""].join(",")
-    );
+    const csvData = filteredApprovals.map(a => {
+      const reqId = a.requested_by != null ? Number(a.requested_by) : null;
+      const appId = a.approved_by != null ? Number(a.approved_by) : null;
+
+      const requestedByName = (reqId != null && currentUsersMap[reqId])
+        ? currentUsersMap[reqId]
+        : ((a as any).requested_by_name || (reqId != null ? `User ${reqId}` : "-"));
+
+      const approvedByName = (appId != null && currentUsersMap[appId])
+        ? currentUsersMap[appId]
+        : ((a as any).approved_by_name || (appId != null ? `User ${appId}` : "-"));
+
+      return [
+        escapeCsv(a.id),
+        escapeCsv(a.entity_type),
+        escapeCsv(a.entity_id),
+        escapeCsv(a.status),
+        escapeCsv(requestedByName),
+        escapeCsv(approvedByName),
+        escapeCsv(a.remarks || "")
+      ].join(",");
+    });
     const csvContent = [headers.join(","), ...csvData].join("\n");
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

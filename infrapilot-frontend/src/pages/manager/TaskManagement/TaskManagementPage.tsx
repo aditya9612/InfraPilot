@@ -33,6 +33,7 @@ interface FrontendTask extends Omit<Task, 'priority'> {
     milestoneName?: string;
     boqName?: string;
     creatorName?: string;
+    created_by_user_id?: number;
     assignedNames?: string[];
 }
 
@@ -249,16 +250,75 @@ const TaskManagementPage = () => {
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const [allUsersList, setAllUsersList] = useState<any[]>([]);
     const [usersMap, setUsersMap] = useState<Record<number, string>>({});
+    const [userRolesMap, setUserRolesMap] = useState<Record<number, string>>({});
 
     useEffect(() => {
-        userService.getAllUsers(100).then((res: any) => {
-            const users = Array.isArray(res) ? res : (res.items || res.data || []);
+        userService.getAllUsers(1000, 0).then((res: any) => {
+            const users = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
             const map: Record<number, string> = {};
-            users.forEach((u: any) => { map[u.id || u.user_id] = u.full_name || u.name || u.username });
+            const rMap: Record<number, string> = {};
+            users.forEach((u: any) => {
+                const uid = u.id || u.user_id;
+                if (uid) {
+                    map[Number(uid)] = u.full_name || u.name || u.username;
+                    rMap[Number(uid)] = u.role || 'Member';
+                }
+            });
+            setAllUsersList(users);
             setUsersMap(map);
+            setUserRolesMap(rMap);
         }).catch(() => { });
     }, []);
+
+    const getTaskCreatorName = (task: any): string => {
+        if (!task) return "Admin";
+        if (task.creator_name && task.creator_name !== "System / Admin" && task.creator_name !== "[object Object]") {
+            return task.creator_name;
+        }
+        if (task.created_by_name && task.created_by_name !== "System / Admin" && task.created_by_name !== "[object Object]") {
+            return task.created_by_name;
+        }
+        if (typeof task.created_by === 'object' && task.created_by !== null) {
+            const name = task.created_by.full_name || task.created_by.name;
+            if (name && name !== "[object Object]" && name !== "System / Admin") return name;
+        }
+        const creatorId = task.created_by_user_id ?? task.created_by_id ?? task.creator_id ?? (
+            typeof task.created_by === 'object' && task.created_by !== null
+                ? (task.created_by.user_id || task.created_by.id)
+                : (typeof task.created_by === 'number' ? task.created_by : undefined)
+        );
+        if (creatorId && usersMap[Number(creatorId)]) {
+            return usersMap[Number(creatorId)];
+        }
+        if (task.creatorName && task.creatorName !== "System / Admin" && task.creatorName !== "[object Object]") {
+            return task.creatorName;
+        }
+        if (task.assignedBy?.name && task.assignedBy.name !== "System / Admin") {
+            return task.assignedBy.name;
+        }
+        if (creatorId) {
+            return `User #${creatorId}`;
+        }
+        return "Admin";
+    };
+
+    const getTaskCreatorRole = (task: any): string => {
+        if (!task) return "Manager";
+        const creatorId = task.created_by_user_id ?? task.created_by_id ?? task.creator_id ?? (
+            typeof task.created_by === 'object' && task.created_by !== null
+                ? (task.created_by.user_id || task.created_by.id)
+                : (typeof task.created_by === 'number' ? task.created_by : undefined)
+        );
+        if (creatorId && userRolesMap[Number(creatorId)]) {
+            return userRolesMap[Number(creatorId)];
+        }
+        if (task.assignedBy?.role && task.assignedBy.role !== "Manager") {
+            return task.assignedBy.role;
+        }
+        return "Manager";
+    };
 
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
@@ -267,10 +327,86 @@ const TaskManagementPage = () => {
     const [generateBoqId, setGenerateBoqId] = useState<number | "">("");
     const [generateMilestoneId, setGenerateMilestoneId] = useState<number | "">("");
     const [isGeneratingBoq, setIsGeneratingBoq] = useState(false);
+    const [generateModalProjectId, setGenerateModalProjectId] = useState<number | "">("");
+    const [modalBoqs, setModalBoqs] = useState<any[]>([]);
+    const [modalMilestones, setModalMilestones] = useState<any[]>([]);
+    const [isFetchingGenerateData, setIsFetchingGenerateData] = useState(false);
+
+    useEffect(() => {
+        if (!isGenerateBoqModalOpen) return;
+
+        const effectiveProjId = (projectId && projectId !== ('all' as any))
+            ? Number(projectId)
+            : (assignedProjects.length > 0 ? Number(assignedProjects[0].id || assignedProjects[0].project_id) : "");
+
+        setGenerateModalProjectId(effectiveProjId || "");
+        setGenerateBoqId("");
+        setGenerateMilestoneId("");
+    }, [isGenerateBoqModalOpen, projectId, assignedProjects]);
+
+    useEffect(() => {
+        if (!isGenerateBoqModalOpen) return;
+
+        let isMounted = true;
+        const fetchGenerateData = async () => {
+            setIsFetchingGenerateData(true);
+            try {
+                let boqs: any[] = [];
+                let milestones: any[] = [];
+
+                if (generateModalProjectId) {
+                    const [bRes, mRes]: [any, any] = await Promise.all([
+                        boqService.getBoqsByProject(Number(generateModalProjectId)).catch(() => []),
+                        projectService.getMilestones(Number(generateModalProjectId)).catch(() => [])
+                    ]);
+                    boqs = Array.isArray(bRes) ? bRes : (bRes?.items || bRes?.data || []);
+                    milestones = Array.isArray(mRes) ? mRes : (mRes?.items || mRes?.data || []);
+                } else {
+                    const bRes: any = await boqService.getBoqs({ limit: 100 }).catch(() => ({ items: [] }));
+                    boqs = Array.isArray(bRes) ? bRes : (bRes?.items || bRes?.data || []);
+                }
+
+                if (!isMounted) return;
+
+                setModalBoqs(boqs);
+                setModalMilestones(milestones);
+            } catch (err) {
+                console.error("Failed to fetch BOQs or milestones for Generate Tasks modal:", err);
+            } finally {
+                if (isMounted) setIsFetchingGenerateData(false);
+            }
+        };
+
+        fetchGenerateData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isGenerateBoqModalOpen, generateModalProjectId]);
+
+    const handleSelectGenerateBoq = async (boqIdVal: number | "") => {
+        setGenerateBoqId(boqIdVal);
+        if (!boqIdVal) return;
+
+        const selectedBoq = modalBoqs.find((b: any) => Number(b.id || b.boq_id) === Number(boqIdVal));
+        const boqProjId = selectedBoq?.project_id;
+        if (boqProjId && Number(boqProjId) !== Number(generateModalProjectId)) {
+            try {
+                const mRes: any = await projectService.getMilestones(Number(boqProjId));
+                const milestones = Array.isArray(mRes) ? mRes : (mRes?.items || mRes?.data || []);
+                setModalMilestones(milestones);
+            } catch (err) {
+                console.warn("Failed to fetch milestones for selected BOQ project:", err);
+            }
+        }
+    };
 
     const handleGenerateBoqToTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!generateBoqId) return;
+        if (!generateBoqId) {
+            toast.error("Please select a BOQ");
+            return;
+        }
         setIsGeneratingBoq(true);
         try {
             await boqService.generateTasksFromBoq(Number(generateBoqId), generateMilestoneId ? Number(generateMilestoneId) : undefined);
@@ -279,8 +415,9 @@ const TaskManagementPage = () => {
             setGenerateBoqId("");
             setGenerateMilestoneId("");
             fetchData();
-        } catch (err) {
-            toast.error("Failed to generate tasks from BOQ");
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail || err?.response?.data?.message || "Failed to generate tasks from BOQ";
+            toast.error(typeof msg === 'string' ? msg : "Failed to generate tasks from BOQ");
         } finally {
             setIsGeneratingBoq(false);
         }
@@ -328,6 +465,77 @@ const TaskManagementPage = () => {
     const [passNewUserId, setPassNewUserId] = useState<number | "">("");
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+    const [passModalMembers, setPassModalMembers] = useState<{ user_id: number; full_name: string; role: string }[]>([]);
+
+    useEffect(() => {
+        if (!isPassModalOpen) return;
+
+        let isSubscribed = true;
+        const loadPassMembers = async () => {
+            const pid = selectedPassTask?.project_id || (projectId && projectId !== ('all' as any) ? Number(projectId) : undefined);
+            let members: any[] = [];
+            if (pid) {
+                try {
+                    const res = await projectService.getProjectMembers(pid);
+                    members = Array.isArray(res) ? res : (res.items || res.data || []);
+                } catch (e) {
+                    console.warn("Could not load project members for pass task", e);
+                }
+            }
+
+            let allUsers = allUsersList;
+            if (!allUsers || allUsers.length === 0) {
+                try {
+                    const uRes = await userService.getAllUsers(500, 0);
+                    allUsers = Array.isArray(uRes) ? uRes : (uRes.items || uRes.data || uRes.users || []);
+                } catch (err) {
+                    console.error("Failed to load users for pass modal", err);
+                }
+            }
+
+            const seenIds = new Set<number>();
+            const combined: { user_id: number; full_name: string; role: string }[] = [];
+
+            // Project members first
+            members.forEach((m: any) => {
+                const uid = Number(m.user_id || m.id);
+                if (uid && !seenIds.has(uid)) {
+                    seenIds.add(uid);
+                    combined.push({
+                        user_id: uid,
+                        full_name: m.full_name || m.name || `User #${uid}`,
+                        role: m.role || 'Member'
+                    });
+                }
+            });
+
+            // Company users next
+            (allUsers || []).forEach((u: any) => {
+                const uid = Number(u.id || u.user_id);
+                if (uid && !seenIds.has(uid)) {
+                    seenIds.add(uid);
+                    combined.push({
+                        user_id: uid,
+                        full_name: u.full_name || u.name || u.username || `User #${uid}`,
+                        role: u.role || 'Member'
+                    });
+                }
+            });
+
+            if (isSubscribed) {
+                setPassModalMembers(combined);
+                if (combined.length > 0 && projectMembers.length === 0) {
+                    setProjectMembers(combined as any);
+                }
+            }
+        };
+
+        loadPassMembers();
+
+        return () => {
+            isSubscribed = false;
+        };
+    }, [isPassModalOpen, selectedPassTask, projectId, allUsersList, projectMembers.length]);
 
     // Task Request Modal State
     const [isTaskRequestModalOpen, setIsTaskRequestModalOpen] = useState(false);
@@ -440,8 +648,11 @@ const TaskManagementPage = () => {
             if (projectId === ('all' as any)) {
                 const projectIdsToFetch = assignedProjects.map(p => p.id || p.project_id);
                 if (projectIdsToFetch.length > 0) {
-                    const taskPromises = projectIdsToFetch.map(id => projectService.getTasks(id));
-                    const allResponses = await Promise.all(taskPromises);
+                    const [allResponses, allProjectsRes] = await Promise.all([
+                        Promise.all(projectIdsToFetch.map(id => projectService.getTasks(id))),
+                        projectService.getProjects(100, 0).catch(() => [])
+                    ]);
+                    fetchedProjects = allProjectsRes;
 
                     let allItems: any[] = [];
                     allResponses.forEach(res => {
@@ -449,6 +660,16 @@ const TaskManagementPage = () => {
                         allItems = [...allItems, ...items];
                     });
                     fetchedTasks = { items: allItems };
+
+                    const firstPid = projectIdsToFetch[0];
+                    if (firstPid) {
+                        const [mRes, bRes] = await Promise.all([
+                            projectService.getMilestones(firstPid).catch(() => []),
+                            boqService.getBoqsByProject(firstPid).catch(() => [])
+                        ]);
+                        fetchedMilestones = mRes;
+                        fetchedBoqs = bRes;
+                    }
                 }
             } else {
                 const results = await Promise.all([
@@ -493,7 +714,7 @@ const TaskManagementPage = () => {
                     ? (rawAssignedId.user_id || rawAssignedId.id)
                     : rawAssignedId;
                 const assignee = membersList.find(m => m.user_id === actualAssignedId);
-                const assigner = { name: "System / Admin", role: "Manager" };
+                const assigner = { name: "Admin", role: "Manager" };
 
                 // Map the exact project name
                 let taskProjectName = pName;
@@ -504,34 +725,56 @@ const TaskManagementPage = () => {
                     else taskProjectName = "Project " + t.project_id;
                 }
 
-                let actualCreatedId = undefined;
-                if ((t as any).created_by) {
-                    actualCreatedId = (typeof (t as any).created_by === 'object' && (t as any).created_by !== null)
-                        ? (((t as any).created_by as any).user_id || ((t as any).created_by as any).id)
-                        : (t as any).created_by;
+                // Map task creator
+                const rawCreatedId = (t as any).created_by_user_id ?? (t as any).created_by_id ?? (t as any).creator_id ?? (
+                    typeof (t as any).created_by === 'object' && (t as any).created_by !== null
+                        ? ((t as any).created_by.user_id || ((t as any).created_by as any).id)
+                        : (t as any).created_by
+                );
+                const actualCreatedId = (rawCreatedId !== undefined && rawCreatedId !== null && rawCreatedId !== '')
+                    ? Number(rawCreatedId)
+                    : undefined;
+
+                let creatorName = (t as any).creator_name || (t as any).created_by_name;
+                if (!creatorName && typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
+                    creatorName = (t as any).created_by.full_name || (t as any).created_by.name;
                 }
-                const creator = actualCreatedId ? membersList.find(m => m.user_id === actualCreatedId) : undefined;
-                if (creator) {
-                    assigner.name = creator.full_name || (creator as any).name;
-                    assigner.role = creator.role || "Manager";
-                } else if (typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
-                    assigner.name = ((t as any).created_by as any).full_name || ((t as any).created_by as any).name || "Unknown";
-                    assigner.role = ((t as any).created_by as any).role || "Manager";
+                if (!creatorName && actualCreatedId) {
+                    const creator = membersList.find((m: any) => m.user_id === actualCreatedId || m.id === actualCreatedId);
+                    if (creator) {
+                        creatorName = creator.full_name || (creator as any).name;
+                        assigner.role = creator.role || "Manager";
+                    } else if (usersMap[actualCreatedId]) {
+                        creatorName = usersMap[actualCreatedId];
+                        if (userRolesMap[actualCreatedId]) assigner.role = userRolesMap[actualCreatedId];
+                    }
                 }
 
-                const creatorName = assigner.name;
+                if (creatorName && creatorName !== "[object Object]") {
+                    assigner.name = creatorName;
+                } else if (actualCreatedId) {
+                    assigner.name = usersMap[actualCreatedId] || `User #${actualCreatedId}`;
+                }
+
+                const creatorNameFinal = assigner.name;
 
                 const assignedNames = Array.isArray((t as any).assigned_users)
                     ? (t as any).assigned_users.map((item: any) => {
-                        // Handle both numeric IDs and user objects
                         const userId = typeof item === 'number' ? item : (typeof item === 'object' && item !== null ? (item.user_id || item.id) : item);
                         const userName = typeof item === 'object' && item !== null ? (item.full_name || item.name) : null;
 
                         if (userName) return userName;
-                        const m = membersList.find(member => member.user_id === userId);
-                        return m ? m.full_name : (userId || "Unknown");
+                        const m = membersList.find((member: any) => member.user_id === userId || member.id === userId);
+                        if (m) return m.full_name;
+                        if (usersMap[Number(userId)]) return usersMap[Number(userId)];
+                        return (userId || "Unknown");
                     }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
                     : [];
+
+                if (assignedNames.length === 0 && actualAssignedId) {
+                    const fallbackName = assignee?.full_name || usersMap[Number(actualAssignedId)];
+                    if (fallbackName) assignedNames.push(fallbackName);
+                }
 
                 const milestone = milestonesList.find((m: any) => String(m.id || m.milestone_id) === String((t as any).milestone_id));
                 const milestoneName = milestone ? (milestone.name || milestone.title || milestone.milestone_name || `Milestone #${milestone.id || milestone.milestone_id}`) : "None";
@@ -544,8 +787,8 @@ const TaskManagementPage = () => {
                     priority: mapPriority(t.priority),
                     assignedBy: assigner,
                     assignedTo: {
-                        name: assignee?.full_name || "Unassigned",
-                        role: assignee?.role || "Engineer"
+                        name: assignee?.full_name || (actualAssignedId ? (usersMap[Number(actualAssignedId)] || "Unassigned") : "Unassigned"),
+                        role: assignee?.role || (actualAssignedId ? (userRolesMap[Number(actualAssignedId)] || "Engineer") : "Engineer")
                     },
                     hasHistory: false,
                     projectName: taskProjectName,
@@ -553,7 +796,8 @@ const TaskManagementPage = () => {
                     instruction_image_url: getFullUrl((t as any).instruction_image_url || (t as any).image_url),
                     milestoneName,
                     boqName,
-                    creatorName,
+                    creatorName: creatorNameFinal,
+                    created_by_user_id: actualCreatedId,
                     assignedNames
                 };
             });
@@ -842,41 +1086,66 @@ const TaskManagementPage = () => {
                 const actualAssignedId = (typeof rawAssignedId === 'object' && rawAssignedId !== null)
                     ? (rawAssignedId.user_id || rawAssignedId.id)
                     : rawAssignedId;
-                const assignee = membersList.find(m => m.user_id === actualAssignedId);
-                const assigner = { name: "System / Admin", role: "Manager" };
+                const assignee = membersList.find(m => m.user_id === actualAssignedId || m.id === actualAssignedId);
+                const assigner = { name: "Admin", role: "Manager" };
 
-                let actualCreatedId = undefined;
-                if ((t as any).created_by) {
-                    actualCreatedId = (typeof (t as any).created_by === 'object' && (t as any).created_by !== null)
-                        ? (((t as any).created_by as any).user_id || ((t as any).created_by as any).id)
-                        : (t as any).created_by;
+                // Map task creator
+                const rawCreatedId = (t as any).created_by_user_id ?? (t as any).created_by_id ?? (t as any).creator_id ?? (
+                    typeof (t as any).created_by === 'object' && (t as any).created_by !== null
+                        ? ((t as any).created_by.user_id || ((t as any).created_by as any).id)
+                        : (t as any).created_by
+                );
+                const actualCreatedId = (rawCreatedId !== undefined && rawCreatedId !== null && rawCreatedId !== '')
+                    ? Number(rawCreatedId)
+                    : undefined;
+
+                let creatorName = (t as any).creator_name || (t as any).created_by_name;
+                if (!creatorName && typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
+                    creatorName = (t as any).created_by.full_name || (t as any).created_by.name;
                 }
-                const creator = actualCreatedId ? membersList.find((m: any) => m.user_id === actualCreatedId) : undefined;
-                if (creator) {
-                    assigner.name = creator.full_name;
-                    assigner.role = creator.role || "Manager";
-                } else if (typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
-                    assigner.name = ((t as any).created_by as any).full_name || ((t as any).created_by as any).name || "Unknown";
-                    assigner.role = ((t as any).created_by as any).role || "Manager";
+                if (!creatorName && actualCreatedId) {
+                    const creator = membersList.find((m: any) => m.user_id === actualCreatedId || m.id === actualCreatedId);
+                    if (creator) {
+                        creatorName = creator.full_name || (creator as any).name;
+                        assigner.role = creator.role || "Manager";
+                    } else if (usersMap[actualCreatedId]) {
+                        creatorName = usersMap[actualCreatedId];
+                        if (userRolesMap[actualCreatedId]) assigner.role = userRolesMap[actualCreatedId];
+                    }
                 }
+
+                if (creatorName && creatorName !== "[object Object]") {
+                    assigner.name = creatorName;
+                } else if (actualCreatedId) {
+                    assigner.name = usersMap[actualCreatedId] || `User #${actualCreatedId}`;
+                }
+
+                const creatorNameFinal = assigner.name;
 
                 const assignedNames = Array.isArray((t as any).assigned_users)
                     ? (t as any).assigned_users.map((item: any) => {
                         const userId = typeof item === 'number' ? item : (typeof item === 'object' && item !== null ? (item.user_id || item.id) : item);
                         const userName = typeof item === 'object' && item !== null ? (item.full_name || item.name) : null;
                         if (userName) return userName;
-                        const m = membersList.find(member => member.user_id === userId);
-                        return m ? m.full_name : (userId || "Unknown");
+                        const m = membersList.find(member => member.user_id === userId || member.id === userId);
+                        if (m) return m.full_name;
+                        if (usersMap[Number(userId)]) return usersMap[Number(userId)];
+                        return (userId || "Unknown");
                     }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
                     : [];
+
+                if (assignedNames.length === 0 && actualAssignedId) {
+                    const fallbackName = assignee?.full_name || usersMap[Number(actualAssignedId)];
+                    if (fallbackName) assignedNames.push(fallbackName);
+                }
 
                 return {
                     ...t,
                     priority: mapPriority(t.priority),
                     assignedBy: assigner,
                     assignedTo: {
-                        name: assignee?.full_name || "Unassigned",
-                        role: assignee?.role || "Engineer"
+                        name: assignee?.full_name || (actualAssignedId ? (usersMap[Number(actualAssignedId)] || "Unassigned") : "Unassigned"),
+                        role: assignee?.role || (actualAssignedId ? (userRolesMap[Number(actualAssignedId)] || "Engineer") : "Engineer")
                     },
                     hasHistory: false,
                     projectName: (t as any).project_name || (`Project ${t.project_id || projId}`),
@@ -884,7 +1153,8 @@ const TaskManagementPage = () => {
                     instruction_image_url: getFullUrl((t as any).instruction_image_url || (t as any).image_url),
                     milestoneName: undefined,
                     boqName: undefined,
-                    creatorName: assigner.name,
+                    creatorName: creatorNameFinal,
+                    created_by_user_id: actualCreatedId,
                     assignedNames
                 } as FrontendTask;
             });
@@ -1024,9 +1294,9 @@ const TaskManagementPage = () => {
 
     const handlePassTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPassTask || (!projectId && projectId !== ('all' as any)) || !passNewUserId) return;
+        if (!selectedPassTask || !passNewUserId) return;
 
-        const pid = selectedPassTask.project_id || (projectId === ('all' as any) ? 0 : projectId);
+        const pid = selectedPassTask.project_id || (projectId === ('all' as any) ? 0 : Number(projectId)) || 0;
 
         try {
             await projectService.passTask(pid as number, selectedPassTask.id, {
@@ -1487,8 +1757,8 @@ const TaskManagementPage = () => {
                                                                 <span className="text-xs font-medium text-slate-500">By:</span>
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className="text-xs font-bold text-slate-800">{task.assignedBy.name}</p>
-                                                                <p className="text-[10px] text-slate-500">{task.assignedBy.role}</p>
+                                                                <p className="text-xs font-bold text-slate-800">{getTaskCreatorName(task)}</p>
+                                                                <p className="text-[10px] text-slate-500">{getTaskCreatorRole(task)}</p>
                                                             </div>
                                                         </div>
 
@@ -1620,7 +1890,7 @@ const TaskManagementPage = () => {
                                                             </div>
                                                         </td>
 
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName && task.creatorName !== '[object Object]' ? task.creatorName : 'NA'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getTaskCreatorName(task)}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length && task.assignedNames.some(n => n && n !== '[object Object]') ? task.assignedNames.filter(n => n && n !== '[object Object]').join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
 
@@ -2168,8 +2438,8 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Assigned By</p>
                                             </div>
                                             <div className="pl-9">
-                                                <p className="text-sm text-slate-600">{selectedTask.creatorName || 'System / Admin'}</p>
-                                                <p className="text-xs text-slate-400">Manager</p>
+                                                <p className="text-sm font-semibold text-slate-800">{getTaskCreatorName(selectedTask)}</p>
+                                                <p className="text-xs text-slate-400">{getTaskCreatorRole(selectedTask)}</p>
                                             </div>
                                         </div>
 
@@ -2950,8 +3220,8 @@ const TaskManagementPage = () => {
                                 required
                             >
                                 <option value="">-- Select Team Member --</option>
-                                {projectMembers.map(m => (
-                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                {(passModalMembers.length > 0 ? passModalMembers : projectMembers).map((m: any) => (
+                                    <option key={m.user_id || m.id} value={m.user_id || m.id}>{m.full_name || m.name} ({m.role || 'Member'})</option>
                                 ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
@@ -3031,16 +3301,35 @@ const TaskManagementPage = () => {
                 }
             >
                 <div className="space-y-4">
+                    {projectId === ('all' as any) && assignedProjects.length > 1 && (
+                        <div>
+                            <label className="block text-sm font-bold text-slate-800 mb-2">Project</label>
+                            <select
+                                value={generateModalProjectId}
+                                onChange={(e) => setGenerateModalProjectId(e.target.value ? Number(e.target.value) : "")}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all cursor-pointer"
+                            >
+                                {assignedProjects.map((p: any) => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.project_name || p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">BOQ <span className="text-rose-500">*</span></label>
                         <select
                             value={generateBoqId}
-                            onChange={(e) => setGenerateBoqId(e.target.value ? Number(e.target.value) : "")}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                            onChange={(e) => handleSelectGenerateBoq(e.target.value ? Number(e.target.value) : "")}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer disabled:opacity-50"
                             required
+                            disabled={isFetchingGenerateData}
                         >
-                            <option value="">Select BOQ</option>
-                            {projectBoqs.map((b: any) => (
+                            <option value="">
+                                {isFetchingGenerateData ? "Loading BOQs..." : (modalBoqs.length === 0 ? "No BOQs available" : "Select BOQ")}
+                            </option>
+                            {modalBoqs.map((b: any) => (
                                 <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
                                     {b.item_name || b.name || b.title || b.boq_name || `BOQ #${b.id || b.boq_id}`}
                                 </option>
@@ -3052,10 +3341,13 @@ const TaskManagementPage = () => {
                         <select
                             value={generateMilestoneId}
                             onChange={(e) => setGenerateMilestoneId(e.target.value ? Number(e.target.value) : "")}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer disabled:opacity-50"
+                            disabled={isFetchingGenerateData}
                         >
-                            <option value="">Select Milestone</option>
-                            {projectMilestones.map((m: any) => (
+                            <option value="">
+                                {isFetchingGenerateData ? "Loading Milestones..." : "Select Milestone"}
+                            </option>
+                            {modalMilestones.map((m: any) => (
                                 <option key={m.id || m.milestone_id} value={m.id || m.milestone_id}>
                                     {m.name || m.title || m.milestone_name || `Milestone #${m.id || m.milestone_id}`}
                                 </option>

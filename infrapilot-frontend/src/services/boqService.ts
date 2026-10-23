@@ -128,19 +128,34 @@ export const boqService = {
 
   /**
    * Get Boq items by project ID
-   * GET /api/v1/boq/project/{project_id}
+   * Tries GET /api/v1/boq/project/{project_id} first, then falls back to GET /api/v1/boq?project_id={id}
    */
   async getBoqsByProject(projectId: number): Promise<BoqItem[]> {
+    if (!projectId || isNaN(Number(projectId))) {
+      return [];
+    }
+    const numId = Number(projectId);
     try {
-      const response = await api.get(`/boq/project/${projectId}`);
+      const response = await api.get(`/boq/project/${numId}`);
       const data = response.data;
-      return Array.isArray(data) ? data : data.items || data.data || [];
+      const list = Array.isArray(data) ? data : data?.items || data?.data || [];
+      if (list.length > 0) return list;
     } catch (error: any) {
-      console.error(
-        `Get Boqs for Project ${projectId} Error:`,
+      console.warn(
+        `Get Boqs for Project ${numId} via /boq/project/ failed, falling back to /boq:`,
         error.response?.data || error.message,
       );
-      throw error;
+    }
+
+    try {
+      const fallbackRes = await this.getBoqs({ project_id: numId, limit: 100 });
+      return fallbackRes.items || [];
+    } catch (fallbackError: any) {
+      console.error(
+        `Fallback getBoqs for project ${numId} failed:`,
+        fallbackError.response?.data || fallbackError.message,
+      );
+      return [];
     }
   },
 

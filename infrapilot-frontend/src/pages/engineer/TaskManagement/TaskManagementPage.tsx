@@ -175,9 +175,10 @@ const TaskManagementPage = () => {
                 projectService.getMilestones(projectId).catch(() => [])
             ]).then(([boqs, milestones]) => {
                 const approvedBoqs = boqs.filter((boq: any) => boq.approval_status && boq.approval_status.toUpperCase() === 'APPROVED');
-                setAvailableBoqs(approvedBoqs);
-                if (approvedBoqs.length > 0) {
-                    setGenerateBoqId(Number(approvedBoqs[0].id));
+                const finalBoqs = approvedBoqs.length > 0 ? approvedBoqs : boqs;
+                setAvailableBoqs(finalBoqs);
+                if (finalBoqs.length > 0) {
+                    setGenerateBoqId(Number(finalBoqs[0].id));
                 }
                 const milestonesList = Array.isArray(milestones) ? milestones : ((milestones as any).items || []);
                 setProjectMilestones(milestonesList);
