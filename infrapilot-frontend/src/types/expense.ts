@@ -7,6 +7,13 @@ export interface Expense {
   expense_date: string;
   payment_mode: string;
   boq_item_id?: number;
+  account_holder_name?: string;
+  account_number?: string;
+  ifsc_code?: string;
+  bank_name?: string;
+  upi_id?: string;
+  cheque_number?: string;
+  cheque_date?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -19,6 +26,13 @@ export interface ExpenseCreateData {
   expense_date: string;
   payment_mode: string;
   boq_item_id?: number;
+  account_holder_name?: string;
+  account_number?: string;
+  ifsc_code?: string;
+  bank_name?: string;
+  upi_id?: string;
+  cheque_number?: string;
+  cheque_date?: string;
 }
 
 export interface ExpenseUpdateData {
@@ -29,6 +43,13 @@ export interface ExpenseUpdateData {
   expense_date?: string;
   payment_mode?: string;
   boq_item_id?: number;
+  account_holder_name?: string;
+  account_number?: string;
+  ifsc_code?: string;
+  bank_name?: string;
+  upi_id?: string;
+  cheque_number?: string;
+  cheque_date?: string;
 }
 
 export interface ExpenseSummary {

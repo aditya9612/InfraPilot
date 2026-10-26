@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import Modal from "../common/Modal";
-import { Calendar, FileText, Download, ArrowRight } from "lucide-react";
+import { Calendar, FileText, Download, ArrowRight, Loader2 } from "lucide-react";
 
 export interface PLPeriodSelection {
     type: "weekly" | "yearly" | "quarterly";
@@ -15,7 +16,7 @@ interface PLPeriodModalProps {
     onClose: () => void;
     reportName: string;
     format: "PDF" | "Excel";
-    onConfirm: (selection: PLPeriodSelection) => void;
+    onConfirm: (selection: PLPeriodSelection) => void | Promise<void>;
 }
 
 const REPORT_TYPES = [
@@ -24,16 +25,43 @@ const REPORT_TYPES = [
     { id: "quarterly", label: "Quarterly", icon: "📊" },
 ];
 
+const formatLocalDate = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+};
+
+const isValidCalendarDate = (dateStr: string): boolean => {
+    if (!dateStr || typeof dateStr !== "string") return false;
+    const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return false;
+    const y = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const d = parseInt(match[3], 10);
+
+    if (m < 1 || m > 12) return false;
+    if (d < 1 || d > 31) return false;
+
+    // Leap year calculation
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    const daysInMonths = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (d > daysInMonths[m - 1]) return false;
+
+    const testDate = new Date(y, m - 1, d);
+    return testDate.getFullYear() === y && testDate.getMonth() === m - 1 && testDate.getDate() === d;
+};
+
 const PLPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: PLPeriodModalProps) => {
     const now = new Date();
-    const [type, setType] = useState<PLPeriodSelection["type"]>("yearly");
+    const firstDayOfCurrentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    const [startDate, setStartDate] = useState(weekStart.toISOString().split("T")[0]);
-    const [endDate, setEndDate] = useState(weekEnd.toISOString().split("T")[0]);
+    const [type, setType] = useState<PLPeriodSelection["type"]>("yearly");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [startDateError, setStartDateError] = useState("");
+    const [endDateError, setEndDateError] = useState("");
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const [year, setYear] = useState(now.getFullYear());
     const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
@@ -41,12 +69,66 @@ const PLPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: PLPer
     const currentYear = now.getFullYear();
     const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
 
-    const handleConfirm = () => {
+    useEffect(() => {
+        if (isOpen) {
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay() + 1);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+
+            const startStr = formatLocalDate(weekStart);
+            const endStr = formatLocalDate(weekEnd);
+
+            setStartDate(startStr < firstDayOfCurrentMonth ? firstDayOfCurrentMonth : startStr);
+            setEndDate(endStr < firstDayOfCurrentMonth ? firstDayOfCurrentMonth : endStr);
+            setStartDateError("");
+            setEndDateError("");
+            setIsGenerating(false);
+        }
+    }, [isOpen, firstDayOfCurrentMonth]);
+
+    const handleConfirm = async () => {
+        if (isGenerating) return;
+
         const selection: PLPeriodSelection = { type, year };
-        if (type === "weekly") { selection.start_date = startDate; selection.end_date = endDate; }
+        if (type === "weekly") {
+            if (startDateError || !startDate || !isValidCalendarDate(startDate)) {
+                setStartDateError("Please enter a valid date");
+                toast.error("Please enter a valid date");
+                return;
+            }
+            if (endDateError || !endDate || !isValidCalendarDate(endDate)) {
+                setEndDateError("Please enter a valid date");
+                toast.error("Please enter a valid date");
+                return;
+            }
+            if (startDate < firstDayOfCurrentMonth || endDate < firstDayOfCurrentMonth) {
+                const msg = "Dates from previous months cannot be selected for the weekly report";
+                setStartDateError(startDate < firstDayOfCurrentMonth ? msg : "");
+                setEndDateError(endDate < firstDayOfCurrentMonth ? msg : "");
+                toast.error(msg);
+                return;
+            }
+            if (endDate < startDate) {
+                setEndDateError("End date cannot be before start date");
+                toast.error("End date cannot be before start date");
+                return;
+            }
+            selection.start_date = startDate;
+            selection.end_date = endDate;
+        }
         if (type === "quarterly") selection.quarter = quarter;
-        onConfirm(selection);
-        onClose();
+
+        try {
+            setIsGenerating(true);
+            await onConfirm(selection);
+            onClose();
+        } catch (error) {
+            console.error("Failed to generate report", error);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
@@ -89,18 +171,80 @@ const PLPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: PLPer
                         <div>
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Start Date</label>
                             <div className="relative">
-                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <input
+                                    type="date"
+                                    min={firstDayOfCurrentMonth}
+                                    value={startDate}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (e.target.validity?.badInput) {
+                                            setStartDateError("Please enter a valid date");
+                                            setStartDate("");
+                                            return;
+                                        }
+                                        if (val && !isValidCalendarDate(val)) {
+                                            setStartDateError("Please enter a valid date");
+                                        } else if (val && val < firstDayOfCurrentMonth) {
+                                            setStartDateError("Dates from previous months cannot be selected for the weekly report");
+                                        } else {
+                                            setStartDateError("");
+                                        }
+                                        setStartDate(val);
+                                    }}
+                                    onBlur={e => {
+                                        if (e.target.validity?.badInput || (!e.target.value && e.target.validationMessage)) {
+                                            setStartDateError("Please enter a valid date");
+                                        }
+                                    }}
+                                    className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all ${
+                                        startDateError ? "border-rose-400 ring-2 ring-rose-400/20" : "border-slate-200"
+                                    }`}
+                                />
                             </div>
+                            {startDateError && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 leading-tight">{startDateError}</p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">End Date</label>
                             <div className="relative">
-                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <input
+                                    type="date"
+                                    min={startDate && startDate > firstDayOfCurrentMonth ? startDate : firstDayOfCurrentMonth}
+                                    value={endDate}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (e.target.validity?.badInput) {
+                                            setEndDateError("Please enter a valid date");
+                                            setEndDate("");
+                                            return;
+                                        }
+                                        if (val && !isValidCalendarDate(val)) {
+                                            setEndDateError("Please enter a valid date");
+                                        } else if (val && val < firstDayOfCurrentMonth) {
+                                            setEndDateError("Dates from previous months cannot be selected for the weekly report");
+                                        } else if (startDate && val && val < startDate) {
+                                            setEndDateError("End date cannot be before start date");
+                                        } else {
+                                            setEndDateError("");
+                                        }
+                                        setEndDate(val);
+                                    }}
+                                    onBlur={e => {
+                                        if (e.target.validity?.badInput || (!e.target.value && e.target.validationMessage)) {
+                                            setEndDateError("Please enter a valid date");
+                                        }
+                                    }}
+                                    className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all ${
+                                        endDateError ? "border-rose-400 ring-2 ring-rose-400/20" : "border-slate-200"
+                                    }`}
+                                />
                             </div>
+                            {endDateError && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 leading-tight">{endDateError}</p>
+                            )}
                         </div>
                     </div>
                 )}
@@ -141,14 +285,21 @@ const PLPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: PLPer
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose}
-                        className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all active:scale-95">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isGenerating}
+                        className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         Cancel
                     </button>
-                    <button onClick={handleConfirm}
-                        className="flex-[2] px-4 py-3 bg-primary text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 group">
-                        Generate Report
-                        <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    <button
+                        type="button"
+                        onClick={handleConfirm}
+                        disabled={isGenerating}
+                        className="flex-[2] px-4 py-3 bg-primary text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group">
+                        {isGenerating && <Loader2 size={14} className="animate-spin" />}
+                        {isGenerating ? "Generating Report..." : "Generate Report"}
+                        {!isGenerating && <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />}
                     </button>
                 </div>
             </div>

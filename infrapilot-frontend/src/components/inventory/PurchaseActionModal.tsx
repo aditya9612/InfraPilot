@@ -10,10 +10,10 @@ interface PurchaseActionModalProps {
   actionType: "purchase" | "usage";
   projects: any[];
   suppliers: any[];
-  allMaterials: any[];
+  allMaterials?: any[];
 }
 
-export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType, projects, suppliers, allMaterials }: PurchaseActionModalProps) {
+export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType, projects, suppliers }: PurchaseActionModalProps) {
 
   const [formData, setFormData] = useState({
     quantity: 0,
@@ -62,6 +62,9 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.quantity || Number(formData.quantity) <= 0) {
+      return;
+    }
     const submitData = { ...formData, actionType };
     if (!submitData.boq_item_id) delete (submitData as any).boq_item_id;
     onSubmit(submitData);
@@ -84,11 +87,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
   const newStock = isUsage
     ? material.remaining_stock - (formData.quantity || 0)
     : material.remaining_stock + (formData.quantity || 0);
-
-  const currentRate = isUsage ? material.purchase_rate : (formData.rate || 0);
-  const newTotalAmount = isUsage
-    ? material.total_amount
-    : material.total_amount + ((formData.quantity || 0) * currentRate);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity font-inter">
@@ -270,8 +268,8 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
             <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
             <button
               type="submit"
-              disabled={isUsage && formData.quantity > material.remaining_stock}
-              className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${isUsage ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+              disabled={!formData.quantity || Number(formData.quantity) <= 0 || (isUsage && formData.quantity > material.remaining_stock)}
+              className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isUsage ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
             >
               {isUsage ? "Submit Usage" : "Save Purchase"}
             </button>

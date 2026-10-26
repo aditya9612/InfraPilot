@@ -133,20 +133,21 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
           const allMaterials = await masterService.getEntities("materials");
           const fullItem = allMaterials.find((m) => m.id === initialData.id);
           if (fullItem && !isCancelled) {
-            const fullRawUnit = fullItem.unit_id ?? fullItem.default_unit_id ?? fullItem.unitId ?? fullItem.unit ?? rawUnit;
+            const itemAny = fullItem as any;
+            const fullRawUnit = itemAny.unit_id ?? itemAny.default_unit_id ?? itemAny.unitId ?? itemAny.unit ?? rawUnit;
             const fullResolvedUnitId = resolveUnitId(fullRawUnit, currentUnits);
 
             setFormData({
-              ...fullItem,
-              name: fullItem.name ?? workingData.name,
-              category: fullItem.category ?? workingData.category,
+              ...itemAny,
+              name: itemAny.name ?? workingData.name,
+              category: itemAny.category ?? workingData.category,
               unit_id: fullResolvedUnitId || resolvedUnitId,
-              brand: fullItem.brand ?? "",
-              specification: fullItem.specification ?? "",
-              hsn_code: fullItem.hsn_code ?? "",
-              default_rate: fullItem.default_rate ?? "",
-              minimum_stock_level: fullItem.minimum_stock_level ?? "",
-              is_active: fullItem.is_active ?? workingData.is_active,
+              brand: itemAny.brand ?? "",
+              specification: itemAny.specification ?? "",
+              hsn_code: itemAny.hsn_code ?? "",
+              default_rate: itemAny.default_rate ?? "",
+              minimum_stock_level: itemAny.minimum_stock_level ?? "",
+              is_active: itemAny.is_active ?? workingData.is_active,
               type: "Material"
             });
           }
@@ -189,7 +190,18 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
 
     setErrors({});
 
-    const submitData: any = { ...formData };
+    const submitData = {
+      name: formData.name.trim(),
+      category: formData.category.trim(),
+      unit_id: Number(formData.unit_id),
+      brand: formData.brand.trim(),
+      specification: formData.specification.trim(),
+      hsn_code: formData.hsn_code.trim(),
+      default_rate: Number(formData.default_rate),
+      minimum_stock_level: Math.round(Number(formData.minimum_stock_level)),
+      is_active: Boolean(formData.is_active),
+      type: "Material"
+    };
 
     onSubmit(submitData);
   };

@@ -1,5 +1,5 @@
 import Modal from "../common/Modal";
-import { FileText, Download, Share2, Printer, Package, Calendar, DollarSign, TrendingDown } from "lucide-react";
+import { FileText, Download, Share2, Printer, Package, Calendar, TrendingDown } from "lucide-react";
 
 interface ReportPreviewModalProps {
     isOpen: boolean;
@@ -14,6 +14,60 @@ interface ReportPreviewModalProps {
 
 // Field order config for known report types
 const ASSET_FIELD_ORDER = ["name", "id", "project_id", "purchase_date", "purchase_value", "current_value", "depreciation_rate", "created_at", "updated_at"];
+
+const formatReportCellValue = (val: any, colKey?: string): string => {
+    if (val === null || val === undefined) return "—";
+    if (typeof val === "boolean") return val ? "Yes" : "No";
+    if (typeof val === "number") return val.toLocaleString("en-IN");
+    if (typeof val === "string") {
+        if (/^\d{4}-\d{2}-\d{2}T/.test(val) || /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) return d.toLocaleDateString(undefined, { dateStyle: "medium" });
+        }
+        return val || "—";
+    }
+    if (typeof val === "object") {
+        if (Array.isArray(val)) {
+            if (val.length === 0) return "—";
+            return val.map((item) => formatReportCellValue(item, colKey)).join(", ");
+        }
+        const key = (colKey || "").toLowerCase();
+
+        // 1. Material Master column / entity check
+        if (key.includes("material") || "material_name" in val || "material_master_name" in val) {
+            const materialName = val.name || val.material_name || val.material_master_name || val.item_name || val.title || val.material_code || val.code;
+            if (materialName) return String(materialName);
+        }
+
+        // 2. Unit column / entity check
+        if (key.includes("unit") || "unit_name" in val || "symbol" in val) {
+            const unitName = val.unit_name || val.name || val.symbol || val.unit || val.code || val.label;
+            if (unitName) return String(unitName);
+        }
+
+        // 3. Supplier / Vendor column / entity check
+        if (key.includes("supplier") || key.includes("vendor") || "supplier_name" in val) {
+            const supplierName = val.supplier_name || val.name || val.vendor_name || val.company_name || val.contactPerson || val.contact_person;
+            if (supplierName) return String(supplierName);
+        }
+
+        // 4. General named object properties
+        const generalName = val.name || val.supplier_name || val.unit_name || val.material_name || val.title || val.label || val.value || val.description;
+        if (generalName) return String(generalName);
+
+        // 5. Look for any string property that isn't a technical identifier
+        const displayEntry = Object.entries(val).find(
+            ([k, v]) => !["id", "project_id", "company_id", "created_at", "updated_at", "_id"].includes(k.toLowerCase()) && typeof v === "string" && v.trim().length > 0
+        );
+        if (displayEntry) return String(displayEntry[1]);
+
+        if (val.id !== undefined && val.id !== null) return `#${val.id}`;
+
+        // Fallback: never return "[object Object]"
+        return "—";
+    }
+    return String(val);
+};
 
 const formatFieldValue = (key: string, value: any): string => {
     if (value === null || value === undefined) return "—";
@@ -30,6 +84,7 @@ const formatFieldValue = (key: string, value: any): string => {
     }
     // Format rate fields
     if (key === "depreciation_rate") return `${value}%`;
+    if (typeof value === "object") return formatReportCellValue(value, key);
     return value?.toString() || "—";
 };
 
@@ -124,15 +179,21 @@ const ReportPreviewModal = ({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {value.map((item, i) => (
-                                                <tr key={i}>
-                                                    {Object.values(item).map((val: any, j) => (
-                                                        <td key={j} className="px-3 py-2 text-slate-600 font-medium">
-                                                            {typeof val === "boolean" ? (val ? "Yes" : "No") : val?.toString() || "—"}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                            ))}
+                                            {(() => {
+                                                const headers = value.length > 0 ? Object.keys(value[0]) : [];
+                                                return value.map((item, i) => (
+                                                    <tr key={i}>
+                                                        {headers.map((k, j) => {
+                                                            const cellVal = item[k];
+                                                            return (
+                                                                <td key={j} className="px-3 py-2 text-slate-600 font-medium">
+                                                                    {formatReportCellValue(cellVal, k)}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ));
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>
@@ -141,13 +202,13 @@ const ReportPreviewModal = ({
                                     {Object.entries(value).map(([subK, subV]) => (
                                         <div key={subK} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                                             <span className="block text-[9px] font-bold text-slate-400 uppercase mb-1">{subK.replace(/_/g, ' ')}</span>
-                                            <span className="text-sm font-black text-slate-700">{subV?.toString() || "—"}</span>
+                                            <span className="text-sm font-black text-slate-700">{formatReportCellValue(subV, subK)}</span>
                                         </div>
                                     ))}
                                 </div>
                             )
                         ) : (
-                            <p className="text-sm font-black text-slate-700">{value?.toString() || "—"}</p>
+                            <p className="text-sm font-black text-slate-700">{formatReportCellValue(value, key)}</p>
                         )}
                     </div>
                 ))}

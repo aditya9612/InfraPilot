@@ -19,7 +19,7 @@ import { Trash2, Edit2 } from "lucide-react";
 import { userService } from "../../services/userService";
 
 const ManagerProcurementPage = () => {
-    const { selectedProjectId, selectedProject } = useProject();
+    const { selectedProjectId, selectedProject, assignedProjects } = useProject();
     const [activeTab, setActiveTab] = useState<"material" | "purchase-order">("material");
 
     // ── Data States ───────────────────────────────────────────────
@@ -285,14 +285,14 @@ const ManagerProcurementPage = () => {
                 breadcrumb={["Manager", "Procurement", activeTab === "material" ? "Material Requests" : "Purchase Orders"]}
             />
 
-            <PageTransition className="p-6">
+            <PageTransition className="p-3 sm:p-6 pb-28 sm:pb-12 max-w-full overflow-x-hidden">
                 {/* ── Header ── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Supply Chain Orchestrator</h1>
-                        <p className="text-slate-500 mt-1">Directing site requisitions and procurement pipelines.</p>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Supply Chain Orchestrator</h1>
+                        <p className="text-slate-500 text-xs sm:text-sm mt-1">Directing site requisitions and procurement pipelines.</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                         <ProjectSelector variant="page" />
                         <button
                             onClick={fetchData}
@@ -303,12 +303,12 @@ const ManagerProcurementPage = () => {
                             <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         {activeTab === "material" && (
-                            <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                            <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                                 <FileText className="w-4 h-4" /> Create Request
                             </button>
                         )}
                         {activeTab === "purchase-order" && (
-                            <button onClick={() => setIsCreatePurchaseModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                            <button onClick={() => setIsCreatePurchaseModalOpen(true)} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                                 <ShoppingCart className="w-4 h-4" /> Create Purchase
                             </button>
                         )}
@@ -316,17 +316,17 @@ const ManagerProcurementPage = () => {
                 </div>
 
                 {/* ── Tab Switcher ── */}
-                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6">
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-fit mb-6 overflow-x-auto">
                     <button
                         onClick={() => { setActiveTab("material"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                        className={`flex-1 sm:flex-initial text-center px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         Site Requisitions
                     </button>
                     <button
                         onClick={() => { setActiveTab("purchase-order"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); setPurchaseType(""); setAssetId(""); setPurchaseDateFrom(""); setPurchaseDateTo(""); setBoqItemId(""); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                        className={`flex-1 sm:flex-initial text-center px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         Purchase Orders
@@ -335,7 +335,7 @@ const ManagerProcurementPage = () => {
 
                 {/* ── Stat Cards ── */}
                 {activeTab === "material" && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
                         {[
                             { title: "TOTAL LOGS", value: stats.totalReq.toString(), sub: "All Requests", accent: "text-slate-800", filter: "All" },
                             { title: "APPROVED", value: stats.approvedReq.toString(), sub: "Released for Site", accent: "text-emerald-500", filter: "Approved" },
@@ -343,9 +343,9 @@ const ManagerProcurementPage = () => {
                             { title: "FULFILLMENT", value: `${stats.fulfillment}%`, sub: "Procurement Yield", accent: "text-blue-500", filter: "All" },
                         ].map(s => (
                             <div key={s.title} onClick={() => s.filter && setActiveStatFilter(s.filter)}
-                                className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 hover:shadow-md cursor-pointer transition-all group">
-                                <p className="text-[10px] font-bold text-slate-400/80 uppercase tracking-widest mb-3 group-hover:text-primary transition-colors">{s.title}</p>
-                                <p className={`text-3xl font-bold mb-1 ${s.accent}`}>{s.value}</p>
+                                className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-100 hover:shadow-md cursor-pointer transition-all group">
+                                <p className="text-[10px] font-bold text-slate-400/80 uppercase tracking-widest mb-2 sm:mb-3 group-hover:text-primary transition-colors">{s.title}</p>
+                                <p className={`text-2xl sm:text-3xl font-bold mb-1 ${s.accent}`}>{s.value}</p>
                                 <p className="text-[10px] text-slate-400 font-medium">{s.sub}</p>
                             </div>
                         ))}
@@ -355,18 +355,18 @@ const ManagerProcurementPage = () => {
 
                 {/* ── Main List Container ── */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6">
-                    <div className="p-5 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/20">
-                        <div className="flex flex-1 items-center gap-4 max-w-md">
+                    <div className="p-4 sm:p-5 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 bg-slate-50/20">
+                        <div className="flex flex-1 items-center gap-4 max-w-md w-full">
                             <div className="relative w-full">
                                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input type="text" placeholder={`Search ${activeTab === "material" ? "requests" : "orders"}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold" />
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                             {activeTab === "material" && (
                                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
+                                    className="bg-white border border-slate-200 rounded-xl px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
                                     <option value="All">All Status</option>
                                     <option value="Pending">Pending</option>
                                     <option value="Approved">Approved</option>
@@ -375,7 +375,7 @@ const ManagerProcurementPage = () => {
                             )}
                             {activeTab === "material" && (
                                 <select value={requestTypeFilter} onChange={e => setRequestTypeFilter(e.target.value)}
-                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
+                                    className="bg-white border border-slate-200 rounded-xl px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
                                     <option value="All">All Types</option>
                                     <option value="Material">Material</option>
                                     <option value="Equipment">Equipment</option>
@@ -404,8 +404,9 @@ const ManagerProcurementPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full min-w-[760px] text-left">
                             <thead>
                                 {activeTab === "material" ? (
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
@@ -458,11 +459,11 @@ const ManagerProcurementPage = () => {
                                                     {item.status === "Pending" && (
                                                         <div className="flex items-center gap-1.5 border-slate-100">
                                                             <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
-                                                                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Approve">
                                                                 <Check className="w-4 h-4" />
                                                             </button>
                                                             <button onClick={() => handleReject(item.id)} disabled={isSubmitting}
-                                                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Reject">
                                                                 <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -513,15 +514,15 @@ const ManagerProcurementPage = () => {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button onClick={() => { setSelectedPurchaseId(item.id); setIsViewPurchaseOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="View">
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => { setSelectedPurchaseId(item.id); setIsEditPurchaseOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => { setPurchaseToDelete(item.id); setIsDeletePurchaseOpen(true); }} disabled={isSubmitting}
-                                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -539,9 +540,123 @@ const ManagerProcurementPage = () => {
                         </table>
                     </div>
 
+                    {/* Mobile Cards View */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                        {isLoading ? (
+                            <div className="px-6 py-16 text-center">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing ledger...</p>
+                            </div>
+                        ) : paginatedData.length > 0 ? (
+                            paginatedData.map((item: any) => (
+                                activeTab === "material" ? (
+                                    <div key={item.id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded uppercase tracking-wider">
+                                                    {selectedProject?.project_name || "Unknown Project"}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                                                    {item.request_type}
+                                                </span>
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getStatusBadge(item.status)}`}>
+                                                {item.status}
+                                            </span>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 break-words">{item.description}</p>
+                                            <p className="text-xs text-slate-500 font-bold mt-1">Quantity: <span className="text-slate-800">{item.quantity}</span></p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-2 border-t border-slate-50 text-xs text-slate-500">
+                                            <div className="flex flex-col text-[11px]">
+                                                <span><strong className="text-slate-400 uppercase text-[9px]">Req:</strong> {usersMap[item.requested_by] || item.requested_by}</span>
+                                                <span><strong className="text-slate-400 uppercase text-[9px]">App:</strong> {usersMap[item.approved_by] || item.approved_by || "-"}</span>
+                                            </div>
+                                            {item.status === "Pending" && (
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
+                                                        className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-200" title="Approve">
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleReject(item.id)} disabled={isSubmitting}
+                                                        className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-200" title="Reject">
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div key={item.id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                    {selectedProject?.project_name || "Unknown Project"}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
+                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type}
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-sm font-black text-slate-900 tabular-nums">
+                                                    ₹{(item.total_amount || 0).toLocaleString()}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-semibold">
+                                                    {item.quantity} Qty @ ₹{item.unit_price}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Asset</span>
+                                                <span className="font-bold text-slate-800 break-words">{item.asset_name || `Asset #${item.asset_id}`}</span>
+                                                <span className="text-[10px] text-slate-400 block">{item.purchase_date}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor / Invoice</span>
+                                                <span className="font-bold text-slate-800 break-words">{item.vendor_name || "N/A"}</span>
+                                                <span className="text-[10px] text-slate-400 block">INV: {item.invoice_number || "N/A"}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-50">
+                                            <button
+                                                onClick={() => { setSelectedPurchaseId(item.id); setIsViewPurchaseOpen(true); }}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-primary bg-slate-50 hover:bg-primary/10 rounded-xl transition-all border border-slate-200"
+                                            >
+                                                <Eye className="w-3.5 h-3.5" /> View
+                                            </button>
+                                            <button
+                                                onClick={() => { setSelectedPurchaseId(item.id); setIsEditPurchaseOpen(true); }}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-200"
+                                            >
+                                                <Edit2 className="w-3.5 h-3.5" /> Edit
+                                            </button>
+                                            <button
+                                                onClick={() => { setPurchaseToDelete(item.id); setIsDeletePurchaseOpen(true); }}
+                                                disabled={isSubmitting}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-200"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            ))
+                        ) : (
+                            <div className="px-6 py-16 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                No {activeTab === "material" ? "requisitions" : "purchase orders"} archived for this project.
+                            </div>
+                        )}
+                    </div>
+
                     {/* Pagination */}
                     {!isLoading && activeTabData.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/30">
+                        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/30">
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Page size:</span>
                                 <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
@@ -552,7 +667,7 @@ const ManagerProcurementPage = () => {
                             <p className="text-[11px] text-slate-500 font-bold tabular-nums">
                                 {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, activeTab === "purchase-order" ? totalItems : activeTabData.length)} of {activeTab === "purchase-order" ? totalItems : activeTabData.length}
                             </p>
-                            <div className="flex gap-1.5">
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
                                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
                                     className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm active:scale-95 transition-all">
                                     <ChevronLeft className="w-4 h-4" />
@@ -660,8 +775,8 @@ const ManagerProcurementPage = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Description</label>
-                            <textarea value={requestDescription} onChange={e => setRequestDescription(e.target.value)} rows={4}
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Description <span className="text-rose-500">*</span></label>
+                            <textarea required value={requestDescription} onChange={e => setRequestDescription(e.target.value)} rows={4}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Describe the request" />
                         </div>
 
@@ -690,6 +805,7 @@ const ManagerProcurementPage = () => {
                 onClose={() => setIsCreatePurchaseModalOpen(false)}
                 projectId={selectedProjectId || 0}
                 projectName={selectedProject?.project_name || "Unknown Project"}
+                projects={assignedProjects}
                 onSuccess={fetchData}
             />
 

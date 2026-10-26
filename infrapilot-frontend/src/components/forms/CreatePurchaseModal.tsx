@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ShoppingCart } from "lucide-react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import { CustomSelect } from "../common/CustomDropdown";
 import { equipmentService } from "../../services/equipmentService";
 import { boqService } from "../../services/boqService";
+import { projectService } from "../../services/projectService";
+import { useProject } from "../../context/ProjectContext";
 
 interface CreatePurchaseModalProps {
     isOpen: boolean;
@@ -23,6 +25,8 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     projects,
     onSuccess,
 }) => {
+    const { assignedProjects } = useProject();
+    const [loadedProjects, setLoadedProjects] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [assets, setAssets] = useState<any[]>([]);
@@ -43,7 +47,31 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            setFormData(prev => ({ ...prev, project_id: projectId || 0, boq_item_id: 0 }));
+            projectService.getProjects(100).then((res: any) => {
+                const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                if (list.length > 0) setLoadedProjects(list);
+            }).catch(() => {
+                if (assignedProjects && assignedProjects.length > 0) {
+                    setLoadedProjects(assignedProjects);
+                }
+            });
+        }
+    }, [isOpen, assignedProjects]);
+
+    const availableProjects = useMemo(() => {
+        if (projects && projects.length > 0) return projects;
+        if (loadedProjects && loadedProjects.length > 0) return loadedProjects;
+        if (assignedProjects && assignedProjects.length > 0) return assignedProjects;
+        return [];
+    }, [projects, loadedProjects, assignedProjects]);
+
+    useEffect(() => {
+        if (isOpen) {
+            const initialProjId = (projectId && projectId > 0)
+                ? projectId
+                : (availableProjects.length > 0 ? availableProjects[0].id : 0);
+
+            setFormData(prev => ({ ...prev, project_id: initialProjId, boq_item_id: 0 }));
             setFieldErrors({});
 
             // Load all available equipment recursively to bypass 100 limit
@@ -61,7 +89,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
             };
             fetchAssets();
         }
-    }, [isOpen, projectId]);
+    }, [isOpen, projectId, availableProjects]);
 
     useEffect(() => {
         if (isOpen) {
@@ -369,37 +397,29 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
                             Project Name <span className="text-rose-500">*</span>
                         </label>
-                        {projects && projects.length > 0 ? (
-                            <>
-                                <CustomSelect
-                                    value={formData.project_id || 0}
-                                    onChange={(val) => {
-                                        setFormData(prev => ({ ...prev, project_id: Number(val) }));
-                                        if (fieldErrors.project_id) setFieldErrors(prev => ({ ...prev, project_id: "" }));
-                                    }}
-                                    options={[
-                                        { id: 0, label: "Select Project..." },
-                                        ...projects.map((p) => ({
-                                            id: p.id,
-                                            label: p.project_name || p.name || `Project #${p.id}`
-                                        }))
-                                    ]}
-                                    placeholder="Select Project..."
-                                    searchable={projects.length > 5}
-                                    maxHeight="max-h-52"
-                                    error={!!fieldErrors.project_id}
-                                />
-                                {fieldErrors.project_id && (
-                                    <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.project_id}</p>
-                                )}
-                            </>
-                        ) : (
-                            <input
-                                type="text"
-                                value={projectName}
-                                readOnly
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed"
-                            />
+                        <CustomSelect
+                            value={formData.project_id || 0}
+                            onChange={(val) => {
+                                setFormData(prev => ({ ...prev, project_id: Number(val) }));
+                                if (fieldErrors.project_id) setFieldErrors(prev => ({ ...prev, project_id: "" }));
+                            }}
+                            options={[
+                                { id: 0, label: "Select Project..." },
+                                ...(availableProjects.length > 0
+                                    ? availableProjects.map((p) => ({
+                                        id: p.id,
+                                        label: p.project_name || p.name || `Project #${p.id}`
+                                    }))
+                                    : (projectName && projectName !== "Unknown Project" ? [{ id: formData.project_id || 1, label: projectName }] : [])
+                                )
+                            ]}
+                            placeholder="Select Project..."
+                            searchable={availableProjects.length > 5}
+                            maxHeight="max-h-52"
+                            error={!!fieldErrors.project_id}
+                        />
+                        {fieldErrors.project_id && (
+                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.project_id}</p>
                         )}
                     </div>
 

@@ -489,12 +489,21 @@ const InventoryPage = () => {
     try {
       const material = purchaseActionConfig.material;
       if (data.actionType === "usage") {
-        const payload = {
-          quantity: data.quantity,
-          project_id: data.project_id || material.project_id,
-          task_id: data.task_id || 0,
+        if (!data.quantity || Number(data.quantity) <= 0) {
+          toast.error("Please enter a valid quantity greater than 0");
+          return;
+        }
+        const payload: any = {
+          quantity: Number(data.quantity),
+          project_id: Number(data.project_id || material.project_id),
           issue_type: data.issue_type || "SITE"
         };
+        if (data.task_id && Number(data.task_id) > 0) {
+          payload.task_id = Number(data.task_id);
+        }
+        if (data.boq_item_id && Number(data.boq_item_id) > 0) {
+          payload.boq_item_id = Number(data.boq_item_id);
+        }
         const updatedMaterial = await materialService.recordUsage(material.id, payload);
 
         setInventory((prev) =>
@@ -509,13 +518,13 @@ const InventoryPage = () => {
         setLogs(Array.isArray(newLogs) ? newLogs : []);
       } else {
         const payload: any = {
-          quantity: data.quantity,
+          quantity: Number(data.quantity),
           rate: Number(data.rate) || material.purchase_rate || 0,
           amount_paid: Number(data.amount_paid) || 0,
-          project_id: data.project_id || material.project_id,
+          project_id: Number(data.project_id || material.project_id),
           issue_type: data.issue_type || "PURCHASE"
         };
-        if (data.boq_item_id) {
+        if (data.boq_item_id && Number(data.boq_item_id) > 0) {
           payload.boq_item_id = Number(data.boq_item_id);
         }
         const updatedMaterial = await materialService.recordPurchase(material.id, payload);
@@ -560,9 +569,10 @@ const InventoryPage = () => {
         type: "purchase", // Default
         material: null,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to log action");
+      const detail = error.response?.data?.detail || error.response?.data?.message;
+      toast.error(typeof detail === "string" ? detail : "Failed to log action");
     }
   };
 

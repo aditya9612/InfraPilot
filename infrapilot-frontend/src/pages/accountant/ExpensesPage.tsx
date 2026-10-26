@@ -492,10 +492,26 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
 };
 
 const CreateExpenseModal = ({ isOpen, onClose }: any) => {
-  const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: undefined, amount: 0, description: "" });
+  const [formData, setFormData] = useState<ExpenseCreateData>({
+    project_id: 1,
+    category: "Construction",
+    expense_date: new Date().toISOString().split("T")[0],
+    payment_mode: "Cash",
+    boq_item_id: undefined,
+    amount: 0,
+    description: "",
+    account_holder_name: "",
+    account_number: "",
+    ifsc_code: "",
+    bank_name: "",
+    upi_id: "",
+    cheque_number: "",
+    cheque_date: new Date().toISOString().split("T")[0],
+  });
   const [projects, setProjects] = useState<any[]>([]);
   const [boqItems, setBoqItems] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -515,6 +531,7 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    if (isSubmitting) return;
     
     const newErrors: Record<string, string> = {};
     if (!formData.project_id) newErrors.project_id = "Project is required";
@@ -522,7 +539,19 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
     if (!formData.expense_date) newErrors.expense_date = "Date is required";
     if (!formData.payment_mode) newErrors.payment_mode = "Payment Mode is required";
     if (!formData.amount || formData.amount <= 0) newErrors.amount = "Valid amount is required";
-    if (!formData.description) newErrors.description = "Description is required";
+
+    if (formData.payment_mode === "Bank Transfer") {
+      if (!formData.account_holder_name?.trim()) newErrors.account_holder_name = "Account Holder Name is required";
+      if (!formData.account_number?.trim()) newErrors.account_number = "Account Number is required";
+      if (!formData.ifsc_code?.trim()) newErrors.ifsc_code = "IFSC Code is required";
+      if (!formData.bank_name?.trim()) newErrors.bank_name = "Bank Name is required";
+    } else if (formData.payment_mode === "UPI") {
+      if (!formData.upi_id?.trim()) newErrors.upi_id = "UPI ID is required";
+    } else if (formData.payment_mode === "Cheque") {
+      if (!formData.cheque_number?.trim()) newErrors.cheque_number = "Cheque Number is required";
+      if (!formData.bank_name?.trim()) newErrors.bank_name = "Bank Name is required";
+      if (!formData.cheque_date) newErrors.cheque_date = "Cheque Date is required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -530,13 +559,30 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
       return;
     }
 
+    let paymentDetails = "";
+    if (formData.payment_mode === "Bank Transfer") {
+      paymentDetails = `Bank Transfer [A/C Holder: ${formData.account_holder_name?.trim()}, A/C No: ${formData.account_number?.trim()}, IFSC: ${formData.ifsc_code?.trim()}, Bank: ${formData.bank_name?.trim()}]`;
+    } else if (formData.payment_mode === "UPI") {
+      paymentDetails = `UPI [UPI ID: ${formData.upi_id?.trim()}]`;
+    } else if (formData.payment_mode === "Cheque") {
+      paymentDetails = `Cheque [No: ${formData.cheque_number?.trim()}, Bank: ${formData.bank_name?.trim()}, Date: ${formData.cheque_date}]`;
+    }
+
+    const fullDescription = [formData.description?.trim(), paymentDetails].filter(Boolean).join(" — ") || formData.category;
+
     try {
-      await expenseService.createExpense(formData);
+      setIsSubmitting(true);
+      await expenseService.createExpense({
+        ...formData,
+        description: fullDescription
+      });
       toast.success("Expense created successfully!");
       window.dispatchEvent(new Event('expense-created'));
       onClose();
     } catch (err) {
       toast.error("Failed to create expense");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -597,12 +643,73 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Payment Mode <span className="text-rose-500">*</span></label>
               <select name="payment_mode" onChange={handleChange} value={formData.payment_mode} className={inputClasses(errors.payment_mode)}>
                 <option value="Cash">Cash</option>
-                <option value="Online">Online</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="UPI">UPI</option>
                 <option value="Cheque">Cheque</option>
-                <option value="auto">Auto Payment</option>
+                <option value="Petty Cash">Petty Cash</option>
               </select>
               {errors.payment_mode && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.payment_mode}</p>}
             </div>
+
+            {/* Dynamic Payment Fields */}
+            {formData.payment_mode === "Bank Transfer" && (
+              <div className="col-span-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl grid grid-cols-2 gap-4">
+                <div className="col-span-2 text-xs font-bold text-slate-700 uppercase tracking-wider">Bank Transfer Details</div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Account Holder Name <span className="text-rose-500">*</span></label>
+                  <input type="text" name="account_holder_name" placeholder="Account Holder Name" value={formData.account_holder_name || ""} onChange={handleChange} className={inputClasses(errors.account_holder_name)} />
+                  {errors.account_holder_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.account_holder_name}</p>}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Account Number <span className="text-rose-500">*</span></label>
+                  <input type="text" name="account_number" placeholder="Account Number" value={formData.account_number || ""} onChange={handleChange} className={inputClasses(errors.account_number)} />
+                  {errors.account_number && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.account_number}</p>}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">IFSC Code <span className="text-rose-500">*</span></label>
+                  <input type="text" name="ifsc_code" placeholder="IFSC Code" value={formData.ifsc_code || ""} onChange={handleChange} className={inputClasses(errors.ifsc_code)} />
+                  {errors.ifsc_code && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.ifsc_code}</p>}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Bank Name <span className="text-rose-500">*</span></label>
+                  <input type="text" name="bank_name" placeholder="Bank Name" value={formData.bank_name || ""} onChange={handleChange} className={inputClasses(errors.bank_name)} />
+                  {errors.bank_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.bank_name}</p>}
+                </div>
+              </div>
+            )}
+
+            {formData.payment_mode === "UPI" && (
+              <div className="col-span-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">UPI Details</div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">UPI ID <span className="text-rose-500">*</span></label>
+                  <input type="text" name="upi_id" placeholder="username@upi" value={formData.upi_id || ""} onChange={handleChange} className={inputClasses(errors.upi_id)} />
+                  {errors.upi_id && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.upi_id}</p>}
+                </div>
+              </div>
+            )}
+
+            {formData.payment_mode === "Cheque" && (
+              <div className="col-span-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl grid grid-cols-3 gap-4">
+                <div className="col-span-3 text-xs font-bold text-slate-700 uppercase tracking-wider">Cheque Details</div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Cheque Number <span className="text-rose-500">*</span></label>
+                  <input type="text" name="cheque_number" placeholder="Cheque Number" value={formData.cheque_number || ""} onChange={handleChange} className={inputClasses(errors.cheque_number)} />
+                  {errors.cheque_number && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.cheque_number}</p>}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Bank Name <span className="text-rose-500">*</span></label>
+                  <input type="text" name="bank_name" placeholder="Bank Name" value={formData.bank_name || ""} onChange={handleChange} className={inputClasses(errors.bank_name)} />
+                  {errors.bank_name && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.bank_name}</p>}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Cheque Date <span className="text-rose-500">*</span></label>
+                  <input type="date" name="cheque_date" value={formData.cheque_date || ""} onChange={handleChange} className={inputClasses(errors.cheque_date)} />
+                  {errors.cheque_date && <p className="text-rose-500 text-[10px] font-bold mt-1">{errors.cheque_date}</p>}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">BOQ Item</label>
               <select name="boq_item_id" value={formData.boq_item_id || ""} onChange={handleChange} className={inputClasses()}>
@@ -624,15 +731,15 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
               {errors.amount && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div className="col-span-2">
-              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Description <span className="text-rose-500">*</span></label>
-              <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} />
+              <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-2">Description</label>
+              <textarea name="description" value={formData.description} onChange={handleChange} className={inputClasses(errors.description)} rows={2} placeholder="Optional notes or remarks..." />
               {errors.description && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.description}</p>}
             </div>
           </div>
         </div>
         <div className="flex justify-end gap-4 items-center px-2">
           <button type="button" onClick={onClose} className="text-slate-500 text-sm font-bold hover:text-slate-800 transition-colors">Cancel</button>
-          <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm">Save Expenses</button>
+          <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">{isSubmitting ? "Saving..." : "Save Expenses"}</button>
         </div>
       </form>
     </Modal>

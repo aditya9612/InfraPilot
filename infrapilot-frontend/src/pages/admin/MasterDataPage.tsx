@@ -38,7 +38,6 @@ const MasterDataPage = () => {
   const [activeTab, setActiveTab] = useState<string>(() => getTabFromPath(location.pathname));
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-  const [showInactive, setShowInactive] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [unitsMap, setUnitsMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
@@ -147,10 +146,6 @@ const MasterDataPage = () => {
       result = result.filter(item => item.system_tag === tagMap[activeTab]);
     }
 
-    if (!showInactive) {
-      result = result.filter(item => (item as any).is_active !== false);
-    }
-
     // Active/Inactive filter dropdown
     if (activeFilter === "active") {
       result = result.filter(item => (item as any).is_active !== false);
@@ -208,8 +203,8 @@ const MasterDataPage = () => {
       const pluralType = pluralMap[data.type] || "materials";
       const entityType = entityMap[data.type] || "materials";
 
-      // Clean data for API - remove frontend-only fields
-      const { type, system_tag, ...apiData } = data;
+      // Clean data for API - remove frontend-only fields and read-only metadata
+      const { type, system_tag, id, unique_code, unit_name, created_at, updated_at, ...apiData } = data;
 
       if (editingItem) {
         await masterService.updateEntity(entityType, editingItem.id, apiData);
@@ -303,6 +298,12 @@ const MasterDataPage = () => {
             <p className="text-slate-500 text-sm">Manage reusable data entities across the entire platform.</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={downloadSchema}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              Download Schema
+            </button>
             <button
               onClick={() => {
                 setEditingItem(null);

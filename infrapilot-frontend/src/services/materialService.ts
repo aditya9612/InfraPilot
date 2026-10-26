@@ -109,7 +109,18 @@ export const materialService = {
    * POST /api/v1/materials/{id}/usage
    */
   async recordUsage(material_id: number, data: UsagePayload): Promise<Material> {
-    const response = await api.post<Material>(`/materials/${material_id}/usage`, data);
+    const payload: any = {
+      quantity: Number(data.quantity),
+      project_id: Number(data.project_id),
+      issue_type: data.issue_type || "SITE"
+    };
+    if (data.task_id && Number(data.task_id) > 0) {
+      payload.task_id = Number(data.task_id);
+    }
+    if (data.boq_item_id && Number(data.boq_item_id) > 0) {
+      payload.boq_item_id = Number(data.boq_item_id);
+    }
+    const response = await api.post<Material>(`/materials/${material_id}/usage`, payload);
     return mapMaterial(response.data);
   },
 

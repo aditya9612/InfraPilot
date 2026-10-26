@@ -142,29 +142,59 @@ const AdminIssuesPage = () => {
     };
 
     const handleCreate = async () => {
-        if (!formData.title || !formData.description || !formData.category || !formData.priority || !formData.project_id) {
-            toast.error("Please fill in all mandatory fields.");
+        const targetProjectId = Number(formData.project_id) || (typeof selectedProjectId === "number" && selectedProjectId > 0 ? selectedProjectId : 0);
+        if (!targetProjectId || targetProjectId <= 0) {
+            toast.error("Please select a valid project.");
             return;
         }
+        if (!formData.title?.trim()) {
+            toast.error("Please enter the issue title.");
+            return;
+        }
+        if (!formData.category?.trim()) {
+            toast.error("Please select a category.");
+            return;
+        }
+        if (!formData.reported_date?.trim()) {
+            toast.error("Please select a reported date.");
+            return;
+        }
+        if (!formData.priority?.trim()) {
+            toast.error("Please select a priority.");
+            return;
+        }
+
+        let formattedDate = formData.reported_date;
+        if (formattedDate) {
+            const parts = formattedDate.split(/[-/]/);
+            if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+                formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+        }
+        if (!formattedDate) {
+            formattedDate = new Date().toISOString().split("T")[0];
+        }
+
         setIsSubmitting(true);
         try {
             await issueService.createIssue({
-                project_id: selectedProjectId || formData.project_id,
-                title: formData.title,
+                project_id: targetProjectId,
+                title: formData.title.trim(),
                 category: formData.category,
-                description: formData.description,
-                reported_date: formData.reported_date,
-                priority: formData.priority
+                description: formData.description?.trim() || "",
+                reported_date: formattedDate,
+                priority: formData.priority,
+                assigned_to: (formData.assigned_to && Number(formData.assigned_to) > 0) ? Number(formData.assigned_to) : null
             });
             toast.success("Issue reported successfully!");
             setIsCreateModalOpen(false);
             setFormData({
-                project_id: selectedProjectId || 0,
+                project_id: targetProjectId,
                 title: "",
-                category: "",
+                category: "Material",
                 description: "",
                 reported_date: new Date().toISOString().split("T")[0],
-                priority: "",
+                priority: "Medium",
                 status: "Open",
                 assigned_to: 0,
                 resolution: ""
@@ -598,7 +628,7 @@ const AdminIssuesPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Project <span className="text-rose-500">*</span></label>
-                            <select required name="project_id" value={formData.project_id} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <select name="project_id" value={formData.project_id || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value={0}>Select Project</option>
                                 {assignedProjects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name || (p as any).name || `Project ${p.id}`}</option>
@@ -607,32 +637,43 @@ const AdminIssuesPage = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Title <span className="text-rose-500">*</span></label>
-                            <input required type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter title" />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Category <span className="text-rose-500">*</span></label>
-                            <select required name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                <option value="" disabled>Select Category</option>
+                            <select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="Material">Material</option><option value="Safety">Safety</option><option value="Delay">Delay</option>
                             </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Reported Date <span className="text-rose-500">*</span></label>
-                            <input required type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            <input type="date" name="reported_date" value={formData.reported_date} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description <span className="text-rose-500">*</span></label>
-                        <textarea required name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description</label>
+                        <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" placeholder="Enter description (optional)" />
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority <span className="text-rose-500">*</span></label>
-                        <select required name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="" disabled>Select Priority</option>
-                            <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Priority <span className="text-rose-500">*</span></label>
+                            <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Assigned To</label>
+                            <select name="assigned_to" value={formData.assigned_to || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value={0}>Unassigned</option>
+                                {projectMembers.map(member => (
+                                    <option key={member.user_id || member.id} value={member.user_id || member.id}>
+                                        {member.full_name || member.name || member.username || `User ${member.user_id || member.id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
             </Modal>
@@ -771,7 +812,7 @@ const AdminIssuesPage = () => {
                         <div className="mb-5">
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Description</div>
                             <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-medium text-slate-700">
-                                "{formData.description}"
+                                {(formData.description && formData.description !== "null" && formData.description.trim() !== "") ? `"${formData.description}"` : "—"}
                             </div>
                         </div>
 
@@ -785,7 +826,7 @@ const AdminIssuesPage = () => {
                             <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Resolution</div>
                                 <div className="text-sm font-bold text-slate-800 uppercase">
-                                    {formData.resolution !== null && formData.resolution !== undefined ? String(formData.resolution) : "null"}
+                                    {(formData.resolution && formData.resolution !== "null" && formData.resolution.trim() !== "") ? formData.resolution : "—"}
                                 </div>
                             </div>
                         </div>

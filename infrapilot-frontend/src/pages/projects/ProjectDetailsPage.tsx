@@ -99,6 +99,7 @@ const ProjectDetailsPage = () => {
   // Profit & Loss export modal
   const [isPLPeriodModalOpen, setIsPLPeriodModalOpen] = useState(false);
   const [plPeriodFormat, setPlPeriodFormat] = useState<"PDF" | "Excel">("PDF");
+  const [isExportingPL, setIsExportingPL] = useState(false);
   const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   const [photoViewMode, setPhotoViewMode] = useState<"grid" | "list">("grid");
@@ -552,6 +553,8 @@ const ProjectDetailsPage = () => {
   };
 
   const handlePLPeriodConfirm = async (selection: PLPeriodSelection) => {
+    if (isExportingPL) return;
+    setIsExportingPL(true);
     const toastId = toast.loading(`Generating ${plPeriodFormat} report...`);
     try {
       const filters = {
@@ -579,6 +582,8 @@ const ProjectDetailsPage = () => {
       }
     } catch {
       toast.error("Export failed", { id: toastId });
+    } finally {
+      setIsExportingPL(false);
     }
   };
 
@@ -1526,9 +1531,8 @@ const ProjectDetailsPage = () => {
         onClose={() => setIsPLPeriodModalOpen(false)}
         reportName="Profit & Loss Statement"
         format={plPeriodFormat}
-        onConfirm={(selection: PLPeriodSelection) => {
-          setIsPLPeriodModalOpen(false);
-          handlePLPeriodConfirm(selection);
+        onConfirm={async (selection: PLPeriodSelection) => {
+          await handlePLPeriodConfirm(selection);
         }}
       />
 

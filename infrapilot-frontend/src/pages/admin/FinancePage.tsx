@@ -61,6 +61,7 @@ const FinancePage = () => {
   const [isExpenseDeleteModalOpen, setIsExpenseDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<number | null>(null);
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const PAGE_SIZE = 10;
 
@@ -283,6 +284,8 @@ const FinancePage = () => {
   };
 
   const handleCreateOrUpdateExpense = async (data: any) => {
+    if (isSubmittingExpense) return;
+    setIsSubmittingExpense(true);
     try {
       if (selectedExpense) {
         const updated = await expenseService.updateExpense(selectedExpense.id, data);
@@ -301,6 +304,7 @@ const FinancePage = () => {
     } catch (error: any) {
       toast.error(error.message || "Failed to process expense");
     } finally {
+      setIsSubmittingExpense(false);
     }
   };
 

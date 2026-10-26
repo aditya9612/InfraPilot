@@ -86,8 +86,9 @@ export type MaterialUpdate = UpdateMaterialPayload;
 export interface UsagePayload {
   quantity: number;
   project_id: number;
-  task_id: number;
-  issue_type: IssueType;
+  task_id?: number | null;
+  issue_type?: IssueType;
+  boq_item_id?: number | null;
 }
 
 export interface PurchasePayload {
