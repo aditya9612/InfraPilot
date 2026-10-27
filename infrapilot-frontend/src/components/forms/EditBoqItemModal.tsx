@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
+import { CustomSelect } from '../common/CustomDropdown';
 
 import { masterService, type MasterEntity } from '../../services/masterService';
 
@@ -189,18 +190,30 @@ const EditBoqItemModal: React.FC<EditBoqItemModalProps> = ({
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Activity Type <span className="text-red-500">*</span>
             </label>
-            <select
-              name="activity_type_id"
+            <CustomSelect
               value={formData.activity_type_id}
-              onChange={handleChange}
-              className={`w-full bg-slate-50 border ${errors.activity_type_id ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-primary/20'} text-slate-900 text-sm font-medium rounded-xl focus:ring-4 outline-none transition-all py-3 px-4`}
-            >
-              <option value="">-- Select Activity Type --</option>
-              {activityTypes.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            {errors.activity_type_id && <p className="text-xs text-red-500 font-medium">{errors.activity_type_id}</p>}
+              onChange={(val) => {
+                const valStr = String(val || '');
+                setFormData((prev) => ({ ...prev, activity_type_id: valStr }));
+                if (errors.activity_type_id) {
+                  setErrors((prev) => ({ ...prev, activity_type_id: '' }));
+                }
+              }}
+              options={[
+                { id: '', label: 'Select Activity Type' },
+                ...activityTypes.map((t) => ({
+                  id: t.id.toString(),
+                  label: t.name,
+                })),
+              ]}
+              placeholder="Select Activity Type"
+              maxHeight="max-h-52"
+              error={!!errors.activity_type_id}
+              searchable={true}
+            />
+            {errors.activity_type_id && (
+              <p className="text-xs text-red-500 font-medium">{errors.activity_type_id}</p>
+            )}
           </div>
 
           <div className="space-y-1.5 md:col-span-2">

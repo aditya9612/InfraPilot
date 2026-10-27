@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface UpdateActualsModalProps {
@@ -25,28 +26,97 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
     actual_quantity: "",
     actual_cost: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        actual_quantity: (initialData.actual_quantity || 0).toString(),
-        actual_cost: (initialData.actual_cost || 0).toString(),
-      });
+    if (isOpen) {
+      setErrors({});
+      if (initialData) {
+        const qtyNum = Number(initialData.actual_quantity);
+        const costNum = Number(initialData.actual_cost);
+        setFormData({
+          actual_quantity: qtyNum > 0 ? initialData.actual_quantity!.toString() : "",
+          actual_cost: costNum > 0 ? initialData.actual_cost!.toString() : "",
+        });
+      } else {
+        setFormData({
+          actual_quantity: "",
+          actual_cost: "",
+        });
+      }
     }
   }, [initialData, isOpen]);
 
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    const qty = parseFloat(formData.actual_quantity);
+    const cost = parseFloat(formData.actual_cost);
+
+    if (formData.actual_quantity.trim() === "" || isNaN(qty)) {
+      newErrors.actual_quantity = "Actual Quantity is required.";
+    } else if (qty <= 0) {
+      newErrors.actual_quantity = "Actual Quantity must be greater than 0.";
+    }
+
+    if (formData.actual_cost.trim() === "" || isNaN(cost)) {
+      newErrors.actual_cost = "Actual Total Cost is required.";
+    } else if (cost <= 0) {
+      newErrors.actual_cost = "Actual Total Cost must be greater than 0.";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const messages = Object.values(newErrors);
+      toast.error(messages.join(" "));
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onSubmit({
-        actual_quantity: parseFloat(formData.actual_quantity) || 0,
-        actual_cost: parseFloat(formData.actual_cost) || 0,
+        actual_quantity: parseFloat(formData.actual_quantity),
+        actual_cost: parseFloat(formData.actual_cost),
       });
       onClose();
-    } catch (error) {
-      console.error("Failed to update actuals", error);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const backendErrors: Record<string, string> = {};
+      let errorMsg = "Failed to update actuals";
+
+      if (Array.isArray(detail)) {
+        detail.forEach((d: any) => {
+          const field = d.loc?.[d.loc.length - 1];
+          const clean = (d.msg || "").replace(/^Value error,\s*/i, "");
+          if (field) {
+            backendErrors[field] = clean.includes("greater than 0")
+              ? `${field === "actual_quantity" ? "Actual Quantity" : "Actual Total Cost"} must be greater than 0.`
+              : clean;
+          }
+        });
+        const firstField = detail[0]?.loc?.[detail[0]?.loc?.length - 1];
+        const rawClean = (detail[0]?.msg || "").replace(/^Value error,\s*/i, "");
+        const label = firstField === "actual_quantity" ? "Actual Quantity" : firstField === "actual_cost" ? "Actual Total Cost" : "";
+        errorMsg = label ? `${label}: ${rawClean}` : rawClean || errorMsg;
+      } else if (typeof detail === "string") {
+        errorMsg = detail.replace(/^Value error,\s*/i, "");
+      } else if (error?.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      }
+
+      if (Object.keys(backendErrors).length > 0) {
+        setErrors(backendErrors);
+      }
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -137,18 +207,25 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
                 type="text"
                 inputMode="decimal"
                 autoFocus
-                required
                 value={formData.actual_quantity}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
-                    setFormData({ ...formData, actual_quantity: val });
+                    setFormData(prev => ({ ...prev, actual_quantity: val }));
+                    if (errors.actual_quantity) {
+                      setErrors(prev => ({ ...prev, actual_quantity: "" }));
+                    }
                   }
                 }}
                 onFocus={(e) => e.target.select()}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none font-semibold"
+                className={`w-full px-4 py-2.5 bg-gray-50 border ${
+                  errors.actual_quantity ? "border-rose-400 ring-1 ring-rose-200" : "border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                } rounded-xl transition-all outline-none font-semibold text-sm`}
                 placeholder="0.00"
               />
+              {errors.actual_quantity && (
+                <p className="mt-1 text-[11px] text-rose-500 font-bold ml-1">{errors.actual_quantity}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -157,18 +234,25 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
               <input
                 type="text"
                 inputMode="decimal"
-                required
                 value={formData.actual_cost}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
-                    setFormData({ ...formData, actual_cost: val });
+                    setFormData(prev => ({ ...prev, actual_cost: val }));
+                    if (errors.actual_cost) {
+                      setErrors(prev => ({ ...prev, actual_cost: "" }));
+                    }
                   }
                 }}
                 onFocus={(e) => e.target.select()}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none font-semibold"
+                className={`w-full px-4 py-2.5 bg-gray-50 border ${
+                  errors.actual_cost ? "border-rose-400 ring-1 ring-rose-200" : "border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                } rounded-xl transition-all outline-none font-semibold text-sm`}
                 placeholder="0.00"
               />
+              {errors.actual_cost && (
+                <p className="mt-1 text-[11px] text-rose-500 font-bold ml-1">{errors.actual_cost}</p>
+              )}
             </div>
           </div>
         </div>

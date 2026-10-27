@@ -45,6 +45,37 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         project_id: 0
     });
 
+    const resetForm = () => {
+        const initialProjId = (projectId && projectId > 0)
+            ? projectId
+            : (availableProjects.length > 0 ? availableProjects[0].id : 0);
+        setFormData({
+            purchase_type: "",
+            asset_id: 0,
+            purchase_date: new Date().toISOString().split('T')[0],
+            vendor_name: "",
+            invoice_number: "",
+            quantity: "" as any,
+            unit_price: "" as any,
+            warranty_end_date: "",
+            notes: "",
+            boq_item_id: 0,
+            project_id: initialProjId
+        });
+        setFieldErrors({});
+    };
+
+    const handleClose = () => {
+        resetForm();
+        onClose();
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            resetForm();
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         if (isOpen) {
             projectService.getProjects(100).then((res: any) => {
@@ -67,12 +98,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            const initialProjId = (projectId && projectId > 0)
-                ? projectId
-                : (availableProjects.length > 0 ? availableProjects[0].id : 0);
-
-            setFormData(prev => ({ ...prev, project_id: initialProjId, boq_item_id: 0 }));
-            setFieldErrors({});
+            resetForm();
 
             // Load all available equipment recursively to bypass 100 limit
             const fetchAssets = async () => {
@@ -160,6 +186,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 total_amount: (formData.quantity ? Number(formData.quantity) : 0) * (formData.unit_price ? Number(formData.unit_price) : 0),
             });
             toast.success("Purchase created successfully!");
+            resetForm();
             onSuccess();
             onClose();
         } catch (error: any) {
@@ -189,9 +216,9 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         <div className="flex items-center justify-end gap-3 w-full">
             <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
             >
                 Cancel
             </button>
@@ -199,7 +226,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 form="create-purchase-form"
                 type="submit"
                 disabled={isSubmitting}
-                className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
                 {isSubmitting ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -214,7 +241,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={handleClose}
             title="Create Purchase"
             footer={modalFooter}
             maxWidth="max-w-3xl"

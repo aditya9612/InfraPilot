@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { X, FileText, Calendar, Tag, DollarSign, Package, AlertCircle } from "lucide-react";
+import { X, FileText, Calendar, Tag, IndianRupee, Package, AlertCircle } from "lucide-react";
 import { equipmentService } from "../../services/equipmentService";
+import { useProject } from "../../context/ProjectContext";
 import toast from "react-hot-toast";
 
 interface ViewPurchaseModalProps {
@@ -16,9 +17,17 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
     purchaseId,
     projectName,
 }) => {
+    const { assignedProjects } = useProject();
     const [purchase, setPurchase] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [boqName, setBoqName] = useState<string>("None");
+    const [resolvedProjectName, setResolvedProjectName] = useState<string>(projectName);
+
+    useEffect(() => {
+        if (projectName && projectName !== "Unknown Project") {
+            setResolvedProjectName(projectName);
+        }
+    }, [projectName]);
 
     useEffect(() => {
         if (isOpen && purchaseId) {
@@ -34,6 +43,31 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
         try {
             const data = await equipmentService.getPurchase(purchaseId!);
             setPurchase(data);
+
+            // Resolve Project Name from backend response or project list
+            let pName = "";
+            const pId = data.project_id;
+            if (pId) {
+                const assigned = assignedProjects.find(p => p.id === pId);
+                if (assigned?.project_name) {
+                    pName = assigned.project_name;
+                } else if (projectName && projectName !== "Unknown Project") {
+                    pName = projectName;
+                } else {
+                    try {
+                        const { projectService } = await import("../../services/projectService");
+                        const res = await projectService.getProjects(100);
+                        const pList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                        const match = pList.find((p: any) => (p.id || p.project_id) === pId);
+                        if (match?.project_name) pName = match.project_name;
+                    } catch (e) {
+                        console.error("Failed to resolve project name:", e);
+                    }
+                }
+            } else if (projectName && projectName !== "Unknown Project") {
+                pName = projectName;
+            }
+            setResolvedProjectName(pName || (pId ? `Project #${pId}` : (projectName || "Unknown Project")));
 
             // Fetch BOQ Name if boq_item_id exists
             if (data.project_id && data.boq_item_id) {
@@ -69,7 +103,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -146,7 +180,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                     {/* Quantity & Unit Price */}
                                     <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <DollarSign className="w-4 h-4 text-slate-400" />
+                                            <IndianRupee className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Qty & Unit Price</p>
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">{purchase.quantity} × ₹{purchase.unit_price}</p>
@@ -155,7 +189,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                     {/* Total Amount */}
                                     <div className="p-4 rounded-2xl border border-slate-100 bg-primary/5">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <DollarSign className="w-4 h-4 text-primary" />
+                                            <IndianRupee className="w-4 h-4 text-primary" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-primary">Total Amount</p>
                                         </div>
                                         <p className="text-lg font-black text-primary">₹{purchase.total_amount?.toLocaleString() || (purchase.quantity * purchase.unit_price).toLocaleString()}</p>
@@ -178,7 +212,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                             <FileText className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Project Name</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{projectName}</p>
+                                        <p className="text-sm font-bold text-slate-800">{resolvedProjectName}</p>
                                     </div>
 
                                     {/* BOQ Item Name */}
@@ -203,6 +237,17 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* Modal Footer with Close Button */}
+                    <div className="px-8 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50 rounded-b-[2rem]">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
+                        >
+                            Close
+                        </button>
                     </div>
                 </div>
             </div>

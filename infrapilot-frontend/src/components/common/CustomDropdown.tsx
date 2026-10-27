@@ -118,7 +118,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                         setOpen(false);
                                         setSearchTerm("");
                                     }}
-                                    className={`px-3.5 py-2 min-h-[36px] text-xs font-medium cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-primary/10 text-primary font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                                    className={`px-3.5 py-2.5 min-h-[38px] text-xs font-medium cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-primary/10 text-primary font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
                                 >
                                     <div className="flex flex-col min-w-0">
                                         <span className="truncate">{o.label}</span>

@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
 import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown } from "lucide-react";
+import { CustomSelect } from "../common/CustomDropdown";
 import type { BoqItem } from "../../types/boq";
 import { masterService, type MasterEntity } from "../../services/masterService";
 
@@ -338,21 +339,20 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                     Activity Type <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative group">
-                    <select
-                      value={selectedActivityTypeId}
-                      onChange={(e) => setSelectedActivityTypeId(e.target.value)}
-                      className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all appearance-none cursor-pointer hover:border-slate-200"
-                    >
-                      <option value="">Select Activity Type for all items...</option>
-                      {activityTypes.map((type) => (
-                        <option key={type.id} value={type.id}>{type.name}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
-                      <ChevronDown className="w-5 h-5" />
-                    </div>
-                  </div>
+                  <CustomSelect
+                    value={selectedActivityTypeId}
+                    onChange={(val) => setSelectedActivityTypeId(String(val || ''))}
+                    options={[
+                      { id: '', label: 'Select Activity Type for all items...' },
+                      ...activityTypes.map((type) => ({
+                        id: type.id.toString(),
+                        label: type.name,
+                      })),
+                    ]}
+                    placeholder="Select Activity Type for all items..."
+                    maxHeight="max-h-52"
+                    searchable={true}
+                  />
                   <p className="text-[10px] text-slate-400 font-bold px-1 flex items-center gap-1.5">
                     <span className="w-1 h-1 bg-primary/40 rounded-full" />
                     Category and Unit are derived from this selection

@@ -178,7 +178,8 @@ const BOQDetailPage = () => {
             setIsActualsModalOpen(false);
             fetchData();
         } catch (error) {
-            toast.error("Failed to update actuals");
+            console.error("Failed to update actuals:", error);
+            throw error;
         }
     };
 

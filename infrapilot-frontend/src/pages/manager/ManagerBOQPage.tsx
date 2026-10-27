@@ -309,8 +309,7 @@ const ManagerBOQPage = () => {
                 toast.success("Actuals updated successfully!");
                 await refreshBoqs();
             } catch (error: any) {
-                const msg = error?.response?.data?.detail?.[0]?.msg || error?.response?.data?.detail || error?.response?.data?.message || "Failed to update actuals";
-                toast.error(typeof msg === 'string' ? msg : "Failed to update actuals");
+                console.error("Failed to update actuals:", error);
                 throw error;
             }
         }

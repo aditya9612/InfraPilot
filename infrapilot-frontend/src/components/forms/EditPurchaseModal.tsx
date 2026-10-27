@@ -3,6 +3,7 @@ import { X, Edit2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { equipmentService } from "../../services/equipmentService";
 import { boqService } from "../../services/boqService";
+import { useProject } from "../../context/ProjectContext";
 
 interface EditPurchaseModalProps {
     isOpen: boolean;
@@ -21,9 +22,12 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
     projectName,
     onSuccess,
 }) => {
+    const { assignedProjects } = useProject();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [boqItems, setBoqItems] = useState<any[]>([]);
+    const [currentProjectId, setCurrentProjectId] = useState<number>(projectId);
+    const [resolvedProjectName, setResolvedProjectName] = useState<string>(projectName);
     const [formData, setFormData] = useState({
         vendor_name: "",
         invoice_number: "",
@@ -35,11 +39,33 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
     });
 
     useEffect(() => {
-        if (isOpen && purchaseId && projectId) {
-            boqService.getBoqsByProject(projectId).then(res => setBoqItems(res || []));
-            fetchPurchaseDetails();
+        if (projectName && projectName !== "Unknown Project") {
+            setResolvedProjectName(projectName);
         }
-    }, [isOpen, purchaseId, projectId]);
+    }, [projectName]);
+
+    useEffect(() => {
+        if (projectId) {
+            setCurrentProjectId(projectId);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        if (isOpen && purchaseId) {
+            fetchPurchaseDetails();
+        } else {
+            setFormData({
+                vendor_name: "",
+                invoice_number: "",
+                quantity: 1,
+                unit_price: 0,
+                warranty_end_date: "",
+                notes: "",
+                boq_item_id: 0,
+            });
+            setBoqItems([]);
+        }
+    }, [isOpen, purchaseId]);
 
     const fetchPurchaseDetails = async () => {
         setIsLoading(true);
@@ -48,12 +74,47 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
             setFormData({
                 vendor_name: data.vendor_name || "",
                 invoice_number: data.invoice_number || "",
-                quantity: data.quantity || 1,
-                unit_price: data.unit_price || 0,
-                warranty_end_date: data.warranty_end_date || "",
+                quantity: data.quantity ?? 1,
+                unit_price: data.unit_price ?? 0,
+                warranty_end_date: data.warranty_end_date ? data.warranty_end_date.split("T")[0] : "",
                 notes: data.notes || "",
                 boq_item_id: data.boq_item_id || 0,
             });
+
+            const actualProjectId = data.project_id || projectId;
+            if (actualProjectId) {
+                setCurrentProjectId(actualProjectId);
+                try {
+                    const res = await boqService.getBoqsByProject(actualProjectId);
+                    setBoqItems(res || []);
+                } catch (e) {
+                    console.error("Failed to load BOQ items:", e);
+                }
+            }
+
+            // Resolve Project Name
+            let pName = "";
+            if (actualProjectId) {
+                const assigned = assignedProjects.find(p => p.id === actualProjectId);
+                if (assigned?.project_name) {
+                    pName = assigned.project_name;
+                } else if (projectName && projectName !== "Unknown Project") {
+                    pName = projectName;
+                } else {
+                    try {
+                        const { projectService } = await import("../../services/projectService");
+                        const res = await projectService.getProjects(100);
+                        const pList = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                        const match = pList.find((p: any) => (p.id || p.project_id) === actualProjectId);
+                        if (match?.project_name) pName = match.project_name;
+                    } catch (e) {
+                        console.error("Failed to resolve project name in edit modal:", e);
+                    }
+                }
+            } else if (projectName && projectName !== "Unknown Project") {
+                pName = projectName;
+            }
+            setResolvedProjectName(pName || (actualProjectId ? `Project #${actualProjectId}` : (projectName || "Unknown Project")));
         } catch (error) {
             console.error("Failed to load purchase:", error);
             toast.error("Could not load purchase details.");
@@ -79,7 +140,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
         try {
             await equipmentService.updatePurchase(purchaseId!, {
                 ...formData,
-                project_id: projectId,
+                project_id: currentProjectId || projectId,
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
                 warranty_end_date: formData.warranty_end_date || null,
                 total_amount: (Number(formData.quantity) || 0) * (Number(formData.unit_price) || 0),
@@ -230,7 +291,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                     </label>
                                     <input
                                         type="text"
-                                        value={projectName}
+                                        value={resolvedProjectName || "Unknown Project"}
                                         readOnly
                                         className="w-full px-5 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-500 cursor-not-allowed"
                                     />

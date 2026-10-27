@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { siteRequestService } from "../../services/siteRequestService";
 import type { CreateSiteRequest, SiteRequestResponse } from "../../services/siteRequestService";
+import { projectService } from "../../services/projectService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import CreatePurchaseModal from "../../components/forms/CreatePurchaseModal";
 import ViewPurchaseModal from "../../components/forms/ViewPurchaseModal";
@@ -28,6 +29,7 @@ const ManagerProcurementPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [usersMap, setUsersMap] = useState<Record<number, string>>({});
+    const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
 
     // ── UI States ─────────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState("");
@@ -62,14 +64,19 @@ const ManagerProcurementPage = () => {
 
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
-        if (!selectedProjectId) { setIsLoading(false); return; }
         setIsLoading(true);
         try {
             const skip = (currentPage - 1) * itemsPerPage;
-            const [reqResult, posResult, usersResult] = await Promise.allSettled([
-                siteRequestService.getRequests(selectedProjectId),
+            const reqPromise = selectedProjectId
+                ? siteRequestService.getRequests(selectedProjectId)
+                : (assignedProjects.length > 0
+                    ? Promise.all(assignedProjects.map(p => siteRequestService.getRequests(p.id).catch(() => []))).then(res => res.flat())
+                    : Promise.resolve([]));
+
+            const [reqResult, posResult, usersResult, projectsResult] = await Promise.allSettled([
+                reqPromise,
                 equipmentService.listPurchase({
-                    project_id: selectedProjectId,
+                    ...(selectedProjectId ? { project_id: selectedProjectId } : {}),
                     limit: itemsPerPage,
                     offset: skip,
                     ...(purchaseType && { purchase_type: purchaseType }),
@@ -78,7 +85,8 @@ const ManagerProcurementPage = () => {
                     ...(purchaseDateFrom && { purchase_date_from: purchaseDateFrom }),
                     ...(purchaseDateTo && { purchase_date_to: purchaseDateTo })
                 }),
-                userService.getAllUsers(100)
+                userService.getAllUsers(100),
+                projectService.getProjects(100)
             ]);
 
             // Handle site requests result
@@ -120,13 +128,45 @@ const ManagerProcurementPage = () => {
                 });
                 setUsersMap(uMap);
             }
+
+            // Handle projects result
+            const pMap: Record<number, string> = {};
+            assignedProjects.forEach(p => {
+                if (p.id) pMap[p.id] = p.project_name;
+            });
+            if (projectsResult.status === "fulfilled") {
+                const rawP = projectsResult.value;
+                const pList = Array.isArray(rawP) ? rawP : (rawP?.items || rawP?.data || []);
+                pList.forEach((p: any) => {
+                    const pid = p?.id || p?.project_id;
+                    if (pid && p?.project_name) {
+                        pMap[pid] = p.project_name;
+                    }
+                });
+            }
+            setProjectsMap(pMap);
         } catch (err) {
             console.error("Failed to fetch procurement data", err);
             toast.error("Failed to sync supply chain data");
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId, currentPage, itemsPerPage, activeTab, purchaseType, assetId, boqItemId, purchaseDateFrom, purchaseDateTo]);
+    }, [selectedProjectId, assignedProjects, currentPage, itemsPerPage, activeTab, purchaseType, assetId, boqItemId, purchaseDateFrom, purchaseDateTo]);
+
+    const getProjectName = useCallback((pId?: number | null) => {
+        if (!pId) return selectedProject?.project_name || "Unknown Project";
+        if (selectedProjectId && selectedProjectId === pId && selectedProject?.project_name) {
+            return selectedProject.project_name;
+        }
+        if (projectsMap[pId]) return projectsMap[pId];
+        const assigned = assignedProjects.find(p => p.id === pId);
+        if (assigned?.project_name) return assigned.project_name;
+        return `Project #${pId}`;
+    }, [selectedProjectId, selectedProject, projectsMap, assignedProjects]);
+
+    const selectedPurchaseItem = useMemo(() => {
+        return purchaseOrders.find(po => po.id === selectedPurchaseId);
+    }, [purchaseOrders, selectedPurchaseId]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter, purchaseType, purchaseDateFrom, purchaseDateTo]);
@@ -421,9 +461,11 @@ const ManagerProcurementPage = () => {
                                 ) : (
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                         <th className="px-6 py-4">Project & Type</th>
-                                        <th className="px-6 py-4">Asset Details</th>
+                                        <th className="px-6 py-4">Asset Name</th>
+                                        <th className="px-6 py-4">Purchase Date</th>
                                         <th className="px-6 py-4">Vendor & Invoice</th>
-                                        <th className="px-6 py-4">Value</th>
+                                        <th className="px-6 py-4">Unit Price</th>
+                                        <th className="px-6 py-4">Total Price</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 )}
@@ -431,7 +473,7 @@ const ManagerProcurementPage = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={activeTab === "material" ? 7 : 5} className="px-6 py-20 text-center">
+                                        <td colSpan={7} className="px-6 py-20 text-center">
                                             <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing ledger...</p>
                                         </td>
@@ -439,7 +481,7 @@ const ManagerProcurementPage = () => {
                                 ) : paginatedData.length > 0 ? paginatedData.map((item: any) => (
                                     activeTab === "material" ? (
                                         <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{selectedProject?.project_name || "Unknown Project"}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{getProjectName(item.project_id)}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.request_type}</td>
                                             <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]" title={item.description}>{item.description}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.quantity}</td>
@@ -475,21 +517,21 @@ const ManagerProcurementPage = () => {
                                         <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase tracking-tighter shadow-sm">
-                                                    {selectedProject?.project_name || "Unknown Project"}
+                                                    {getProjectName(item.project_id)}
                                                 </span>
                                                 <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
                                                     {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800 leading-tight">
-                                                        {item.asset_name || `Asset #${item.asset_id}`}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold mt-1 line-clamp-1 italic uppercase tracking-tight">
-                                                        {item.purchase_date}
-                                                    </span>
-                                                </div>
+                                                <span className="text-sm font-bold text-slate-800 leading-tight">
+                                                    {item.asset_name || (item.asset_id ? `Asset #${item.asset_id}` : "N/A")}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-medium text-slate-600">
+                                                    {item.purchase_date || "N/A"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -504,12 +546,20 @@ const ManagerProcurementPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-slate-800 tabular-nums">
-                                                        ₹{(item.total_amount || 0).toLocaleString()}
+                                                        ₹{(item.unit_price || 0).toLocaleString()}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic mt-0.5">
-                                                        {item.quantity} Qty @ ₹{item.unit_price}
+                                                        {item.quantity || 1} Qty
                                                     </span>
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums">
+                                                    ₹{((item.total_amount !== undefined && item.total_amount !== null)
+                                                        ? item.total_amount
+                                                        : ((item.quantity || 1) * (item.unit_price || 0))
+                                                    ).toLocaleString()}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
@@ -531,7 +581,7 @@ const ManagerProcurementPage = () => {
                                     )
                                 )) : (
                                     <tr>
-                                        <td colSpan={activeTab === "material" ? 7 : 5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                        <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                             No {activeTab === "material" ? "requisitions" : "purchase orders"} archived for this project.
                                         </td>
                                     </tr>
@@ -554,7 +604,7 @@ const ManagerProcurementPage = () => {
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded uppercase tracking-wider">
-                                                    {selectedProject?.project_name || "Unknown Project"}
+                                                    {getProjectName(item.project_id)}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                                                     {item.request_type}
@@ -594,7 +644,7 @@ const ManagerProcurementPage = () => {
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                                                    {selectedProject?.project_name || "Unknown Project"}
+                                                    {getProjectName(item.project_id)}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
                                                     {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type}
@@ -602,21 +652,33 @@ const ManagerProcurementPage = () => {
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-sm font-black text-slate-900 tabular-nums">
-                                                    ₹{(item.total_amount || 0).toLocaleString()}
+                                                    ₹{((item.total_amount !== undefined && item.total_amount !== null) ? item.total_amount : ((item.quantity || 1) * (item.unit_price || 0))).toLocaleString()}
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-semibold">
-                                                    {item.quantity} Qty @ ₹{item.unit_price}
+                                                    {item.quantity || 1} Qty @ ₹{(item.unit_price || 0).toLocaleString()}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Asset</span>
-                                                <span className="font-bold text-slate-800 break-words">{item.asset_name || `Asset #${item.asset_id}`}</span>
-                                                <span className="text-[10px] text-slate-400 block">{item.purchase_date}</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Asset Name</span>
+                                                <span className="font-bold text-slate-800 break-words">{item.asset_name || (item.asset_id ? `Asset #${item.asset_id}` : "N/A")}</span>
                                             </div>
                                             <div>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Purchase Date</span>
+                                                <span className="text-sm font-medium text-slate-700 block">{item.purchase_date || "N/A"}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Unit Price</span>
+                                                <span className="font-bold text-slate-800 tabular-nums">₹{(item.unit_price || 0).toLocaleString()}</span>
+                                                <span className="text-[10px] text-slate-400 block">{item.quantity || 1} Qty</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Price</span>
+                                                <span className="font-bold text-slate-800 tabular-nums">₹{((item.total_amount !== undefined && item.total_amount !== null) ? item.total_amount : ((item.quantity || 1) * (item.unit_price || 0))).toLocaleString()}</span>
+                                            </div>
+                                            <div className="col-span-2 pt-1 border-t border-slate-50">
                                                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor / Invoice</span>
                                                 <span className="font-bold text-slate-800 break-words">{item.vendor_name || "N/A"}</span>
                                                 <span className="text-[10px] text-slate-400 block">INV: {item.invoice_number || "N/A"}</span>
@@ -813,15 +875,15 @@ const ManagerProcurementPage = () => {
                 isOpen={isViewPurchaseOpen}
                 onClose={() => { setIsViewPurchaseOpen(false); setSelectedPurchaseId(null); }}
                 purchaseId={selectedPurchaseId}
-                projectName={selectedProject?.project_name || "Unknown Project"}
+                projectName={getProjectName(selectedPurchaseItem?.project_id)}
             />
 
             <EditPurchaseModal
                 isOpen={isEditPurchaseOpen}
                 onClose={() => { setIsEditPurchaseOpen(false); setSelectedPurchaseId(null); }}
                 purchaseId={selectedPurchaseId}
-                projectId={selectedProjectId || 0}
-                projectName={selectedProject?.project_name || "Unknown Project"}
+                projectId={selectedPurchaseItem?.project_id || selectedProjectId || 0}
+                projectName={getProjectName(selectedPurchaseItem?.project_id)}
                 onSuccess={fetchData}
             />
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
+import { CustomSelect } from '../common/CustomDropdown';
 
 import type { BoqItem, BoqGroupItem } from '../../types/boq';
 
@@ -128,12 +129,6 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
     setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const fieldError = validateField(name, value);
-    setErrors((prev) => ({ ...prev, [name]: fieldError }));
-  };
-
   const validateAll = () => {
     const fieldsToCheck = ['project_id', 'item_name', 'activity_type_id'];
 
@@ -143,49 +138,71 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
       if (error) newErrors[key] = error;
     });
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    const missingFieldKeys = Object.keys(newErrors);
+    if (missingFieldKeys.length > 0) {
+      const fieldLabels: Record<string, string> = {
+        project_id: 'Project',
+        item_name: 'Item Name',
+        activity_type_id: 'Activity Type',
+      };
+      const missingNames = missingFieldKeys.map((k) => fieldLabels[k] || k);
+      toast.error(`Please fill in required fields: ${missingNames.join(', ')}`);
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateAll()) {
-      setIsLoading(true);
-      try {
-        const submissionData: any = {
-          project_id: Number(formData.project_id),
-          item_name: formData.item_name,
-          description: formData.description || undefined,
-          quantity: formData.quantity ? Number(formData.quantity) : undefined,
-          unit_cost: formData.unit_cost ? Number(formData.unit_cost) : undefined,
-          status: formData.status,
-          activity_type_id: Number(formData.activity_type_id),
-        };
+    if (!validateAll()) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const submissionData: any = {
+        project_id: Number(formData.project_id),
+        item_name: formData.item_name,
+        description: formData.description || undefined,
+        quantity: formData.quantity ? Number(formData.quantity) : undefined,
+        unit_cost: formData.unit_cost ? Number(formData.unit_cost) : undefined,
+        status: formData.status,
+        activity_type_id: Number(formData.activity_type_id),
+      };
 
-        await onSubmit(submissionData);
-        setFormData({
-          project_id: '',
-          item_name: '',
-          category: '',
-          description: '',
-          quantity: '',
-          unit: '',
-          unit_cost: '',
-          status: 'Active',
-          activity_type_id: '',
-        });
-      } catch (error) {
-        // Error handling is mostly in parent via toast
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // Don't show generic toast - highlight fields and display specific inline error messages directly
+      await onSubmit(submissionData);
+      setFormData({
+        project_id: '',
+        item_name: '',
+        category: '',
+        description: '',
+        quantity: '',
+        unit: '',
+        unit_cost: '',
+        status: 'Active',
+        activity_type_id: '',
+      });
+    } catch (error) {
+      // Error handling is mostly in parent via toast
+    } finally {
+      setIsLoading(false);
     }
   };
 
-
   const handleClose = () => {
     setErrors({});
+    setFormData({
+      project_id: '',
+      item_name: '',
+      category: '',
+      description: '',
+      quantity: '',
+      unit: '',
+      unit_cost: '',
+      status: 'Active',
+      activity_type_id: '',
+    });
     onClose();
   };
 
@@ -324,20 +341,42 @@ const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
 
           {/* Activity Type */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type <span className="text-rose-500">*</span></label>
-            <select
-              name="activity_type_id"
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+              Activity Type <span className="text-rose-500">*</span>
+            </label>
+            <CustomSelect
               value={formData.activity_type_id}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-red-500 ring-2 ring-red-100 focus:border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer`}
-            >
-              <option value="">Select Activity Type</option>
-              {activityTypes?.map(type => (
-                <option key={type.id} value={type.id}>{type.name}</option>
-              ))}
-            </select>
-            {errors.activity_type_id && <p className="mt-1 text-xs text-red-500 font-bold ml-1">{errors.activity_type_id}</p>}
+              onChange={(val) => {
+                const valStr = String(val || '');
+                const selectedType = activityTypes.find(t => t.id.toString() === valStr);
+                setFormData((prev) => ({
+                  ...prev,
+                  activity_type_id: valStr,
+                  category: selectedType?.category || '',
+                  unit: selectedType?.unit || '',
+                }));
+                setErrors((prev) => ({
+                  ...prev,
+                  activity_type_id: valStr ? '' : 'Activity Type is required.',
+                  category: '',
+                  unit: '',
+                }));
+              }}
+              options={[
+                { id: '', label: 'Select Activity Type' },
+                ...activityTypes.map(type => ({
+                  id: type.id.toString(),
+                  label: type.name,
+                })),
+              ]}
+              placeholder="Select Activity Type"
+              maxHeight="max-h-52"
+              error={!!errors.activity_type_id}
+              searchable={true}
+            />
+            {errors.activity_type_id && (
+              <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>
+            )}
           </div>
 
           {/* Estimated total */}
