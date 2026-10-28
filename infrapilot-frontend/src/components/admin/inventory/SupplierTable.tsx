@@ -40,12 +40,27 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-700 block">
-                    {sup.contact?.match(/\d{10}/)?.[0] || (sup.contact?.includes("@") ? "" : sup.contact)}
-                  </span>
-                  <span className="text-slate-400 text-[11px] font-medium block">
-                    {sup.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || ""}
-                  </span>
+                  {(() => {
+                    const phone = sup.contact?.match(/\d{10,15}/)?.[0] || (!sup.contact?.includes("@") ? sup.contact : "");
+                    const email = sup.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || (sup.contact?.includes("@") ? sup.contact : "");
+                    return (
+                      <>
+                        {phone && (
+                          <span className="text-slate-800 font-bold block">
+                            {phone}
+                          </span>
+                        )}
+                        {email && (
+                          <span className={`block font-semibold ${phone ? "text-slate-700 text-xs" : "text-slate-800 text-sm"}`}>
+                            {email}
+                          </span>
+                        )}
+                        {!phone && !email && (
+                          <span className="text-slate-400 text-xs font-normal">N/A</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600 max-w-[200px] truncate">

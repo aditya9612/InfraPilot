@@ -278,7 +278,7 @@ const MaterialReceiptPage = () => {
             setFormNotification({ type: 'success', message: selectedMaterial ? "Material updated!" : "Material added successfully!" });
             setTimeout(() => setFormNotification(null), 3000);
             setIsMaterialModalOpen(false); fetchMaterials();
-        } catch (error: any) { 
+        } catch (error: any) {
             const msg = error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed";
             setFormNotification({ type: 'error', message: msg });
         }
@@ -424,7 +424,7 @@ const MaterialReceiptPage = () => {
             setFormNotification({ type: 'success', message: selectedPO ? "PO updated!" : "Purchase Order created!" });
             setTimeout(() => setFormNotification(null), 3000);
             setIsPOModalOpen(false); fetchPOs();
-        } catch (error: any) { 
+        } catch (error: any) {
             const msg = error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed";
             setFormNotification({ type: 'error', message: msg });
         }
@@ -520,7 +520,7 @@ const MaterialReceiptPage = () => {
                     <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                 </div>
             )}
-            
+
             <Navbar title="Material Receipt" breadcrumb={["Engineer", "Material Management", "Receipt & Masters"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ─── Header ──────────────────────────────────────────────────────── */}
