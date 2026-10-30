@@ -170,15 +170,40 @@ const ManagerQualityPage = () => {
     }, [formData.project_id]);
 
     // ── ACTIONS ───────────────────────────────────────────────────
+    const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+    const validateForm = () => {
+        const missingFields: string[] = [];
+        const newErrors: Record<string, boolean> = {};
+
+        if (!formData.project_id) { missingFields.push("Target Project"); newErrors.project_id = true; }
+        if (!formData.inspection_type) { missingFields.push("Inspection Type"); newErrors.inspection_type = true; }
+        if (!formData.test_type) { missingFields.push("Test Type"); newErrors.test_type = true; }
+        if (formData.result === "" || formData.result === null || formData.result === undefined) { missingFields.push("Result"); newErrors.result = true; }
+        if (formData.standard_value === "" || formData.standard_value === null || formData.standard_value === undefined) { missingFields.push("Standard Threshold"); newErrors.standard_value = true; }
+        if (!formData.status) { missingFields.push("Status"); newErrors.status = true; }
+        if (!formData.engineer_name || !formData.engineer_name.trim()) { missingFields.push("Engineer In-Charge"); newErrors.engineer_name = true; }
+
+        setErrors(newErrors);
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: `Mandatory fields required: ${missingFields.join(", ")}`,
+                fields: missingFields
+            });
+            toast.error(`Please fill all mandatory fields: ${missingFields.join(", ")}`);
+            return false;
+        }
+
+        setFormNotification(null);
+        return true;
+    };
+
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!formData.project_id) { toast.error("Project is required"); return; }
-        if (!formData.inspection_type) { toast.error("Inspection type is required"); return; }
-        if (!formData.test_type) { toast.error("Test type is required"); return; }
-        if (formData.result === "") { toast.error("Result is required"); return; }
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") { toast.error("Standard value is required"); return; }
-        if (!formData.status) { toast.error("Status is required"); return; }
-        if (!formData.engineer_name || !formData.engineer_name.trim()) { toast.error("Engineer is required"); return; }
+        if (!validateForm()) return;
 
         setIsSubmitting(true);
         try {
@@ -199,13 +224,8 @@ const ManagerQualityPage = () => {
     const handleUpdateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
-        if (!formData.project_id) { toast.error("Project is required"); return; }
-        if (!formData.inspection_type) { toast.error("Inspection type is required"); return; }
-        if (!formData.test_type) { toast.error("Test type is required"); return; }
-        if (formData.result === "") { toast.error("Result is required"); return; }
-        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") { toast.error("Standard value is required"); return; }
-        if (!formData.status) { toast.error("Status is required"); return; }
-        if (!formData.engineer_name || !formData.engineer_name.trim()) { toast.error("Engineer is required"); return; }
+        if (!validateForm()) return;
+
         setIsSubmitting(true);
         try {
             const payload: any = { ...formData };
@@ -243,11 +263,15 @@ const ManagerQualityPage = () => {
         return `${baseUrl}${path}`;
     };
 
-    const resetForm = () => setFormData({
-        project_id: selectedProjectId || "", task_id: null, dsr_id: null,
-        inspection_type: "General", test_type: "Visual Check",
-        result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: ""
-    });
+    const resetForm = () => {
+        setErrors({});
+        setFormNotification(null);
+        setFormData({
+            project_id: selectedProjectId || "", task_id: null, dsr_id: null,
+            inspection_type: "General", test_type: "Visual Check",
+            result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: ""
+        });
+    };
 
     // ensure selected file resets with form
     useEffect(() => {
@@ -647,45 +671,102 @@ const ManagerQualityPage = () => {
                         <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
                             className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Save Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Save Changes" : "Save Entry")}
                         </button>
                     </>
                 }
             >
                 <form className="space-y-6 p-2" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
+                    {/* Inline Validation Error Banner */}
+                    {formNotification && formNotification.type === 'error' && (
+                        <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-red-50 border border-red-200">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">
+                                    Mandatory fields required: {(formNotification.fields || []).join(', ')}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none transition-colors">×</button>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                             <label className={labelCls}>Target Project <span className="text-rose-500">*</span></label>
                             <select
                                 value={formData.project_id}
-                                onChange={e => setFormData(p => ({ ...p, project_id: Number(e.target.value) }))}
-                                className={inputCls}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, project_id: Number(e.target.value) }));
+                                    if (errors.project_id) setErrors(prev => ({ ...prev, project_id: false }));
+                                }}
+                                className={`${inputCls} ${errors.project_id ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
                             >
                                 <option value="">Select Project</option>
                                 {assignedProjects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name}</option>
                                 ))}
                             </select>
+                            {errors.project_id && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Inspection Type <span className="text-rose-500">*</span></label>
-                            <select value={formData.inspection_type} onChange={e => setFormData(p => ({ ...p, inspection_type: e.target.value }))} className={inputCls}>
+                            <select
+                                value={formData.inspection_type}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, inspection_type: e.target.value }));
+                                    if (errors.inspection_type) setErrors(prev => ({ ...prev, inspection_type: false }));
+                                }}
+                                className={`${inputCls} ${errors.inspection_type ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
+                            >
                                 {INSPECTION_TYPES.map(t => <option key={t}>{t}</option>)}
                             </select>
+                            {errors.inspection_type && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Test Type <span className="text-rose-500">*</span></label>
-                            <select value={formData.test_type} onChange={e => setFormData(p => ({ ...p, test_type: e.target.value }))} className={inputCls}>
+                            <select
+                                value={formData.test_type}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, test_type: e.target.value }));
+                                    if (errors.test_type) setErrors(prev => ({ ...prev, test_type: false }));
+                                }}
+                                className={`${inputCls} ${errors.test_type ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
+                            >
                                 {TEST_TYPES.map(t => <option key={t}>{t}</option>)}
                             </select>
+                            {errors.test_type && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Result <span className="text-rose-500">*</span></label>
-                            <input type="number" value={formData.result} onChange={e => setFormData(p => ({ ...p, result: e.target.value as any }))} placeholder="e.g. 28" className={inputCls} />
+                            <input
+                                type="number"
+                                value={formData.result}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, result: e.target.value as any }));
+                                    if (errors.result) setErrors(prev => ({ ...prev, result: false }));
+                                }}
+                                placeholder="e.g. 28"
+                                className={`${inputCls} ${errors.result ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
+                            />
+                            {errors.result && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Standard Threshold <span className="text-rose-500">*</span></label>
-                            <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} required />
+                            <input
+                                type="number"
+                                value={formData.standard_value}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, standard_value: e.target.value as any }));
+                                    if (errors.standard_value) setErrors(prev => ({ ...prev, standard_value: false }));
+                                }}
+                                placeholder="e.g. 25"
+                                className={`${inputCls} ${errors.standard_value ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
+                                required
+                            />
+                            {errors.standard_value && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Task Name</label>
@@ -709,23 +790,36 @@ const ManagerQualityPage = () => {
                         </div>
                         <div>
                             <label className={labelCls}>Status <span className="text-rose-500">*</span></label>
-                            <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls} required>
+                            <select
+                                value={formData.status}
+                                onChange={e => {
+                                    setFormData(p => ({ ...p, status: e.target.value }));
+                                    if (errors.status) setErrors(prev => ({ ...prev, status: false }));
+                                }}
+                                className={`${inputCls} ${errors.status ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
+                                required
+                            >
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
+                            {errors.status && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Engineer In-Charge <span className="text-rose-500">*</span></label>
-                            <CustomDropdown
-                                value={engineers.find(e => e.label === formData.engineer_name)?.id || null}
-                                onChange={val => {
-                                    const eng = engineers.find(e => e.id === val);
-                                    setFormData(p => ({ ...p, engineer_name: eng ? eng.label : "" }));
-                                }}
-                                options={engineers.map(e => ({ value: e.id, label: e.label }))}
-                                placeholder="Select Engineer"
-                                inputCls={inputCls}
-                            />
+                            <div className={errors.engineer_name ? "border-2 border-rose-500 rounded-xl bg-rose-50 p-0.5" : ""}>
+                                <CustomDropdown
+                                    value={engineers.find(e => e.label === formData.engineer_name)?.id || null}
+                                    onChange={val => {
+                                        const eng = engineers.find(e => e.id === val);
+                                        setFormData(p => ({ ...p, engineer_name: eng ? eng.label : "" }));
+                                        if (errors.engineer_name) setErrors(prev => ({ ...prev, engineer_name: false }));
+                                    }}
+                                    options={engineers.map(e => ({ value: e.id, label: e.label }))}
+                                    placeholder="Select Engineer"
+                                    inputCls={inputCls}
+                                />
+                            </div>
+                            {errors.engineer_name && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                             <input type="hidden" value={formData.engineer_name || ""} required aria-hidden="false" />
                         </div>
                         <div className="md:col-span-2">

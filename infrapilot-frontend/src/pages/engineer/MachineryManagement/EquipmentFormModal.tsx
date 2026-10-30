@@ -45,9 +45,19 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
     useEffect(() => {
         if (isOpen) {
             // If adding new equipment, default the project_id to the currently selected project
+            const rawUnit = String(initialData?.cost_unit || initialData?.unit || initialData?.rental_cost_unit || '').toUpperCase();
+            const normalizedUnit = rawUnit.includes('DAY') ? 'PER_DAY' : 'PER_MONTH';
             const defaultData = initialData && Object.keys(initialData).length > 0
-                ? { ...initialData }
-                : { project_id: selectedProjectId || undefined };
+                ? {
+                    ...initialData,
+                    cost_unit: normalizedUnit,
+                    unit: normalizedUnit,
+                  }
+                : {
+                    project_id: selectedProjectId || undefined,
+                    cost_unit: 'PER_MONTH',
+                    unit: 'PER_MONTH',
+                  };
             setFormData(defaultData);
             setFormNotification(null);
 
@@ -95,7 +105,12 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
         setIsSaving(true);
         setFormNotification(null);
         try {
-            await onSave({ ...formData });
+            const selectedUnit = (formData.cost_unit || formData.unit || '').toUpperCase().includes('DAY') ? 'PER_DAY' : 'PER_MONTH';
+        await onSave({
+            ...formData,
+            cost_unit: selectedUnit,
+            unit: selectedUnit,
+        });
             onClose();
         } catch (error: any) {
             let errorMsg = "Failed to save equipment. Please try again.";
@@ -215,7 +230,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>Equipment Name <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            <input type="text" required maxLength={100} value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
                             {formNotification?.fields?.includes("Equipment Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
@@ -245,7 +260,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             </div>
                             <div className="w-[140px]">
                                 <label className={labelClasses}>Unit</label>
-                                <select value={formData.cost_unit || 'PER_MONTH'} onChange={(e) => setFormData({ ...formData, cost_unit: e.target.value })} className={inputClasses}>
+                                <select
+                                    value={(formData.cost_unit || formData.unit || '').toUpperCase().includes('DAY') ? 'PER_DAY' : 'PER_MONTH'}
+                                    onChange={(e) => setFormData({ ...formData, cost_unit: e.target.value, unit: e.target.value })}
+                                    className={inputClasses}
+                                >
                                     <option value="PER_MONTH">Per Month</option>
                                     <option value="PER_DAY">Per Day</option>
                                 </select>

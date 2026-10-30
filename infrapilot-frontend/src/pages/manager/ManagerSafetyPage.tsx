@@ -4,6 +4,7 @@ import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { CustomSelect } from "../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import {
@@ -273,18 +274,30 @@ const ManagerSafetyPage = () => {
 
   const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
     if (e) e.preventDefault();
-    if (!formData.date || !formData.violation_type || !formData.description || !formData.action_taken || !formData.responsible_person) {
-      toast.error("Please fill all required fields");
+    const targetProjId = selectedProjectId || formData.project_id;
+    if (!targetProjId || !formData.date || !formData.responsible_person?.trim()) {
+      toast.error("Please fill all required fields (Project, Date, Responsible Person)");
       return;
     }
     setIsSubmitting(true);
     try {
-      await safetyService.createIncident({ ...formData, project_id: selectedProjectId || formData.project_id });
+      await safetyService.createIncident({
+        ...formData,
+        project_id: targetProjId,
+        violation_type: formData.violation_type || "None",
+        description: formData.description || "N/A",
+        action_taken: formData.action_taken || "N/A",
+        injury_details: formData.injury_details || "No injury reported"
+      });
       toast.success("Safety record created!");
       setIsNewModalOpen(false);
       setFormData(defaultForm());
       fetchData();
-    } catch { toast.error("Failed to create record"); } finally { setIsSubmitting(false); }
+    } catch {
+      toast.error("Failed to create record");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
@@ -292,11 +305,21 @@ const ManagerSafetyPage = () => {
     if (!selectedIncident) return;
     setIsSubmitting(true);
     try {
-      await safetyService.updateIncident(selectedIncident.id, formData);
+      await safetyService.updateIncident(selectedIncident.id, {
+        ...formData,
+        violation_type: formData.violation_type || "None",
+        description: formData.description || "N/A",
+        action_taken: formData.action_taken || "N/A",
+        injury_details: formData.injury_details || "No injury reported"
+      });
       toast.success("Record updated!");
       setIsEditModalOpen(false);
       fetchData();
-    } catch { toast.error("Failed to update"); } finally { setIsSubmitting(false); }
+    } catch {
+      toast.error("Failed to update");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewClick = async (id: number) => {
@@ -335,8 +358,14 @@ const ManagerSafetyPage = () => {
     } catch { toast.error("Failed to delete incident"); }
   };
 
-  const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
-  const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-800";
+  const labelCls = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
+  const getFieldCls = (isFilled: boolean) =>
+    `w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all ${
+      isFilled
+        ? "bg-blue-50/25 border-2 border-primary/50 text-slate-900 font-semibold shadow-sm"
+        : "bg-white border border-slate-300 text-slate-800"
+    } focus:ring-2 focus:ring-primary/20 focus:border-primary`;
 
   const tabs = [
     { id: "incidents", label: "Safety Checklist" },
@@ -450,56 +479,56 @@ const ManagerSafetyPage = () => {
               </div>
             </div>
 
-            <div className="overflow-auto">
+            <div className="overflow-x-auto scrollbar-thin">
               {isLoading ? (
                 <div className="p-20 text-center">
                   <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing vault...</p>
                 </div>
               ) : (
-                <table className="w-full text-left min-w-[900px]">
+                <table className="w-full text-left min-w-[1150px]">
                   <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Project Name</th>
-                      <th className="px-6 py-4">Task</th>
-                      <th className="px-6 py-4">Incident Summary</th>
-                      <th className="px-6 py-4">Violation Type</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Resources</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px]">Date</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[150px]">Project Name</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[140px]">Task</th>
+                      <th className="px-6 py-4 min-w-[220px]">Incident Summary</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[180px]">Violation Type</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px]">Status</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[160px]">Resources</th>
+                      <th className="px-6 py-4 text-right whitespace-nowrap min-w-[120px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {paginatedList.length > 0 ? paginatedList.map(item => (
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4">
-                          <span className="text-sm font-bold text-slate-800">{item.date}</span>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-bold text-slate-800 whitespace-nowrap">{item.date}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-semibold text-slate-600">{getProjectName(item.project_id)}</span>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">{getProjectName(item.project_id)}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-semibold text-slate-600 truncate max-w-[120px] inline-block">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg truncate inline-block max-w-[150px]" title={item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}>
                             {item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col max-w-xs">
-                            <span className="text-xs font-bold text-slate-700 truncate">{item.description}</span>
-                            <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                              <HeartPulse className="w-3 h-3 text-rose-500" />
-                              <span className="truncate">{item.injury_details || "No injuries"}</span>
+                          <div className="flex flex-col max-w-[240px]">
+                            <span className="text-xs font-bold text-slate-700 truncate" title={item.description}>{item.description}</span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
+                              <HeartPulse className="w-3 h-3 text-rose-500 flex-shrink-0" />
+                              <span className="truncate" title={item.injury_details || "No injuries"}>{item.injury_details || "No injuries"}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap inline-flex items-center ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
                             {item.violation_type}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${(item.safety_checklist_status || "pending") === "completed"
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap inline-flex items-center ${(item.safety_checklist_status || "pending") === "completed"
                             ? "bg-emerald-100 text-emerald-600"
                             : (item.safety_checklist_status || "pending") === "failed"
                               ? "bg-rose-100 text-rose-600"
@@ -508,19 +537,19 @@ const ManagerSafetyPage = () => {
                             {item.safety_checklist_status || "pending"}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{item.responsible_person}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">Action: {item.action_taken}</p>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">{item.responsible_person || "Unassigned"}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[150px] whitespace-nowrap">Action: {item.action_taken || "None"}</p>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => handleViewClick(item.id)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => handleViewClick(item.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleEditClick(item.id)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                            <button onClick={() => handleEditClick(item.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="Edit Record">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => { setDeleteTargetId(item.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                            <button onClick={() => { setDeleteTargetId(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Record">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -536,7 +565,6 @@ const ManagerSafetyPage = () => {
                   </tbody>
                 </table>
               )}
-            </div>
 
             {/* Pagination */}
             {!isLoading && filteredList.length > 0 && (
@@ -622,13 +650,13 @@ const ManagerSafetyPage = () => {
         footer={
           <>
             <button type="button" onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-              disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">
+              disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">
               Cancel
             </button>
             <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
               disabled={isSubmitting}
               className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
-              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Save Entry")}
+              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Save Changes" : "Save Entry")}
             </button>
           </>
         }
@@ -639,7 +667,7 @@ const ManagerSafetyPage = () => {
               <label className={labelCls}>Impacted Project <span className="text-rose-500">*</span></label>
               <select name="project_id" required value={formData.project_id}
                 onChange={(e) => setFormData(p => ({ ...p, project_id: Number(e.target.value), task_id: null }))}
-                className={inputCls}>
+                className={getFieldCls(Boolean(formData.project_id))}>
                 <option value="">Select Project</option>
                 {projects.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>
@@ -648,52 +676,56 @@ const ManagerSafetyPage = () => {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="relative z-30">
               <label className={labelCls}>Task (Optional)</label>
-              <select name="task_id" value={formData.task_id || ""}
-                onChange={e => setFormData(p => ({ ...p, task_id: e.target.value ? Number(e.target.value) : null }))}
-                className={inputCls}>
-                <option value="">— None —</option>
-                {tasks.map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={formData.task_id ? String(formData.task_id) : ""}
+                onChange={(val) => setFormData(p => ({ ...p, task_id: val ? Number(val) : null }))}
+                options={[
+                  { id: "", label: "— None —" },
+                  ...tasks.map(t => ({ id: String(t.id), label: t.title }))
+                ]}
+                placeholder="— None —"
+                maxHeight="max-h-48"
+                searchable={tasks.length > 5}
+              />
             </div>
             <div>
               <label className={labelCls}>Date <span className="text-rose-500">*</span></label>
-              <input name="date" type="date" required value={formData.date} onChange={handleInputChange} className={inputCls} />
+              <input name="date" type="date" required value={formData.date} onChange={handleInputChange} className={getFieldCls(Boolean(formData.date))} />
             </div>
             <div>
-              <label className={labelCls}>Violation Type <span className="text-rose-500">*</span></label>
-              <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputCls}>
-                {VIOLATION_TYPES.map(v => <option key={v}>{v}</option>)}
+              <label className={labelCls}>Violation Type (Optional)</label>
+              <select name="violation_type" value={formData.violation_type || ""} onChange={handleInputChange} className={getFieldCls(Boolean(formData.violation_type && formData.violation_type !== ""))}>
+                <option value="">-- Select Violation Type (Optional) --</option>
+                {VIOLATION_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Responsible Person <span className="text-rose-500">*</span></label>
-              <input name="responsible_person" type="text" value={formData.responsible_person}
+              <input name="responsible_person" type="text" required value={formData.responsible_person}
                 onChange={e => setFormData(p => ({ ...p, responsible_person: e.target.value.replace(/[^a-zA-Z\s.'-]/g, "") }))}
-                placeholder="Full Name" className={inputCls} />
+                placeholder="Full Name" className={getFieldCls(Boolean(formData.responsible_person && formData.responsible_person.trim() !== ""))} />
             </div>
             <div>
               <label className={labelCls}>Checklist Status <span className="text-rose-500">*</span></label>
-              <select name="safety_checklist_status" required value={formData.safety_checklist_status} onChange={handleInputChange} className={inputCls}>
+              <select name="safety_checklist_status" required value={formData.safety_checklist_status} onChange={handleInputChange} className={getFieldCls(Boolean(formData.safety_checklist_status))}>
                 <option value="pending">Pending</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>Description <span className="text-rose-500">*</span></label>
-              <textarea name="description" value={formData.description} onChange={handleInputChange} rows={2} placeholder="Describe the incident..." className={inputCls + " resize-none"} />
+              <label className={labelCls}>Description (Optional)</label>
+              <textarea name="description" value={formData.description || ""} onChange={handleInputChange} rows={2} placeholder="Describe the incident (optional)..." className={getFieldCls(Boolean(formData.description && formData.description.trim() !== "")) + " resize-none"} />
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>Action Taken <span className="text-rose-500">*</span></label>
-              <textarea name="action_taken" value={formData.action_taken} onChange={handleInputChange} rows={2} placeholder="Corrective action taken..." className={inputCls + " resize-none"} />
+              <label className={labelCls}>Action Taken (Optional)</label>
+              <textarea name="action_taken" value={formData.action_taken || ""} onChange={handleInputChange} rows={2} placeholder="Corrective action taken (optional)..." className={getFieldCls(Boolean(formData.action_taken && formData.action_taken.trim() !== "")) + " resize-none"} />
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>Injury Details</label>
-              <input name="injury_details" type="text" value={formData.injury_details || ""} onChange={handleInputChange} placeholder="e.g. No injury / Minor abrasion" className={inputCls} />
+              <input name="injury_details" type="text" value={formData.injury_details || ""} onChange={handleInputChange} placeholder="e.g. No injury / Minor abrasion" className={getFieldCls(Boolean(formData.injury_details && formData.injury_details.trim() !== ""))} />
             </div>
             <div className="flex items-center gap-3">
               <input type="checkbox" name="ppe_compliance" id="ppe_compliance" checked={formData.ppe_compliance}

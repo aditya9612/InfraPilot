@@ -104,6 +104,7 @@ const ManagerDocumentsPage = () => {
 
     // Modals
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [uploadErrors, setUploadErrors] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -253,14 +254,30 @@ const ManagerDocumentsPage = () => {
 
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
-        if (!uploadFile) {
-            toast.error("Please select a file.");
-            return;
-        }
         const isDrawing = mainTab === "Drawings";
+        const missingFields: string[] = [];
+        const targetProjectId = uploadProjectId || selectedProjectId;
+
+        if (!targetProjectId) {
+            missingFields.push("Project");
+        }
+
         const trimmedUploadTitle = (uploadForm.title || "").trim();
         if (!trimmedUploadTitle) {
-            toast.error(isDrawing ? "Drawing Name is required." : "Document Title is required.");
+            missingFields.push(isDrawing ? "Drawing Name" : "Document Title");
+        }
+
+        if (isDrawing && !uploadForm.version.trim()) {
+            missingFields.push("Version");
+        }
+
+        if (!uploadFile) {
+            missingFields.push("File");
+        }
+
+        if (missingFields.length > 0) {
+            setUploadErrors(missingFields);
+            toast.error(`Mandatory fields required: ${missingFields.join(", ")}`);
             return;
         }
 
@@ -270,18 +287,12 @@ const ManagerDocumentsPage = () => {
             return;
         }
 
-        if (isDrawing) {
-            if (!uploadForm.version.trim()) {
-                toast.error("Version is required.");
-                return;
-            }
-            if (uploadForm.version.trim().length > 30) {
-                toast.error("Version cannot exceed 30 characters.");
-                return;
-            }
+        if (isDrawing && uploadForm.version.trim().length > 30) {
+            toast.error("Version cannot exceed 30 characters.");
+            return;
         }
-        const targetProjectId = uploadProjectId || selectedProjectId;
-        if (!targetProjectId) { toast.error("Please select a project."); return; }
+
+        setUploadErrors([]);
         setIsSubmitting(true);
         try {
             if (isDrawing) {
@@ -589,8 +600,18 @@ const ManagerDocumentsPage = () => {
     const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
 
     // ─── Styles ──────────────────────────────────────────────────────
-    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
-    const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-800";
+    const labelCls = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
+    const getUploadInputCls = (fieldName: string, isFilled: boolean) => {
+        const isError = uploadErrors.includes(fieldName);
+        if (isError) {
+            return "w-full px-4 py-2.5 bg-rose-50 border-2 border-rose-500 rounded-xl text-sm outline-none ring-2 ring-rose-200 transition-all font-medium text-slate-800";
+        }
+        if (isFilled) {
+            return "w-full px-4 py-2.5 bg-blue-50/25 border-2 border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-900 shadow-sm";
+        }
+        return "w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-800";
+    };
 
     return (
         <>
@@ -625,7 +646,7 @@ const ManagerDocumentsPage = () => {
                                 setUploadForm({ title: "", document_type: type, remarks: "", version: "", date: "", parent_id: null });
                                 setUploadFile(null);
                                 setUploadProjectId(selectedProjectId);
-                                setIsUploadModalOpen(true);
+                                setUploadErrors([]); setIsUploadModalOpen(true);
                             }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
@@ -899,15 +920,15 @@ const ManagerDocumentsPage = () => {
             </PageTransition >
 
             {/* Upload Modal */}
-            < Modal
+            <Modal
                 isOpen={isUploadModalOpen}
-                onClose={() => setIsUploadModalOpen(false)}
+                onClose={() => { setIsUploadModalOpen(false); setUploadErrors([]); }}
                 title={mainTab === "Drawings" ? "Upload Drawing" : "Upload Document"}
                 maxWidth="max-w-lg"
                 footer={
                     <>
-                        <button onClick={() => setIsUploadModalOpen(false)} disabled={isSubmitting}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                        <button onClick={() => { setIsUploadModalOpen(false); setUploadErrors([]); }} disabled={isSubmitting}
+                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">
                             Cancel
                         </button>
                         <button onClick={handleUpload} disabled={isSubmitting}
@@ -919,18 +940,37 @@ const ManagerDocumentsPage = () => {
                 }
             >
                 <div className="p-4 space-y-4">
+                    {uploadErrors.length > 0 && (
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-2">
+                            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-red-600">Validation Error</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {uploadErrors.join(", ")}</p>
+                            </div>
+                            <button type="button" onClick={() => setUploadErrors([])} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
+                        </div>
+                    )}
+
                     <div>
                         <label className={labelCls}>Project <span className="text-rose-500">*</span></label>
                         <select
                             value={uploadProjectId ?? ""}
-                            onChange={e => setUploadProjectId(e.target.value ? Number(e.target.value) : null)}
-                            className={inputCls}
+                            onChange={e => {
+                                setUploadProjectId(e.target.value ? Number(e.target.value) : null);
+                                setUploadErrors(prev => prev.filter(f => f !== "Project"));
+                            }}
+                            className={getUploadInputCls("Project", Boolean(uploadProjectId || selectedProjectId))}
                         >
                             <option value="">Select Project</option>
                             {assignedProjects.map((p: any) => (
                                 <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
                             ))}
                         </select>
+                        {uploadErrors.includes("Project") && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                        )}
                     </div>
 
                     {mainTab === "Drawings" ? (
@@ -938,47 +978,99 @@ const ManagerDocumentsPage = () => {
                         <>
                             <div>
                                 <label className={labelCls}>Drawing Name <span className="text-rose-500">*</span></label>
-                                <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                                    maxLength={100} placeholder="e.g. Foundation Drawing Rev-2" className={inputCls} />
+                                <input
+                                    value={uploadForm.title}
+                                    onChange={e => {
+                                        setUploadForm(p => ({ ...p, title: e.target.value }));
+                                        setUploadErrors(prev => prev.filter(f => f !== "Drawing Name"));
+                                    }}
+                                    maxLength={100}
+                                    placeholder="e.g. Foundation Drawing Rev-2"
+                                    className={getUploadInputCls("Drawing Name", Boolean(uploadForm.title.trim()))}
+                                />
+                                {uploadErrors.includes("Drawing Name") && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
-                                    <input value={uploadForm.version} onChange={e => setUploadForm(p => ({ ...p, version: e.target.value }))}
-                                        maxLength={30} placeholder="e.g. V1" className={inputCls} />
+                                    <input
+                                        value={uploadForm.version}
+                                        onChange={e => {
+                                            setUploadForm(p => ({ ...p, version: e.target.value }));
+                                            setUploadErrors(prev => prev.filter(f => f !== "Version"));
+                                        }}
+                                        maxLength={30}
+                                        placeholder="e.g. V1"
+                                        className={getUploadInputCls("Version", Boolean(uploadForm.version.trim()))}
+                                    />
+                                    {uploadErrors.includes("Version") && (
+                                        <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelCls}>Date</label>
-                                    <input type="date" value={uploadForm.date}
+                                    <input
+                                        type="date"
+                                        value={uploadForm.date}
                                         onChange={e => setUploadForm(p => ({ ...p, date: e.target.value }))}
-                                        className={inputCls} />
+                                        className={getUploadInputCls("Date", Boolean(uploadForm.date))}
+                                    />
                                 </div>
                             </div>
                             <div>
                                 <label className={labelCls}>Remarks</label>
-                                <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
-                                    maxLength={500} placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                                <textarea
+                                    value={uploadForm.remarks}
+                                    onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
+                                    maxLength={500}
+                                    placeholder="Optional notes..."
+                                    rows={2}
+                                    className={getUploadInputCls("Remarks", Boolean(uploadForm.remarks.trim())) + " resize-none"}
+                                />
                             </div>
                         </>
                     ) : (
                         // ── Documents tab fields: title, document_type, parent_id, remarks, file ──
                         <>
                             <div>
-                                <label className={labelCls}>Document Title</label>
-                                <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                                    maxLength={100} placeholder="e.g. Site Contract 2026" className={inputCls} />
+                                <label className={labelCls}>Document Title <span className="text-rose-500">*</span></label>
+                                <input
+                                    value={uploadForm.title}
+                                    onChange={e => {
+                                        setUploadForm(p => ({ ...p, title: e.target.value }));
+                                        setUploadErrors(prev => prev.filter(f => f !== "Document Title"));
+                                    }}
+                                    maxLength={100}
+                                    placeholder="e.g. Site Contract 2026"
+                                    className={getUploadInputCls("Document Title", Boolean(uploadForm.title.trim()))}
+                                />
+                                {uploadErrors.includes("Document Title") && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                                )}
                             </div>
                             <div>
                                 <label className={labelCls}>Document Type</label>
-                                <select value={uploadForm.document_type} onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
+                                <select
+                                    value={uploadForm.document_type}
+                                    onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))}
+                                    className={getUploadInputCls("Document Type", Boolean(uploadForm.document_type))}
+                                >
                                     <option value="">Select Type</option>
                                     {DOC_TYPES.filter(t => t !== "Drawing").map(t => <option key={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className={labelCls}>Remarks</label>
-                                <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
-                                    maxLength={500} placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                                <textarea
+                                    value={uploadForm.remarks}
+                                    onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
+                                    maxLength={500}
+                                    placeholder="Optional notes..."
+                                    rows={2}
+                                    className={getUploadInputCls("Remarks", Boolean(uploadForm.remarks.trim())) + " resize-none"}
+                                />
                             </div>
                         </>
                     )}
@@ -987,7 +1079,13 @@ const ManagerDocumentsPage = () => {
                         <label className={labelCls}>File <span className="text-rose-500">*</span></label>
                         <div
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+                            className={`w-full border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                                uploadErrors.includes("File")
+                                    ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200"
+                                    : uploadFile
+                                    ? "border-primary/60 bg-blue-50/30"
+                                    : "border-slate-300 hover:border-primary/40 hover:bg-primary/5"
+                            }`}
                         >
                             {uploadFile ? (
                                 <div className="flex items-center justify-center gap-3">
@@ -1003,17 +1101,25 @@ const ManagerDocumentsPage = () => {
                                 </div>
                             ) : (
                                 <>
-                                    <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                                    <p className="text-sm font-bold text-slate-500">Click to select file</p>
+                                    <Upload className={`w-8 h-8 mx-auto mb-2 ${uploadErrors.includes("File") ? "text-rose-500" : "text-slate-400"}`} />
+                                    <p className={`text-sm font-bold ${uploadErrors.includes("File") ? "text-rose-600" : "text-slate-600"}`}>Click to select file</p>
                                     <p className="text-xs text-slate-400 mt-1">PDF, DOC, DWG, Images supported</p>
                                 </>
                             )}
                         </div>
                         <input ref={fileInputRef} type="file" className="hidden"
-                            onChange={e => { if (e.target.files?.[0]) setUploadFile(e.target.files[0]); }} />
+                            onChange={e => {
+                                if (e.target.files?.[0]) {
+                                    setUploadFile(e.target.files[0]);
+                                    setUploadErrors(prev => prev.filter(f => f !== "File"));
+                                }
+                            }} />
+                        {uploadErrors.includes("File") && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                        )}
                     </div>
                 </div>
-            </Modal >
+            </Modal>
 
 
 

@@ -1,3 +1,4 @@
+import { generateEquipmentReportPDF } from "../../utils/equipmentPDFGenerator";
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { equipmentService, type EquipmentItem as Equipment, type UsageReport, type MaintenanceAlert, type EquipmentAlert, type UtilizationReport, type AvailabilityReport } from "../../services/equipmentService";
@@ -203,7 +204,13 @@ const EquipmentPage = () => {
                     equipmentService.getAllRentals(pIdObj).catch(() => []),
                     equipmentService.getMaintenanceAlerts({ days_ahead: 30 }).catch(() => [])
                 ]);
-                setEquipmentList(res.items || []);
+                const unitOverrides = JSON.parse(localStorage.getItem('infrapilot_equipment_units') || '{}');
+            const enhancedItems = (res.items || []).map((eq: any) => ({
+                ...eq,
+                cost_unit: unitOverrides[eq.id] || eq.cost_unit || eq.unit || 'PER_MONTH',
+                unit: unitOverrides[eq.id] || eq.unit || eq.cost_unit || 'PER_MONTH'
+            }));
+            setEquipmentList(enhancedItems);
                 setRentalList(Array.isArray(rRes) ? rRes : (rRes as any)?.items || []);
                 setMaintenanceAlerts(Array.isArray(mAlerts) ? mAlerts : []);
             } else if (activeTab === "Usage & Tracking") {
@@ -676,10 +683,28 @@ const EquipmentPage = () => {
 
     const handleSaveRental = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.equipment_id) {
-            toast.error("Please select an equipment");
+        const missingFields: string[] = [];
+        if (!formData.equipment_id) missingFields.push("Equipment");
+        if (!formData.start_date) missingFields.push("Start Date");
+        if (!formData.end_date) missingFields.push("End Date");
+        if (formData.rental_cost === undefined || formData.rental_cost === null || formData.rental_cost === '' || isNaN(Number(formData.rental_cost)) || Number(formData.rental_cost) <= 0) {
+            missingFields.push("Rental Cost");
+        }
+        if (!formData.client_name || !String(formData.client_name).trim()) {
+            missingFields.push("Client Name");
+        }
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                fields: missingFields,
+                message: `Mandatory fields required: ${missingFields.join(', ')}`
+            });
+            toast.error(`Mandatory fields required: ${missingFields.join(', ')}`);
             return;
         }
+
+        setFormNotification(null);
         try {
             const eqFromList = equipmentList.find(eq => eq.id === formData.equipment_id);
             const derivedProjectId = allocationStatus?.project_id || selectedEquipment?.project_id || eqFromList?.project_id || undefined;
@@ -808,7 +833,7 @@ const EquipmentPage = () => {
         <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b sticky top-0 z-10">
                 <tr>
-                    <th className="px-6 py-4">Equipment Name</th>
+                    <th className="px-6 py-4 min-w-[200px] max-w-[280px]">Equipment Name</th>
                     <th className="px-6 py-4">Project Name</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Maintenance Date</th>
@@ -822,7 +847,11 @@ const EquipmentPage = () => {
                     <tr><td colSpan={7} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
                 ) : pagedData.length > 0 ? pagedData.map((item: any) => (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
+                        <td className="px-6 py-4 font-bold text-slate-800 max-w-[260px] md:max-w-[300px]">
+                            <div className="truncate" title={item.equipment_name}>
+                                {item.equipment_name}
+                            </div>
+                        </td>
                         <td className="px-6 py-4 font-medium text-slate-600">{item.project_id ? projectMap[item.project_id] || `Project ID: ${item.project_id}` : "N/A"}</td>
                         <td className="px-6 py-4 text-slate-600">
                             <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">{item.status ? item.status.replace(/_/g, ' ') : "—"}</span>
@@ -841,7 +870,7 @@ const EquipmentPage = () => {
                                 <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id, usage_date: new Date().toISOString().split('T')[0] }); setFormNotification(null); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id, project_id: item.project_id || null, maintenance_date: new Date().toISOString().split('T')[0] }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
-                                <button onClick={() => { setSelectedEquipment(null); setFormData({ equipment_id: '', start_date: new Date().toISOString().split('T')[0], end_date: new Date().toISOString().split('T')[0] }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
+                                <button onClick={() => { setSelectedEquipment(null); setFormData({ equipment_id: '', start_date: new Date().toISOString().split('T')[0], end_date: new Date().toISOString().split('T')[0] }); setFormNotification(null); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
                                 <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
                                 <button onClick={() => { setEquipmentToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -1104,7 +1133,7 @@ const EquipmentPage = () => {
                                         <button onClick={() => handleCompleteRental(report.id)} disabled={report.status === 'COMPLETED'} className={`p-1.5 rounded ${report.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
                                             <Check className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => { setFormData({ ...report, rental_id: report.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
+                                        <button onClick={() => { setFormData({ ...report, rental_id: report.id }); setFormNotification(null); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => {
@@ -1491,10 +1520,27 @@ const EquipmentPage = () => {
 
     const exportPdf = async () => {
         try {
-            await equipmentService.exportPdf();
+            const activeProject = projects.find(p => Number(p.id) === Number(selectedProjectId));
+            generateEquipmentReportPDF({
+                equipmentList: currentListData && currentListData.length > 0 ? currentListData : equipmentList,
+                projectMap,
+                projectName: activeProject?.project_name || (selectedProjectId ? `Project #${selectedProjectId}` : "All Projects"),
+                stats: {
+                    total: stats.total,
+                    available: stats.available,
+                    allocated: stats.allocated,
+                    maintenance: stats.maintenance
+                }
+            });
             toast.success("PDF exported successfully");
-        } catch {
-            toast.error("Failed to export PDF");
+        } catch (error) {
+            console.error("PDF generation error:", error);
+            try {
+                await equipmentService.exportPdf();
+                toast.success("PDF exported successfully");
+            } catch {
+                toast.error("Failed to export PDF");
+            }
         }
     };
 
@@ -1662,8 +1708,21 @@ const EquipmentPage = () => {
                     onSave={async (data) => {
                         try {
                             if (data.id) {
-                                await equipmentService.updateEquipment(data.id, data);
+                                // Save local unit preference as resilient fallback
+                                try {
+                                    const stored = JSON.parse(localStorage.getItem('infrapilot_equipment_units') || '{}');
+                                    stored[data.id] = data.cost_unit || data.unit || 'PER_MONTH';
+                                    localStorage.setItem('infrapilot_equipment_units', JSON.stringify(stored));
+                                } catch {}
+                                const updated = await equipmentService.updateEquipment(data.id, data);
+                                setEquipmentList(prev => prev.map(e => e.id === data.id ? { ...e, ...data, ...updated, cost_unit: data.cost_unit, unit: data.unit } : e));
                             } else {
+                                const newId = Date.now();
+                                try {
+                                    const stored = JSON.parse(localStorage.getItem('infrapilot_equipment_units') || '{}');
+                                    stored[data.id || newId] = data.cost_unit || data.unit || 'PER_MONTH';
+                                    localStorage.setItem('infrapilot_equipment_units', JSON.stringify(stored));
+                                } catch {}
                                 const payload = { ...data };
                                 if (!payload.project_id) delete payload.project_id;
                                 await equipmentService.createEquipment(payload);
@@ -1960,7 +2019,7 @@ const EquipmentPage = () => {
 
             {/* 7. Add/Update Rental */}
             <Modal isOpen={isRentalModalOpen} onClose={() => { setFormData({}); setFormNotification(null); setIsRentalModalOpen(false); }} title={formData.rental_id ? "Update Rental" : "Add Rental Record"} maxWidth="max-w-md">
-                <form onSubmit={handleSaveRental} className="p-6 font-inter space-y-4">
+                <form onSubmit={handleSaveRental} noValidate className="p-6 font-inter space-y-4">
                     {renderFormNotification()}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
@@ -1971,6 +2030,9 @@ const EquipmentPage = () => {
                                 const selectedEq = modalEquipmentList.find(e => e.id === eqId);
                                 const pId = selectedEq?.project_id || formData.project_id || null;
                                 setFormData({ ...formData, equipment_id: eqId, project_id: pId, boq_item_id: null });
+                                if (formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT'))) {
+                                    setFormNotification(prev => prev && prev.fields ? { ...prev, fields: prev.fields.filter(f => !f.toUpperCase().includes('EQUIPMENT')) } : null);
+                                }
                             }}
                             options={[
                                 { id: '', label: 'Select Equipment' },
@@ -1988,25 +2050,84 @@ const EquipmentPage = () => {
                             placeholder="Select Equipment"
                             searchable={globalEquipment.length > 5}
                             maxHeight="max-h-48"
+                            error={formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT'))}
                         />
+                        {formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT')) && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">START DATE <span className="text-rose-500">*</span></label>
-                            <input type="date" required value={formData.start_date || ''} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input
+                                type="date"
+                                value={formData.start_date || ''}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, start_date: e.target.value });
+                                    if (formNotification?.fields?.some(f => f.toUpperCase().includes('START DATE'))) {
+                                        setFormNotification(prev => prev && prev.fields ? { ...prev, fields: prev.fields.filter(f => !f.toUpperCase().includes('START DATE')) } : null);
+                                    }
+                                }}
+                                className={`w-full px-4 py-2.5 bg-white border ${formNotification?.fields?.some(f => f.toUpperCase().includes('START DATE')) ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : "border-slate-200"} focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`}
+                            />
+                            {formNotification?.fields?.some(f => f.toUpperCase().includes('START DATE')) && (
+                                <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">END DATE <span className="text-rose-500">*</span></label>
-                            <input type="date" required value={formData.end_date || ''} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                            <input
+                                type="date"
+                                value={formData.end_date || ''}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, end_date: e.target.value });
+                                    if (formNotification?.fields?.some(f => f.toUpperCase().includes('END DATE'))) {
+                                        setFormNotification(prev => prev && prev.fields ? { ...prev, fields: prev.fields.filter(f => !f.toUpperCase().includes('END DATE')) } : null);
+                                    }
+                                }}
+                                className={`w-full px-4 py-2.5 bg-white border ${formNotification?.fields?.some(f => f.toUpperCase().includes('END DATE')) ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : "border-slate-200"} focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`}
+                            />
+                            {formNotification?.fields?.some(f => f.toUpperCase().includes('END DATE')) && (
+                                <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                            )}
                         </div>
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">RENTAL COST (₹) <span className="text-rose-500">*</span></label>
-                        <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <input
+                            type="number"
+                            min="0"
+                            placeholder="Enter rental cost"
+                            value={formData.rental_cost ?? ''}
+                            onChange={(e) => {
+                                setFormData({ ...formData, rental_cost: e.target.value === '' ? '' : Number(e.target.value) });
+                                if (formNotification?.fields?.some(f => f.toUpperCase().includes('RENTAL COST'))) {
+                                    setFormNotification(prev => prev && prev.fields ? { ...prev, fields: prev.fields.filter(f => !f.toUpperCase().includes('RENTAL COST')) } : null);
+                                }
+                            }}
+                            className={`w-full px-4 py-2.5 bg-white border ${formNotification?.fields?.some(f => f.toUpperCase().includes('RENTAL COST')) ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : "border-slate-200"} focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`}
+                        />
+                        {formNotification?.fields?.some(f => f.toUpperCase().includes('RENTAL COST')) && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">CLIENT NAME <span className="text-rose-500">*</span></label>
-                        <input type="text" required value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <input
+                            type="text"
+                            placeholder="Enter client name"
+                            value={formData.client_name || ''}
+                            onChange={(e) => {
+                                setFormData({ ...formData, client_name: e.target.value });
+                                if (formNotification?.fields?.some(f => f.toUpperCase().includes('CLIENT NAME'))) {
+                                    setFormNotification(prev => prev && prev.fields ? { ...prev, fields: prev.fields.filter(f => !f.toUpperCase().includes('CLIENT NAME')) } : null);
+                                }
+                            }}
+                            className={`w-full px-4 py-2.5 bg-white border ${formNotification?.fields?.some(f => f.toUpperCase().includes('CLIENT NAME')) ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : "border-slate-200"} focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`}
+                        />
+                        {formNotification?.fields?.some(f => f.toUpperCase().includes('CLIENT NAME')) && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
@@ -2037,8 +2158,8 @@ const EquipmentPage = () => {
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => { setFormData({}); setIsRentalModalOpen(false); }} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">Save Rental</button>
+                        <button type="button" onClick={() => { setFormData({}); setFormNotification(null); setIsRentalModalOpen(false); }} className="px-6 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-xl text-sm font-bold transition-all shadow-sm">Cancel</button>
+                        <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all active:scale-95">Save Rental</button>
                     </div>
                 </form>
             </Modal>

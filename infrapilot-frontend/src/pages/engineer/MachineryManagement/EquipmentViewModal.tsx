@@ -95,7 +95,7 @@ const EquipmentViewModal: React.FC<EquipmentViewModalProps> = ({
                             <p className="font-bold text-purple-600 font-mono text-base">
                                 {equipment.rental_cost ? `₹${equipment.rental_cost.toLocaleString()}` : "N/A"}
                                 <span className="text-sm text-slate-500 font-sans ml-1">
-                                    {equipment.cost_unit === 'PER_DAY' ? '/ Day' : equipment.cost_unit === 'PER_MONTH' ? '/ Month' : ''}
+                                    {(equipment.cost_unit || equipment.unit || '').toUpperCase().includes('DAY') ? '/ Day' : (equipment.cost_unit || equipment.unit || '').toUpperCase().includes('MONTH') ? '/ Month' : ''}
                                 </span>
                             </p>
                         </div>

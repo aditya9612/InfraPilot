@@ -710,12 +710,21 @@ const MachineryPage = () => {
 
     const handleSaveEquipmentModal = async (submittedData: any) => {
         try {
+            const targetUnit = (submittedData.cost_unit || submittedData.unit || '').toUpperCase().includes('DAY') ? 'PER_DAY' : 'PER_MONTH';
+            try {
+                const stored = JSON.parse(localStorage.getItem('infrapilot_equipment_units') || '{}');
+                if (submittedData.id) stored[submittedData.id] = targetUnit;
+                localStorage.setItem('infrapilot_equipment_units', JSON.stringify(stored));
+            } catch {}
+
             if (submittedData.id) {
                 const { equipment_code, ...updatePayload } = submittedData;
+                updatePayload.cost_unit = targetUnit;
+                updatePayload.unit = targetUnit;
                 await equipmentService.updateEquipment(submittedData.id, updatePayload);
                 toast.success("Equipment updated successfully!");
             } else {
-                const payload = { ...submittedData };
+                const payload = { ...submittedData, cost_unit: targetUnit, unit: targetUnit };
                 // If no project selected, remove it from payload
                 if (!payload.project_id) {
                     delete payload.project_id;
@@ -726,7 +735,13 @@ const MachineryPage = () => {
             }
             setIsEquipmentModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
-            setEquipmentList(res.items || []);
+            const unitOverrides = JSON.parse(localStorage.getItem('infrapilot_equipment_units') || '{}');
+            const enhancedItems = (res.items || []).map((eq: any) => ({
+                ...eq,
+                cost_unit: unitOverrides[eq.id] || eq.cost_unit || eq.unit || 'PER_MONTH',
+                unit: unitOverrides[eq.id] || eq.unit || eq.cost_unit || 'PER_MONTH'
+            }));
+            setEquipmentList(enhancedItems);
         } catch (error: any) {
             let errorMsg = "Failed to save equipment";
             const detail = error.response?.data?.detail;
@@ -1434,7 +1449,7 @@ const MachineryPage = () => {
                             {paginatedEquipmentList.length > 0 ? paginatedEquipmentList.map(item => (
                                 <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-6 py-3">
-                                        <p className="font-bold text-sm text-slate-800">{item.equipment_name}</p>
+                                        <p className="font-bold text-sm text-slate-800 truncate max-w-[260px]" title={item.equipment_name}>{item.equipment_name}</p>
                                         <p className="text-xs text-slate-500">{item.equipment_code}</p>
                                     </td>
                                     <td className="px-6 py-3">
