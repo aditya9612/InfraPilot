@@ -450,14 +450,14 @@ const PayrollReportPage: React.FC = () => {
 
                         {/* ── Pagination Controls ───────────────────────── */}
                         {!isLoading && filteredReports.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="px-3 sm:px-6 py-3 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 whitespace-nowrap">Records per page:</span>
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-1.5 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                     >
                                         <option value={10}>10</option>
                                         <option value={20}>20</option>
@@ -466,9 +466,9 @@ const PayrollReportPage: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {/* Center: Showing info */}
-                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredReports.length)} of {filteredReports.length} records
+                                {/* Center: Total record count statement */}
+                                <div className="text-[11px] sm:text-xs font-medium text-slate-600 text-center whitespace-nowrap px-1">
+                                    Showing <span className="font-bold text-slate-800">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-bold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold text-slate-800">{filteredReports.length}</span> records
                                 </div>
 
                                 {/* Right: Pagination */}

@@ -81,7 +81,7 @@ const ConfirmationModal = ({
                                 <button
                                     onClick={onClose}
                                     disabled={isLoading}
-                                    className="flex-1 py-2.5 bg-slate-50 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-all disabled:opacity-50"
+                                    className="flex-1 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-2xl font-bold text-sm hover:bg-rose-100 hover:text-rose-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>

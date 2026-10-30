@@ -183,13 +183,13 @@ const QCInspectionPage = () => {
     }, [formData.project_id, selectedQc?.project_id, isNewModalOpen, isEditModalOpen, isViewModalOpen]);
 
     const getTaskName = (taskId: number | null | undefined) => {
-        if (!taskId) return "-";
+        if (!taskId) return "N/A";
         const task = availableTasks.find(t => Number(t.id) === Number(taskId));
         return task ? (task.title || `Task #${taskId}`) : `Task #${taskId}`;
     };
 
     const getDsrName = (dsrId: number | null | undefined) => {
-        if (!dsrId) return "-";
+        if (!dsrId) return "N/A";
         const dsr = availableDsrs.find(d => Number(d.id) === Number(dsrId));
         return dsr ? (dsr.report_date || dsr.date || `DSR #${dsrId}`) : `DSR #${dsrId}`;
     };
@@ -328,11 +328,11 @@ const QCInspectionPage = () => {
     };
 
 
-    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1 font-inter";
     const inputClasses = (error?: boolean) => `
-        w-full px-4 py-2.5 bg-slate-50 border 
-        ${error ? 'border-rose-300 focus:ring-rose-200 ring-1 ring-rose-300' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
-        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
+        w-full px-4 py-2.5 bg-white border-2 
+        ${error ? 'border-rose-400 focus:ring-rose-200 ring-2 ring-rose-300' : 'border-slate-300 hover:border-slate-400 focus:ring-4 focus:ring-primary/10 focus:border-primary'} 
+        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter shadow-sm
     `;
 
     const resetForm = () => {
@@ -923,7 +923,7 @@ const QCInspectionPage = () => {
                         <button
                             type="button"
                             onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter disabled:opacity-50"
+                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm font-inter active:scale-95 disabled:opacity-50"
                         >
                             Cancel
                         </button>

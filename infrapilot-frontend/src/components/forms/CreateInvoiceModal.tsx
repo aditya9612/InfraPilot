@@ -159,14 +159,14 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           type: "labour"
         };
         await onSubmit(submissionData);
-      } else if (formData.type === "material") {
+      } else if (formData.type === "material" || formData.type === "equipment") {
         if (!formData.project_id) {
           toast.error("Please select a project");
           return;
         }
         const submissionData = {
           project_id: Number(formData.project_id),
-          type: "material"
+          type: formData.type === "equipment" ? "equipment" : "material"
         };
         await onSubmit(submissionData);
       } else if (formData.type === "measurement") {
@@ -205,7 +205,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     labour: "Create Labour Invoice",
     material: "Create Material Supply",
     expense: "Create Site Expense",
-    measurement: "Create invoice from measurement"
+    measurement: "Create invoice from measurement",
+    equipment: "Create Equipment Invoice"
   };
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -223,7 +224,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       maxWidth="max-w-4xl"
       footer={
         <>
-          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95">
             Cancel
           </button>
           <button form="invoice-form" type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">
@@ -241,7 +242,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-            {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
+            {!isLabour && formData.type !== "material" && formData.type !== "equipment" && formData.type !== "measurement" && (
               <>
                 <div>
                   <label className={labelClasses}>Invoice Number <span className="text-rose-500">*</span></label>
@@ -345,7 +346,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               </div>
             )}
 
-            {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
+            {!isLabour && formData.type !== "material" && formData.type !== "equipment" && formData.type !== "measurement" && (
               <>
                 <div>
                   <label className={labelClasses}>Billing Date</label>
@@ -371,7 +372,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         </div>
 
         {/* Work & Billing Details */}
-        {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
+        {!isLabour && formData.type !== "material" && formData.type !== "equipment" && formData.type !== "measurement" && (
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work & Billing Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -447,7 +448,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         )}
 
         {/* Calculation Summary Card */}
-        {!isLabour && formData.type !== "material" && formData.type !== "measurement" && (
+        {!isLabour && formData.type !== "material" && formData.type !== "equipment" && formData.type !== "measurement" && (
           <div className="bg-slate-900 rounded-[28px] p-8 mt-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
             <div className="grid grid-cols-3 gap-8">

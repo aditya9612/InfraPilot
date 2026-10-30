@@ -704,10 +704,10 @@ const ProjectDetailsPage = () => {
             </p>
           </div>
 
-          {activeTab === "Overview" && <div className="flex gap-3">
+          {activeTab === "Overview" && <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setIsEditModalOpen(true)}
-              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              className="px-4 sm:px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
             >
               Update Project
             </button>
@@ -731,7 +731,7 @@ const ProjectDetailsPage = () => {
                   toast.success("Excel report downloaded!", { id: toastId });
                 }
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               Excel
@@ -755,7 +755,7 @@ const ProjectDetailsPage = () => {
                   toast.success("PDF report downloaded!", { id: toastId });
                 }
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
               PDF
@@ -764,14 +764,14 @@ const ProjectDetailsPage = () => {
         </div>
 
         {/* Tabs Navigation */}
-        <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
+        <div className="flex border-b border-slate-200 mb-6 sm:mb-8 overflow-x-auto w-full min-w-0 max-w-full scrollbar-none pb-0.5">
           {(
             ["Overview", "Milestones", "Members", "Tasks", "Task Requests", "Profit & Loss", "OT Policy", "Photos", "Logs"] as const
           ).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-4 text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${activeTab === tab
+              className={`shrink-0 px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${activeTab === tab
                 ? "text-primary border-primary"
                 : "text-slate-400 border-transparent hover:text-slate-600"
                 }`}

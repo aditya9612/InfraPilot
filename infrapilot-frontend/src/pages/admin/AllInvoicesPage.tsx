@@ -10,6 +10,7 @@ import {
   Layers,
   Users,
   Package,
+  Wrench,
   Send
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
@@ -83,7 +84,7 @@ const AllInvoicesPage = () => {
     return "invoices";
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<"invoices" | "quotations" | "dummy_quotations">(initialTab);
-  const [sendTarget, setSendTarget] = useState<{ id: number; isQuotation: boolean } | null>(null);
+  const [sendTarget, setSendTarget] = useState<{ id: number; isQuotation: boolean; projectId?: number } | null>(null);
 
   const PAGE_SIZE = 10;
 
@@ -250,13 +251,68 @@ const AllInvoicesPage = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const handleSync = async () => {
+      try {
+        const invData = await financeService.getInvoices(200);
+        setInvoices(Array.isArray(invData) ? invData : []);
+      } catch (e) {
+        console.error("Failed to re-sync invoices on update event", e);
+      }
+    };
+    window.addEventListener("invoice-updated", handleSync);
+    window.addEventListener("expense-updated", handleSync);
+    return () => {
+      window.removeEventListener("invoice-updated", handleSync);
+      window.removeEventListener("expense-updated", handleSync);
+    };
+  }, []);
+
   const handleCreateInvoice = async (data: any) => {
     try {
+      const pId = Number(data.project_id);
+      const invoiceType = String(data.type || "").toLowerCase();
+
+      // Prevent generating multiple invoices for the same expense / project
+      const existingDuplicate = invoices.find((inv) => {
+        if (Number(inv.project_id) !== pId) return false;
+        const invType = String(inv.type || (inv as any).invoice_type || "").toLowerCase();
+        const invDesc = String(inv.description || "").toLowerCase();
+        const status = String(inv.status || inv.payment_status || "").toLowerCase();
+        if (status === "cancelled" || status === "rejected") return false;
+
+        if (invoiceType === "material") {
+          return invType === "material" || invDesc.includes("material");
+        }
+        if (invoiceType === "equipment") {
+          return invType === "equipment" || invDesc.includes("equipment");
+        }
+        if (invoiceType === "labour") {
+          if (invType === "labour" || invDesc.includes("labour") || invDesc.includes("labor")) {
+            if (data.start_date && data.end_date && inv.start_date && inv.end_date) {
+              return inv.start_date === data.start_date && inv.end_date === data.end_date;
+            }
+            return true;
+          }
+        }
+        if (invoiceType === "measurement" && data.measurement_id) {
+          return String((inv as any).measurement_id) === String(data.measurement_id);
+        }
+        return false;
+      });
+
+      if (existingDuplicate) {
+        toast.error("Invoice has already been generated for this expense.");
+        return;
+      }
+
       if (data.type === "labour") {
         const { project_id, start_date, end_date } = data;
         await financeService.createLabourInvoice({ project_id, start_date, end_date });
       } else if (data.type === "material") {
         await financeService.createMaterialInvoice(data.project_id);
+      } else if (data.type === "equipment") {
+        await financeService.createEquipmentInvoice(data.project_id);
       } else if (data.type === "measurement") {
         await financeService.createInvoiceFromMeasurement(data.measurement_id);
       } else {
@@ -274,7 +330,11 @@ const AllInvoicesPage = () => {
         : (Array.isArray(detail)
             ? detail.map((d: any) => d.msg || d.message).join(', ')
             : (typeof detail === 'object' && detail?.message ? detail.message : (error.response?.data?.message || error.message || "Failed to create invoice")));
-      toast.error(message);
+      if (message.toLowerCase().includes("already") || message.toLowerCase().includes("duplicate") || message.toLowerCase().includes("exist")) {
+        toast.error("Invoice has already been generated for this expense.");
+      } else {
+        toast.error(message);
+      }
     }
   };
 
@@ -560,7 +620,7 @@ const AllInvoicesPage = () => {
         breadcrumb={["Dashboard", "Invoices", typeFilter === "all" ? "Portfolio" : typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1)]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="w-full space-y-6">
 
           {/* HEADER */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -607,6 +667,11 @@ const AllInvoicesPage = () => {
                         onClick={() => { openCreateModal("material"); setIsAddDropdownOpen(false); }}
                         className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
                         <Package className="w-4 h-4 text-purple-500" /> Material Invoice
+                      </button>
+                      <button
+                        onClick={() => { openCreateModal("equipment"); setIsAddDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                        <Wrench className="w-4 h-4 text-amber-500" /> Equipment Invoice
                       </button>
                       <button
                         onClick={() => { openCreateModal("measurement" as any); setIsAddDropdownOpen(false); }}
@@ -761,7 +826,7 @@ const AllInvoicesPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                     <th className="px-4 py-4 whitespace-nowrap">
                       {activeTab === "dummy_quotations" ? "Quotation ID" : activeTab === "quotations" ? "Quotation No" : "Invoice #"}
                     </th>
@@ -853,7 +918,8 @@ const AllInvoicesPage = () => {
                                     if (inv.isQuotation) {
                                       handleSendItem(inv.id, true);
                                     } else {
-                                      setSendTarget({ id: inv.id, isQuotation: false });
+                                      const pId = inv.project_id || (inv as any).projectId || projects.find(p => (p as any).name === (inv as any).project_name || p.project_name === (inv as any).project_name)?.id;
+                                      setSendTarget({ id: inv.id, isQuotation: false, projectId: pId ? Number(pId) : undefined });
                                     }
                                   }
                                 }}
@@ -978,6 +1044,7 @@ const AllInvoicesPage = () => {
       <ClientSelectionModal
         isOpen={sendTarget !== null}
         onClose={() => setSendTarget(null)}
+        projectId={sendTarget?.projectId}
         onSelect={(clientId) => {
           if (sendTarget) {
             handleSendItem(sendTarget.id, sendTarget.isQuotation, clientId);
@@ -1031,8 +1098,9 @@ const AllInvoicesPage = () => {
         }}
         onDownloadPDF={handleDownloadItemPDF}
         onSendInvoice={(id) => {
+          const pId = viewingInvoice?.project_id || (viewingInvoice as any)?.projectId || projects.find(p => (p as any).name === (viewingInvoice as any)?.project_name || p.project_name === (viewingInvoice as any)?.project_name)?.id;
           setViewingInvoice(null);
-          setSendTarget({ id, isQuotation: false });
+          setSendTarget({ id, isQuotation: false, projectId: pId ? Number(pId) : undefined });
         }}
       />
     </>

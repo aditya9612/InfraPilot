@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ChevronDown, User, Users, Package, Hammer } from "lucide-react";
+import { Plus, ChevronDown, User, Users, Package, Hammer, Wrench } from "lucide-react";
 
 interface CreateInvoiceDropdownProps {
-    onSelectType?: (type: "owner" | "labour" | "material" | "measurement" | "expense") => void;
+    onSelectType?: (type: "owner" | "labour" | "material" | "measurement" | "expense" | "equipment") => void;
     className?: string;
 }
 
@@ -50,6 +50,15 @@ const CreateInvoiceDropdown: React.FC<CreateInvoiceDropdownProps> = ({ onSelectT
             description: "Supplier & inventory billing",
             action: () => {
                 if (onSelectType) onSelectType("material");
+            }
+        },
+        {
+            id: "equipment",
+            label: "Equipment Invoice",
+            icon: <Wrench className="w-4 h-4" />,
+            description: "Machinery & equipment billing",
+            action: () => {
+                if (onSelectType) onSelectType("equipment");
             }
         },
         {

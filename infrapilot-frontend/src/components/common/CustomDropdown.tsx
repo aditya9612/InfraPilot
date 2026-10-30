@@ -68,7 +68,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const dropdownClasses = `absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-52'} flex flex-col overflow-hidden`;
+    const dropdownClasses = `absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-48'} flex flex-col overflow-hidden`;
 
     return (
         <div className="relative font-inter" ref={ref}>
@@ -89,7 +89,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             </button>
 
             {open && (
-                <div className={dropdownClasses} style={{ maxHeight: '220px' }}>
+                <div className={dropdownClasses} style={maxHeight?.includes('px') ? { maxHeight } : undefined}>
                     {searchable && (
                         <div className="p-2 border-b border-slate-100 bg-slate-50/50 shrink-0">
                             <div className="relative">

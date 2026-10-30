@@ -24,9 +24,79 @@ export function useClientProjectId() {
         console.warn("useClientProjectId: API project fetch warning:", apiErr);
       }
 
-      const validProjectIds = items
+      const userStr = localStorage.getItem("infrapilot_user");
+      let currentUser: any = null;
+      if (userStr) {
+        try { currentUser = JSON.parse(userStr); } catch { }
+      }
+
+      // If user is marked deleted in infrapilot_deleted_clients, reject immediately
+      if (currentUser) {
+        try {
+          const deletedList = JSON.parse(localStorage.getItem("infrapilot_deleted_clients") || "[]");
+          const uid = Number(currentUser.id || currentUser.user_id);
+          const cleanMob = (currentUser.mobile || "").replace(/\D/g, "").slice(-10);
+          const isDeleted = deletedList.some((d: any) =>
+            (d.id && Number(d.id) === uid) ||
+            (cleanMob && d.mobile && d.mobile.replace(/\D/g, "").slice(-10) === cleanMob)
+          );
+          if (isDeleted) {
+            localStorage.removeItem("client_selected_project_id");
+            setProjectId(null);
+            setLoading(false);
+            return;
+          }
+        } catch { }
+      }
+
+      const isClientRole = currentUser?.role?.toLowerCase() === "client" ||
+        window.location.pathname.startsWith("/client");
+
+      let clientAuthorizedProjects = items;
+      if (isClientRole && currentUser) {
+        const uid = Number(currentUser.id || currentUser.user_id);
+        const uName = (currentUser.name || currentUser.full_name || "").toLowerCase().trim();
+        const uEmail = (currentUser.email || "").toLowerCase().trim();
+
+        clientAuthorizedProjects = items.filter((p: any) => {
+          const pClientId = p.client_id != null && Number(p.client_id) > 0 ? Number(p.client_id) : null;
+          const pClientName = (p.client_name || "").toLowerCase().trim();
+          const pClientEmail = (p.client_email || "").toLowerCase().trim();
+          const pId = Number(p.id || p.project_id);
+
+          // 1. If project is explicitly assigned to ANOTHER client ID, reject
+          if (pClientId != null && uid > 0 && pClientId !== uid) {
+            return false;
+          }
+          // 2. If project is explicitly assigned to ANOTHER client name, reject
+          if (pClientName && uName && pClientName !== uName && !pClientName.includes(uName) && !uName.includes(pClientName)) {
+            return false;
+          }
+
+          // 3. Positive match by client_id
+          if (pClientId != null && uid > 0 && pClientId === uid) return true;
+          // 4. Positive match by client_name
+          if (pClientName && uName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
+          // 5. Positive match by client_email
+          if (pClientEmail && uEmail && pClientEmail === uEmail) return true;
+          // 6. Direct user profile project_id
+          if (currentUser.project_id && Number(currentUser.project_id) === pId) return true;
+
+          return false;
+        });
+      }
+
+      const validProjectIds = clientAuthorizedProjects
         .map((p: any) => Number(p.id || p.project_id))
         .filter((id: number) => id > 0);
+
+      // If client role and no authorized projects found, do NOT fall back to other clients' projects
+      if (isClientRole && validProjectIds.length === 0) {
+        localStorage.removeItem("client_selected_project_id");
+        setProjectId(null);
+        setLoading(false);
+        return;
+      }
 
       // 1. Check explicit client manual selection FIRST
       const clientSaved = localStorage.getItem("client_selected_project_id");
@@ -72,23 +142,22 @@ export function useClientProjectId() {
               return;
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 4. Check user profile project_id fallback
-      const userStr = localStorage.getItem("infrapilot_user");
       if (userStr) {
         try {
-          const currentUser = JSON.parse(userStr);
-          if (currentUser?.project_id && Number(currentUser.project_id) > 0) {
-            const pid = Number(currentUser.project_id);
+          const uProfile = JSON.parse(userStr);
+          if (uProfile?.project_id && Number(uProfile.project_id) > 0) {
+            const pid = Number(uProfile.project_id);
             if (validProjectIds.length === 0 || validProjectIds.includes(pid)) {
               setProjectId(pid);
               setLoading(false);
               return;
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 5. Fallback to first available project from API
@@ -125,7 +194,7 @@ export function useClientProjectId() {
     window.addEventListener("focus", resolve);
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("project_changed", handleCustomProjectChange);
-    
+
     return () => {
       window.removeEventListener("focus", resolve);
       window.removeEventListener("storage", handleStorageChange);

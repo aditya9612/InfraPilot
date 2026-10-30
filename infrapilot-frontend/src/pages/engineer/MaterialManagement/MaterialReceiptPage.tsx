@@ -180,11 +180,61 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchBoqs = async (pId: number = projectId) => {
+        if (!pId || Number(pId) <= 0) {
+            setBoqs([]);
+            return;
+        }
         try {
-            const data = await boqService.getBoqs({ project_id: pId, limit: 100, skip: 0 } as any);
-            setBoqs(data.items || []);
+            let items: any[] = [];
+            // 1. Try getBoqItems (project items)
+            try {
+                const bItems = await boqService.getBoqItems(Number(pId));
+                const list = Array.isArray(bItems) ? bItems : (bItems as any)?.items || (bItems as any)?.boq_items || (bItems as any)?.data || [];
+                if (list.length > 0) items = list;
+            } catch (err) { }
+
+            // 2. Try getBoqsByProject
+            if (items.length === 0) {
+                try {
+                    const byProj = await boqService.getBoqsByProject(Number(pId));
+                    const list = Array.isArray(byProj) ? byProj : (byProj as any)?.items || (byProj as any)?.boq_items || (byProj as any)?.data || [];
+                    if (list.length > 0) items = list;
+                } catch (err) { }
+            }
+
+            // 3. Try getBoqs with project_id filter and unwrap nested items
+            if (items.length === 0) {
+                try {
+                    const data = await boqService.getBoqs({ project_id: Number(pId), limit: 100, skip: 0 } as any);
+                    const raw = Array.isArray(data) ? data : (data?.items || (data as any)?.data || []);
+                    const flattened = raw.flatMap((b: any) => {
+                        if (Array.isArray(b?.items) && b.items.length > 0) return b.items;
+                        if (Array.isArray(b?.boq_items) && b.boq_items.length > 0) return b.boq_items;
+                        return [b];
+                    });
+                    if (flattened.length > 0) items = flattened;
+                } catch (err) { }
+            }
+
+            // 4. Fallback to global getBoqs
+            if (items.length === 0) {
+                try {
+                    const allBoqs = await boqService.getBoqs({ limit: 100 } as any);
+                    const raw = Array.isArray(allBoqs) ? allBoqs : (allBoqs?.items || (allBoqs as any)?.data || []);
+                    const matching = raw.filter((b: any) => Number(b.project_id) === Number(pId));
+                    const flattened = (matching.length > 0 ? matching : raw).flatMap((b: any) => {
+                        if (Array.isArray(b?.items) && b.items.length > 0) return b.items;
+                        if (Array.isArray(b?.boq_items) && b.boq_items.length > 0) return b.boq_items;
+                        return [b];
+                    });
+                    if (flattened.length > 0) items = flattened;
+                } catch (err) { }
+            }
+
+            setBoqs(items);
         } catch (e) {
             console.error("Failed to load BOQs", e);
+            setBoqs([]);
         }
     };
 
@@ -546,11 +596,13 @@ const MaterialReceiptPage = () => {
                     {activeTab === "Purchase Orders" && (
                         <button onClick={() => {
                             setSelectedPO(null);
-                            setPoForm({ project_id: projectId });
-                            // Ensure materials and suppliers are loaded before opening
-                            if (materials.length === 0 && projectId) fetchMaterials(projectId);
-                            if (suppliers.length === 0 && projectId) fetchSuppliers(projectId);
-                            if (boqs.length === 0 && projectId) fetchBoqs(projectId);
+                            const defaultPid = projectId || (projectsList.length > 0 ? projectsList[0].id : undefined);
+                            setPoForm({ project_id: defaultPid });
+                            if (defaultPid) {
+                                fetchMaterials(defaultPid);
+                                fetchSuppliers(defaultPid);
+                                fetchBoqs(defaultPid);
+                            }
                             setIsPOModalOpen(true);
                         }} className="flex items-center gap-2 px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all active:scale-95">
                             Create PO
@@ -663,7 +715,7 @@ const MaterialReceiptPage = () => {
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200">
                                         {activeTab === "Materials" && (
                                             <tr>
                                                 <th className="px-6 py-4">Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
@@ -672,9 +724,9 @@ const MaterialReceiptPage = () => {
                                             </tr>
                                         )}
                                         {activeTab === "Suppliers" && (
-                                            <tr>
-                                                <th className="px-6 py-4">Supplier Name</th><th className="px-6 py-4">Contact Person</th>
-                                                <th className="px-6 py-4">Phone/Email</th><th className="px-6 py-4">GST Number</th><th className="px-6 py-4">Address</th><th className="px-6 py-4 text-right">Actions</th>
+                                            <tr className="bg-slate-100 text-slate-700">
+                                                <th className="px-6 py-4 font-bold text-slate-800">Supplier Name</th><th className="px-6 py-4 font-bold text-slate-800">Contact Person</th>
+                                                <th className="px-6 py-4 font-bold text-slate-800">Phone/Email</th><th className="px-6 py-4 font-bold text-slate-800">GST Number</th><th className="px-6 py-4 font-bold text-slate-800">Address</th><th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                             </tr>
                                         )}
                                         {activeTab === "Purchase Orders" && (
@@ -685,24 +737,24 @@ const MaterialReceiptPage = () => {
                                             </tr>
                                         )}
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50">
+                                    <tbody className="divide-y divide-slate-100">
                                         {isLoading ? <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading...</td></tr> :
                                             !projectId ? <tr><td colSpan={10} className="p-8 text-center text-slate-400 font-bold">Please select a project to view data.</td></tr> :
                                                 activeTab === "Materials" ? paginatedMaterials.map(m => (
-                                                    <tr key={m.id} className="hover:bg-slate-50/50">
+                                                    <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{m.category}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{(m as any).unit_name || m.unit}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{m.category}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{(m as any).unit_name || m.unit}</td>
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600 text-center font-medium">{m.minimum_stock_level}</td>
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">
                                                             <div>{formatINR(m.purchase_rate)}</div>
-                                                            {m.rate_type && <span className="text-[10px] font-semibold text-slate-400 block tracking-wider uppercase">{m.rate_type}</span>}
+                                                            {m.rate_type && <span className="text-[10px] font-semibold text-slate-500 block tracking-wider uppercase">{m.rate_type}</span>}
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{m.supplier_name}</td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex justify-end gap-1">
                                                                 <button onClick={async () => {
@@ -711,7 +763,7 @@ const MaterialReceiptPage = () => {
                                                                         setSelectedMaterial(fullM);
                                                                         setIsViewMaterialOpen(true);
                                                                     } catch (e) { toast.error("Failed to load details"); }
-                                                                }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
+                                                                }} className="p-1.5 text-slate-500 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
                                                                 <button onClick={async () => {
                                                                     try {
                                                                         const fullM = await materialService.getMaterial(m.id);
@@ -719,8 +771,8 @@ const MaterialReceiptPage = () => {
                                                                         setMaterialForm(fullM);
                                                                         setIsMaterialModalOpen(true);
                                                                     } catch (e) { toast.error("Failed to load details"); }
-                                                                }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                                <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
+                                                                }} className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
                                                                 <button onClick={async () => {
                                                                     try {
                                                                         setSelectedMaterial(m);
@@ -728,7 +780,7 @@ const MaterialReceiptPage = () => {
                                                                         setTransactions(res || []);
                                                                         setIsTransactionsOpen(true);
                                                                     } catch (e) { toast.error("Failed to load transactions"); }
-                                                                }} className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
+                                                                }} className="p-1.5 text-slate-500 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
                                                                 <button onClick={async () => {
                                                                     try {
                                                                         setSelectedMaterial(m);
@@ -736,18 +788,18 @@ const MaterialReceiptPage = () => {
                                                                         setPriceHistory(res || []);
                                                                         setIsPriceHistoryOpen(true);
                                                                     } catch (e) { toast.error("Failed to load price history"); }
-                                                                }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
-                                                                <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                                }} className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
-                                                    <tr key={s.id} className="hover:bg-slate-50/50">
-                                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
+                                                    <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-900">{s.name}</td>
+                                                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{s.contactPerson}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{s.contact}</td>
+                                                        <td className="px-6 py-4 text-sm font-mono font-medium text-slate-700">{s.gst || '-'}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{s.address || '-'}</td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex justify-end gap-1">
                                                                 <button onClick={async () => {
@@ -756,9 +808,9 @@ const MaterialReceiptPage = () => {
                                                                         setSelectedSupplier(fullS);
                                                                         setIsViewSupplierOpen(true);
                                                                     } catch (e) { toast.error("Failed to load supplier details"); }
-                                                                }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
-                                                                <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                                                <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                                                }} className="p-1.5 text-slate-500 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -818,8 +870,8 @@ const MaterialReceiptPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -920,8 +972,8 @@ const MaterialReceiptPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -993,8 +1045,8 @@ const MaterialReceiptPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -1004,7 +1056,7 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`${inputClasses} ${formNotification?.fields?.includes("Supplier Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Supplier Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`${inputClasses} ${formNotification?.fields?.includes("Contact Person") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Contact Person") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" title="Please enter a valid phone number (10-15 digits) or a valid email address." value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Phone / Email") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Phone / Email") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" title="Please enter a valid phone number (10-15 digits) or a valid email address." value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={`${inputClasses} text-slate-900 font-semibold placeholder:text-slate-400 ${formNotification?.fields?.includes("Phone / Email") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Phone / Email") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={`${inputClasses} ${formNotification?.fields?.includes("GST Number") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("GST Number") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
@@ -1058,8 +1110,8 @@ const MaterialReceiptPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -1074,7 +1126,15 @@ const MaterialReceiptPage = () => {
                                     icon={Building2}
                                     error={formNotification?.fields?.includes("Project")}
                                     value={poForm.project_id || projectId}
-                                    onChange={(val: any) => setPoForm({ ...poForm, project_id: val ? Number(val) : undefined })}
+                                    onChange={(val: any) => {
+                                        const pId = val ? Number(val) : undefined;
+                                        setPoForm({ ...poForm, project_id: pId, boq_item_id: undefined, material_id: undefined });
+                                        if (pId) {
+                                            fetchMaterials(pId);
+                                            fetchSuppliers(pId);
+                                            fetchBoqs(pId);
+                                        }
+                                    }}
                                     options={[
                                         { id: '', label: 'Select Project' },
                                         ...projectsList.map(p => ({
@@ -1085,6 +1145,7 @@ const MaterialReceiptPage = () => {
                                     ]}
                                     placeholder="Select Project"
                                     searchable={false}
+                                    maxHeight="max-h-48"
                                 />
                                 {formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1106,6 +1167,7 @@ const MaterialReceiptPage = () => {
                                     ]}
                                     placeholder="Select Supplier"
                                     searchable={false}
+                                    maxHeight="max-h-48"
                                 />
                                 {formNotification?.fields?.includes("Supplier") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1135,6 +1197,7 @@ const MaterialReceiptPage = () => {
                                     ]}
                                     placeholder="Select Material"
                                     searchable={false}
+                                    maxHeight="max-h-48"
                                 />
                                 {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -1147,17 +1210,18 @@ const MaterialReceiptPage = () => {
                                     options={[
                                         { id: '', label: 'Select BOQ' },
                                         ...boqs.map(b => ({
-                                            id: (b.id || b.boq_item_id)?.toString(),
-                                            label: b.item_name || b.description || b.item_description || b.work_description || `BOQ Item #${b.id}`,
-                                            searchKey: b.item_name || b.description || b.item_description || b.work_description || `BOQ Item #${b.id}`
+                                            id: (b.id || b.boq_item_id || b.item_id)?.toString(),
+                                            label: b.item_name || b.name || b.title || b.item_description || b.description || b.work_description || `BOQ Item #${b.id || b.boq_item_id || b.item_id}`,
+                                            searchKey: b.item_name || b.name || b.title || b.item_description || b.description || b.work_description || `BOQ Item #${b.id || b.boq_item_id || b.item_id}`
                                         }))
                                     ]}
                                     placeholder="Select BOQ (Optional)"
                                     searchable={false}
+                                    maxHeight="max-h-48"
                                 />
                             </div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} placeholder="Enter quantity" />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} placeholder="Enter rate" />{formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
 
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
                                 <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>
@@ -1169,7 +1233,23 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal K: View PO */}
-            <Modal isOpen={isViewPOOpen} onClose={() => setIsViewPOOpen(false)} title="Purchase Order Intelligence" maxWidth="max-w-3xl">
+            <Modal
+                isOpen={isViewPOOpen}
+                onClose={() => setIsViewPOOpen(false)}
+                title="Purchase Order Intelligence"
+                maxWidth="max-w-3xl"
+                footer={
+                    <div className="flex justify-end w-full">
+                        <button
+                            type="button"
+                            onClick={() => setIsViewPOOpen(false)}
+                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl shadow transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
+                }
+            >
                 {selectedPO && (
                     <div className="p-6 space-y-6">
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">

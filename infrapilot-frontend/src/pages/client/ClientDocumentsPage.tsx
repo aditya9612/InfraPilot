@@ -14,7 +14,6 @@ import {
   RefreshCcw,
   CheckCircle,
   Download,
-  History,
   ChevronLeft,
   ChevronRight,
   Folder,
@@ -22,29 +21,6 @@ import {
 import toast from "react-hot-toast";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
 import { resolveApprovalStatus } from "../../types/document";
-
-interface DrawingRecord {
-  id: number;
-  project_id: number;
-  drawing_name: string;
-  version: string;
-  date: string;
-  remarks: string;
-  file_url: string;
-  approval_status: string;
-  approval_id: number | null;
-  is_folder: boolean;
-  type: string;
-  project_name: string;
-}
-
-const getBaseUrl = () => {
-  const apiURL = import.meta.env.VITE_API_URL || "";
-  if (apiURL.startsWith("http")) {
-    return apiURL.replace(/\/api\/v1\/?$/, "");
-  }
-  return window.location.origin;
-};
 
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState<"Drawings" | "Documents">("Drawings");
@@ -58,20 +34,21 @@ const ClientDocumentsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [projectName, setProjectName] = useState<string>("");
-  
+
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [fetchingDetail, setFetchingDetail] = useState(false);
+  const [, setFetchingDetail] = useState(false);
 
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
-  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
+  const [, setCurrentFolderName] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<{ id: number; name: string }[]>([]);
 
-  const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [selectedDrawingHistory, setSelectedDrawingHistory] = useState<any>(null);
-
   const { projectId } = useClientProjectId();
+
+  const totalStorageBytes = useMemo(() => {
+    if (docStats?.total_storage_bytes !== undefined) return docStats.total_storage_bytes;
+    return apiDocs.reduce((acc, d) => acc + (Number(d.file_size) || 0), 0);
+  }, [docStats, apiDocs]);
 
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
@@ -121,8 +98,8 @@ const ClientDocumentsPage = () => {
       link.href = objectUrl;
       const extension = file_url.replace(/\\/g, '/').split('.').pop()?.split('?')[0] || '';
       const downloadName = (doc.name || doc.drawing_name || 'document').toLowerCase().endsWith(`.${extension.toLowerCase()}`)
-          ? (doc.name || doc.drawing_name || 'document')
-          : `${doc.name || doc.drawing_name || 'document'}.${extension}`;
+        ? (doc.name || doc.drawing_name || 'document')
+        : `${doc.name || doc.drawing_name || 'document'}.${extension}`;
       link.download = downloadName;
       document.body.appendChild(link);
       link.click();
@@ -155,14 +132,14 @@ const ClientDocumentsPage = () => {
         }
       }
 
-      setSelectedPreview({ 
-        ...currentDoc, 
-        name: currentDoc.drawing_name || currentDoc.title || currentDoc.name || "Preview", 
+      setSelectedPreview({
+        ...currentDoc,
+        name: currentDoc.drawing_name || currentDoc.title || currentDoc.name || "Preview",
         file_url: file_url,
-        remarks: (currentDoc.remarks !== undefined && currentDoc.remarks !== null) ? currentDoc.remarks : (doc.remarks || ""), 
-        uploaded_at: currentDoc.uploaded_at || currentDoc.date || doc.date, 
-        date: currentDoc.date || currentDoc.uploaded_at || doc.date, 
-        project_name: (currentDoc.project_name && currentDoc.project_name !== "—") ? currentDoc.project_name : (projectName || "General"), 
+        remarks: (currentDoc.remarks !== undefined && currentDoc.remarks !== null) ? currentDoc.remarks : (doc.remarks || ""),
+        uploaded_at: currentDoc.uploaded_at || currentDoc.date || doc.date,
+        date: currentDoc.date || currentDoc.uploaded_at || doc.date,
+        project_name: (currentDoc.project_name && currentDoc.project_name !== "—") ? currentDoc.project_name : (projectName || "General"),
         uploaded_by: currentDoc.uploaded_by || currentDoc.created_by || currentDoc.user_name || doc.uploaded_by || "Site Engineer",
         file_size: currentDoc.file_size,
         type: doc.type || (doc.is_folder ? "Folder" : "Drawing"),
@@ -170,8 +147,8 @@ const ClientDocumentsPage = () => {
       });
     } catch (err: any) {
       console.error("View failed:", err);
-      setSelectedPreview({ 
-        ...doc, 
+      setSelectedPreview({
+        ...doc,
         name: doc.drawing_name || doc.title || doc.name || "Preview",
         project_name: (doc.project_name && doc.project_name !== "—") ? doc.project_name : (projectName || "General"),
         uploaded_by: doc.uploaded_by || doc.created_by || doc.user_name || "Site Engineer",
@@ -203,29 +180,46 @@ const ClientDocumentsPage = () => {
     }
   };
 
-  const handleViewHistory = async (drawing: any) => {
-    const toastId = toast.loading("Fetching approval history...");
-    try {
-      const history = await drawingService.getApprovalHistory(drawing.id);
-      setApprovalHistory(history);
-      setSelectedDrawingHistory(drawing);
-      setIsHistoryModalOpen(true);
-      toast.dismiss(toastId);
-    } catch (error) {
-      toast.error("Failed to fetch history", { id: toastId });
-    }
+  const handleBreadcrumbClick = handleNavigateBreadcrumb;
+  const handleFolderClick = (folder: any) => {
+    if (!folder) return;
+    const fId = folder.id || folder.folder_id;
+    const fName = folder.drawing_name || folder.title || folder.name || "Folder";
+    handleOpenFolder(Number(fId), fName);
   };
 
   const fetchDrawingHistory = useCallback(async () => {
-    if (!projectId) return;
+    // Check if current user is marked deleted in infrapilot_deleted_clients
+    const userStr = localStorage.getItem("infrapilot_user");
+    let isDeleted = false;
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        const deletedList = JSON.parse(localStorage.getItem("infrapilot_deleted_clients") || "[]");
+        const uid = Number(u.id || u.user_id);
+        const mob = (u.mobile || "").replace(/\D/g, "").slice(-10);
+        isDeleted = deletedList.some((d: any) =>
+          (d.id && Number(d.id) === uid) ||
+          (mob && d.mobile && d.mobile.replace(/\D/g, "").slice(-10) === mob)
+        );
+      } catch { }
+    }
+
+    if (!projectId || isDeleted) {
+      setApiDrawings([]);
+      setApiDocs([]);
+      setDocStats(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const [versionsResult, docsResult, statsResult] = await Promise.allSettled([
         drawingService.getVersions(projectId),
-        documentService.listDocuments({ 
-            project_id: projectId,
-            parent_id: currentFolderId,
-            limit: 100
+        documentService.listDocuments({
+          project_id: projectId,
+          parent_id: currentFolderId,
+          limit: 100
         }),
         documentService.getStats({ project_id: projectId })
       ]);
@@ -265,7 +259,7 @@ const ClientDocumentsPage = () => {
             setProjectName(res.project_name || res.name);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [projectId]);
 
@@ -395,24 +389,12 @@ const ClientDocumentsPage = () => {
     };
   }, [drawingData]);
 
-  const totalStorageBytes = useMemo(() => {
-    return apiDocs.reduce((acc, d) => acc + (d.file_size || 0), 0);
-  }, [apiDocs]);
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   return (
     <>
       <Navbar title="Drawings & Documents" breadcrumb={["Client", "Document Vault", "Blueprints"]} />
 
       <div className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
-        
+
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
           <div className="font-inter">
@@ -553,8 +535,8 @@ const ClientDocumentsPage = () => {
           {/* Breadcrumbs for folder navigation */}
           {folderPath.length > 0 && activeTab === "Documents" && (
             <div className="flex items-center gap-2 mt-4 px-4 pb-2">
-              <button 
-                onClick={() => handleBreadcrumbClick(folderPath.length - 2)} 
+              <button
+                onClick={() => handleBreadcrumbClick(folderPath.length - 2)}
                 className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors mr-2 border border-slate-200 shadow-sm"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
@@ -615,15 +597,14 @@ const ClientDocumentsPage = () => {
                             {(() => {
                               const st = resolveApprovalStatus(drawing);
                               return (
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border ${
-                                  st === "APPROVED"
-                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                    : st === "REJECTED"
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border ${st === "APPROVED"
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                  : st === "REJECTED"
                                     ? "bg-rose-50 text-rose-600 border-rose-200"
                                     : st === "UNDER_REVIEW"
-                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                    : "bg-amber-50 text-amber-600 border-amber-200"
-                                }`}>
+                                      ? "bg-blue-50 text-blue-600 border-blue-200"
+                                      : "bg-amber-50 text-amber-600 border-amber-200"
+                                  }`}>
                                   {st.replace("_", " ")}
                                 </span>
                               );
@@ -758,15 +739,14 @@ const ClientDocumentsPage = () => {
                             {(() => {
                               const st = resolveApprovalStatus(drawing);
                               return (
-                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
-                                  st === "APPROVED"
-                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                    : st === "REJECTED"
+                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${st === "APPROVED"
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                  : st === "REJECTED"
                                     ? "bg-rose-50 text-rose-600 border-rose-200"
                                     : st === "UNDER_REVIEW"
-                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                    : "bg-amber-50 text-amber-600 border-amber-200"
-                                }`}>
+                                      ? "bg-blue-50 text-blue-600 border-blue-200"
+                                      : "bg-amber-50 text-amber-600 border-amber-200"
+                                  }`}>
                                   {st.replace("_", " ")}
                                 </span>
                               );
@@ -780,9 +760,9 @@ const ClientDocumentsPage = () => {
                               <button onClick={() => handleView(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
                                 <Eye className="w-4 h-4" />
                               </button>
-                                <button onClick={() => handleDownload(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
-                                  <Download className="w-4 h-4" />
-                                </button>
+                              <button onClick={() => handleDownload(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                <Download className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -907,46 +887,6 @@ const ClientDocumentsPage = () => {
         } : null}
         onDownload={handleDownload}
       />
-
-      {/* ── History Modal ────────────────────────────────────────────────────────── */}
-      <Modal isOpen={isHistoryModalOpen} onClose={() => { setIsHistoryModalOpen(false); setSelectedDrawingHistory(null); }} title="Approval History" maxWidth="max-w-2xl">
-        <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden font-inter">
-          <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between font-inter">
-            <div>
-              <h4 className="text-sm font-bold text-slate-800 font-inter">{selectedDrawingHistory?.drawing_name}</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-inter">Version: {selectedDrawingHistory?.version}</p>
-            </div>
-          </div>
-          <div className="p-4 max-h-[60vh] overflow-y-auto font-inter col-span-12">
-            {approvalHistory.length > 0 ? (
-              <div className="space-y-4 font-inter relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                {approvalHistory.map((historyItem: any, index: number) => (
-                  <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active font-inter">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 font-inter z-10">
-                      <CheckCircle className="w-4 h-4 font-inter" />
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm font-inter">
-                      <div className="flex items-center justify-between mb-1 font-inter">
-                        <div className="font-bold text-slate-800 text-sm font-inter">{historyItem.status || "Status Updated"}</div>
-                        <div className="text-[10px] font-bold text-slate-400 font-inter">
-                          {new Date(historyItem.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                      <div className="text-xs text-slate-600 font-inter">
-                        {historyItem.remarks || "No remarks provided."}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 font-inter">
-                <p className="text-sm font-bold text-slate-500 font-inter">No approval history found for this document.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
     </>
   );
 };

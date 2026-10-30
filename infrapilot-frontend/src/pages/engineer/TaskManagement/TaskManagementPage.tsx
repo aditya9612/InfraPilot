@@ -1723,10 +1723,25 @@ const TaskManagementPage = () => {
 
                                                     {/* Pagination Controls */}
                                                     {project.tasks.length > 0 && (
-                                                        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter">
-                                                            <span className="text-xs font-bold text-slate-500">
-                                                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, project.tasks.length)} of {project.tasks.length} tasks
-                                                            </span>
+                                                        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white font-inter">
+                                                            <div className="flex flex-wrap items-center gap-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                                                    <select
+                                                                        value={itemsPerPage}
+                                                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                                                    >
+                                                                        <option value={10}>10</option>
+                                                                        <option value={20}>20</option>
+                                                                        <option value={50}>50</option>
+                                                                        <option value={100}>100</option>
+                                                                    </select>
+                                                                </div>
+                                                                <span className="text-xs font-bold text-slate-500">
+                                                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, project.tasks.length)} of {project.tasks.length} tasks
+                                                                </span>
+                                                            </div>
                                                             <div className="flex items-center gap-2">
                                                                 <button
                                                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}

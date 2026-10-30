@@ -438,6 +438,8 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit, projects: propPr
               <option value="Fuel">Fuel</option>
               <option value="Travel">Travel</option>
               <option value="Material">Material</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Labour">Labour</option>
             </select>
             {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
           </div>
@@ -631,6 +633,8 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
                 <option value="Fuel">Fuel</option>
                 <option value="Travel">Travel</option>
                 <option value="Material">Material</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Labour">Labour</option>
               </select>
               {errors.category && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1">{errors.category}</p>}
             </div>
@@ -961,6 +965,8 @@ const ExpenseListSection = () => {
               <option value="Fuel">Fuel</option>
               <option value="Travel">Travel</option>
               <option value="Material">Material</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Labour">Labour</option>
             </select>
             <select onChange={e => handlePaymentModeChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
               <option value="">All Payment Modes</option>

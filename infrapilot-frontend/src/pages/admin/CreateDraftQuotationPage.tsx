@@ -775,7 +775,7 @@ const CreateDraftQuotationPage = () => {
     setIsSaving(true);
 
     const hasValidItem = items.some(item => (item.description && item.description.trim() !== "") || (item.quantity && Number(item.quantity) > 0) || (item.amount && Number(item.amount) > 0))
-      || labourItems.length > 0 
+      || labourItems.length > 0
       || materialItems.length > 0;
 
     if (!hasValidItem) {
@@ -1052,7 +1052,7 @@ const CreateDraftQuotationPage = () => {
       />
 
       <PageTransition className="p-4 lg:p-6 bg-[#f8fafc] min-h-screen">
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-4 mb-6">
+        <div className="w-full flex flex-col gap-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
@@ -1085,7 +1085,7 @@ const CreateDraftQuotationPage = () => {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row gap-6">
+        <div className="w-full flex flex-col xl:flex-row gap-6">
 
           {/* LEFT COLUMN: FORM */}
           <div className="flex-1 space-y-6">
@@ -1544,11 +1544,10 @@ const CreateDraftQuotationPage = () => {
                       }}
                       disabled={isRejectedStatus}
                       title={isRejectedStatus ? "Cannot approve a rejected quotation. Please edit and update first." : "Approve Quotation"}
-                      className={`w-full py-1.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
-                        isRejectedStatus
-                          ? "bg-slate-300 opacity-60 cursor-not-allowed shadow-none"
-                          : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
-                      }`}
+                      className={`w-full py-1.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${isRejectedStatus
+                        ? "bg-slate-300 opacity-60 cursor-not-allowed shadow-none"
+                        : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
+                        }`}
                     >
                       <CheckCircle className="w-3 h-3" /> Approve
                     </button>
@@ -1614,11 +1613,10 @@ const CreateDraftQuotationPage = () => {
                     }}
                     disabled={isRejected}
                     title={isRejected ? "Cannot send a rejected quotation. Please edit and update first." : "Send Quotation"}
-                    className={`w-full py-1.5 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${
-                      isRejected
-                        ? "bg-slate-100 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
-                        : "bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100"
-                    }`}
+                    className={`w-full py-1.5 rounded-xl font-bold text-[9px] uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-1.5 ${isRejected
+                      ? "bg-slate-100 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                      : "bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100"
+                      }`}
                   >
                     <Send className="w-4 h-4 text-indigo-600" /> Send Quotation
                   </button>

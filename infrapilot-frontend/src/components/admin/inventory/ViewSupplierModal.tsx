@@ -49,7 +49,7 @@ const ViewSupplierModal: React.FC<ViewSupplierModalProps> = ({ isOpen, onClose, 
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Email Address</p>
-                            <p className="font-semibold text-slate-700">{supplier.email || supplier.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || "N/A"}</p>
+                            <p className="font-semibold text-blue-600">{supplier.email || supplier.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || "N/A"}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Billing Address</p>

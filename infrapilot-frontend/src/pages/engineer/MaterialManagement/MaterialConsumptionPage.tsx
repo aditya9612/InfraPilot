@@ -5,12 +5,13 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
     Search, RotateCcw, ChevronLeft, ChevronRight,
-    ArrowRightLeft, Eye
+    ArrowRightLeft, Eye, AlertTriangle
 } from "lucide-react";
 import { materialService, type InventoryItem, type Transfer, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 import { boqService } from "../../../services/boqService";
 import { CustomSelect } from "../../../components/common/CustomDropdown";
+import { useProject } from "../../../context/ProjectContext";
 
 
 type TabType = "Usage" | "Transfers" | "Transactions";
@@ -18,7 +19,9 @@ const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "
 const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+    const { selectedProjectId: ctxProjectId, setSelectedProjectId: setCtxProjectId, assignedProjects } = useProject();
+    const [selectedProjectId, setSelectedProjectIdState] = useState<number | null>(() => {
+        if (ctxProjectId) return ctxProjectId;
         try {
             const pid = localStorage.getItem("infrapilot_selected_project_id");
             if (pid && pid !== "null") return Number(pid);
@@ -32,6 +35,11 @@ const MaterialConsumptionPage = () => {
         } catch (e) { }
         return null;
     });
+
+    const setSelectedProjectId = (id: number | null) => {
+        setSelectedProjectIdState(id);
+        if (setCtxProjectId) setCtxProjectId(id);
+    };
     const formatINR = (amount: number | string | undefined | null) => {
         if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
@@ -88,14 +96,20 @@ const MaterialConsumptionPage = () => {
     // Fetch methods
     const fetchInventory = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getProjectInventory(projectId); setInventory(data); }
-        catch (e) { toast.error("Failed to load inventory"); }
-        finally { setIsLoading(false); }
+        try {
+            const data = await materialService.getProjectInventory(projectId || undefined);
+            setInventory(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.warn("Failed to load inventory", e);
+            setInventory([]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const fetchTransfers = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listTransfers(0, 500, projectId); setTransfers(data.data || data.items || data); }
+        try { const data = await materialService.listTransfers(0, 500, projectId || undefined); setTransfers(data.data || data.items || data); }
         catch (e) { toast.error("Failed to load transfers"); }
         finally { setIsLoading(false); }
     };
@@ -103,7 +117,8 @@ const MaterialConsumptionPage = () => {
     const fetchTransactions = async () => {
         setIsLoading(true);
         try {
-            const params: any = { project_id: projectId };
+            const params: any = {};
+            if (projectId && Number(projectId) > 0) params.project_id = Number(projectId);
             if (selectedMaterialId) params.material_id = Number(selectedMaterialId);
             const data = await materialService.getLogs(params);
             setTransactions(data as any);
@@ -113,6 +128,11 @@ const MaterialConsumptionPage = () => {
     };
 
     const fetchTasksAndBoqs = async () => {
+        if (!projectId || Number(projectId) <= 0) {
+            setTasksList([]);
+            setBoqsList([]);
+            return;
+        }
         try {
             const [tasksRes, boqsRes] = await Promise.all([
                 projectService.getTasks(projectId, { limit: 100, offset: 0 }).catch(() => ({ items: [] })),
@@ -163,12 +183,28 @@ const MaterialConsumptionPage = () => {
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const res = await projectService.getProjects(100, 0);
-                setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
+                let assigned: any[] = (assignedProjects && assignedProjects.length > 0) ? assignedProjects : [];
+                if (assigned.length === 0) {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        assigned = parsed.assigned_projects || parsed.user?.assigned_projects || [];
+                        if (assigned.length === 0 && (parsed.project_id || parsed.user?.project_id)) {
+                            const pid = parsed.project_id || parsed.user?.project_id;
+                            const pname = parsed.project_name || parsed.user?.project_name;
+                            assigned = [{ id: pid, project_name: pname || `Project #${pid}` }];
+                        }
+                    }
+                }
+                if (assigned.length === 0) {
+                    const res = await projectService.getProjects(100, 0);
+                    assigned = Array.isArray(res) ? res : (res.items || res.data || []);
+                }
+                setProjectsList(assigned);
             } catch (err) { }
         };
         fetchProjects();
-    }, []);
+    }, [assignedProjects]);
 
     useEffect(() => {
         const fetchFormTasks = async () => {
@@ -203,6 +239,34 @@ const MaterialConsumptionPage = () => {
 
     const filteredTransactions = useMemo(() => transactions.filter(t => t.type.toLowerCase().includes(searchTerm.toLowerCase()) || t.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [transactions, searchTerm]);
     const paginatedTransactions = useMemo(() => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransactions, currentPage, itemsPerPage]);
+
+    // Unique materials for Transactions filter and Initiate Transfer dropdowns
+    const uniqueMaterials = useMemo(() => {
+        const seen = new Set<number>();
+        return inventory.filter(m => {
+            if (!m.material_id || seen.has(m.material_id)) return false;
+            seen.add(m.material_id);
+            return true;
+        });
+    }, [inventory]);
+
+    const transferMaterialOptions = useMemo(() => {
+        const map = new Map<number, { id: string; label: string; remaining: number; unit: string }>();
+        inventory.forEach(i => {
+            if (!i.material_id) return;
+            if (!map.has(i.material_id)) {
+                const unitStr = (i as any).unit_name || i.unit || '';
+                const stockStr = i.remaining_stock !== undefined ? ` (Available: ${i.remaining_stock}${unitStr ? ' ' + unitStr : ''})` : '';
+                map.set(i.material_id, {
+                    id: i.material_id.toString(),
+                    label: `${i.material_name}${stockStr}`,
+                    remaining: Number(i.remaining_stock || 0),
+                    unit: unitStr
+                });
+            }
+        });
+        return Array.from(map.values());
+    }, [inventory]);
 
     const labelClasses = "block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = "w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
@@ -265,7 +329,11 @@ const MaterialConsumptionPage = () => {
             setFormNotification({ type: 'success', message: (res as any)?.message || "Transfer initiated!" });
             setTimeout(() => setFormNotification(null), 3000);
             setIsTransferModalOpen(false); fetchTransfers();
-        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to create transfer" }); }
+        } catch (e: any) {
+            const rawMsg = e.response?.data?.detail || e.response?.data?.message || "Failed to create transfer";
+            const message = typeof rawMsg === 'string' ? rawMsg : (Array.isArray(rawMsg) ? rawMsg.map((m: any) => m.msg || m.message || JSON.stringify(m)).join(', ') : "Failed to create transfer");
+            setFormNotification({ type: 'error', message });
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -278,6 +346,11 @@ const MaterialConsumptionPage = () => {
             return;
         }
 
+        if (selectedTransfer?.status === 'COMPLETED') {
+            setFormNotification({ type: 'error', message: 'Transfer is already completed and cannot be modified.' });
+            return;
+        }
+
         if (!selectedTransfer) return;
         setIsSubmitting(true);
         try {
@@ -285,7 +358,11 @@ const MaterialConsumptionPage = () => {
             setFormNotification({ type: 'success', message: (res as any)?.message || "Transfer updated!" });
             setTimeout(() => setFormNotification(null), 3000);
             setIsUpdateTransferOpen(false); fetchTransfers();
-        } catch (e: any) { setFormNotification({ type: 'error', message: e.response?.data?.message || "Failed to update transfer" }); }
+        } catch (e: any) {
+            const rawMsg = e.response?.data?.detail || e.response?.data?.message || "Failed to update transfer";
+            const message = typeof rawMsg === 'string' ? rawMsg : (Array.isArray(rawMsg) ? rawMsg.map((m: any) => m.msg || m.message || JSON.stringify(m)).join(', ') : "Failed to update transfer");
+            setFormNotification({ type: 'error', message });
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -417,24 +494,41 @@ const MaterialConsumptionPage = () => {
                 <div className="space-y-4 h-full flex flex-col min-h-0">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption Logs</h2>
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                            <div className="relative flex-1 max-w-md">
+                        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                            <div className="relative flex-1 min-w-[200px] max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                <input
+                                    type="text"
+                                    placeholder={`Search ${activeTab.toLowerCase()}...`}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-800"
+                                />
                             </div>
-                            {activeTab === "Transactions" && (
-                                <select
-                                    value={selectedMaterialId}
-                                    onChange={e => setSelectedMaterialId(e.target.value)}
-                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
+                            <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                                {activeTab === "Transactions" && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Material:</span>
+                                        <select
+                                            value={selectedMaterialId}
+                                            onChange={e => setSelectedMaterialId(e.target.value)}
+                                            className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 shadow-sm max-w-[210px] truncate"
+                                        >
+                                            <option value="">All Materials</option>
+                                            {uniqueMaterials.map(m => (
+                                                <option key={m.material_id} value={m.material_id} className="truncate">{m.material_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions}
+                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
+                                    title="Refresh"
                                 >
-                                    <option value="">All Materials</option>
-                                    {inventory.map(m => (
-                                        <option key={m.material_id} value={m.material_id}>{m.material_name}</option>
-                                    ))}
-                                </select>
-                            )}
-                            <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                    <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-auto scrollbar-thin">
                             <table className="w-full text-left whitespace-nowrap">
@@ -456,7 +550,7 @@ const MaterialConsumptionPage = () => {
                                     {activeTab === "Transactions" && (
                                         <tr>
                                             <th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Material</th><th className="px-6 py-4 text-center">Qty</th>
-                                            <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4">Issue Type</th>
+                                            <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4 text-right">Amount Paid</th><th className="px-6 py-4">Issue Type</th>
                                         </tr>
                                     )}
                                 </thead>
@@ -498,6 +592,7 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
                                                 <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">{formatINR((t as any).amount_paid ?? 0)}</td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">{t.issue_type}</td>
                                             </tr>
                                         ))
@@ -519,7 +614,7 @@ const MaterialConsumptionPage = () => {
                         <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
                         <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                         </div>
                     </div>
@@ -532,8 +627,8 @@ const MaterialConsumptionPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -616,14 +711,14 @@ const MaterialConsumptionPage = () => {
             </Modal>
 
             {/* Create Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
                 {/* Top-right floating toast */}
                 {formNotification && (
                     <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
                         <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
                         <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                         </div>
                     </div>
@@ -636,13 +731,13 @@ const MaterialConsumptionPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
                     )}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm min-h-[380px]">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="z-[61]">
@@ -651,13 +746,17 @@ const MaterialConsumptionPage = () => {
                                     required
                                     value={transferForm.from_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, from_project_id: Number(val) })}
-                                    options={projectsList.map(p => ({
-                                        id: p.id.toString(),
-                                        label: p.project_name || `Project #${p.id}`
-                                    }))}
+                                    options={[
+                                        { id: "", label: "Select Origin" },
+                                        ...projectsList.map(p => ({
+                                            id: p.id.toString(),
+                                            label: p.project_name || `Project #${p.id}`
+                                        }))
+                                    ]}
                                     placeholder="Select Origin"
                                     error={formNotification?.fields?.includes("From Project")}
-                                    searchable={false}
+                                    maxHeight="max-h-48"
+                                    searchable={true}
                                 />
                                 {formNotification?.fields?.includes("From Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -667,13 +766,19 @@ const MaterialConsumptionPage = () => {
                                     required
                                     value={transferForm.to_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, to_project_id: Number(val) })}
-                                    options={projectsList.map(p => ({
-                                        id: p.id.toString(),
-                                        label: p.project_name || `Project #${p.id}`
-                                    }))}
+                                    options={[
+                                        { id: "", label: "Select Destination" },
+                                        ...projectsList
+                                            .filter(p => !transferForm.from_project_id || p.id !== transferForm.from_project_id)
+                                            .map(p => ({
+                                                id: p.id.toString(),
+                                                label: p.project_name || `Project #${p.id}`
+                                            }))
+                                    ]}
                                     placeholder="Select Destination"
                                     error={formNotification?.fields?.includes("To Project")}
-                                    searchable={false}
+                                    maxHeight="max-h-48"
+                                    searchable={true}
                                 />
                                 {formNotification?.fields?.includes("To Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
@@ -683,68 +788,162 @@ const MaterialConsumptionPage = () => {
                                     required
                                     value={transferForm.material_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
-                                    options={inventory.map(i => ({
-                                        id: i.material_id.toString(),
-                                        label: i.material_name
-                                    }))}
+                                    options={[
+                                        { id: "", label: "Select Material" },
+                                        ...transferMaterialOptions
+                                    ]}
                                     placeholder="Select Material"
                                     error={formNotification?.fields?.includes("Material")}
-                                    searchable={false}
+                                    maxHeight="max-h-48"
+                                    searchable={true}
                                 />
                                 {formNotification?.fields?.includes("Material") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div className="md:col-span-2 hidden"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
+                            <div>
+                                <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    placeholder="Enter quantity"
+                                    value={transferForm.quantity || ""}
+                                    onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })}
+                                    className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                />
+                                {formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Remarks (Optional)</label>
+                                <textarea
+                                    value={transferForm.remarks || ""}
+                                    onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })}
+                                    placeholder="Add any transfer notes or dispatch instructions..."
+                                    className={inputClasses}
+                                    rows={2}
+                                />
+                            </div>
                         </div>
                     </div>
                 </form>
             </Modal>
 
             {/* Update Transfer Modal */}
-            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Edit Transfer Status"}</button></>}>
+            <Modal
+                isOpen={isUpdateTransferOpen}
+                onClose={() => setIsUpdateTransferOpen(false)}
+                title="Update Transfer Status"
+                maxWidth="max-w-xl"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setIsUpdateTransferOpen(false)}
+                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            form="update-transfer-form"
+                            type="submit"
+                            disabled={isSubmitting || selectedTransfer?.status === 'COMPLETED'}
+                            className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSubmitting ? "Updating..." : "Update Status"}
+                        </button>
+                    </>
+                }
+            >
                 {/* Top-right floating toast */}
                 {formNotification && (
                     <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
                         <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
                         <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                         </div>
                     </div>
                 )}
-                <form id="update-transfer-form" noValidate onSubmit={handleUpdateTransfer} className="space-y-6">
+                <form id="update-transfer-form" noValidate onSubmit={handleUpdateTransfer} className="space-y-5">
+                    {selectedTransfer?.status === 'COMPLETED' && (
+                        <div className="flex items-center gap-2 p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span>This transfer has already been completed and cannot be modified.</span>
+                        </div>
+                    )}
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
-                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
+                        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
                             <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
                     )}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2"><label className={labelClasses}>Transfer Name <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.material?.name || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
-                            <div><label className={labelClasses}>Transfer ID <span className="text-rose-500">*</span></label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
-                            <div className="z-[60]">
-                                <CustomSelect
-                                    label="Status"
-                                    required
-                                    value={updateTransferForm.status}
-                                    onChange={(val) => setUpdateTransferForm({ ...updateTransferForm, status: val as TransferStatus })}
-                                    options={TRANSFER_STATUSES.map(s => ({ id: s, label: s }))}
-                                    placeholder="Select Status"
-                                    error={formNotification?.fields?.includes("Status")}
-                                    searchable={false}
-                                />
-                                {formNotification?.fields?.includes("Status") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+
+                    {/* Transfer Summary Card */}
+                    <div className="bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3.5">
+                        <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                            <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Transfer Record</span>
+                                <span className="text-sm font-bold text-slate-800">#{selectedTransfer?.id}</span>
                             </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${selectedTransfer?.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedTransfer?.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : selectedTransfer?.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                {selectedTransfer?.status}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Material</span>
+                                <span className="font-bold text-slate-800 text-sm truncate block">{selectedTransfer?.material?.name || '-'}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Quantity</span>
+                                <span className="font-bold text-blue-600 text-sm block">{selectedTransfer?.quantity} {(selectedTransfer?.material as any)?.unit || ''}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">From Project</span>
+                                <span className="font-bold text-slate-700 truncate block">{selectedTransfer?.from_project?.name || '-'}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">To Project</span>
+                                <span className="font-bold text-slate-700 truncate block">{selectedTransfer?.to_project?.name || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Status Update Controls */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Update Status Details</h3>
+                        <div>
+                            <label className={labelClasses}>Status <span className="text-rose-500">*</span></label>
+                            <select
+                                required
+                                value={updateTransferForm.status}
+                                onChange={(e) => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })}
+                                disabled={selectedTransfer?.status === 'COMPLETED'}
+                                className={`${inputClasses} font-semibold text-slate-700`}
+                            >
+                                <option value="" disabled>Select Status</option>
+                                {TRANSFER_STATUSES.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Remarks (Optional)</label>
+                            <textarea
+                                value={updateTransferForm.remarks || ""}
+                                onChange={(e) => setUpdateTransferForm({ ...updateTransferForm, remarks: e.target.value })}
+                                placeholder="Add any comments or inspection details..."
+                                disabled={selectedTransfer?.status === 'COMPLETED'}
+                                className={inputClasses}
+                                rows={2}
+                            />
                         </div>
                     </div>
                 </form>

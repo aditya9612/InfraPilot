@@ -68,7 +68,34 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
             const fetchBoqs = async () => {
                 setLoadingBoqs(true);
                 try {
-                    const items = await boqService.getBoqItems(formData.project_id);
+                    let items: any[] = [];
+                    try {
+                        const bItems = await boqService.getBoqItems(formData.project_id);
+                        const list = Array.isArray(bItems) ? bItems : (bItems as any)?.items || (bItems as any)?.boq_items || (bItems as any)?.data || [];
+                        if (list.length > 0) items = list;
+                    } catch (err) { }
+
+                    if (items.length === 0) {
+                        try {
+                            const byProj = await boqService.getBoqsByProject(formData.project_id);
+                            const list = Array.isArray(byProj) ? byProj : (byProj as any)?.items || (byProj as any)?.boq_items || (byProj as any)?.data || [];
+                            if (list.length > 0) items = list;
+                        } catch (err) { }
+                    }
+
+                    if (items.length === 0) {
+                        try {
+                            const data = await boqService.getBoqs({ project_id: Number(formData.project_id), limit: 100, skip: 0 } as any);
+                            const raw = Array.isArray(data) ? data : (data?.items || (data as any)?.data || []);
+                            const flattened = raw.flatMap((b: any) => {
+                                if (Array.isArray(b?.items) && b.items.length > 0) return b.items;
+                                if (Array.isArray(b?.boq_items) && b.boq_items.length > 0) return b.boq_items;
+                                return [b];
+                            });
+                            if (flattened.length > 0) items = flattened;
+                        } catch (err) { }
+                    }
+
                     if (active) setBoqItems(items);
                 } catch (error) {
                     console.error("Failed to fetch BOQ items", error);

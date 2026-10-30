@@ -10,6 +10,7 @@ import {
 import { materialService, type InventoryItem, type MaterialReport, type MaterialLog } from "../../../../services/materialService";
 import { projectService } from "../../../../services/projectService";
 import { useProject } from "../../../../context/ProjectContext";
+import { CustomSelect } from "../../../../components/common/CustomDropdown";
 
 type TabType = "Stock Overview" | "Global Inventory" | "Reports" | "Inventory Adjustment";
 
@@ -20,7 +21,7 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const { selectedProjectId, setSelectedProjectId, assignedProjects } = useProject();
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -35,16 +36,39 @@ const MaterialStockPage = () => {
     const [adjustments, setAdjustments] = useState<MaterialLog[]>([]);
     const [valuation, setValuation] = useState({ total_value: 0 });
     const [projectsList, setProjectsList] = useState<any[]>([]);
+    const [allProjects, setAllProjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        projectService.getProjects(200, 0)
+            .then(res => setAllProjects(Array.isArray(res) ? res : (res.items || res.data || [])))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const res = await projectService.getProjects(100, 0);
-                setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
+                let assigned: any[] = (assignedProjects && assignedProjects.length > 0) ? assignedProjects : [];
+                if (assigned.length === 0) {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        assigned = parsed.assigned_projects || parsed.user?.assigned_projects || [];
+                        if (assigned.length === 0 && (parsed.project_id || parsed.user?.project_id)) {
+                            const pid = parsed.project_id || parsed.user?.project_id;
+                            const pname = parsed.project_name || parsed.user?.project_name;
+                            assigned = [{ id: pid, project_name: pname || `Project #${pid}` }];
+                        }
+                    }
+                }
+                if (assigned.length === 0) {
+                    const res = await projectService.getProjects(100, 0);
+                    assigned = Array.isArray(res) ? res : (res.items || res.data || []);
+                }
+                setProjectsList(assigned);
             } catch (err) { }
         };
         fetchProjects();
-    }, []);
+    }, [assignedProjects]);
 
     const handleProjectChange = (id: number) => {
         const newProjectId = id === 0 ? null : id;
@@ -95,24 +119,59 @@ const MaterialStockPage = () => {
     const fetchStock = async () => {
         setIsLoading(true);
         try {
+            if (!projectId || projectId === 0) {
+                // Backend GET /materials/reports returns 400 for global queries without project_id.
+                // Reset inventory and load global valuation if available.
+                setInventory([]);
+                setReportSummary(null);
+                try {
+                    const val = await materialService.getInventoryValuation(undefined);
+                    setValuation(val || { total_value: 0 });
+                } catch {
+                    setValuation({ total_value: 0 });
+                }
+                return;
+            }
             const [rep, val] = await Promise.all([
                 materialService.getMaterialReport(projectId),
                 materialService.getInventoryValuation(projectId || undefined)
             ]);
             setInventory(rep.materials as any);
             setValuation(val);
-        } catch (e) { toast.error("Failed to load stock data"); }
+            if (rep.summary) {
+                setReportSummary(rep.summary);
+            }
+        } catch (e: any) {
+            const detail = e?.response?.data?.detail;
+            if (detail && typeof detail === "string") {
+                toast.error(detail);
+            } else {
+                toast.error("Failed to load stock data");
+            }
+        }
         finally { setIsLoading(false); }
     };
 
     const fetchReports = async () => {
         setIsLoading(true);
         try {
+            if (!projectId || projectId === 0) {
+                setReports([]);
+                setReportSummary(null);
+                return;
+            }
             const data = await materialService.getMaterialReport(projectId);
             setReports(data.materials || []);
             setReportSummary(data.summary || null);
         }
-        catch (e) { toast.error("Failed to load reports"); }
+        catch (e: any) {
+            const detail = e?.response?.data?.detail;
+            if (detail && typeof detail === "string") {
+                toast.error(detail);
+            } else {
+                toast.error("Failed to load reports");
+            }
+        }
         finally { setIsLoading(false); }
     };
 
@@ -139,12 +198,29 @@ const MaterialStockPage = () => {
     }, [activeTab, projectId, logTypeFilter]);
 
     const stats = useMemo(() => {
+        const lowStock = reportSummary?.low_stock_count !== undefined
+            ? Number(reportSummary.low_stock_count)
+            : inventory.filter(i => (i.alert_type === 'LOW_STOCK') || (i.remaining_stock > 0 && i.remaining_stock <= (i.minimum_stock_level || 10))).length;
+
+        const outOfStock = reportSummary?.out_of_stock_count !== undefined
+            ? Number(reportSummary.out_of_stock_count)
+            : inventory.filter(i => (String(i.alert_type) === 'OUT_OF_STOCK') || (i.remaining_stock !== undefined && i.remaining_stock <= 0)).length;
+
+        const totalItems = reportSummary?.total_materials !== undefined
+            ? Number(reportSummary.total_materials)
+            : inventory.length;
+
+        const totalValue = reportSummary?.total_stock_value !== undefined
+            ? Number(reportSummary.total_stock_value)
+            : (valuation.total_value || inventory.reduce((a, b) => a + (b.total_value || (b as any).stock_value || 0), 0));
+
         return {
-            totalItems: inventory.length,
-            totalValue: valuation.total_value || inventory.reduce((a, b) => a + (b.total_value || 0), 0),
-            criticalCount: inventory.filter(i => i.remaining_stock < 10).length,
+            totalItems,
+            totalValue,
+            criticalCount: lowStock,
+            outOfStockCount: outOfStock,
         };
-    }, [inventory, valuation]);
+    }, [inventory, valuation, reportSummary]);
 
     // Derived Lists
     const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
@@ -170,6 +246,10 @@ const MaterialStockPage = () => {
 
     // Actions
     const handleDownload = async (type: 'pdf' | 'excel') => {
+        if (!projectId || projectId === 0) {
+            toast.error("Global query without project_id not permitted. Please select a specific project to export reports.");
+            return;
+        }
         setIsExporting(true);
         const t = toast.loading(`Generating ${type.toUpperCase()}...`);
         try {
@@ -179,7 +259,10 @@ const MaterialStockPage = () => {
                 await materialService.exportExcel(projectId);
             }
             toast.success("Download started", { id: t });
-        } catch (e) { toast.error("Export failed", { id: t }); }
+        } catch (e: any) {
+            const errorDetail = e?.response?.data?.detail || e?.response?.data?.message || (typeof e?.message === 'string' ? e.message : "Export failed");
+            toast.error(errorDetail, { id: t });
+        }
         finally { setIsExporting(false); }
     };
 
@@ -330,20 +413,62 @@ const MaterialStockPage = () => {
 
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
-                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
-                        </select>
+                        <span className="text-sm font-bold text-slate-500 whitespace-nowrap">Project:</span>
+                        <div className="min-w-[220px] z-30">
+                            <CustomSelect
+                                value={projectId ? String(projectId) : "0"}
+                                onChange={(val) => handleProjectChange(Number(val))}
+                                options={[
+                                    { id: "0", label: "All Projects" },
+                                    ...projectsList.map(p => ({
+                                        id: String(p.id),
+                                        label: p.project_name || `Project #${p.id}`
+                                    }))
+                                ]}
+                                placeholder="Select Project"
+                                maxHeight="max-h-56"
+                                searchable={projectsList.length > 5}
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {/* Tab Content */}
                 {activeTab === "Stock Overview" && (
                     <div className="space-y-8 flex-1 flex flex-col min-h-0">
+                        {(!projectId || projectId === 0) && (
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-xl font-bold">
+                                        ⚠️
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-amber-900">
+                                            Project Selection Required for Stock Overview
+                                        </h4>
+                                        <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                                            Stock Overview requires a specific project to display itemized site inventory. Please select a project from the dropdown above, or switch to the{" "}
+                                            <button
+                                                onClick={() => setActiveTab("Global Inventory")}
+                                                className="underline font-bold text-amber-900 hover:text-amber-950"
+                                            >
+                                                Global Inventory
+                                            </button>{" "}
+                                            tab to view consolidated inventory across all projects.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setActiveTab("Global Inventory")}
+                                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all shrink-0 active:scale-95 whitespace-nowrap"
+                                >
+                                    View Global Inventory
+                                </button>
+                            </div>
+                        )}
                         <div>
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Stock Valuation Stats</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                 {[
                                     {
                                         title: "Inventory Scope",
@@ -361,6 +486,12 @@ const MaterialStockPage = () => {
                                         title: "Critical Stock",
                                         value: stats.criticalCount.toString(),
                                         sub: "Refill Required",
+                                        accent: "text-amber-500",
+                                    },
+                                    {
+                                        title: "Out of Stock",
+                                        value: stats.outOfStockCount.toString(),
+                                        sub: "Depleted Resources",
                                         accent: "text-rose-500",
                                     },
                                 ].map((s) => (
@@ -408,7 +539,33 @@ const MaterialStockPage = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
-                                            {isLoading ? <tr><td colSpan={12} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
+                                            {isLoading ? (
+                                                <tr><td colSpan={12} className="p-8 text-center text-slate-400">Loading...</td></tr>
+                                            ) : paginatedInventory.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={12} className="p-12 text-center">
+                                                        {(!projectId || projectId === 0) ? (
+                                                            <div className="max-w-md mx-auto space-y-3">
+                                                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto text-2xl font-bold">
+                                                                    📋
+                                                                </div>
+                                                                <p className="text-base font-bold text-slate-700">All Projects Selected</p>
+                                                                <p className="text-xs text-slate-500 leading-relaxed">
+                                                                    Stock Overview requires selecting a specific project to view site inventory. Select a project from the dropdown above or check the Global Inventory tab for all active stock.
+                                                                </p>
+                                                                <button
+                                                                    onClick={() => setActiveTab("Global Inventory")}
+                                                                    className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow hover:bg-blue-600 transition-all"
+                                                                >
+                                                                    Go to Global Inventory
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-slate-400 font-medium">No inventory records found for this project.</p>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ) : paginatedInventory.map(i => (
                                                 <tr key={i.material_id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-4 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
                                                     <td className="px-4 py-4 text-sm font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '-'}</td>
@@ -423,7 +580,21 @@ const MaterialStockPage = () => {
                                                     <td className="px-4 py-4 text-sm font-bold text-rose-500 text-right">{formatINR(i.payment_pending)}</td>
                                                     <td className="px-4 py-4 text-sm text-center">
                                                         <div className="flex flex-col items-center gap-1">
-                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${i.alert_type === 'LOW_STOCK' ? 'bg-rose-100 text-rose-600' : i.alert_type === 'NEAR_LOW' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>{(i.alert_type || 'IN_STOCK').replace('_', ' ')}</span>
+                                                            {(() => {
+                                                                const isOutOfStock = String(i.alert_type) === 'OUT_OF_STOCK' || (i.remaining_stock !== undefined && Number(i.remaining_stock) <= 0);
+                                                                const isLowStock = i.alert_type === 'LOW_STOCK' || (!isOutOfStock && i.remaining_stock !== undefined && Number(i.remaining_stock) <= (i.minimum_stock_level || 10));
+                                                                const statusLabel = isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK';
+                                                                const badgeClass = isOutOfStock
+                                                                    ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                                                    : isLowStock
+                                                                    ? 'bg-amber-100 text-amber-600 border border-amber-200'
+                                                                    : 'bg-emerald-100 text-emerald-600 border border-emerald-200';
+                                                                return (
+                                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badgeClass}`}>
+                                                                        {statusLabel}
+                                                                    </span>
+                                                                );
+                                                            })()}
                                                             <span className="text-[9px] font-semibold text-slate-400">Min: {i.minimum_stock_level || 0}</span>
                                                         </div>
                                                     </td>
@@ -451,24 +622,35 @@ const MaterialStockPage = () => {
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4">Unit</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-6 py-4">Material Name</th>
+                                            <th className="px-6 py-4">Project Name</th>
+                                            <th className="px-6 py-4 text-center">Remaining Stock</th>
+                                            <th className="px-6 py-4">Unit</th>
+                                            <th className="px-6 py-4 text-right">Avg Rate</th>
+                                            <th className="px-6 py-4 text-right">Total Value</th>
+                                        </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedGlobalInventory.map((i, idx) => (
-                                            <tr key={`${i.project_id}-${i.material_id}-${idx}`} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${i.remaining_stock > 50 ? 'bg-emerald-50 text-emerald-600' : i.remaining_stock > 10 ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                        {i.remaining_stock}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '—'}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-600 text-right">{formatINR(i.avg_rate)}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
-                                            </tr>
-                                        ))}
-                                        {!isLoading && paginatedGlobalInventory.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400">No global inventory found.</td></tr>}
+                                    <tbody className="divide-y divide-slate-100">
+                                        {isLoading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedGlobalInventory.map((i, idx) => {
+                                            const pName = (i as any).project_name || allProjects.find(p => Number(p.id) === Number(i.project_id))?.project_name || projectsList.find(p => Number(p.id) === Number(i.project_id))?.project_name || (i.project_id ? `Project #${i.project_id}` : '—');
+                                            return (
+                                                <tr key={`${i.project_id}-${i.material_id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm font-semibold text-slate-700">{pName}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${i.remaining_stock > 50 ? 'bg-emerald-50 text-emerald-600' : i.remaining_stock > 10 ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {i.remaining_stock}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '—'}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-600 text-right">{formatINR(i.avg_rate)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {!isLoading && paginatedGlobalInventory.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400">No global inventory found.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -481,7 +663,25 @@ const MaterialStockPage = () => {
                     <div className="space-y-4 flex-1 flex flex-col min-h-0">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption & Stock Reports</h2>
 
-                        {reportSummary && (
+                        {(!projectId || projectId === 0) && (
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in mb-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-xl font-bold">
+                                        ⚠️
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-amber-900">
+                                            Project Selection Required for Consumption & Stock Reports
+                                        </h4>
+                                        <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                                            Global queries across all projects are not permitted for detailed material reports. Please select an assigned project from the dropdown above to view stock analytics, consumption summaries, and download reports.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {projectId !== 0 && reportSummary && (
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-2">
                                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Materials</p>
@@ -548,24 +748,44 @@ const MaterialStockPage = () => {
                                         <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
-                                                <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
-                                                <td className="px-6 py-4 text-sm text-center text-orange-600">{r.total_used}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-center">
-                                                    {(() => {
-                                                        const alertType = (r as any).alert_type || (r.remaining_stock <= 0 ? 'OUT_OF_STOCK' : (r.remaining_stock <= ((r as any).minimum_stock_level || 10) ? 'LOW_STOCK' : 'IN_STOCK'));
-                                                        const alertText = alertType.replace('_', ' ');
-                                                        const badgeColor = alertType === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-600' : alertType === 'LOW_STOCK' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600';
-                                                        return <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase ${badgeColor}`}>{alertText}</span>;
-                                                    })()}
+                                        {isLoading ? (
+                                            <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr>
+                                        ) : (!projectId || projectId === 0) ? (
+                                            <tr>
+                                                <td colSpan={7} className="p-12 text-center">
+                                                    <div className="max-w-md mx-auto flex flex-col items-center gap-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <h4 className="text-sm font-bold text-slate-800">Project Selection Required</h4>
+                                                        <p className="text-xs text-slate-500 leading-relaxed">
+                                                            Global queries across all projects are not permitted. Please select an assigned project from the dropdown to view reports and download statements.
+                                                        </p>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
                                             </tr>
-                                        ))}
+                                        ) : paginatedReports.length === 0 ? (
+                                            <tr><td colSpan={7} className="p-8 text-center text-slate-400">No report data found for this project.</td></tr>
+                                        ) : (
+                                            paginatedReports.map((r, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
+                                                    <td className="px-6 py-4 text-sm text-center text-orange-600">{r.total_used}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-center">
+                                                        {(() => {
+                                                            const alertType = (r as any).alert_type || (r.remaining_stock <= 0 ? 'OUT_OF_STOCK' : (r.remaining_stock <= ((r as any).minimum_stock_level || 10) ? 'LOW_STOCK' : 'IN_STOCK'));
+                                                            const alertText = alertType.replace('_', ' ');
+                                                            const badgeColor = alertType === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-600' : alertType === 'LOW_STOCK' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600';
+                                                            return <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase ${badgeColor}`}>{alertText}</span>;
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -598,16 +818,28 @@ const MaterialStockPage = () => {
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Old Stock</th><th className="px-6 py-4 text-center">New Stock</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4">Remarks</th></tr>
+                                        <tr>
+                                            <th className="px-6 py-4">Date</th>
+                                            <th className="px-6 py-4">Project Name</th>
+                                            <th className="px-6 py-4">Material Name</th>
+                                            <th className="px-6 py-4">Type</th>
+                                            <th className="px-6 py-4 text-center">Old Stock</th>
+                                            <th className="px-6 py-4 text-center">New Stock</th>
+                                            <th className="px-6 py-4 text-center">Qty Changed</th>
+                                            <th className="px-6 py-4 text-right">Avg Rate</th>
+                                            <th className="px-6 py-4">Remarks</th>
+                                        </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => {
+                                        {isLoading ? <tr><td colSpan={9} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => {
                                             const itemInv = globalInventory.find(i => i.material_id === a.material_id);
                                             const newStock = (a as any).new_stock ?? (itemInv ? itemInv.remaining_stock : null);
                                             const oldStock = (a as any).old_stock ?? (newStock !== null ? newStock - (a.quantity || 0) : null);
+                                            const pName = (a as any).project_name || allProjects.find(p => Number(p.id) === Number(a.project_id))?.project_name || projectsList.find(p => Number(p.id) === Number(a.project_id))?.project_name || (a.project_id ? `Project #${a.project_id}` : '—');
                                             return (
                                                 <tr key={idx} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-sm font-semibold text-slate-700">{pName}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
                                                     <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {(a as any).issue_type || a.type}</span></td>
                                                     <td className="px-6 py-4 text-sm text-slate-600 text-center">{oldStock !== null ? oldStock : '-'}</td>
@@ -624,7 +856,7 @@ const MaterialStockPage = () => {
                                                 </tr>
                                             );
                                         })}
-                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -635,7 +867,7 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
                 <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -645,38 +877,79 @@ const MaterialStockPage = () => {
                             </svg>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-red-600">Validation Error</p>
-                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: ${(formNotification.fields || []).join(', ')}</p>
+                                <p className="text-xs text-red-500 mt-0.5">Mandatory fields required: {(formNotification.fields || []).join(', ')}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
                     )}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Adjustment Details</h3>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Adjustment Details</h3>
+                            <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">Audit Verification</span>
+                        </div>
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">material_id *</label>
-                                <select required value={adjustmentForm.material_id || ""} onChange={e => {
-                                    const val = Number(e.target.value);
-                                    setAdjustmentForm({ ...adjustmentForm, material_id: val });
-                                    setSelectedInventoryForAdj(inventory.find(i => i.material_id === val) || null);
-                                }} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500">
-                                    <option value="">Select Material</option>
-                                    {inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}
-                                </select>
+                            {/* Material ID / Material */}
+                            <div className="bg-slate-50/80 p-4 rounded-xl border-2 border-slate-200 focus-within:border-amber-500 focus-within:bg-amber-50/10 transition-all z-[60] relative">
+                                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                    <span>Material (Material ID) <span className="text-rose-500">*</span></span>
+                                    {adjustmentForm.material_id > 0 && <span className="text-[10px] font-extrabold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">ID: {adjustmentForm.material_id}</span>}
+                                </label>
+                                <CustomSelect
+                                    required
+                                    value={adjustmentForm.material_id?.toString() || ""}
+                                    onChange={val => {
+                                        const numVal = Number(val);
+                                        setAdjustmentForm({ ...adjustmentForm, material_id: numVal });
+                                        setSelectedInventoryForAdj(inventory.find(i => i.material_id === numVal) || null);
+                                    }}
+                                    options={inventory.map(i => ({
+                                        id: i.material_id.toString(),
+                                        label: i.material_name,
+                                        badge: `ID: ${i.material_id}`
+                                    }))}
+                                    placeholder="Select Material"
+                                    maxHeight="max-h-52"
+                                    searchable={inventory.length > 5}
+                                    error={!!formNotification?.fields?.includes("material_id") || !!formNotification?.fields?.includes("Material")}
+                                />
                             </div>
                             {selectedInventoryForAdj && (
-                                <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-amber-800">Current System Stock:</span>
-                                    <span className="font-bold text-amber-600 text-lg">{selectedInventoryForAdj.remaining_stock} <span className="text-sm">{selectedInventoryForAdj.unit}</span></span>
+                                <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 flex justify-between items-center shadow-xs">
+                                    <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Current System Stock:</span>
+                                    <span className="font-bold text-amber-700 text-lg">{selectedInventoryForAdj.remaining_stock} <span className="text-sm font-semibold">{selectedInventoryForAdj.unit}</span></span>
                                 </div>
                             )}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">new_stock *</label>
-                                <input type="number" required value={adjustmentForm.new_stock || ""} onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" placeholder="e.g. 500" />
+
+                            {/* New Stock */}
+                            <div className="bg-slate-50/80 p-4 rounded-xl border-2 border-slate-200 focus-within:border-amber-500 focus-within:bg-amber-50/10 transition-all">
+                                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                    <span>New Stock (Physical Count) <span className="text-rose-500">*</span></span>
+                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    required
+                                    value={adjustmentForm.new_stock || ""}
+                                    onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })}
+                                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs"
+                                    placeholder="e.g. 500"
+                                />
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">reason *</label>
-                                <textarea required value={adjustmentForm.reason} onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-amber-500" rows={3} placeholder="e.g. Physical count discrepancy found during month-end audit." />
+
+                            {/* Reason */}
+                            <div className="bg-slate-50/80 p-4 rounded-xl border-2 border-slate-200 focus-within:border-amber-500 focus-within:bg-amber-50/10 transition-all">
+                                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                    <span>Reason for Adjustment <span className="text-rose-500">*</span></span>
+                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required</span>
+                                </label>
+                                <textarea
+                                    required
+                                    value={adjustmentForm.reason}
+                                    onChange={e => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs min-h-[90px]"
+                                    rows={3}
+                                    placeholder="e.g. Physical count discrepancy found during month-end audit."
+                                />
                             </div>
                         </div>
                     </div>

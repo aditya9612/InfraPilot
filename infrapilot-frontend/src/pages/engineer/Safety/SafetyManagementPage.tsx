@@ -979,7 +979,7 @@ const SafetyManagementPage = () => {
                             type="button"
                             onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); setFormNotification(null); }}
                             disabled={isSubmitting}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
+                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -1031,7 +1031,7 @@ const SafetyManagementPage = () => {
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2 font-inter z-[66] relative">
+                            <div className="font-inter z-[66] relative">
                                 <CustomSelect
                                     label="Project"
                                     required
@@ -1052,7 +1052,7 @@ const SafetyManagementPage = () => {
                                     <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>
                                 )}
                             </div>
-                            <div className="md:col-span-2 font-inter z-[65] relative">
+                            <div className="font-inter z-[65] relative">
                                 <CustomSelect
                                     label="Task"
                                     value={formData.task_id?.toString() || ""}
@@ -1100,35 +1100,35 @@ const SafetyManagementPage = () => {
                             Observation Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="font-inter z-[64] relative">
-                                <CustomSelect
-                                    label="Safety Checklist Status"
-                                    required
+                            <div className="font-inter">
+                                <label className={labelClasses}>Safety Checklist Status <span className="text-red-600">*</span></label>
+                                <select
+                                    name="safety_checklist_status"
                                     value={formData.safety_checklist_status}
-                                    onChange={(val) => handleInputChange({ target: { name: 'safety_checklist_status', value: val } } as any)}
-                                    options={[
-                                        { id: 'pending', label: 'Pending' },
-                                        { id: 'completed', label: 'Completed' },
-                                        { id: 'failed', label: 'Failed' }
-                                    ]}
-                                    searchable={false}
-                                />
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="failed">Failed</option>
+                                </select>
                             </div>
-                            <div className="font-inter z-[63] relative">
-                                <CustomSelect
-                                    label="Violation Type (Optional)"
+                            <div className="font-inter">
+                                <label className={labelClasses}>Violation Type (Optional)</label>
+                                <select
+                                    name="violation_type"
                                     value={formData.violation_type}
-                                    onChange={(val) => handleInputChange({ target: { name: 'violation_type', value: val } } as any)}
-                                    options={[
-                                        { id: '', label: '-- None --' },
-                                        ...VIOLATION_TYPES.map(vt => ({ id: vt, label: vt }))
-                                    ]}
-                                    placeholder="-- Select Type --"
-                                    searchable={false}
-                                />
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                                >
+                                    <option value="">-- None --</option>
+                                    {VIOLATION_TYPES.map(vt => (
+                                        <option key={vt} value={vt}>{vt}</option>
+                                    ))}
+                                </select>
                             </div>
 
-                            <div className="md:col-span-2 font-inter">
+                            <div className="font-inter">
                                 <label className={labelClasses}>Description (Optional)</label>
                                 <textarea
                                     name="description"
@@ -1140,19 +1140,7 @@ const SafetyManagementPage = () => {
                                 />
                             </div>
 
-                            <div className="md:col-span-2 font-inter">
-                                <label className={labelClasses}>Injury Details (Optional)</label>
-                                <textarea
-                                    name="injury_details"
-                                    value={formData.injury_details}
-                                    onChange={handleInputChange}
-                                    className={inputClasses}
-                                    rows={2}
-                                    placeholder="Enter injury details if any"
-                                />
-                            </div>
-
-                            <div className="md:col-span-2 font-inter">
+                            <div className="font-inter">
                                 <label className={labelClasses}>Action Taken (Optional)</label>
                                 <textarea
                                     name="action_taken"
@@ -1164,7 +1152,19 @@ const SafetyManagementPage = () => {
                                 />
                             </div>
 
-                            <div className={`md:col-span-2 font-inter flex flex-col gap-1 mt-2 p-3 rounded-xl border transition-all ${formFieldErrors['ppe_compliance'] ? 'border-red-400 bg-red-50' : 'border-transparent'}`}>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Injury Details (Optional)</label>
+                                <textarea
+                                    name="injury_details"
+                                    value={formData.injury_details}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                    rows={2}
+                                    placeholder="Enter injury details if any"
+                                />
+                            </div>
+
+                            <div className={`font-inter flex flex-col justify-center p-3 rounded-xl border transition-all ${formFieldErrors['ppe_compliance'] ? 'border-red-400 bg-red-50' : 'border-slate-100 bg-slate-50/50'}`}>
                                 <div className="flex items-center gap-3">
                                     <input
                                         type="checkbox"

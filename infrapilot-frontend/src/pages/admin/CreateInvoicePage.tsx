@@ -1433,7 +1433,7 @@ const CreateInvoicePage = () => {
       />
 
       <PageTransition className="p-4 lg:p-6 bg-[#f8fafc] min-h-screen">
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-4 mb-6">
+        <div className="w-full flex flex-col gap-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
@@ -1490,7 +1490,7 @@ const CreateInvoicePage = () => {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row gap-6">
+        <div className="w-full flex flex-col xl:flex-row gap-6">
 
           {/* LEFT COLUMN: FORM */}
           <div className="flex-1 space-y-6">

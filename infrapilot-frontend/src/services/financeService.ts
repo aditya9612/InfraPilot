@@ -438,6 +438,37 @@ export const financeService = {
   },
 
   /**
+   * Create Equipment Invoice
+   * POST /api/v1/invoices/equipment
+   */
+  async createEquipmentInvoice(projectId: number): Promise<Invoice> {
+    try {
+      let response;
+      try {
+        response = await api.post("/invoices/equipment", null, {
+          params: { project_id: projectId }
+        });
+      } catch (err: any) {
+        if (err.response?.status === 404 || err.response?.status === 405 || err.response?.status === 422) {
+          response = await api.post("/invoices/equipment", { project_id: projectId });
+        } else {
+          throw err;
+        }
+      }
+      return response.data;
+    } catch (error: any) {
+      const detail = error.response?.data?.detail;
+      const message = typeof detail === 'string' ? detail :
+        (Array.isArray(detail) ? detail.map((d: any) => d.msg || d.message).join(', ') :
+          (error.response?.data?.message || error.message));
+      console.error("Create Equipment Invoice Error:", error.response?.data || error.message);
+      const enhancedError = new Error(message);
+      (enhancedError as any).response = error.response;
+      throw enhancedError;
+    }
+  },
+
+  /**
    * Create Invoice From Measurement
    * POST /api/v1/invoices/from-measurement/{measurement_id}
    */

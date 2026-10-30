@@ -261,10 +261,10 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                             }}
                             options={[
                                 { id: "", label: "Select Type..." },
-                                { id: "NEW", label: "New" },
-                                { id: "USED", label: "Used" },
-                                { id: "RENT", label: "Rental" },
-                                { id: "SPARE_PART", label: "Spare Part" }
+                                { id: "NEW", label: "NEW" },
+                                { id: "USED", label: "USED" },
+                                { id: "RENT", label: "RENT" },
+                                { id: "SPARE_PART", label: "SPARE_PART" }
                             ]}
                             placeholder="Select Type..."
                             maxHeight="max-h-52"

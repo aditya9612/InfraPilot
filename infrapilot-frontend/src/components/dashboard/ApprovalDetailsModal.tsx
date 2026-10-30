@@ -100,8 +100,8 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         }
       };
 
-      resolveName(approval.requested_by, approval.requested_by_name, setRequestedByName);
-      resolveName(approval.approved_by, approval.reviewer_name, setApprovedByName);
+      resolveName(approval.requested_by, approval.requested_by_name || (approval as any).requested_by_name, setRequestedByName);
+      resolveName(approval.approved_by, approval.reviewer_name || (approval as any).approved_by_name, setApprovedByName);
     };
 
     if (isOpen) {

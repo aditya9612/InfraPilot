@@ -366,8 +366,8 @@ const ManagerQualityPage = () => {
         Fail: "bg-rose-100 text-rose-600",
     };
 
-    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
-    const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const inputCls = "w-full px-4 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm text-slate-800 font-semibold outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary hover:border-slate-400 transition-all shadow-sm";
+    const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 ml-1";
 
     const tabs = [
         { id: "inspections", label: "Inspection" },
@@ -641,7 +641,7 @@ const ManagerQualityPage = () => {
                 footer={
                     <>
                         <button type="button" onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
-                            disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">
+                            disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">
                             Cancel
                         </button>
                         <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
@@ -749,7 +749,7 @@ const ManagerQualityPage = () => {
                                         }
                                     }}
                                 />
-                                <label htmlFor="manager_report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                <label htmlFor="manager_report_file" className="px-5 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border-2 border-slate-300 hover:border-slate-400 font-inter shadow-sm flex items-center justify-center">
                                     Choose File
                                 </label>
                                 <span className="text-sm text-slate-500 font-medium truncate max-w-[200px]">
@@ -809,44 +809,44 @@ const ManagerQualityPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedTaskDetail?.title || `Task #${selectedQc.task_id}`}>{selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "-")}</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedTaskDetail?.title || (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "N/A")}>{selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "N/A")}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={
                                             selectedQc.dsr_id
-                                                ? (selectedDsrDetail
-                                                    ? (selectedDsrDetail.work_done || `DSR #${selectedQc.dsr_id} — ${selectedDsrDetail.report_date || ""}`)
-                                                    : dsrs.find(d => Number(d.id) === Number(selectedQc.dsr_id))?.label || `DSR #${selectedQc.dsr_id}`)
-                                                : "-"
+                                                 ? (selectedDsrDetail
+                                                     ? (selectedDsrDetail.work_done || `DSR #${selectedQc.dsr_id} — ${selectedDsrDetail.report_date || ""}`)
+                                                     : dsrs.find(d => Number(d.id) === Number(selectedQc.dsr_id))?.label || `DSR #${selectedQc.dsr_id}`)
+                                                 : "N/A"
                                         }>
                                             {selectedQc.dsr_id
                                                 ? (selectedDsrDetail
                                                     ? (selectedDsrDetail.work_done || `DSR #${selectedQc.dsr_id} — ${selectedDsrDetail.report_date || ""}`)
                                                     : dsrs.find(d => Number(d.id) === Number(selectedQc.dsr_id))?.label || `DSR #${selectedQc.dsr_id}`)
-                                                : "-"}
+                                                : "N/A"}
                                         </p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Type</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.inspection_type}</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.inspection_type || "N/A"}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Test Type</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.test_type}</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.test_type || "N/A"}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Result</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{String(selectedQc.result)}</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result !== undefined && selectedQc.result !== null ? String(selectedQc.result) : "N/A"}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Value</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{String(selectedQc.standard_value)}</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value !== undefined && selectedQc.standard_value !== null ? String(selectedQc.standard_value) : "N/A"}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
                                         <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                            {selectedQc.status}
+                                            {selectedQc.status || "N/A"}
                                         </p>
                                     </div>
                                     <div className="font-inter">
@@ -855,7 +855,7 @@ const ManagerQualityPage = () => {
                                     </div>
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
-                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || '—'}</p>
+                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || 'N/A'}</p>
                                     </div>
                                     <div className="font-inter col-span-2">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Report File</p>
@@ -864,7 +864,7 @@ const ManagerQualityPage = () => {
                                                 View Attached Report
                                             </a>
                                         ) : (
-                                            <span className="text-sm font-medium text-slate-600 font-inter">—</span>
+                                            <span className="text-sm font-medium text-slate-600 font-inter">N/A</span>
                                         )}
                                     </div>
                                 </div>

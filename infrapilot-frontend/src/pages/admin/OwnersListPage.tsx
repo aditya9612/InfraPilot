@@ -185,6 +185,22 @@ export default function OwnersListPage() {
       return;
     }
 
+    const normalizedPan = (form.pan || "").trim().toUpperCase();
+    const isDuplicatePan = owners.some(
+      (o) =>
+        (o.pan || "").trim().toUpperCase() === normalizedPan &&
+        (!editTarget || o.id !== editTarget.id)
+    );
+
+    if (isDuplicatePan) {
+      setErrors((prev) => ({
+        ...prev,
+        pan: "This PAN card number is already registered.",
+      }));
+      toast.error("This PAN card number is already registered.");
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (editTarget) {
@@ -196,8 +212,17 @@ export default function OwnersListPage() {
       }
       setIsModalOpen(false);
       fetchOwners();
-    } catch (error) {
-      toast.error("Synchronization failed. Check connectivity.");
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.detail || error?.response?.data?.message || "";
+      if (typeof errorMsg === "string" && (errorMsg.toLowerCase().includes("pan") || errorMsg.toLowerCase().includes("already registered") || errorMsg.toLowerCase().includes("already exists"))) {
+        setErrors((prev) => ({
+          ...prev,
+          pan: "This PAN card number is already registered.",
+        }));
+        toast.error("This PAN card number is already registered.");
+      } else {
+        toast.error(typeof errorMsg === "string" && errorMsg ? errorMsg : "Synchronization failed. Check connectivity.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -333,14 +358,14 @@ export default function OwnersListPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
+                <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-8 py-5">Stakeholder Details</th>
                   <th className="px-8 py-5">PAN Card</th>
                   <th className="px-8 py-5">Permanent Address</th>
                   <th className="px-8 py-5 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {loading && owners.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-8 py-20 text-center">
@@ -358,19 +383,19 @@ export default function OwnersListPage() {
                   </tr>
                 ) : (
                   pagedOwners.map((o) => (
-                    <tr key={o.id} className="hover:bg-slate-50/40 transition-colors group">
+                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group">
                       {/* Owner Details */}
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
                           <Avatar name={o.name} imageUrl={o.profile_image} />
                           <div>
-                            <p className="font-black text-slate-700 group-hover:text-primary transition-colors tracking-tight leading-none mb-1.5">
+                            <p className="font-bold text-slate-900 group-hover:text-primary transition-colors tracking-tight leading-none mb-1.5">
                               {o.name}
                             </p>
-                            <p className="text-slate-400 text-xs font-semibold leading-none mb-1">
+                            <p className="text-slate-600 text-xs font-medium leading-none mb-1">
                               {o.email}
                             </p>
-                            <p className="text-slate-400 text-[10px] font-black tracking-tight uppercase">
+                            <p className="text-slate-700 text-[11px] font-semibold tracking-tight uppercase">
                               {o.mobile}
                             </p>
                           </div>
@@ -378,10 +403,10 @@ export default function OwnersListPage() {
                       </td>
                       {/* PAN Card */}
                       <td className="px-8 py-5">
-                        <span className="text-sm font-black text-slate-700 font-mono tracking-tighter leading-none">{o.pan || "—"}</span>
+                        <span className="text-sm font-bold text-slate-800 font-mono tracking-wide leading-none">{o.pan || "—"}</span>
                       </td>
                       {/* Address */}
-                      <td className="px-8 py-5 text-xs text-slate-400 font-bold max-w-[200px] truncate" title={o.address}>
+                      <td className="px-8 py-5 text-xs text-slate-700 font-medium max-w-[200px] truncate" title={o.address}>
                         {o.address}
                       </td>
                       {/* Actions */}

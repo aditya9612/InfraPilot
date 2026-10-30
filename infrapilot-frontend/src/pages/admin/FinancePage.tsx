@@ -16,7 +16,7 @@ import { generateInvoicePDF } from "../../utils/invoicePDFGenerator";
 import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
 import type { CompanySettings } from "../../types/settings";
-import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
+import CreateExpenseModal, { formatExpenseCategory } from "../../components/forms/CreateExpenseModal";
 import ViewExpenseModal from "../../components/forms/ViewExpenseModal";
 import { settingsService } from "../../services/settingsService";
 import { useEffect, useCallback } from "react";
@@ -189,6 +189,34 @@ const FinancePage = () => {
         fetchInvoices();
         toast.success("Invoice updated successfully");
       } else {
+        const pId = Number(data.project_id);
+        const invoiceType = String(data.type || "").toLowerCase();
+
+        // Prevent generating multiple invoices for the same expense / project
+        const existingDuplicate = invoices.find((inv) => {
+          if (Number(inv.project_id) !== pId) return false;
+          const invType = String(inv.type || (inv as any).invoice_type || "").toLowerCase();
+          const invDesc = String(inv.description || "").toLowerCase();
+          const status = String(inv.status || inv.payment_status || "").toLowerCase();
+          if (status === "cancelled" || status === "rejected") return false;
+
+          if (invoiceType === "material") {
+            return invType === "material" || invDesc.includes("material");
+          }
+          if (invoiceType === "equipment") {
+            return invType === "equipment" || invDesc.includes("equipment");
+          }
+          if (invoiceType === "labour") {
+            return invType === "labour" || invDesc.includes("labour") || invDesc.includes("labor");
+          }
+          return false;
+        });
+
+        if (existingDuplicate) {
+          toast.error("Invoice has already been generated for this expense.");
+          return;
+        }
+
         let created;
         if (data.type === "labour") {
           created = await financeService.createLabourInvoice({
@@ -198,6 +226,8 @@ const FinancePage = () => {
           });
         } else if (data.type === "material") {
           created = await financeService.createMaterialInvoice(data.project_id);
+        } else if (data.type === "equipment") {
+          created = await financeService.createEquipmentInvoice(data.project_id);
         } else {
           created = await financeService.createInvoice(data);
         }
@@ -211,7 +241,11 @@ const FinancePage = () => {
       const errorMessage = error.response?.data?.detail || error.message || (selectedInvoice
         ? "Failed to update invoice"
         : "Failed to create invoice");
-      toast.error(errorMessage);
+      if (typeof errorMessage === "string" && (errorMessage.toLowerCase().includes("already") || errorMessage.toLowerCase().includes("duplicate") || errorMessage.toLowerCase().includes("exist"))) {
+        toast.error("Invoice has already been generated for this expense.");
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
     }
   };
@@ -283,24 +317,72 @@ const FinancePage = () => {
     }
   };
 
+  const syncMaterialInvoice = async (projectId: number, currentExpenses: Expense[]) => {
+    if (!projectId) return;
+    try {
+      const isMaterial = (cat: string) => {
+        const fmt = formatExpenseCategory(cat).toLowerCase();
+        return fmt === "material" || fmt.startsWith("mat");
+      };
+
+      const projectMaterialExpenses = currentExpenses.filter(
+        (e) => Number(e.project_id) === Number(projectId) && isMaterial(e.category || "")
+      );
+      const newMaterialTotal = projectMaterialExpenses.reduce(
+        (sum, e) => sum + Number(e.amount || 0),
+        0
+      );
+
+      const targetInvoices = invoices.filter(
+        (inv) =>
+          Number(inv.project_id) === Number(projectId) &&
+          (inv.type === "material" ||
+            (inv as any).invoice_type === "material" ||
+            inv.description?.toLowerCase().includes("material"))
+      );
+
+      for (const inv of targetInvoices) {
+        const paid = Number(inv.paid_amount || 0);
+        const newPending = Math.max(0, newMaterialTotal - paid);
+        await financeService.updateInvoice(inv.id, {
+          total_amount: newMaterialTotal,
+          amount: newMaterialTotal,
+          pending_amount: newPending,
+        } as any);
+      }
+
+      fetchInvoices();
+      window.dispatchEvent(new CustomEvent("expense-updated", { detail: { projectId } }));
+      window.dispatchEvent(new CustomEvent("invoice-updated", { detail: { projectId } }));
+    } catch (err) {
+      console.warn("Could not sync material invoice amount:", err);
+    }
+  };
+
   const handleCreateOrUpdateExpense = async (data: any) => {
     if (isSubmittingExpense) return;
     setIsSubmittingExpense(true);
     try {
+      let nextExpenses = expenses;
       if (selectedExpense) {
         const updated = await expenseService.updateExpense(selectedExpense.id, data);
-        setExpenses((prev) =>
-          prev.map((e) => (e.id === selectedExpense.id ? updated : e)),
-        );
+        nextExpenses = expenses.map((e) => (e.id === selectedExpense.id ? updated : e));
+        setExpenses(nextExpenses);
         toast.success("Expense record updated");
       } else {
         const created = await expenseService.createExpense(data);
-        setExpenses((prev) => [created, ...prev]);
+        nextExpenses = [created, ...expenses];
+        setExpenses(nextExpenses);
         toast.success("Expense record created");
       }
       setSelectedExpense(null);
       setIsExpenseModalOpen(false);
       fetchExpenses();
+
+      const projId = Number(data.project_id || selectedExpense?.project_id);
+      if (projId) {
+        await syncMaterialInvoice(projId, nextExpenses);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to process expense");
     } finally {
@@ -316,11 +398,17 @@ const FinancePage = () => {
   const handleDeleteExpense = async () => {
     if (expenseToDelete) {
       try {
+        const toDelete = expenses.find((e) => e.id === expenseToDelete);
         await expenseService.deleteExpense(expenseToDelete);
-        setExpenses(expenses.filter((e) => e.id !== expenseToDelete));
+        const nextExpenses = expenses.filter((e) => e.id !== expenseToDelete);
+        setExpenses(nextExpenses);
         toast.success("Expense deleted");
         setIsExpenseDeleteModalOpen(false);
         setExpenseToDelete(null);
+
+        if (toDelete && toDelete.project_id) {
+          await syncMaterialInvoice(Number(toDelete.project_id), nextExpenses);
+        }
       } catch (error) {
         toast.error("Failed to delete expense");
       } finally {
@@ -362,7 +450,11 @@ const FinancePage = () => {
           .toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
         exp.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchCategory = categoryFilter === "all" || exp.category === categoryFilter;
+      const expCatFormatted = formatExpenseCategory(exp.category);
+      const matchCategory =
+        categoryFilter === "all" ||
+        expCatFormatted.toLowerCase() === categoryFilter.toLowerCase() ||
+        (exp.category || "").toLowerCase() === categoryFilter.toLowerCase();
       const matchProject = projectIdFilter === "all" || exp.project_id === Number(projectIdFilter);
 
       let matchDate = true;
@@ -377,10 +469,20 @@ const FinancePage = () => {
   }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects, projectIdFilter]);
 
   const uniqueCategories = useMemo(() => {
-    const cats = expenses.map(e => e.category);
-    // Combine with common categories from documentation/data preference
-    const defaults = ["Administrative", "Construction", "Contractor", "Material", "Utilities"];
-    const combined = Array.from(new Set([...cats, ...defaults]));
+    const defaults = [
+      "Administrative",
+      "Construction",
+      "Contractor",
+      "Equipment",
+      "Labour",
+      "Material",
+      "Services",
+      "Utilities",
+      "Vendor",
+      "Other",
+    ];
+    const formatted = expenses.map((e) => formatExpenseCategory(e.category));
+    const combined = Array.from(new Set([...defaults, ...formatted]));
     return combined.filter(Boolean).sort((a, b) => a.localeCompare(b));
   }, [expenses]);
 
@@ -716,7 +818,7 @@ const FinancePage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-6 py-4">{subPage === "profit" ? "Project" : subPage === "expenses" ? "Project" : "Invoice #"}</th>
                   <th className="px-6 py-4">{subPage === "profit" ? "Description" : subPage === "expenses" ? "Description" : "Project / Description"}</th>
                   <th className="px-6 py-4">{subPage === "expenses" ? "Category" : subPage === "profit" ? "Revenue" : "Type"}</th>
@@ -850,8 +952,8 @@ const FinancePage = () => {
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold uppercase">
-                          {exp.category}
+                        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                          {formatExpenseCategory(exp.category)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">

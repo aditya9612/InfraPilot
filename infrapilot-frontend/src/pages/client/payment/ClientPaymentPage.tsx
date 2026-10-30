@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend
+  ResponsiveContainer
 } from "recharts";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
@@ -19,10 +19,10 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import {
   Search, Calendar, RotateCcw, Plus, FileSpreadsheet, FileText, ChevronLeft,
-  ChevronRight, Eye, History, Download, IndianRupee, Clock,
-  TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
-  ArrowUpRight, Pencil, Trash2, CreditCard, Info, Banknote, Building2,
-  Smartphone, Save, X, Upload, ChevronDown, Table as TableIcon, Landmark, Layers, Coins
+  ChevronRight, Eye, Download, IndianRupee, Clock,
+  TrendingUp, BarChart3, Sparkles, CheckCircle2, AlertTriangle,
+  Pencil, Trash2, CreditCard, Info, Banknote, Building2,
+  Smartphone, Save, X, Upload, ChevronDown, Table as TableIcon
 } from "lucide-react";
 
 interface ClientPayment {
@@ -37,6 +37,10 @@ interface ClientPayment {
   paidAmount: number;
   status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE" | "REJECTED";
   paymentDate: string;
+  paymentMethod?: string;
+  bankName?: string;
+  id?: string | number;
+  paymentNo?: string;
 }
 
 const mapApiPayment = (
@@ -152,6 +156,10 @@ const mapApiPayment = (
     paidAmount: Number(p.paid_amount ?? p.paidAmount ?? (isInvoiceFullyPaid ? (p.amount ?? p.total_amount ?? 0) : 0)),
     status,
     paymentDate: formatDate(p.payment_date || p.paymentDate || p.created_at),
+    paymentMethod: p.payment_method || p.paymentMethod || p.method || "UPI",
+    bankName: p.bank_name || p.bankName || "",
+    id: p.id ?? p.payment_id,
+    paymentNo: p.payment_number || p.payment_no || p.paymentNo,
   };
 };
 
@@ -247,7 +255,6 @@ const ClientPaymentPage = () => {
   // ── Quotation / old-expense state ──
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortOrder, setSortOrder] = useState("Latest First");
@@ -262,9 +269,7 @@ const ClientPaymentPage = () => {
   // ── Payment History redesigned state ──
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [paymentSearch, setPaymentSearch] = useState("");
-  const [paymentClientFilter, setPaymentClientFilter] = useState("All Clients");
-  const [paymentProjectFilter, setPaymentProjectFilter] = useState("All Projects");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All Status");
+  const [paymentProjectFilter] = useState("All Projects");
   const [paymentStartDate, setPaymentStartDate] = useState("");
   const [paymentEndDate, setPaymentEndDate] = useState("");
   const [paymentTab, setPaymentTab] = useState("All Payments");
@@ -276,6 +281,19 @@ const ClientPaymentPage = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<ClientPayment | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setRefreshKey((prev) => prev + 1);
+    };
+    window.addEventListener("invoice-updated", handleSync);
+    window.addEventListener("expense-updated", handleSync);
+    return () => {
+      window.removeEventListener("invoice-updated", handleSync);
+      window.removeEventListener("expense-updated", handleSync);
+    };
+  }, []);
 
   // ── Auto-open deep linked payment audit / detail modal ──
   useEffect(() => {
@@ -304,15 +322,8 @@ const ClientPaymentPage = () => {
 
   const [newInvoiceNo, setNewInvoiceNo] = useState("");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
-  const [newClientName, setNewClientName] = useState("Rohit");
-  const [newClientEmail, setNewClientEmail] = useState("rohit@example.com");
   const [newProjectName, setNewProjectName] = useState("");
-  const [newInvoiceDate, setNewInvoiceDate] = useState("");
-  const [newDueDate, setNewDueDate] = useState("");
   const [newAmount, setNewAmount] = useState("");
-  const [newPaidAmount, setNewPaidAmount] = useState("");
-  const [newStatus, setNewStatus] = useState<ClientPayment["status"]>("PENDING");
-  const [newPaymentDate, setNewPaymentDate] = useState("");
   const [newProjectId, setNewProjectId] = useState("");
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const [newPaymentMethodForm, setNewPaymentMethodForm] = useState("UPI");
@@ -885,11 +896,7 @@ const ClientPaymentPage = () => {
             return false;
           });
 
-          if (clientFiltered.length > 0) {
-            clientList = clientFiltered;
-          } else {
-            clientList = rawList;
-          }
+          clientList = clientFiltered;
         }
 
         const mapped = clientList.map((q: any) => {
@@ -944,7 +951,18 @@ const ClientPaymentPage = () => {
     const fetchApiData = async () => {
       setApiLoading(true);
       const activeProjectId = projectId ? Number(projectId) : undefined;
+      const currentUid = Number(user?.id || (user as any)?.user_id);
       try {
+        if (!activeProjectId) {
+          setAllInvoices([]);
+          setPendingInvoices([]);
+          setClientPayments([]);
+          setPaymentHistory([]);
+          setInvoiceSummary(null);
+          setApiLoading(false);
+          return;
+        }
+
         const [summary, pending, historyList, analytics, invList] = await Promise.all([
           paymentService.getInvoiceSummary(activeProjectId).catch(() => null),
           paymentService.getPendingInvoices(activeProjectId).catch(() => []),
@@ -954,16 +972,20 @@ const ClientPaymentPage = () => {
         ]);
 
         const rawInvoices = Array.isArray(invList) ? invList : (invList as any)?.items || [];
-        const scopedInvoices = activeProjectId
-          ? rawInvoices.filter((i: any) => Number(i.project_id) === Number(activeProjectId))
-          : rawInvoices;
+        const scopedInvoices = rawInvoices.filter((i: any) => {
+          if (Number(i.project_id) !== Number(activeProjectId)) return false;
+          const invCid = i.client_id || i.owner_id || i.user_id;
+          if (invCid != null && Number(invCid) > 0 && currentUid > 0 && Number(invCid) !== currentUid) {
+            return false;
+          }
+          return true;
+        });
         setAllInvoices(scopedInvoices);
 
         const allKnownInvoices = [
-          ...(Array.isArray(summary?.invoices) ? summary.invoices : []),
-          ...(Array.isArray(pending) ? pending : []),
+          ...(Array.isArray(summary?.invoices) ? summary.invoices.filter((i: any) => !i.project_id || Number(i.project_id) === Number(activeProjectId)) : []),
+          ...(Array.isArray(pending) ? pending.filter((i: any) => !i.project_id || Number(i.project_id) === Number(activeProjectId)) : []),
           ...(Array.isArray(scopedInvoices) ? scopedInvoices : []),
-          ...(Array.isArray(rawInvoices) ? rawInvoices : []),
         ];
 
         let paidSet = new Set<string>();
@@ -988,13 +1010,18 @@ const ClientPaymentPage = () => {
           setInvoiceSummary(null);
         }
 
+        let cleanPending: any[] = [];
         if (pending && Array.isArray(pending)) {
-          const cleanPending = pending.filter((inv: any) => {
+          cleanPending = pending.filter((inv: any) => {
             if (activeProjectId) {
               const invPid = inv.project_id ?? inv.projectId;
               if (invPid != null && Number(invPid) > 0 && Number(invPid) !== Number(activeProjectId)) {
                 return false;
               }
+            }
+            const invCid = inv.client_id ?? inv.owner_id ?? inv.user_id;
+            if (invCid != null && Number(invCid) > 0 && currentUid > 0 && Number(invCid) !== currentUid) {
+              return false;
             }
             const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
             const invIdStr = String(inv.id || inv.invoice_id || "").trim();
@@ -1036,11 +1063,11 @@ const ClientPaymentPage = () => {
           return `${day}/${month}/${year}`;
         };
 
-        const invoiceSources = Array.isArray(summary?.invoices)
-          ? summary.invoices
-          : (Array.isArray(pending) && pending.length > 0
-              ? pending.filter((inv: any) => !activeProjectId || !inv.project_id || Number(inv.project_id) === Number(activeProjectId))
-              : (activeProjectId ? scopedInvoices : []));
+        const invoiceSources = (Array.isArray(summary?.invoices) && summary.invoices.length > 0
+          ? summary.invoices.filter((inv: any) => (!activeProjectId || !inv.project_id || Number(inv.project_id) === Number(activeProjectId)) && (!currentUid || !inv.client_id || Number(inv.client_id) === currentUid))
+          : (Array.isArray(cleanPending) && cleanPending.length > 0
+              ? cleanPending
+              : scopedInvoices));
 
         invoiceSources.forEach((inv: any) => {
           const invId = inv.id ?? inv.invoice_id;
@@ -1091,7 +1118,21 @@ const ClientPaymentPage = () => {
           }
         });
 
-        setClientPayments(mappedPayments);
+        // Merge with existing local optimistic payments that server may not have returned yet
+        setClientPayments(prev => {
+          const serverInvoiceKeys = new Set(
+            mappedPayments.map(p => (p.invoiceNo || "").replace(/\D/g, "")).filter(Boolean)
+          );
+          const serverPaymentIds = new Set(
+            mappedPayments.map(p => String(p.paymentId)).filter(Boolean)
+          );
+          const pendingLocal = prev.filter(p => {
+            const invKey = (p.invoiceNo || "").replace(/\D/g, "");
+            const pId = String(p.paymentId);
+            return !serverPaymentIds.has(pId) && (!invKey || !serverInvoiceKeys.has(invKey));
+          });
+          return [...pendingLocal, ...mappedPayments];
+        });
 
         if (analytics) {
           setPaymentAnalytics(analytics);
@@ -1111,7 +1152,7 @@ const ClientPaymentPage = () => {
       }
     };
     fetchApiData();
-  }, [activeTab, projectId, availableProjects, projectName, user]);
+  }, [activeTab, projectId, availableProjects, projectName, user, refreshKey]);
 
   // ── Quotation handlers ──
   const handleApprove = async (id: number) => {
@@ -1178,37 +1219,26 @@ const ClientPaymentPage = () => {
     }
   };
 
-  const handleDownloadExpense = async (expense: any) => {
-    const t = toast.loading("Generating Receipt...");
-    try {
-      const doc = new jsPDF() as any;
-      doc.setFontSize(18); doc.text("PAYMENT RECEIPT", 105, 20, { align: "center" });
-      autoTable(doc, {
-        startY: 30,
-        body: [
-          ["Project", projectName], ["Amount", `Rs. ${expense.amount}`], ["Date", expense.date || "-"],
-          ["Mode", expense.payment_method || "UPI"], ["Status", expense.status || "Approved"],
-        ],
-        theme: "striped",
-      });
-      doc.save(`Receipt_${expense.id}.pdf`);
-      toast.success("Receipt Downloaded", { id: t });
-    } catch { toast.error("Failed", { id: t }); }
-  };
-
-  const handlePay = (item: any) => {
-    setSelectedRequest(item);
-    setShowPaymentPortal(true);
-  };
-
   const processPayment = async () => {
     if (paymentMethod === "Check" && !checkFile) { toast.error("Please upload a check image"); return; }
     const t = toast.loading("Processing payment...");
     try {
-      await new Promise(res => setTimeout(res, 1500));
+      if (selectedRequest) {
+        try {
+          await paymentService.createClientPayment({
+            invoice_id: selectedRequest.id,
+            project_id: projectId ? Number(projectId) : undefined,
+            amount: Number(selectedRequest.amount || 0),
+            payment_method: paymentMethod === "Check" ? "CHEQUE" : "UPI",
+            remarks: `Payment for #${selectedRequest.id}`
+          });
+        } catch { }
+      }
       toast.success("Payment Submitted Successfully!", { id: t });
       setShowPaymentPortal(false);
       setSelectedRequest(null);
+      setRefreshKey(prev => prev + 1);
+      window.dispatchEvent(new CustomEvent("invoice-updated"));
     } catch { toast.error("Payment failed", { id: t }); }
   };
 
@@ -1236,32 +1266,7 @@ const ClientPaymentPage = () => {
       return sortOrder === "Latest First" ? dB - dA : dA - dB;
     });
 
-  const filteredPayments = payments;
-
-  const exportToCSV = () => {
-    const dataToExport = activeTab === "quotation" ? filteredQuotations : filteredPayments;
-    if (dataToExport.length === 0) { toast.error("No data to export"); return; }
-    const headers = activeTab === "quotation"
-      ? ["Sr. No.", "ID", "Type", "Requested By", "Status", "Approved By", "Date"]
-      : ["Sr. No.", "ID", "Expense ID", "Category", "Amount", "Status", "Date"];
-    const rows = dataToExport.map((item: any, idx: number) => activeTab === "quotation"
-      ? [idx + 1, item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at]
-      : [idx + 1, item.id, item.id, item.type, item.amount, item.status, item.date]);
-    const csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map((e: any[]) => e.join(",")).join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csv));
-    link.setAttribute("download", `${activeTab}_report_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    toast.success("Report Exported");
-  };
-
   // ── Payment History computed ──
-  const rawTotalPaid = clientPayments.filter(p => p.status === "PAID").reduce((s, p) => s + p.paidAmount, 0);
-  const rawTotalPartialPaid = clientPayments.filter(p => p.status === "PARTIAL").reduce((s, p) => s + p.paidAmount, 0);
-  const rawTotalPending = clientPayments.filter(p => p.status === "PENDING").reduce((s, p) => s + p.amount, 0);
-  const rawTotalOverdue = clientPayments.filter(p => p.status === "OVERDUE").reduce((s, p) => s + p.amount, 0);
-  const rawTotalBudget = clientPayments.reduce((s, p) => s + p.amount, 0);
-
   const totalBudget = invoiceSummaryMetrics?.totalAmount ?? 0;
   const totalPaid = invoiceSummaryMetrics?.paidAmount ?? 0;
   const totalPartialPaid = 0;
@@ -1306,7 +1311,6 @@ const ClientPaymentPage = () => {
 
   const totalPages = Math.ceil(filteredClientPayments.length / itemsPerPage);
   const paginatedPayments = filteredClientPayments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const uniqueClients = ["All Clients", ...Array.from(new Set(clientPayments.map(p => p.clientName)))];
 
   const statusBadge = (status: ClientPayment["status"]) => {
     switch (status) {
@@ -1363,25 +1367,31 @@ const ClientPaymentPage = () => {
   };
 
   const handleOpenEdit = (p: ClientPayment) => {
+    if (p.status === "PAID") {
+      toast.error("This payment record is marked as PAID and is read-only.");
+      return;
+    }
     setSelectedPayment(p);
     setEditPaidAmount(String(p.paidAmount));
     setEditStatus(p.status);
     setEditPaymentDate(p.paymentDate === "-" ? "" : p.paymentDate);
-    setEditPaymentMethod("UPI");
-    setEditBankName("");
+    const method = p.paymentMethod || "UPI";
+    setEditPaymentMethod(method);
+    setEditBankName(method.toLowerCase() === "cash" ? "" : (p.bankName || ""));
     setIsEditModalOpen(true);
   };
 
   const handleUpdatePayment = async () => {
     if (!selectedPayment) return;
     const t = toast.loading("Updating payment...");
+    const isCash = editPaymentMethod.toLowerCase() === "cash";
     try {
       await paymentService.updateClientPayment(selectedPayment.paymentId, {
         paid_amount: parseFloat(editPaidAmount) || 0,
         status: editStatus,
         payment_date: editPaymentDate || undefined,
         payment_method: editPaymentMethod || undefined,
-        bank_name: editBankName || undefined,
+        bank_name: isCash ? undefined : (editBankName || undefined),
       });
       // Update local state to reflect change immediately
       setClientPayments(prev => prev.map(p =>
@@ -1552,47 +1562,42 @@ const ClientPaymentPage = () => {
 
       toast.success("Payment submitted successfully!", { id: t });
 
-      // Immediate UI reflection of the 201 Created payment record
-      if (createdRes) {
-        const mappedEntry = mapApiPayment(createdRes);
-        setClientPayments(prev => [mappedEntry, ...prev.filter(p => p.paymentId !== mappedEntry.paymentId)]);
-      }
+      // Immediate UI reflection of the Created payment record in the All Payments table
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const todayFormatted = `${day}/${month}/${year}`;
 
-      // Refresh payment history and invoices from server
-      const activeProjectId = projectId ? Number(projectId) : undefined;
-      const [summary, pending, historyList] = await Promise.all([
-        paymentService.getInvoiceSummary(activeProjectId).catch(() => null),
-        paymentService.getPendingInvoices(activeProjectId).catch(() => []),
-        paymentService.getClientPaymentHistory(activeProjectId).catch(() => [])
-      ]);
-      let paidSet = new Set<string>();
-      if (historyList && Array.isArray(historyList)) {
-        const processed = processPaymentHistory(historyList);
-        paidSet = processed.paidInvoiceIdentifiers;
-        setClientPayments(processed.mappedPayments);
-        setPaymentHistory(historyList);
-      } else {
-        setClientPayments([]);
-        setPaymentHistory([]);
-      }
-      if (summary) setInvoiceSummary(summary);
-      if (pending && Array.isArray(pending)) {
-        const cleanPending = pending.filter((inv: any) => {
-          const invNo = String(inv.invoice_no || inv.invoiceNo || inv.invoice_number || "").toUpperCase().trim();
-          const invIdStr = String(inv.id || inv.invoice_id || "").trim();
-          const invStatus = String(inv.status || inv.payment_status || "").toUpperCase();
-          const isPaid =
-            invStatus === "PAID" ||
-            paidSet.has(invNo) ||
-            paidSet.has(invIdStr) ||
-            paidSet.has(`INV-${invIdStr.padStart(6, '0')}`.toUpperCase()) ||
-            paidSet.has(`INV-${invIdStr.padStart(3, '0')}`.toUpperCase());
-          return !isPaid;
-        });
-        setPendingInvoices(cleanPending);
-      } else {
-        setPendingInvoices([]);
-      }
+      const newPmtId = createdRes?.id || createdRes?.payment_id || `PMT-${Date.now().toString().slice(-4)}`;
+      const pmtRecord: ClientPayment = {
+        paymentId: `PMT-${String(newPmtId).replace(/\D/g, '').padStart(4, '0')}`,
+        invoiceNo: newInvoiceNo || `INV-${String(resolvedInvoiceId).padStart(6, '0')}`,
+        clientName: user?.name || "Client",
+        clientEmail: user?.email || "client@example.com",
+        projectName: newProjectName || projectName || "Project",
+        invoiceDate: todayFormatted,
+        dueDate: todayFormatted,
+        amount: parseFloat(newAmount) || 0,
+        paidAmount: parseFloat(newAmount) || 0,
+        status: (createdRes?.status?.toUpperCase() === "PENDING" || createdRes?.payment_status?.toUpperCase() === "PENDING") ? "PENDING" : "PAID",
+        paymentDate: todayFormatted,
+        paymentMethod: newPaymentMethodForm,
+        bankName: newBankName,
+        id: Number(newPmtId) || Date.now(),
+        paymentNo: `PMT-${String(newPmtId).replace(/\D/g, '').padStart(4, '0')}`
+      };
+
+      setClientPayments(prev => [pmtRecord, ...prev.filter(p => p.invoiceNo !== pmtRecord.invoiceNo)]);
+      setPendingInvoices(prev => prev.filter(inv => {
+        const d = (inv.invoice_no || inv.invoiceNo || String(inv.id || '')).replace(/\D/g, '');
+        const target = (pmtRecord.invoiceNo || '').replace(/\D/g, '');
+        return d !== target;
+      }));
+
+      // Trigger full server synchronization
+      setRefreshKey(prev => prev + 1);
+      window.dispatchEvent(new CustomEvent("invoice-updated"));
     } catch (err: any) {
       console.error("Create payment error:", err);
       const detail = err?.response?.data?.detail;
@@ -1602,7 +1607,7 @@ const ClientPaymentPage = () => {
       toast.error(msg, { id: t });
     } finally {
       setIsCreateModalOpen(false);
-      setNewInvoiceNo(""); setNewAmount(""); setNewPaidAmount("");
+      setNewInvoiceNo(""); setNewAmount("");
       setNewProjectId(""); setNewBankName(""); setNewPaymentMethodForm("CASH");
       setNewChequeNo(""); setNewReferenceNo(""); setNewRemarks("");
       setReceiptFile(null);
@@ -2185,16 +2190,16 @@ const ClientPaymentPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Payment ID</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Invoice ID</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Project Name</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Invoice Date</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Amount</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Paid</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Status</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Pay Date</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-6 whitespace-nowrap">Actions</th>
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-5 py-4 whitespace-nowrap">Payment ID</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Invoice ID</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Project Name</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Invoice Date</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Amount</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Paid</th>
+                    <th className="px-5 py-4 text-center whitespace-nowrap">Status</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Pay Date</th>
+                    <th className="px-5 py-4 text-right pr-6 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -2239,8 +2244,12 @@ const ClientPaymentPage = () => {
                         <div className="flex items-center justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => { setSelectedPayment(p); setIsViewModalOpen(true); }} title="View Details" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => handleDownloadReceipt(p)} title="Download Receipt" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all"><Download className="w-4 h-4" /></button>
-                          <button onClick={() => handleOpenEdit(p)} title="Edit Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => { setSelectedPayment(p); setIsDeleteConfirmOpen(true); }} title="Delete Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"><Trash2 className="w-4 h-4" /></button>
+                          {p.status !== "PAID" && (
+                            <>
+                              <button onClick={() => handleOpenEdit(p)} title="Edit Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"><Pencil className="w-4 h-4" /></button>
+                              <button onClick={() => { setSelectedPayment(p); setIsDeleteConfirmOpen(true); }} title="Delete Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2305,9 +2314,11 @@ const ClientPaymentPage = () => {
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => { setIsViewModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Close</button>
-                  <button onClick={() => handleOpenEdit(selectedPayment!)} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </button>
+                  {selectedPayment.status !== "PAID" && (
+                    <button onClick={() => handleOpenEdit(selectedPayment!)} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </button>
+                  )}
                   <button onClick={() => handleDownloadReceipt(selectedPayment!)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
                     <Download className="w-3.5 h-3.5" /> Receipt
                   </button>
@@ -2386,7 +2397,17 @@ const ClientPaymentPage = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Method</label>
-                    <select value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)} className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 transition-all appearance-none">
+                    <select
+                      value={editPaymentMethod}
+                      onChange={e => {
+                        const m = e.target.value;
+                        setEditPaymentMethod(m);
+                        if (m.toLowerCase() === "cash") {
+                          setEditBankName("");
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 transition-all appearance-none"
+                    >
                       <option value="UPI">UPI</option>
                       <option value="Net Banking">Net Banking</option>
                       <option value="Card">Card</option>
@@ -2395,13 +2416,18 @@ const ClientPaymentPage = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                      Bank Name {editPaymentMethod.toLowerCase() === "cash" && <span className="text-[9px] text-slate-400 font-normal lowercase">(not applicable)</span>}
+                    </label>
                     <input
                       type="text"
-                      value={editBankName}
+                      disabled={editPaymentMethod.toLowerCase() === "cash"}
+                      value={editPaymentMethod.toLowerCase() === "cash" ? "" : editBankName}
                       onChange={e => setEditBankName(e.target.value)}
-                      placeholder="e.g. HDFC Bank"
-                      className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all"
+                      placeholder={editPaymentMethod.toLowerCase() === "cash" ? "Not applicable for Cash" : "e.g. HDFC Bank"}
+                      className={`w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all ${
+                        editPaymentMethod.toLowerCase() === "cash" ? "opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" : ""
+                      }`}
                     />
                   </div>
                 </div>
@@ -2425,12 +2451,19 @@ const ClientPaymentPage = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button onClick={() => { setIsEditModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
-                  <button onClick={handleUpdatePayment} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
-                    <Pencil className="w-3.5 h-3.5" /> Save Changes
-                  </button>
-                </div>
+                {selectedPayment.status === "PAID" ? (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                    <p className="text-xs font-bold text-emerald-800">This payment record is marked as PAID and is read-only. Editing is disabled.</p>
+                    <button onClick={() => { setIsEditModalOpen(false); setSelectedPayment(null); }} className="mt-3 w-full py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all">Close</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => { setIsEditModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                    <button onClick={handleUpdatePayment} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
+                      <Pencil className="w-3.5 h-3.5" /> Save Changes
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </Modal>
@@ -2832,7 +2865,7 @@ const ClientPaymentPage = () => {
                 <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer">
                   <X className="w-3.5 h-3.5" /> Cancel
                 </button>
-                <button type="button" onClick={() => { setNewInvoiceNo(""); setNewAmount(""); setNewPaidAmount(""); setNewProjectId(""); setNewProjectName(""); setNewBankName(""); setNewChequeNo(""); setNewReferenceNo(""); setNewRemarks(""); setReceiptFile(null); setNewPaymentMethodForm("CASH"); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                <button type="button" onClick={() => { setNewInvoiceNo(""); setNewAmount(""); setNewProjectId(""); setNewProjectName(""); setNewBankName(""); setNewChequeNo(""); setNewReferenceNo(""); setNewRemarks(""); setReceiptFile(null); setNewPaymentMethodForm("CASH"); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer">
                   <RotateCcw className="w-3.5 h-3.5" /> Reset
                 </button>
                 <button type="button" onClick={handleCreatePayment} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95 cursor-pointer">

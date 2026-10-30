@@ -52,23 +52,72 @@ const ClientSettingsPage = () => {
                     settingsService.getSettings(),
                     projectService.getProjects(100, 0).catch(() => []),
                 ]);
-                const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
-                setProjects(projectsList);
+                const rawProjectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
 
+                // Get current logged-in client credentials
+                const userStr = localStorage.getItem("infrapilot_user");
+                let currentUser: any = null;
+                if (userStr) {
+                    try { currentUser = JSON.parse(userStr); } catch { }
+                }
+                const uid = Number(currentUser?.id || currentUser?.user_id || profileData?.user_id || (profileData as any)?.id);
+                const uName = (currentUser?.name || currentUser?.full_name || profileData?.full_name || "").toLowerCase().trim();
+                const uEmail = (currentUser?.email || profileData?.email || "").toLowerCase().trim();
+                const uMob = (currentUser?.mobile || currentUser?.mobile_number || profileData?.mobile_number || "").replace(/\D/g, "").slice(-10);
+
+                // Filter projects: only projects officially assigned or linked to this logged-in client
+                const authorizedProjects = rawProjectsList.filter((p: any) => {
+                    const pClientId = p.client_id != null && Number(p.client_id) > 0 ? Number(p.client_id) : null;
+                    const pClientName = (p.client_name || "").toLowerCase().trim();
+                    const pClientEmail = (p.client_email || "").toLowerCase().trim();
+                    const pClientPhone = (p.client_phone || p.client_mobile || "").replace(/\D/g, "").slice(-10);
+                    const pId = Number(p.id || p.project_id);
+
+                    // 1. If project is explicitly assigned to a DIFFERENT client ID, reject
+                    if (pClientId != null && uid > 0 && pClientId !== uid) {
+                        return false;
+                    }
+                    // 2. If project is explicitly assigned to a DIFFERENT client name, reject
+                    if (pClientName && uName && pClientName !== uName && !pClientName.includes(uName) && !uName.includes(pClientName)) {
+                        return false;
+                    }
+
+                    // 3. Positive match by client_id
+                    if (pClientId != null && uid > 0 && pClientId === uid) return true;
+                    // 4. Positive match by client_name
+                    if (pClientName && uName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
+                    // 5. Positive match by client_email
+                    if (pClientEmail && uEmail && pClientEmail === uEmail) return true;
+                    // 6. Positive match by client_phone / mobile
+                    if (pClientPhone && uMob && pClientPhone === uMob) return true;
+                    // 7. Direct user profile project_id
+                    if (currentUser?.project_id && Number(currentUser.project_id) === pId) return true;
+                    if ((profileData as any)?.project_id && Number((profileData as any).project_id) === pId) return true;
+
+                    return false;
+                });
+
+                setProjects(authorizedProjects);
+
+                const validProjectIds = authorizedProjects.map((p: any) => Number(p.id || p.project_id));
                 const localSavedId = localStorage.getItem("client_selected_project_id");
                 let defaultPid: number | null = null;
-                if (localSavedId && localSavedId !== "null" && localSavedId !== "undefined" && Number(localSavedId) > 0) {
+
+                if (localSavedId && validProjectIds.includes(Number(localSavedId))) {
                     defaultPid = Number(localSavedId);
-                } else if (settingsData?.default_project_id && Number(settingsData.default_project_id) > 0) {
+                } else if (settingsData?.default_project_id && validProjectIds.includes(Number(settingsData.default_project_id))) {
                     defaultPid = Number(settingsData.default_project_id);
-                } else if (projectsList.length > 0) {
-                    defaultPid = Number(projectsList[0]?.id || projectsList[0]?.project_id);
+                } else if (authorizedProjects.length > 0) {
+                    defaultPid = Number(authorizedProjects[0]?.id || authorizedProjects[0]?.project_id);
                 }
 
                 if (defaultPid) {
                     setActiveProjectId(defaultPid);
                     localStorage.setItem("client_selected_project_id", String(defaultPid));
                     localStorage.setItem("infrapilot_selected_project_id", String(defaultPid));
+                } else {
+                    setActiveProjectId(null);
+                    localStorage.removeItem("client_selected_project_id");
                 }
                 setProfile(profileData);
                 setPreviewUrl(null);
@@ -216,7 +265,7 @@ const ClientSettingsPage = () => {
 
     const getActiveProjectName = () => {
         const p = projects.find(proj => (proj.id || proj.project_id) === activeProjectId);
-        return p?.name || p?.project_name || (projects.length > 0 ? (projects[0].name || projects[0].project_name) : "Project");
+        return p?.name || p?.project_name || (projects.length > 0 ? (projects[0].name || projects[0].project_name) : "No Project Assigned");
     };
 
     const formatDisplayDate = (dateStr: any) => {
@@ -423,11 +472,15 @@ const ClientSettingsPage = () => {
                                 }}
                                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                             >
-                                {projects.map(p => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || p.title || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
+                                {projects.length === 0 ? (
+                                    <option value="" disabled>No projects assigned to your account</option>
+                                ) : (
+                                    projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || p.title || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
                     </div>

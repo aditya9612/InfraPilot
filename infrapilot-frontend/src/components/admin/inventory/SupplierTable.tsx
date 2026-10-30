@@ -51,7 +51,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
                           </span>
                         )}
                         {email && (
-                          <span className={`block font-semibold ${phone ? "text-slate-700 text-xs" : "text-slate-800 text-sm"}`}>
+                          <span className="block font-semibold text-blue-600 text-xs hover:underline">
                             {email}
                           </span>
                         )}

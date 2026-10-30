@@ -1,4 +1,4 @@
-export type InvoiceType = "owner" | "labour" | "material" | "expense" | "measurement";
+export type InvoiceType = "owner" | "labour" | "material" | "expense" | "measurement" | "equipment";
 export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
 
 export interface Invoice {

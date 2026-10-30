@@ -30,6 +30,7 @@ import { drawingService } from "../../../services/drawingService";
 import { documentService } from "../../../services/documentService";
 import { qcService } from "../../../services/qcService";
 import { safetyService } from "../../../services/safetyService";
+import { projectService } from "../../../services/projectService";
 import { useProject } from "../../../context/ProjectContext";
 
 const statusColors: Record<string, string> = {
@@ -84,7 +85,75 @@ const WorkApprovalPage = () => {
         }
     }, [formNotification]);
 
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, assignedProjects } = useProject();
+    const [drawingProjectMap, setDrawingProjectMap] = useState<Record<number, number>>({});
+    const [documentProjectMap, setDocumentProjectMap] = useState<Record<number, number>>({});
+    const [unassignedProjectNames, setUnassignedProjectNames] = useState<string[]>([]);
+
+    useEffect(() => {
+        const fetchMetadata = async () => {
+            try {
+                // 1. Fetch all projects to find which ones are unassigned to this engineer
+                const allProjsData = await projectService.getProjects(100, 0);
+                const allProjs = Array.isArray(allProjsData) ? allProjsData : (allProjsData?.items || allProjsData?.data || []);
+
+                // Collect allowed project IDs and names
+                const allowedIds = new Set<number>();
+                (assignedProjects || []).forEach(p => {
+                    if (p.id) allowedIds.add(Number(p.id));
+                });
+                if (selectedProjectId) allowedIds.add(Number(selectedProjectId));
+
+                try {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        if (parsed.project_id) allowedIds.add(Number(parsed.project_id));
+                        if (parsed.user?.project_id) allowedIds.add(Number(parsed.user.project_id));
+                        (parsed.assigned_projects || parsed.user?.assigned_projects || []).forEach((p: any) => {
+                            if (p.id) allowedIds.add(Number(p.id));
+                        });
+                    }
+                } catch { }
+
+                // Find unassigned project names
+                const unassigned: string[] = [];
+                allProjs.forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    const pname = p.project_name || p.name || "";
+                    if (pid && !allowedIds.has(pid) && pname) {
+                        unassigned.push(pname);
+                    }
+                });
+                setUnassignedProjectNames(unassigned);
+
+                // 2. Fetch drawings to map drawingId -> projectId
+                const drawings = await drawingService.getList({ limit: 1000 });
+                const dMap: Record<number, number> = {};
+                (drawings || []).forEach((d: any) => {
+                    if (d.id && d.project_id) {
+                        dMap[Number(d.id)] = Number(d.project_id);
+                    }
+                });
+                setDrawingProjectMap(dMap);
+
+                // 3. Fetch documents to map documentId -> projectId
+                const docsRes: any = await documentService.listDocuments({ limit: 1000 });
+                const docs = Array.isArray(docsRes) ? docsRes : (docsRes?.data || docsRes?.items || []);
+                const docMap: Record<number, number> = {};
+                (docs || []).forEach((doc: any) => {
+                    if (doc.id && doc.project_id) {
+                        docMap[Number(doc.id)] = Number(doc.project_id);
+                    }
+                });
+                setDocumentProjectMap(docMap);
+            } catch (err) {
+                console.warn("Failed to load approval scoping metadata", err);
+            }
+        };
+
+        fetchMetadata();
+    }, [assignedProjects, selectedProjectId]);
 
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
@@ -311,12 +380,63 @@ const WorkApprovalPage = () => {
     };
 
     const baseFilteredApprovals = useMemo(() => {
-        return approvalData.filter(a =>
-            a.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            String(a.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (a.remarks && a.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-    }, [approvalData, searchTerm]);
+        // Collect allowed project IDs for the engineer
+        const allowedIds = new Set<number>();
+        (assignedProjects || []).forEach(p => {
+            if (p.id) allowedIds.add(Number(p.id));
+        });
+        if (selectedProjectId) allowedIds.add(Number(selectedProjectId));
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                if (parsed.project_id) allowedIds.add(Number(parsed.project_id));
+                if (parsed.user?.project_id) allowedIds.add(Number(parsed.user.project_id));
+                (parsed.assigned_projects || parsed.user?.assigned_projects || []).forEach((p: any) => {
+                    if (p.id) allowedIds.add(Number(p.id));
+                });
+            }
+        } catch { }
+
+        return approvalData.filter(a => {
+            // Project scoping for Site Engineer: only show approvals belonging to assigned projects
+            if (allowedIds.size > 0) {
+                // 1. Direct project_id on approval
+                if ((a as any).project_id != null) {
+                    if (!allowedIds.has(Number((a as any).project_id))) return false;
+                }
+
+                // 2. Drawing entity lookup
+                const entityType = (a.entity_type || "").toLowerCase();
+                if (entityType === "drawing" && a.entity_id != null) {
+                    const pId = drawingProjectMap[Number(a.entity_id)];
+                    if (pId != null && !allowedIds.has(Number(pId))) return false;
+                }
+
+                // 3. Document entity lookup
+                if (entityType === "document" && a.entity_id != null) {
+                    const pId = documentProjectMap[Number(a.entity_id)];
+                    if (pId != null && !allowedIds.has(Number(pId))) return false;
+                }
+
+                // 4. Check if remarks mention an unassigned project name (e.g. Sinhagad Hill)
+                if (a.remarks && unassignedProjectNames.length > 0) {
+                    const remLower = a.remarks.toLowerCase();
+                    for (const unassignedName of unassignedProjectNames) {
+                        if (unassignedName.trim().length > 3 && remLower.includes(unassignedName.toLowerCase().trim())) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return (
+                a.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                String(a.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.remarks && a.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+        });
+    }, [approvalData, searchTerm, assignedProjects, selectedProjectId, drawingProjectMap, documentProjectMap, unassignedProjectNames]);
 
     const filteredApprovals = useMemo(() => {
         let data = [...baseFilteredApprovals];

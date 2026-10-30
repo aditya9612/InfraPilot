@@ -46,7 +46,21 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             const fetchProjects = async () => {
                 try {
                     const response = await projectService.getProjects(100);
-                    setProjects(Array.isArray(response) ? response : response.items || []);
+                    const rawList = Array.isArray(response) ? response : response.items || [];
+                    const deletedClients = JSON.parse(localStorage.getItem("infrapilot_deleted_clients") || "[]");
+                    const activeProjects = rawList.filter((p: any) => {
+                        if (p.is_deleted) return false;
+                        const isDeleted = deletedClients.some((d: any) => {
+                            if (p.client_id && String(p.client_id) === String(d.id)) return true;
+                            const pMob = (p.client_mobile || p.client_phone || "").replace(/\D/g, "").slice(-10);
+                            const dMob = (d.mobile || d.phone || "").replace(/\D/g, "").slice(-10);
+                            if (pMob && dMob && pMob === dMob) return true;
+                            if (p.client_email && d.email && p.client_email.toLowerCase() === d.email.toLowerCase()) return true;
+                            return false;
+                        });
+                        return !isDeleted;
+                    });
+                    setProjects(activeProjects);
                 } catch (error) {
                     console.error("Failed to fetch projects", error);
                 }

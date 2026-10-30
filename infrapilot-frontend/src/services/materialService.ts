@@ -425,11 +425,36 @@ export const materialService = {
     return response.data;
   },
 
-  async getProjectInventory(project_id: number): Promise<Material[]> {
-    const response = await api.get<any>(`/materials/inventory/${project_id}`);
-    const data = response.data;
-    const items = Array.isArray(data) ? data : (data.items || data.data || []);
-    return items.map(mapMaterial);
+  async getProjectInventory(project_id?: number | null): Promise<Material[]> {
+    const numId = project_id && Number(project_id) > 0 ? Number(project_id) : undefined;
+    try {
+      const response = await api.get<any>("/materials/inventory", {
+        params: numId ? { project_id: numId } : undefined,
+      });
+      const data = response.data;
+      const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
+      if (items.length > 0) return items.map(mapMaterial);
+    } catch (err: any) {
+      console.warn("getProjectInventory /materials/inventory failed:", err?.message);
+    }
+
+    if (numId) {
+      try {
+        const response = await api.get<any>(`/materials/inventory/${numId}`);
+        const data = response.data;
+        const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
+        if (items.length > 0) return items.map(mapMaterial);
+      } catch (err: any) {
+        // expected if backend does not support path param
+      }
+    }
+
+    try {
+      return await materialService.listMaterials(numId, 0, 500);
+    } catch (err: any) {
+      console.error("Fallback listMaterials failed:", err?.message);
+      return [];
+    }
   },
 
   async getPriceHistory(material_id: number): Promise<PriceHistory[]> {

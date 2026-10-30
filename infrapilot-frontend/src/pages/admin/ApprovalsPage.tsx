@@ -192,10 +192,14 @@ const ApprovalsPage = () => {
 
     // 3. Search Term Filtering
     const searchStr = searchTerm.toLowerCase();
+    const reqName = String((a as any).requested_by_name || usersMap[Number(a.requested_by)] || "").toLowerCase();
+    const appName = String((a as any).approved_by_name || usersMap[Number(a.approved_by)] || "").toLowerCase();
     return (
       String(a.entity_type || "").toLowerCase().includes(searchStr) ||
       String(a.remarks || "").toLowerCase().includes(searchStr) ||
-      String(a.entity_id || "").toLowerCase().includes(searchStr)
+      String(a.entity_id || "").toLowerCase().includes(searchStr) ||
+      reqName.includes(searchStr) ||
+      appName.includes(searchStr)
     );
   }) : [];
 
@@ -408,7 +412,7 @@ const ApprovalsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                      {usersMap[Number(item.requested_by)] || item.requested_by || "-"}
+                      {(item as any).requested_by_name || usersMap[Number(item.requested_by)] || (item.requested_by ? `User #${item.requested_by}` : "-")}
                     </td>
                     <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{formatRemarks(item.remarks)}</td>
                     <td className="px-6 py-4">
@@ -419,8 +423,8 @@ const ApprovalsPage = () => {
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      {item.approved_by ? (usersMap[Number(item.approved_by)] || item.approved_by) : "-"}
+                    <td className="px-6 py-4 text-center text-[10px] font-bold text-slate-700 uppercase tracking-tight">
+                      {(item as any).approved_by_name || (item.approved_by ? (usersMap[Number(item.approved_by)] || `User #${item.approved_by}`) : "-")}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-1 items-center">
@@ -428,8 +432,9 @@ const ApprovalsPage = () => {
                           onClick={() => {
                             setViewingApproval({
                               ...item,
-                              requested_by_name: usersMap[Number(item.requested_by)] || item.requested_by,
-                              reviewer_name: usersMap[Number(item.approved_by)] || item.approved_by
+                              requested_by_name: (item as any).requested_by_name || usersMap[Number(item.requested_by)] || item.requested_by,
+                              reviewer_name: (item as any).approved_by_name || usersMap[Number(item.approved_by)] || item.approved_by,
+                              approved_by_name: (item as any).approved_by_name || usersMap[Number(item.approved_by)] || item.approved_by
                             });
                             setIsViewModalOpen(true);
                           }}

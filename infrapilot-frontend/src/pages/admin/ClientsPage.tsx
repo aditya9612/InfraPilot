@@ -176,7 +176,38 @@ const ClientsPage = () => {
   const handleDelete = async () => {
     if (clientToDelete) {
       try {
+        const clientObj = clients.find(c => c.id === clientToDelete);
         await userService.deleteUser(clientToDelete);
+        
+        // Track deleted client to prevent future logins and document receipt
+        const deletedList = JSON.parse(localStorage.getItem("infrapilot_deleted_clients") || "[]");
+        const cleanMobile = clientObj?.mobile ? String(clientObj.mobile).replace(/\D/g, "").slice(-10) : "";
+        const updatedList = [
+          ...deletedList.filter((d: any) => d.id !== clientToDelete && (!cleanMobile || d.mobile !== cleanMobile)),
+          {
+            id: clientToDelete,
+            name: clientObj?.name || "",
+            mobile: cleanMobile,
+            email: clientObj?.email || "",
+            deletedAt: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem("infrapilot_deleted_clients", JSON.stringify(updatedList));
+
+        // If active session belongs to this deleted client, revoke it immediately
+        const curUserStr = localStorage.getItem("infrapilot_user");
+        if (curUserStr) {
+          try {
+            const cur = JSON.parse(curUserStr);
+            const curId = Number(cur.id || cur.user_id);
+            const curMobile = (cur.mobile || "").replace(/\D/g, "").slice(-10);
+            if (curId === clientToDelete || (cleanMobile && curMobile === cleanMobile)) {
+              localStorage.removeItem("infrapilot_user");
+              localStorage.removeItem("client_selected_project_id");
+            }
+          } catch {}
+        }
+
         toast.success("Client removed from database.");
         setIsDeleteModalOpen(false);
         setClientToDelete(null);

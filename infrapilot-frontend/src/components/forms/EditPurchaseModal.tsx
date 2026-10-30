@@ -29,6 +29,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
     const [currentProjectId, setCurrentProjectId] = useState<number>(projectId);
     const [resolvedProjectName, setResolvedProjectName] = useState<string>(projectName);
     const [formData, setFormData] = useState({
+        purchase_type: "NEW",
         vendor_name: "",
         invoice_number: "",
         quantity: 1,
@@ -55,6 +56,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
             fetchPurchaseDetails();
         } else {
             setFormData({
+                purchase_type: "NEW",
                 vendor_name: "",
                 invoice_number: "",
                 quantity: 1,
@@ -72,6 +74,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
         try {
             const data = await equipmentService.getPurchase(purchaseId!);
             setFormData({
+                purchase_type: data.purchase_type || "NEW",
                 vendor_name: data.vendor_name || "",
                 invoice_number: data.invoice_number || "",
                 quantity: data.quantity ?? 1,
@@ -189,6 +192,25 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                     ) : (
                         <form onSubmit={handleSubmit} className="p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Purchase Type */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                        Purchase Type <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        name="purchase_type"
+                                        value={formData.purchase_type}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
+                                    >
+                                        <option value="NEW">NEW</option>
+                                        <option value="USED">USED</option>
+                                        <option value="RENT">RENT</option>
+                                        <option value="SPARE_PART">SPARE_PART</option>
+                                    </select>
+                                </div>
+
                                 {/* Vendor Name */}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
@@ -320,7 +342,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all"
+                                    className="flex-1 px-4 py-3 border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition-all"
                                 >
                                     Cancel
                                 </button>

@@ -102,8 +102,8 @@ const EquipmentPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-red-600">Validation Error</p>
-                    <p className="text-xs text-red-500 mt-0.5">{formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                    <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
+                    <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
                 </div>
                 <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
             </div>
@@ -117,7 +117,7 @@ const EquipmentPage = () => {
                 <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
                 <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
+                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
                     <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
                 </div>
             </div>
@@ -317,19 +317,38 @@ const EquipmentPage = () => {
         }
 
         if (targetProjectId) {
-            boqService.getBoqsByProject(Number(targetProjectId))
-                .then(res => {
-                    if (isMounted) setBoqsList(Array.isArray(res) ? res : []);
-                })
-                .catch(err => {
-                    console.error("Failed to fetch project BOQs", err);
-                    if (isMounted) setBoqsList([]);
-                });
+            Promise.allSettled([
+                boqService.getBoqs({ project_id: Number(targetProjectId), limit: 100 } as any),
+                boqService.getBoqsByProject(Number(targetProjectId))
+            ]).then(([res1, res2]) => {
+                if (!isMounted) return;
+                let items: any[] = [];
+                if (res1.status === 'fulfilled') {
+                    const r = res1.value;
+                    items = Array.isArray(r) ? r : ((r as any)?.items || (r as any)?.data || []);
+                }
+                if (items.length === 0 && res2.status === 'fulfilled') {
+                    const r = res2.value;
+                    items = Array.isArray(r) ? r : ((r as any)?.items || (r as any)?.data || (r as any)?.boqs || (r as any)?.boq_items || []);
+                }
+                const unwrap = (list: any[]): any[] => {
+                    const res: any[] = [];
+                    list.forEach((b: any) => {
+                        if (!b) return;
+                        if (Array.isArray(b.items) && b.items.length > 0) res.push(...unwrap(b.items));
+                        else if (Array.isArray(b.boq_items) && b.boq_items.length > 0) res.push(...unwrap(b.boq_items));
+                        else if (Array.isArray(b.sub_items) && b.sub_items.length > 0) res.push(...unwrap(b.sub_items));
+                        else res.push(b);
+                    });
+                    return res;
+                };
+                setBoqsList(unwrap(items || []));
+            });
         } else {
             setBoqsList([]);
         }
         return () => { isMounted = false; };
-    }, [selectedProjectId, isRentalModalOpen, isUsageModalOpen, formData.project_id, formData.equipment_id, globalEquipment, equipmentList]);
+    }, [selectedProjectId, isRentalModalOpen, isUsageModalOpen, isMaintenanceModalOpen, formData.project_id, formData.equipment_id, globalEquipment, equipmentList]);
 
     useEffect(() => {
         if (!selectedEquipment) return;
@@ -488,8 +507,12 @@ const EquipmentPage = () => {
             toast.success("Equipment allocated successfully!");
             setIsAllocateModalOpen(false);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to allocate equipment");
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const msg = Array.isArray(detail)
+                ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ")
+                : (typeof detail === "string" ? detail : (error.message || "Failed to allocate equipment"));
+            toast.error(msg, { duration: 6000 });
         }
     };
 
@@ -500,8 +523,10 @@ const EquipmentPage = () => {
             toast.success("Equipment deallocated!");
             setIsAllocateModalOpen(false);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to deallocate equipment");
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const msg = typeof detail === "string" ? detail : (error.message || "Failed to deallocate equipment");
+            toast.error(msg);
         }
     };
 
@@ -815,7 +840,7 @@ const EquipmentPage = () => {
                                 <button onClick={() => { setFormData(item); setIsViewMode(false); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
                                 <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id, usage_date: new Date().toISOString().split('T')[0] }); setFormNotification(null); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
-                                <button onClick={() => { setSelectedEquipment(null); setFormData({ equipment_id: '' }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
+                                <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id, project_id: item.project_id || null, maintenance_date: new Date().toISOString().split('T')[0] }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(null); setFormData({ equipment_id: '', start_date: new Date().toISOString().split('T')[0], end_date: new Date().toISOString().split('T')[0] }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                 <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
                                 <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
@@ -1365,6 +1390,8 @@ const EquipmentPage = () => {
                                 <option value="">All Types</option>
                                 <option value="NEW">NEW</option>
                                 <option value="USED">USED</option>
+                                <option value="RENT">RENT</option>
+                                <option value="SPARE_PART">SPARE_PART</option>
                             </select>
                             <button onClick={() => { setAppliedPurchaseType(purchaseType); setRefreshTrigger(prev => prev + 1); }} className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Apply</button>
                         </div>
@@ -1561,9 +1588,9 @@ const EquipmentPage = () => {
                 </div>
 
                 {/* Tab Selection */}
-                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 overflow-x-auto max-w-full">
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 overflow-x-auto max-w-full scrollbar-none">
                     {TABS.map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-inner" : "text-slate-500 hover:bg-slate-50"}`}>
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-inner" : "text-slate-500 hover:bg-slate-50"}`}>
                             {tab}
                         </button>
                     ))}
@@ -1634,14 +1661,41 @@ const EquipmentPage = () => {
                     onClose={() => setIsEquipmentModalOpen(false)}
                     onSave={async (data) => {
                         try {
-                            if (data.id) await equipmentService.updateEquipment(data.id, data);
-                            else await equipmentService.createEquipment(data);
+                            if (data.id) {
+                                await equipmentService.updateEquipment(data.id, data);
+                            } else {
+                                const payload = { ...data };
+                                if (!payload.project_id) delete payload.project_id;
+                                await equipmentService.createEquipment(payload);
+                            }
                             toast.success("Registry updated");
                             setIsEquipmentModalOpen(false);
                             fetchData();
                         } catch (err: any) {
-                            const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to save asset";
-                            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+                            let errorMsg = "Failed to save asset";
+                            const detail = err.response?.data?.detail;
+                            if (Array.isArray(detail)) {
+                                const eqCodeErr = detail.find((d: any) =>
+                                    d.loc?.includes("equipment_code") ||
+                                    (typeof d.msg === 'string' && d.msg.toLowerCase().includes("equipment code"))
+                                );
+                                if (eqCodeErr) {
+                                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                                } else if (detail.length > 0 && detail[0].msg) {
+                                    errorMsg = detail.map((d: any) => d.msg.replace(/^Value error,\s*/i, '')).join(". ");
+                                }
+                            } else if (typeof detail === 'string') {
+                                if (detail.toLowerCase().includes("equipment code")) {
+                                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                                } else {
+                                    errorMsg = detail;
+                                }
+                            } else if (err.response?.data?.message) {
+                                errorMsg = err.response.data.message;
+                            } else if (err.message) {
+                                errorMsg = err.message;
+                            }
+                            toast.error(errorMsg);
                             throw err;
                         }
                     }}
@@ -1738,7 +1792,12 @@ const EquipmentPage = () => {
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <CustomSelect
                             value={formData.equipment_id || ''}
-                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : '' })}
+                            onChange={(val) => {
+                                const eqId = val ? Number(val) : '';
+                                const selectedEq = modalEquipmentList.find(e => e.id === eqId);
+                                const pId = selectedEq?.project_id || formData.project_id || null;
+                                setFormData({ ...formData, equipment_id: eqId, project_id: pId, boq_item_id: null });
+                            }}
                             options={[
                                 { id: '', label: '-- Select Equipment --' },
                                 ...modalEquipmentList.map(eq => ({
@@ -1763,9 +1822,13 @@ const EquipmentPage = () => {
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                         >
                             <option value="">-- No BOQ item linked --</option>
-                            {boqsList.map(boq => (
-                                <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>
-                            ))}
+                            {boqsList.map(boq => {
+                                const id = boq.id || boq.boq_item_id || boq.boq_id;
+                                const name = boq.item_name || boq.item_description || boq.description || boq.work_description || boq.name || `BOQ Item #${id}`;
+                                return (
+                                    <option key={id} value={id}>{name}</option>
+                                );
+                            })}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1820,7 +1883,12 @@ const EquipmentPage = () => {
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <CustomSelect
                             value={formData.equipment_id || ''}
-                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : '' })}
+                            onChange={(val) => {
+                                const eqId = val ? Number(val) : '';
+                                const selectedEq = modalEquipmentList.find(e => e.id === eqId);
+                                const pId = selectedEq?.project_id || formData.project_id || null;
+                                setFormData({ ...formData, equipment_id: eqId, project_id: pId, boq_item_id: null });
+                            }}
                             options={[
                                 { id: '', label: '-- Select Equipment --' },
                                 ...modalEquipmentList.map(eq => ({
@@ -1860,9 +1928,13 @@ const EquipmentPage = () => {
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                         >
                             <option value="">-- No BOQ item linked --</option>
-                            {boqsList.map(boq => (
-                                <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>
-                            ))}
+                            {boqsList.map(boq => {
+                                const id = boq.id || boq.boq_item_id || boq.boq_id;
+                                const name = boq.item_name || boq.item_description || boq.description || boq.work_description || boq.name || `BOQ Item #${id}`;
+                                return (
+                                    <option key={id} value={id}>{name}</option>
+                                );
+                            })}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1894,7 +1966,12 @@ const EquipmentPage = () => {
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-rose-500">*</span></label>
                         <CustomSelect
                             value={formData.equipment_id || ''}
-                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : '' })}
+                            onChange={(val) => {
+                                const eqId = val ? Number(val) : '';
+                                const selectedEq = modalEquipmentList.find(e => e.id === eqId);
+                                const pId = selectedEq?.project_id || formData.project_id || null;
+                                setFormData({ ...formData, equipment_id: eqId, project_id: pId, boq_item_id: null });
+                            }}
                             options={[
                                 { id: '', label: 'Select Equipment' },
                                 ...globalEquipment.filter(eq => {
@@ -1945,10 +2022,14 @@ const EquipmentPage = () => {
                         <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
                             <option value="">-- Choose BOQ Item --</option>
                             {boqsList
-                                .filter(boq => !formData.project_id || Number(boq.project_id) === Number(formData.project_id))
-                                .map(boq => (
-                                    <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>
-                                ))}
+                                .filter(boq => !formData.project_id || !boq.project_id || Number(boq.project_id) === Number(formData.project_id))
+                                .map((boq, bIdx) => {
+                                    const bId = boq.id || boq.boq_item_id || boq.boq_id || `boq-${bIdx}`;
+                                    const bName = boq.item_name || boq.item_description || boq.description || boq.name || boq.work_description || `BOQ Item #${bId}`;
+                                    return (
+                                        <option key={bId} value={bId}>{bName}</option>
+                                    );
+                                })}
                         </select>
                     </div>
                     <div>

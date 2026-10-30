@@ -18,6 +18,7 @@ import {
     AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw, RotateCcw, QrCode
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 
 
 // Types mapping for condition colors
@@ -245,6 +246,12 @@ const MachineryPage = () => {
     const [isRentalDeleteModalOpen, setIsRentalDeleteModalOpen] = useState(false);
     const [rentalToDelete, setRentalToDelete] = useState<{ id: number, equipment_id: number } | null>(null);
 
+    // Maintenance Complete Modal
+    const [isMaintenanceCompleteModalOpen, setIsMaintenanceCompleteModalOpen] = useState(false);
+    const [maintenanceToComplete, setMaintenanceToComplete] = useState<{ id: number, equipment_id: number } | null>(null);
+
+    // BOQ Names Cache
+    const [boqNamesMap, setBoqNamesMap] = useState<Record<number, string>>({});
 
     // New Modals for Transfer & Purchase
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -252,6 +259,136 @@ const MachineryPage = () => {
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
     const [createPurchaseForm, setCreatePurchaseForm] = useState<any>({});
+    const [purchaseBoqItems, setPurchaseBoqItems] = useState<any[]>([]);
+    const [isFetchingPurchaseBoqs, setIsFetchingPurchaseBoqs] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+        const pId = Number(createPurchaseForm.project_id);
+        if (!pId || isNaN(pId) || !isCreatePurchaseModalOpen) {
+            setPurchaseBoqItems([]);
+            return;
+        }
+
+        const fetchBoqsForPurchase = async () => {
+            setIsFetchingPurchaseBoqs(true);
+            try {
+                let items: any[] = [];
+                try {
+                    const bItems = await boqService.getBoqItems(pId);
+                    const list = Array.isArray(bItems) ? bItems : (bItems as any)?.items || (bItems as any)?.boq_items || (bItems as any)?.data || [];
+                    if (list.length > 0) items = list;
+                } catch (err) { }
+
+                if (items.length === 0) {
+                    try {
+                        const byProj = await boqService.getBoqsByProject(pId);
+                        const list = Array.isArray(byProj) ? byProj : (byProj as any)?.items || (byProj as any)?.boq_items || (byProj as any)?.data || [];
+                        if (list.length > 0) items = list;
+                    } catch (err) { }
+                }
+
+                if (items.length === 0) {
+                    try {
+                        const data = await boqService.getBoqs({ project_id: pId, limit: 100, skip: 0 } as any);
+                        const raw = Array.isArray(data) ? data : (data?.items || (data as any)?.data || []);
+                        if (raw.length > 0) items = raw;
+                    } catch (err) { }
+                }
+
+                const unwrapItems = (list: any[]): any[] => {
+                    const res: any[] = [];
+                    list.forEach((b: any) => {
+                        if (!b) return;
+                        if (Array.isArray(b.items) && b.items.length > 0) {
+                            res.push(...unwrapItems(b.items));
+                        } else if (Array.isArray(b.boq_items) && b.boq_items.length > 0) {
+                            res.push(...unwrapItems(b.boq_items));
+                        } else if (Array.isArray(b.sub_items) && b.sub_items.length > 0) {
+                            res.push(...unwrapItems(b.sub_items));
+                        } else {
+                            res.push(b);
+                        }
+                    });
+                    return res;
+                };
+
+                const flattened = unwrapItems(items);
+                if (isMounted) {
+                    setPurchaseBoqItems(flattened.filter(Boolean));
+                }
+            } catch (error) {
+                console.error("Failed to load BOQ items for purchase modal:", error);
+                if (isMounted) setPurchaseBoqItems([]);
+            } finally {
+                if (isMounted) setIsFetchingPurchaseBoqs(false);
+            }
+        };
+
+        fetchBoqsForPurchase();
+        return () => { isMounted = false; };
+    }, [createPurchaseForm.project_id, isCreatePurchaseModalOpen]);
+
+    // Resolve BOQ Item Names dynamically for Maintenance & Usage Logs
+    useEffect(() => {
+        const idsToFetch = new Set<number>();
+        (selectedEquipmentLogs.maint || []).forEach((log: any) => {
+            if (log.boq_item_id) {
+                const id = Number(log.boq_item_id);
+                const explicitName = log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name;
+                if (explicitName) {
+                    setBoqNamesMap(prev => (prev[id] === explicitName ? prev : { ...prev, [id]: explicitName }));
+                } else if (!boqNamesMap[id]) {
+                    idsToFetch.add(id);
+                }
+            }
+        });
+
+        (selectedEquipmentLogs.usage || []).forEach((log: any) => {
+            if (log.boq_item_id) {
+                const id = Number(log.boq_item_id);
+                const explicitName = log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name;
+                if (explicitName) {
+                    setBoqNamesMap(prev => (prev[id] === explicitName ? prev : { ...prev, [id]: explicitName }));
+                } else if (!boqNamesMap[id]) {
+                    idsToFetch.add(id);
+                }
+            }
+        });
+
+        if (idsToFetch.size === 0) return;
+
+        let isMounted = true;
+        idsToFetch.forEach(async (id) => {
+            try {
+                const item = await boqService.getBoqById(id);
+                if (isMounted && item) {
+                    const name = item.item_name || (item as any).name || (item as any).description || (item as any).title || (item as any).work_description || (item as any).item_code;
+                    if (name) {
+                        setBoqNamesMap(prev => ({ ...prev, [id]: name }));
+                        return;
+                    }
+                }
+            } catch { }
+
+            // Fallback: try project boqs if matching log has project_id
+            const matchingLog = (selectedEquipmentLogs.maint || []).find((l: any) => Number(l.boq_item_id) === id) ||
+                (selectedEquipmentLogs.usage || []).find((l: any) => Number(l.boq_item_id) === id);
+            const pId = (matchingLog as any)?.project_id || selectedProjectId;
+            if (pId) {
+                try {
+                    const pBoqs = await boqService.getBoqsByProject(pId);
+                    const match = pBoqs.find(b => Number(b.id) === id || Number((b as any).boq_item_id) === id);
+                    if (match && isMounted) {
+                        const name = match.item_name || (match as any).name || (match as any).description || (match as any).title || (match as any).work_description;
+                        if (name) setBoqNamesMap(prev => ({ ...prev, [id]: name }));
+                    }
+                } catch { }
+            }
+        });
+
+        return () => { isMounted = false; };
+    }, [selectedEquipmentLogs.maint, selectedEquipmentLogs.usage, selectedProjectId]);
 
     // ─── Form Notification State & Helpers ──────────────────────────────
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
@@ -590,8 +727,31 @@ const MachineryPage = () => {
             setIsEquipmentModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
             setEquipmentList(res.items || []);
-        } catch (error) {
-            toast.error("Failed to save equipment");
+        } catch (error: any) {
+            let errorMsg = "Failed to save equipment";
+            const detail = error.response?.data?.detail;
+            if (Array.isArray(detail)) {
+                const eqCodeErr = detail.find((d: any) =>
+                    d.loc?.includes("equipment_code") ||
+                    (typeof d.msg === 'string' && d.msg.toLowerCase().includes("equipment code"))
+                );
+                if (eqCodeErr) {
+                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                } else if (detail.length > 0 && detail[0].msg) {
+                    errorMsg = detail.map((d: any) => d.msg.replace(/^Value error,\s*/i, '')).join(". ");
+                }
+            } else if (typeof detail === 'string') {
+                if (detail.toLowerCase().includes("equipment code")) {
+                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                } else {
+                    errorMsg = detail;
+                }
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+            toast.error(errorMsg);
             throw error;
         }
     };
@@ -636,16 +796,18 @@ const MachineryPage = () => {
 
             // The API returns a batch response — check if allocation actually succeeded
             if (result.success_count === 0 || (result.failed && result.failed.length > 0)) {
-                const rawReason = (result.failed?.[0]?.reason || "").toLowerCase();
+                const rawReason = result.failed?.[0]?.reason || "";
+                const reasonLower = rawReason.toLowerCase();
                 let userMessage: string;
-                if (rawReason.includes('maintenance')) {
+                if (reasonLower.includes('maintenance')) {
                     userMessage = `Equipment "${selectedEquipment.equipment_name}" is currently under maintenance and cannot be allocated to a project. Please wait until the maintenance is complete.`;
-                } else if (rawReason.includes('already allocated') || rawReason.includes('in use')) {
+                } else if (reasonLower.includes('already allocated') || reasonLower.includes('in use')) {
                     userMessage = `Equipment "${selectedEquipment.equipment_name}" is already allocated to another project.`;
                 } else {
-                    userMessage = result.failed?.[0]?.reason || "Equipment could not be allocated. Please try again.";
+                    userMessage = rawReason || "Equipment could not be allocated. Please try again.";
                 }
                 setFormNotification({ type: 'error', message: userMessage });
+                toast.error(userMessage, { duration: 6000 });
                 return;
             }
 
@@ -654,8 +816,13 @@ const MachineryPage = () => {
             // Refetch equipment list so UI reflects the new allocation status immediately
             const res = await equipmentService.listEquipment({ limit: 100 });
             setEquipmentList(res.items || []);
-        } catch (error) {
-            toast.error("Failed to allocate equipment");
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const msg = Array.isArray(detail)
+                ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ")
+                : (typeof detail === "string" ? detail : (error.message || "Failed to allocate equipment"));
+            toast.error(msg, { duration: 6000 });
+            setFormNotification({ type: 'error', message: msg });
         }
     };
 
@@ -706,9 +873,14 @@ const MachineryPage = () => {
         e.preventDefault();
 
         const form = e.target as HTMLFormElement;
-        if (!form.checkValidity()) {
-            const missingFields = getMissingFields(form);
-            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
+        const missing: string[] = [];
+        if (!createPurchaseForm.purchase_type) missing.push("PURCHASE TYPE");
+        if (!createPurchaseForm.project_id) missing.push("PROJECT");
+
+        if (!form.checkValidity() || missing.length > 0) {
+            const formMissing = getMissingFields(form);
+            const combined = Array.from(new Set([...missing, ...formMissing]));
+            setFormNotification({ type: 'error', message: combined.length === 0 ? "Please fill all mandatory fields" : undefined, fields: combined.length > 0 ? combined : undefined });
             return;
         }
         setFormNotification(null);
@@ -805,22 +977,26 @@ const MachineryPage = () => {
         }
     };
 
-    const handleCompleteMaintenance = async (maint_id: number, equipment_id: number) => {
-        if (!confirm("Are you sure you want to mark this maintenance as complete?")) return;
+    const handleConfirmCompleteMaintenance = async () => {
+        if (!maintenanceToComplete) return;
         try {
-            await equipmentService.completeMaintenance(equipment_id, maint_id);
+            await equipmentService.completeMaintenance(maintenanceToComplete.equipment_id, maintenanceToComplete.id);
             toast.success("Maintenance marked as complete");
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
                 setMaintenanceAlerts(alerts);
-                const eq = equipmentList.find(e => e.id === equipment_id);
+                const eq = equipmentList.find(e => e.id === maintenanceToComplete.equipment_id);
                 if (eq) {
                     const logs = await equipmentService.listMaintenance(eq.id);
                     setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
                 }
             }
-        } catch (error) {
-            toast.error("Failed to complete maintenance");
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            toast.error(typeof detail === 'string' ? detail : "Failed to complete maintenance");
+        } finally {
+            setIsMaintenanceCompleteModalOpen(false);
+            setMaintenanceToComplete(null);
         }
     };
 
@@ -1551,7 +1727,7 @@ const MachineryPage = () => {
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50">
                                             <td className="p-4 whitespace-nowrap">{log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || projects.find(p => p.id === log.project_id)?.name || `Project #${log.project_id}`) : '-'}</td>
-                                            <td className="p-4 whitespace-nowrap">{log.boq_item_id ? (log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name || boqsList.find(b => Number(b.id) === Number(log.boq_item_id))?.item_name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
+                                            <td className="p-4 whitespace-nowrap font-medium text-slate-800">{log.boq_item_id ? (log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name || boqNamesMap[Number(log.boq_item_id)] || boqsList.find(b => Number(b.id) === Number(log.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(log.boq_item_id))?.name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
                                             <td className="p-4 whitespace-nowrap">{log.equipment_id ? (equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || selectedEquipment?.equipment_name || `Equipment #${log.equipment_id}`) : '-'}</td>
                                             <td className="p-4 whitespace-nowrap">{log.maintenance_date || '-'}</td>
                                             <td className="p-4 font-bold text-slate-800">₹{log.cost?.toLocaleString() || '0'}</td>
@@ -1575,7 +1751,7 @@ const MachineryPage = () => {
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     {!isCompleted && (
-                                                        <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} className="p-1.5 rounded text-emerald-500 hover:text-white hover:bg-emerald-500" title="Complete Maintenance">
+                                                        <button onClick={() => { setMaintenanceToComplete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 }); setIsMaintenanceCompleteModalOpen(true); }} className="p-1.5 rounded text-emerald-500 hover:text-white hover:bg-emerald-500" title="Complete Maintenance">
                                                             <Check className="w-4 h-4" />
                                                         </button>
                                                     )}
@@ -2736,6 +2912,16 @@ const MachineryPage = () => {
             />
 
             <ConfirmModal
+                isOpen={isMaintenanceCompleteModalOpen}
+                onClose={() => { setIsMaintenanceCompleteModalOpen(false); setMaintenanceToComplete(null); }}
+                onConfirm={handleConfirmCompleteMaintenance}
+                title="Complete Maintenance"
+                message="Are you sure you want to mark this maintenance as complete?"
+                confirmText="Mark as Complete"
+                type="info"
+            />
+
+            <ConfirmModal
                 isOpen={isRentalDeleteModalOpen}
                 onClose={() => setIsRentalDeleteModalOpen(false)}
                 onConfirm={handleDeleteRentalConfirm}
@@ -2867,6 +3053,8 @@ const MachineryPage = () => {
                                 <option value="">Select Type</option>
                                 <option value="NEW">NEW</option>
                                 <option value="USED">USED</option>
+                                <option value="RENT">RENT</option>
+                                <option value="SPARE_PART">SPARE_PART</option>
                             </select>
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'PURCHASE TYPE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
@@ -2883,33 +3071,48 @@ const MachineryPage = () => {
                                 ))}
                             </select>
                         </div>
-                        <div>
+                        <div className="z-20 relative">
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Project <span className="text-red-600">*</span></label>
-                            <select
-                                required
-                                value={createPurchaseForm.project_id || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, project_id: parseInt(e.target.value) })}
-                                className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}
-                            >
-                                <option value="">Select Project</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
+                            <CustomSelect
+                                value={createPurchaseForm.project_id ? String(createPurchaseForm.project_id) : ""}
+                                onChange={(val) => {
+                                    const numVal = Number(val) || undefined;
+                                    setCreatePurchaseForm({ ...createPurchaseForm, project_id: numVal, boq_item_id: undefined });
+                                }}
+                                options={projects.map(p => ({
+                                    id: String(p.id),
+                                    label: p.project_name || p.name || `Project #${p.id}`
+                                }))}
+                                placeholder="Select Project"
+                                maxHeight="max-h-48"
+                                searchable={projects.length > 5}
+                                error={formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT')}
+                            />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">BOQ Item</label>
                             <select
                                 value={createPurchaseForm.boq_item_id || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: parseInt(e.target.value) })}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })}
+                                disabled={isFetchingPurchaseBoqs}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
                             >
-                                <option value="">Select BOQ Item</option>
-                                {boqsList.map(b => (
-                                    <option key={b.id} value={b.id}>{b.item_name || b.name}</option>
-                                ))}
+                                <option value="">{isFetchingPurchaseBoqs ? "Fetching BOQ items..." : (!createPurchaseForm.project_id ? "Select a project first" : (purchaseBoqItems.length === 0 ? "No BOQ items for this project" : "Select BOQ Item"))}</option>
+                                {purchaseBoqItems.map((b, idx) => {
+                                    const idVal = b.id ?? b.boq_item_id ?? b.item_id ?? idx;
+                                    const name = b.item_name || b.name || b.description || b.title || b.item_code || b.work_description || `BOQ Item #${idVal}`;
+                                    const unit = b.unit || b.unit_name ? ` (${b.unit || b.unit_name})` : "";
+                                    return (
+                                        <option key={`${idVal}-${idx}`} value={idVal}>
+                                            {name}{unit}
+                                        </option>
+                                    );
+                                })}
                             </select>
+                            {isFetchingPurchaseBoqs && (
+                                <p className="text-[10px] font-bold text-primary animate-pulse mt-1 uppercase tracking-wider">Fetching project BOQ items...</p>
+                            )}
                         </div>
 
                         <div>
@@ -3000,7 +3203,7 @@ const MachineryPage = () => {
                         ></textarea>
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-3 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Cancel</button>
+                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-3 text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95">Cancel</button>
                         <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">{createPurchaseForm.id ? "Edit Purchase" : "Save Purchase"}</button>
                     </div>
                 </form>

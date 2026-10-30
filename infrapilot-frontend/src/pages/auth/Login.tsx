@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
@@ -7,7 +7,7 @@ import logoFull from "../../assets/logo-full.png";
 import constructionBg from "../../assets/construction-bg.png";
 import { authService } from "../../services/authService";
 import toast from "react-hot-toast";
-import { Lock, ArrowRight, Target, Box, BarChart2, Shield, ChevronDown } from "lucide-react";
+import { Lock, ArrowRight, Target, Box, BarChart2, Shield } from "lucide-react";
 
 type Step = "mobile" | "otp";
 
@@ -39,8 +39,29 @@ const ROLE_PATHS: Record<Role, string> = {
   Labour: "/labour",
 };
 
+const DELETED_ACCOUNT_MSG = "Your account has been delete. Please contact Admin.";
+
+const isClientDeleted = (mob: string, email?: string, uid?: string | number) => {
+  try {
+    const raw = localStorage.getItem("infrapilot_deleted_clients");
+    if (!raw) return false;
+    const deletedList = JSON.parse(raw);
+    const cleanMob = (mob || "").replace(/\D/g, "").slice(-10);
+    return deletedList.some((d: any) => {
+      const dMob = (d.mobile || d.phone || "").replace(/\D/g, "").slice(-10);
+      if (cleanMob && dMob && cleanMob === dMob) return true;
+      if (uid && d.id && String(d.id) === String(uid)) return true;
+      if (email && d.email && d.email.toLowerCase() === email.toLowerCase()) return true;
+      return false;
+    });
+  } catch {
+    return false;
+  }
+};
+
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
@@ -50,6 +71,12 @@ const Login = () => {
   const [error, setError] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (location.state?.error) {
+      setError(location.state.error);
+    }
+  }, [location.state]);
 
   const startResendTimer = () => {
     setResendTimer(30);
@@ -78,6 +105,10 @@ const Login = () => {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
+    if (isClientDeleted(mobile)) {
+      setError(DELETED_ACCOUNT_MSG);
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -88,6 +119,11 @@ const Login = () => {
     } catch (err: any) {
       const errorData = err.response?.data;
       const rawMessage = errorData?.message || errorData?.detail;
+      const lowerRaw = typeof rawMessage === "string" ? rawMessage.toLowerCase() : "";
+      if (lowerRaw.includes("delete") || lowerRaw.includes("deactivated") || lowerRaw.includes("inactive")) {
+        setError(DELETED_ACCOUNT_MSG);
+        return;
+      }
       const resolvedMessage =
         typeof rawMessage === "string"
           ? rawMessage.toLowerCase().includes("not registered") || rawMessage.toLowerCase().includes("not found")
@@ -144,6 +180,17 @@ const Login = () => {
 
       const profile = await authService.getMe();
 
+      if (
+        isClientDeleted(mobile, profile.email, (profile as any).user_id || (profile as any).id || verifyData.user_id) ||
+        (profile as any).is_deleted === true ||
+        (profile as any).is_active === false
+      ) {
+        localStorage.removeItem("infrapilot_user");
+        localStorage.removeItem("client_selected_project_id");
+        setError(DELETED_ACCOUNT_MSG);
+        return;
+      }
+
       let normalizedRole: Role = "Admin";
       if (profile.is_super_admin === true) {
         normalizedRole = "SuperAdmin";
@@ -173,11 +220,16 @@ const Login = () => {
     } catch (err: any) {
       const errorData = err.response?.data;
       const message = errorData?.message || errorData?.detail;
-      setError(
-        typeof message === "string"
-          ? message
-          : "Invalid OTP or verification failed.",
-      );
+      const lowerMsg = typeof message === "string" ? message.toLowerCase() : "";
+      if (lowerMsg.includes("delete") || lowerMsg.includes("deactivated") || lowerMsg.includes("inactive")) {
+        setError(DELETED_ACCOUNT_MSG);
+      } else {
+        setError(
+          typeof message === "string"
+            ? message
+            : "Invalid OTP or verification failed.",
+        );
+      }
       localStorage.removeItem("infrapilot_user");
     } finally {
       setLoading(false);

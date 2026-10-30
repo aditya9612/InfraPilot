@@ -1,61 +1,103 @@
-import { useEffect, useState } from "react";
-import { clientPaymentService, type ClientPaymentAnalytics, type InvoiceSummary } from "../../services/clientPaymentService";
+import { useEffect, useState, useCallback } from "react";
+import { clientPaymentService, type ClientPaymentAnalytics, type ClientPayment } from "../../services/clientPaymentService";
 import { IndianRupee, TrendingUp, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { formatCompactCurrency } from "../../utils/currencyUtils";
 import StatCard from "../common/StatCard";
 import { useProject } from "../../context/ProjectContext";
-const ClientPaymentAnalyticsUI = () => {
+
+interface ClientPaymentAnalyticsUIProps {
+    payments?: ClientPayment[];
+}
+
+const ClientPaymentAnalyticsUI: React.FC<ClientPaymentAnalyticsUIProps> = ({ payments: propPayments }) => {
     const { selectedProjectId } = useProject();
     const [analytics, setAnalytics] = useState<ClientPaymentAnalytics | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const calculateMetricsFromPayments = useCallback((paymentsList: any[]) => {
+        let totalCollection = 0;
+        let pendingCount = 0;
+        let successCount = 0;
+        let rejectedCount = 0;
+
+        paymentsList.forEach((p: any) => {
+            const status = String(p.status || p.payment_status || '').toLowerCase().trim();
+            const amount = Number(p.amount) || 0;
+
+            if (status.includes('completed') || status.includes('verified') || status.includes('success') || status === 'paid' || status === 'approved') {
+                successCount++;
+                totalCollection += amount;
+            } else if (status.includes('fail') || status.includes('reject') || status.includes('decline')) {
+                rejectedCount++;
+            } else if (status.includes('pending') || status === 'unverified') {
+                pendingCount++;
+            }
+        });
+
+        const average = successCount > 0 ? (totalCollection / successCount) : 0;
+
+        setAnalytics({
+            total_collection: totalCollection.toString(),
+            pending_verification: pendingCount,
+            successful_payments: successCount,
+            average_payment: average.toString(),
+            rejected_payments: rejectedCount,
+            total_invoices: 0,
+            overdue_invoices: 0,
+            highest_payment: "0",
+        });
+    }, []);
+
+    const fetchData = useCallback(async () => {
+        if (!selectedProjectId) return;
+        try {
+            // Fetch the actual payments linked to this project to calculate precise local metrics
+            const payments = await clientPaymentService.getPaymentHistory({ project_id: selectedProjectId });
+            calculateMetricsFromPayments(payments);
+        } catch (err) {
+            console.error("Failed to fetch client payment analytics", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedProjectId, calculateMetricsFromPayments]);
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!selectedProjectId) return;
-            setLoading(true);
-            try {
-                // Fetch the actual payments linked to this project to calculate precise local metrics
-                const payments = await clientPaymentService.getPaymentHistory({ project_id: selectedProjectId });
+        if (propPayments && Array.isArray(propPayments)) {
+            calculateMetricsFromPayments(propPayments);
+            setLoading(false);
+        }
+    }, [propPayments, calculateMetricsFromPayments]);
 
-                let totalCollection = 0;
-                let pendingCount = 0;
-                let successCount = 0;
-                let rejectedCount = 0;
+    useEffect(() => {
+        if (propPayments) return;
+        setLoading(true);
+        fetchData();
+    }, [selectedProjectId, fetchData, propPayments]);
 
-                payments.forEach((p: any) => {
-                    const status = (p.status || p.payment_status || '').toLowerCase();
-                    const amount = Number(p.amount) || 0;
-
-                    if (status.includes('completed') || status.includes('verified') || status.includes('success')) {
-                        successCount++;
-                        totalCollection += amount;
-                    } else if (status.includes('pending')) {
-                        pendingCount++;
-                    } else if (status.includes('fail') || status.includes('reject')) {
-                        rejectedCount++;
-                    }
-                });
-
-                const average = successCount > 0 ? (totalCollection / successCount) : 0;
-
-                setAnalytics({
-                    total_collection: totalCollection.toString(),
-                    pending_verification: pendingCount,
-                    successful_payments: successCount,
-                    average_payment: average.toString(),
-                    rejected_payments: rejectedCount,
-                    total_invoices: 0,
-                    overdue_invoices: 0,
-                    highest_payment: "0",
-                });
-            } catch (err) {
-                console.error("Failed to fetch client payment analytics", err);
-            } finally {
+    // Listen to real-time payment status change events across the application
+    useEffect(() => {
+        const handlePaymentsLoaded = (e: any) => {
+            if (e.detail && Array.isArray(e.detail)) {
+                calculateMetricsFromPayments(e.detail);
                 setLoading(false);
             }
         };
-        fetchData();
-    }, [selectedProjectId]);
+
+        const handleStatusChanged = () => {
+            fetchData();
+        };
+
+        window.addEventListener('client-payments-loaded', handlePaymentsLoaded);
+        window.addEventListener('client-payment-status-changed', handleStatusChanged);
+        window.addEventListener('client-payment-updated', handleStatusChanged);
+        window.addEventListener('payment-status-changed', handleStatusChanged);
+
+        return () => {
+            window.removeEventListener('client-payments-loaded', handlePaymentsLoaded);
+            window.removeEventListener('client-payment-status-changed', handleStatusChanged);
+            window.removeEventListener('client-payment-updated', handleStatusChanged);
+            window.removeEventListener('payment-status-changed', handleStatusChanged);
+        };
+    }, [fetchData, calculateMetricsFromPayments]);
 
     if (loading) {
         return (

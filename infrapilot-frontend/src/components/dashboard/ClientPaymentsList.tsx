@@ -22,7 +22,9 @@ const ClientPaymentsList = () => {
         setLoading(true);
         try {
             const data = await clientPaymentService.listPayments({ project_id: selectedProjectId });
-            setPayments(data.items || []);
+            const items = data.items || [];
+            setPayments(items);
+            window.dispatchEvent(new CustomEvent('client-payments-loaded', { detail: items }));
         } catch (err) {
             console.error("Failed to fetch payments", err);
             toast.error("Failed to load client payments");
@@ -38,11 +40,24 @@ const ClientPaymentsList = () => {
     const handleVerify = async (id: number, action: "approve" | "reject") => {
         try {
             toast.loading(`${action === 'approve' ? 'Verifying' : 'Rejecting'}...`, { id: "action" });
+            
+            // Optimistic update so Rejected / Verified count changes immediately
+            const targetStatus = action === 'approve' ? 'VERIFIED' : 'REJECTED';
+            setPayments(prev => {
+                const next = prev.map(p => p.id === id ? { ...p, payment_status: targetStatus, status: targetStatus } : p);
+                window.dispatchEvent(new CustomEvent('client-payments-loaded', { detail: next }));
+                return next;
+            });
+
             await clientPaymentService.verifyPayment(id, action);
             toast.success(`Payment ${action === 'approve' ? 'verified' : 'rejected'} successfully`, { id: "action" });
+            
+            window.dispatchEvent(new CustomEvent('client-payment-status-changed', { detail: { id, action } }));
+            window.dispatchEvent(new CustomEvent('client-payment-updated'));
             fetchPayments();
         } catch (error) {
             toast.error(`Failed to ${action}`, { id: "action" });
+            fetchPayments();
         }
     };
 

@@ -423,7 +423,7 @@ const AdminDashboard = () => {
         breadcrumb={["InfraPilot", "Dashboard", "Admin"]}
       />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-4 sm:p-6 bg-slate-50 min-h-screen font-inter">
         {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -851,7 +851,7 @@ const AdminDashboard = () => {
 
         {/* Projects Overview Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="font-bold text-slate-800">
               Master Projects Overview
             </h2>
@@ -888,8 +888,57 @@ const AdminDashboard = () => {
               </button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden divide-y divide-slate-100">
+            {isLoading ? (
+              <div className="p-6 text-center text-slate-400 italic text-sm">
+                Loading projects...
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 italic text-sm">
+                No projects found.
+              </div>
+            ) : (
+              projects
+                .slice(tablePage * TABLE_PER_PAGE, (tablePage + 1) * TABLE_PER_PAGE)
+                .map((p, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handleViewProject(p.id)}
+                    className="p-4 hover:bg-slate-50/70 transition-all cursor-pointer space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-slate-800 text-sm">{p.project_name}</h4>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest uppercase shrink-0 ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}>
+                        {p.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>{p.start_date || "—"} to {p.end_date || "—"}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Progress</span>
+                        <span className="font-bold text-slate-700">{formatProgress(p.completion_percentage)}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${progressPulse[p.status] || "bg-slate-300"}`}
+                          style={{ width: `${Math.min(100, Math.max(0, Number(formatProgress(p.completion_percentage))))}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-left min-w-[650px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-6 py-4">Site/Project</th>
@@ -920,13 +969,13 @@ const AdminDashboard = () => {
                         onClick={() => handleViewProject(p.id)}
                         className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                       >
-                        <td className="px-6 py-4 font-bold text-slate-700">
+                        <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
                           {p.project_name}
                         </td>
-                        <td className="px-6 py-4 text-slate-500 font-medium text-xs">
+                        <td className="px-6 py-4 text-slate-500 font-medium text-xs whitespace-nowrap">
                           {p.start_date} To {p.end_date}
                         </td>
-                        <td className="px-6 py-4 min-w-[200px]">
+                        <td className="px-6 py-4 min-w-[180px]">
                           <div className="flex items-center gap-3">
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
@@ -934,12 +983,12 @@ const AdminDashboard = () => {
                                 style={{ width: `${Math.min(100, Math.max(0, Number(formatProgress(p.completion_percentage))))}%` }}
                               />
                             </div>
-                            <span className="text-xs font-bold text-slate-400">
+                            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">
                               {formatProgress(p.completion_percentage)}%
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}>
                             {p.status}
                           </span>
@@ -952,7 +1001,7 @@ const AdminDashboard = () => {
           </div>
           {/* Table Pagination */}
           {projects.length > TABLE_PER_PAGE && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-slate-50">
               <span className="text-xs text-slate-400 font-medium">
                 {tablePage * TABLE_PER_PAGE + 1}–{Math.min((tablePage + 1) * TABLE_PER_PAGE, projects.length)} of {projects.length} projects
               </span>

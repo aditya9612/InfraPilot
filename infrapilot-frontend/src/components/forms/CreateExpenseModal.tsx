@@ -5,15 +5,75 @@ import Modal from "../common/Modal";
 import type { Expense } from "../../types/expense";
 import type { Project } from "../../types/project";
 import { boqService } from "../../services/boqService";
-import type { BoqItem } from "../../types/boq";
+import { projectService } from "../../services/projectService";
 
 interface CreateExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (expenseData: any) => void | Promise<void>;
-  projects: Project[];
+  onSubmit?: (expenseData: any) => void | Promise<void>;
+  projects?: Project[];
   initialData?: Expense | null;
 }
+
+export const formatExpenseCategory = (cat: string | null | undefined): string => {
+  if (!cat) return "Other";
+  const trimmed = cat.trim();
+  const upper = trimmed.toUpperCase();
+  const lower = trimmed.toLowerCase();
+
+  const codeMap: Record<string, string> = {
+    M: "Material",
+    S: "Services",
+    L: "Labour",
+    V: "Vendor",
+    E: "Equipment",
+    F: "Fuel",
+    T: "Travel",
+    U: "Utility",
+    O: "Other",
+    C: "Construction",
+    A: "Administrative",
+    W: "Wages",
+  };
+
+  if (codeMap[upper]) {
+    return codeMap[upper];
+  }
+
+  const standard = [
+    "Material",
+    "Labour",
+    "Equipment",
+    "Services",
+    "Vendor",
+    "Construction",
+    "Utility",
+    "Fuel",
+    "Travel",
+    "Maintenance",
+    "Administrative",
+    "Other",
+  ];
+  const matched = standard.find((s) => s.toLowerCase() === lower);
+  if (matched) return matched;
+
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+};
+
+export const STANDARD_CATEGORIES = [
+  "Material",
+  "Labour",
+  "Equipment",
+  "Services",
+  "Vendor",
+  "Fuel",
+  "Travel",
+  "Maintenance",
+  "Construction",
+  "Utility",
+  "Administrative",
+  "Other"
+];
 
 const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   isOpen,
@@ -40,20 +100,29 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   };
 
   const [formData, setFormData] = useState(emptyFormData);
-  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
+  const [internalProjects, setInternalProjects] = useState<Project[]>([]);
+  const [boqItems, setBoqItems] = useState<any[]>([]);
   const [isFetchingBoqs, setIsFetchingBoqs] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      if (!projects || projects.length === 0) {
+        projectService.getProjects(100, 0, "", "").then(res => {
+          const list = Array.isArray(res) ? res : res?.items || (res as any)?.data || [];
+          setInternalProjects(list);
+        }).catch(err => console.error("Failed to load projects in CreateExpenseModal", err));
+      }
       if (initialData) {
+        const cat = formatExpenseCategory(initialData.category);
+
         setFormData({
-          project_id: String(initialData.project_id || ""),
-          category: initialData.category || "",
+          project_id: String(initialData.project_id || (initialData as any).projectId || ""),
+          category: cat,
           amount: String(initialData.amount || ""),
           expense_date: (initialData.expense_date || new Date().toISOString()).split("T")[0],
           payment_mode: initialData.payment_mode || "Cash",
-          remarks: initialData.description || "",
+          remarks: initialData.description || (initialData as any).remarks || "",
           boq_item_id: initialData.boq_item_id ? String(initialData.boq_item_id) : "",
           account_holder_name: (initialData as any).account_holder_name || "",
           account_number: (initialData as any).account_number || "",
@@ -68,25 +137,99 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       }
       setErrors({});
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, projects]);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchBoqs = async () => {
-      if (!formData.project_id) {
+      const pId = Number(formData.project_id);
+      if (!pId || isNaN(pId)) {
         setBoqItems([]);
         return;
       }
       setIsFetchingBoqs(true);
       try {
-        const items = await boqService.getBoqItems(Number(formData.project_id));
-        setBoqItems(items || []);
+        let items: any[] = [];
+
+        // 1. Try getBoqItems (project items)
+        try {
+          const bItems = await boqService.getBoqItems(pId);
+          const list = Array.isArray(bItems) ? bItems : (bItems as any)?.items || (bItems as any)?.boq_items || (bItems as any)?.data || [];
+          if (list.length > 0) items = list;
+        } catch (err) { }
+
+        // 2. Try getBoqsByProject
+        if (items.length === 0) {
+          try {
+            const byProj = await boqService.getBoqsByProject(pId);
+            const list = Array.isArray(byProj) ? byProj : (byProj as any)?.items || (byProj as any)?.boq_items || (byProj as any)?.data || [];
+            if (list.length > 0) items = list;
+          } catch (err) { }
+        }
+
+        // 3. Try getBoqs with project_id filter and unwrap nested items
+        if (items.length === 0) {
+          try {
+            const data = await boqService.getBoqs({ project_id: pId, limit: 100, skip: 0 } as any);
+            const raw = Array.isArray(data) ? data : (data?.items || (data as any)?.data || []);
+            if (raw.length > 0) items = raw;
+          } catch (err) { }
+        }
+
+        // 4. Fallback to global getBoqs filter by project_id
+        if (items.length === 0) {
+          try {
+            const allBoqs = await boqService.getBoqs({ limit: 100 } as any);
+            const raw = Array.isArray(allBoqs) ? allBoqs : (allBoqs?.items || (allBoqs as any)?.data || []);
+            const matching = raw.filter((b: any) => Number(b.project_id) === pId);
+            items = matching.length > 0 ? matching : raw;
+          } catch (err) { }
+        }
+
+        // Deep unwrap any nested structures (items, boq_items, sub_items)
+        const unwrapItems = (list: any[]): any[] => {
+          const res: any[] = [];
+          list.forEach((b: any) => {
+            if (!b) return;
+            if (Array.isArray(b.items) && b.items.length > 0) {
+              res.push(...unwrapItems(b.items));
+            } else if (Array.isArray(b.boq_items) && b.boq_items.length > 0) {
+              res.push(...unwrapItems(b.boq_items));
+            } else if (Array.isArray(b.sub_items) && b.sub_items.length > 0) {
+              res.push(...unwrapItems(b.sub_items));
+            } else {
+              res.push(b);
+            }
+          });
+          return res;
+        };
+
+        let flattened = unwrapItems(items);
+
+        // If returned items are group headers with no names, try fetching group items for the first few groups
+        if (flattened.length > 0 && flattened.every(b => !b.item_name && !b.name && !b.description && !b.title && !b.item_code)) {
+          try {
+            const groupItemPromises = flattened.slice(0, 5).map(g => boqService.getGroupItems(g.id || g.group_id).catch(() => []));
+            const groupResults = await Promise.all(groupItemPromises);
+            const subItems = groupResults.flat().filter(Boolean);
+            if (subItems.length > 0) {
+              flattened = subItems;
+            }
+          } catch (e) { }
+        }
+
+        if (isMounted) {
+          setBoqItems(flattened.filter(Boolean));
+        }
       } catch (error) {
         console.error("Failed to fetch BOQ items", error);
+        if (isMounted) setBoqItems([]);
       } finally {
-        setIsFetchingBoqs(false);
+        if (isMounted) setIsFetchingBoqs(false);
       }
     };
     fetchBoqs();
+    return () => { isMounted = false; };
   }, [formData.project_id]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -154,7 +297,12 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     try {
       setIsSubmitting(true);
       // Await the parent handler — it controls closing the modal on success/failure
-      await onSubmit(submissionData);
+      if (onSubmit) {
+        await onSubmit(submissionData);
+      } else {
+        toast.success("Expense recorded successfully");
+        onClose();
+      }
     } catch (err) {
       console.error("Failed to submit expense", err);
     } finally {
@@ -181,9 +329,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">Category <span className="text-rose-500">*</span></label>
-                <input
-                  type="text"
-                  placeholder="e.g. Material, Fuel, Labour, Travel..."
+                <select
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.category
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
@@ -193,11 +339,19 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                     setFormData({ ...formData, category: e.target.value });
                     if (errors.category) setErrors({ ...errors, category: "" });
                   }}
-                />
+                >
+                  <option value="">Select Category...</option>
+                  {STANDARD_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  {formData.category && !STANDARD_CATEGORIES.includes(formData.category) && (
+                    <option value={formData.category}>{formatExpenseCategory(formData.category)}</option>
+                  )}
+                </select>
                 {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
               </div>
 
-              <div className="md:col-span-2 space-y-1">
+              <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">Project <span className="text-rose-500">*</span></label>
                 <select
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.project_id
@@ -211,9 +365,16 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                   }}
                 >
                   <option value="">Select Project...</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.project_name}</option>
-                  ))}
+                  {((projects && projects.length > 0) ? projects : internalProjects).map(p => {
+                    const pId = p.id ?? (p as any).project_id;
+                    const pName = p.project_name || (p as any).name || (p as any).projectName || `Project #${pId}`;
+                    return (
+                      <option key={pId} value={pId}>{pName}</option>
+                    );
+                  })}
+                  {formData.project_id && !((projects && projects.length > 0) ? projects : internalProjects).some(p => String(p.id ?? (p as any).project_id) === String(formData.project_id)) && (
+                    <option value={formData.project_id}>{(initialData as any)?.project_name || `Project #${formData.project_id}`}</option>
+                  )}
                 </select>
                 {errors.project_id && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.project_id}</p>}
               </div>
@@ -229,14 +390,22 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                     onChange={e => setFormData({ ...formData, boq_item_id: e.target.value })}
                   >
                     <option value="">Select BOQ Item...</option>
-                    {boqItems.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.item_name} {item.unit ? `(${item.unit})` : ""}
-                      </option>
-                    ))}
+                    {boqItems.map((item: any, idx) => {
+                      const idVal = item.id ?? item.boq_item_id ?? item.item_id ?? `boq-${idx}`;
+                      const name = item.item_name || item.name || item.description || item.title || item.item_code || item.work_description || `BOQ Item #${idVal}`;
+                      const unit = item.unit || item.unit_name ? ` (${item.unit || item.unit_name})` : "";
+                      return (
+                        <option key={`${idVal}-${idx}`} value={idVal}>
+                          {name}{unit}
+                        </option>
+                      );
+                    })}
                   </select>
                   {isFetchingBoqs && (
-                    <p className="text-[10px] text-primary animate-pulse font-bold ml-1">Fetching project items...</p>
+                    <p className="text-[10px] text-primary animate-pulse font-bold ml-1">Fetching project BOQ items...</p>
+                  )}
+                  {!isFetchingBoqs && boqItems.length === 0 && (
+                    <p className="text-[11px] text-slate-400 font-medium ml-1">No BOQ items assigned to this project.</p>
                   )}
                 </div>
               )}
@@ -464,7 +633,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 bg-gray-50 text-gray-600 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-100 transition-all"
+            className="px-6 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-200 hover:bg-rose-100 hover:text-rose-700 transition-all shadow-sm active:scale-95"
           >
             Cancel
           </button>

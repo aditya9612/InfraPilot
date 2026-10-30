@@ -71,9 +71,9 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
         if (isViewOnly) return;
 
         const missingFields: string[] = [];
-        if (!formData.project_id) missingFields.push("Assigned Project");
-        if (!formData.equipment_name) missingFields.push("Equipment Name");
-        if (!formData.equipment_code) missingFields.push("Equipment Code");
+        if (!formData.equipment_name?.trim()) missingFields.push("Equipment Name");
+        if (!formData.equipment_code?.trim()) missingFields.push("Equipment Code");
+        if (!formData.operator_name?.trim()) missingFields.push("Operator Name");
         if (!formData.condition) missingFields.push("Condition");
         if (formData.rental_cost === undefined || formData.rental_cost === null || formData.rental_cost === '') missingFields.push("Rental Cost");
         if (!formData.maintenance_date) missingFields.push("Maintenance Date");
@@ -83,14 +83,47 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
             return;
         }
 
+        const eqCode = (formData.equipment_code || '').trim();
+        if (eqCode && !/^[A-Za-z0-9_-]+$/.test(eqCode)) {
+            setFormNotification({
+                type: 'error',
+                message: "Invalid Equipment Code. Please enter a valid format"
+            });
+            return;
+        }
+
         setIsSaving(true);
         setFormNotification(null);
         try {
             await onSave({ ...formData });
             onClose();
         } catch (error: any) {
-            const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || "Failed to save equipment. Please try again.";
-            setFormNotification({ type: 'error', message: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) });
+            let errorMsg = "Failed to save equipment. Please try again.";
+            const detail = error.response?.data?.detail;
+
+            if (Array.isArray(detail)) {
+                const eqCodeErr = detail.find((d: any) =>
+                    d.loc?.includes("equipment_code") ||
+                    (typeof d.msg === 'string' && d.msg.toLowerCase().includes("equipment code"))
+                );
+                if (eqCodeErr) {
+                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                } else if (detail.length > 0 && detail[0].msg) {
+                    errorMsg = detail.map((d: any) => d.msg.replace(/^Value error,\s*/i, '')).join(". ");
+                }
+            } else if (typeof detail === 'string') {
+                if (detail.toLowerCase().includes("equipment code")) {
+                    errorMsg = "Invalid Equipment Code. Please enter a valid format";
+                } else {
+                    errorMsg = detail;
+                }
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+
+            setFormNotification({ type: 'error', message: errorMsg });
         } finally {
             setIsSaving(false);
         }
@@ -157,24 +190,23 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         </div>
                     </div>
                     <div className="ml-6">
-                        <label className={labelClasses}>ASSIGNED PROJECT <span className="text-rose-500">*</span></label>
+                        <label className={labelClasses}>ASSIGNED PROJECT <span className="text-slate-400 font-normal lowercase text-[10px]">(optional for global)</span></label>
                         {isViewOnly ? (
                             <div className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
-                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || (formData.project_id ? `Project ${formData.project_id}` : '-')}
+                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || (formData.project_id ? `Project ${formData.project_id}` : 'Global Asset')}
                             </div>
                         ) : (
                             <select
                                 value={formData.project_id || ''}
                                 onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className={`${inputClasses} ${formNotification?.fields?.includes("Assigned Project") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                className={inputClasses}
                             >
-                                <option value="">-- Select your project --</option>
+                                <option value="">-- Global / Unassigned --</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                 ))}
                             </select>
                         )}
-                        {formNotification?.fields?.includes("Assigned Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                 </div>
 
@@ -192,8 +224,9 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             {formNotification?.fields?.includes("Equipment Code") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
-                            <label className={labelClasses}>Operator Name</label>
-                            <input type="text" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Operator Name <span className="text-rose-500">*</span></label>
+                            <input type="text" required value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Operator Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            {formNotification?.fields?.includes("Operator Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className={labelClasses}>Condition <span className="text-rose-500">*</span></label>
