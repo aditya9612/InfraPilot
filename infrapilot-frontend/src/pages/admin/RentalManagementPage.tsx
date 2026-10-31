@@ -172,12 +172,30 @@ const RentalManagementPage = () => {
     }, [selectedProjectId]);
 
     const filteredRentals = useMemo(() => {
-        const term = searchTerm.toLowerCase();
-        return rentals.filter(r =>
-            (r.client_name || '').toLowerCase().includes(term) ||
-            r.equipment_id?.toString().includes(term)
-        );
-    }, [rentals, searchTerm]);
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) return rentals;
+        return rentals.filter(r => {
+            const eq = equipmentList.find(e => e.id === r.equipment_id);
+            const eqName = (eq?.equipment_name || (r as any).equipment_name || (r as any).equipment?.equipment_name || '').toLowerCase();
+            const eqCode = (eq?.equipment_code || (r as any).equipment_code || '').toLowerCase();
+            const clientName = (r.client_name || '').toLowerCase();
+            const notes = (r.notes || '').toLowerCase();
+            const proj = r.project_id ? assignedProjects.find((p: any) => p.id === r.project_id) : null;
+            const projName = (proj?.project_name || '').toLowerCase();
+            const idStr = r.equipment_id?.toString() || '';
+            const rentalIdStr = r.id?.toString() || '';
+
+            return (
+                eqName.includes(term) ||
+                eqCode.includes(term) ||
+                clientName.includes(term) ||
+                projName.includes(term) ||
+                notes.includes(term) ||
+                idStr.includes(term) ||
+                rentalIdStr.includes(term)
+            );
+        });
+    }, [rentals, searchTerm, equipmentList, assignedProjects]);
 
     useEffect(() => {
         setCurrentPage(0);
@@ -426,6 +444,7 @@ const RentalManagementPage = () => {
                 isOpen={isViewModalOpen}
                 onClose={() => { setIsViewModalOpen(false); setSelectedRental(null); }}
                 rentalId={selectedRental?.id || null}
+                rentalItem={selectedRental}
                 equipmentName={viewedEqName}
                 projectName={viewedProjName}
             />

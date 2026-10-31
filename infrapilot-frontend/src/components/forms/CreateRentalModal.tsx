@@ -42,12 +42,35 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    const resetForm = () => {
+        setEquipmentId('');
+        setFormData({
+            start_date: new Date().toISOString().split('T')[0],
+            end_date: '',
+            rental_cost: 0,
+            client_name: '',
+            notes: '',
+            expected_end_date: '',
+            is_received: false,
+            is_returned: false,
+            project_id: null,
+            boq_item_id: null,
+        });
+        setErrors({});
+        setServerError(null);
+        setBoqItems([]);
+    };
+
     useEffect(() => {
         if (!isOpen) {
-            setServerError(null);
-            setErrors({});
+            resetForm();
         }
     }, [isOpen]);
+
+    const handleCancel = () => {
+        resetForm();
+        onClose();
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -56,7 +79,21 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
 
         if (type === 'checkbox') {
             const checked = (e.target as HTMLInputElement).checked;
-            setFormData(prev => ({ ...prev, [name]: checked }));
+            if (name === 'is_received') {
+                setFormData(prev => ({
+                    ...prev,
+                    is_received: checked,
+                    is_returned: checked ? false : prev.is_returned
+                }));
+            } else if (name === 'is_returned') {
+                setFormData(prev => ({
+                    ...prev,
+                    is_returned: checked,
+                    is_received: checked ? false : prev.is_received
+                }));
+            } else {
+                setFormData(prev => ({ ...prev, [name]: checked }));
+            }
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -156,7 +193,7 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
         <>
             <button
                 type="button"
-                onClick={onClose}
+                onClick={handleCancel}
                 disabled={isLoading}
                 className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
             >
@@ -334,23 +371,25 @@ const CreateRentalModal: React.FC<CreateRentalModalProps> = ({
 
                     {/* Status Checks */}
                     <div className="flex items-center gap-6 md:col-span-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <label className={`flex items-center gap-2 text-sm font-semibold transition-opacity select-none ${formData.is_returned ? 'text-slate-400 cursor-not-allowed opacity-50' : 'text-slate-700 cursor-pointer'}`}>
                             <input
                                 type="checkbox"
                                 name="is_received"
                                 checked={formData.is_received}
+                                disabled={formData.is_returned}
                                 onChange={handleChange}
-                                className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                                className="w-4 h-4 rounded text-primary focus:ring-primary/20 disabled:cursor-not-allowed"
                             />
                             Equipment Received
                         </label>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <label className={`flex items-center gap-2 text-sm font-semibold transition-opacity select-none ${formData.is_received ? 'text-slate-400 cursor-not-allowed opacity-50' : 'text-slate-700 cursor-pointer'}`}>
                             <input
                                 type="checkbox"
                                 name="is_returned"
                                 checked={formData.is_returned}
+                                disabled={formData.is_received}
                                 onChange={handleChange}
-                                className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                                className="w-4 h-4 rounded text-primary focus:ring-primary/20 disabled:cursor-not-allowed"
                             />
                             Equipment Returned
                         </label>

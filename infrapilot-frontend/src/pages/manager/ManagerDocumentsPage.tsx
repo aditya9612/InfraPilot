@@ -13,7 +13,7 @@ import { resolveApprovalStatus, type Document, type DocumentUpdateParams, type D
 import {
     Download, Folder,
     Upload, Trash2, X, FileImage, FileSpreadsheet,
-    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search
+    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import { drawingService } from "../../services/drawingService";
@@ -100,7 +100,7 @@ const ManagerDocumentsPage = () => {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 15;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Modals
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -781,12 +781,7 @@ const ManagerDocumentsPage = () => {
                                                             <td className="px-6 py-4">
                                                                 <div className="max-w-[260px]">
                                                                     <p className="text-sm font-bold text-slate-800 truncate" title={doc.title}>{doc.title}</p>
-                                                                    <p
-                                                                        className={`text-[10px] text-slate-400 font-medium truncate mt-0.5 ${doc.remarks ? "cursor-help" : ""}`}
-                                                                        title={doc.remarks || "No remarks"}
-                                                                    >
-                                                                        {doc.remarks || "No remarks"}
-                                                                    </p>
+                                                                    
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4">
@@ -861,55 +856,99 @@ const ManagerDocumentsPage = () => {
 
                             {/* Pagination Controls */}
                             {!isLoading && filtered.length > 0 && (
-                                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                        Page {currentPage} of {totalPages}
-                                    </span>
-                                    <div className="flex gap-1">
+                                <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/40 gap-4">
+                                    {/* Left: Items per page selector */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rows per page:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={(e) => {
+                                                setItemsPerPage(Number(e.target.value));
+                                                setCurrentPage(1);
+                                            }}
+                                            className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-xs transition-all cursor-pointer"
+                                        >
+                                            <option value={5}>5</option>
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Center: Showing range */}
+                                    <div className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">
+                                        Showing <span className="text-slate-800 font-extrabold">{Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)}</span> – <span className="text-slate-800 font-extrabold">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="text-slate-800 font-extrabold">{filtered.length}</span> {mainTab === "Drawings" ? "drawings" : "documents"}
+                                    </div>
+
+                                    {/* Right: Page navigation */}
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => setCurrentPage(1)}
+                                            disabled={currentPage === 1}
+                                            title="First Page"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                                        >
+                                            <ChevronsLeft className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             disabled={currentPage === 1}
-                                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                            title="Previous Page"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
                                         >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                                            </svg>
+                                            <ChevronLeft className="w-4 h-4" />
                                         </button>
-                                        {Array.from({ length: totalPages }).map((_, i) => {
-                                            const page = i + 1;
-                                            if (
-                                                page === 1 ||
-                                                page === totalPages ||
-                                                (page >= currentPage - 1 && page <= currentPage + 1)
-                                            ) {
+
+                                        {/* Page number buttons */}
+                                        {(() => {
+                                            const pages = [];
+                                            if (totalPages <= 5) {
+                                                for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                            } else {
+                                                pages.push(1);
+                                                if (currentPage > 3) pages.push("...");
+                                                const start = Math.max(2, currentPage - 1);
+                                                const end = Math.min(totalPages - 1, currentPage + 1);
+                                                for (let i = start; i <= end; i++) pages.push(i);
+                                                if (currentPage < totalPages - 2) pages.push("...");
+                                                pages.push(totalPages);
+                                            }
+                                            return pages.map((page, idx) => {
+                                                if (typeof page === "string") {
+                                                    return <span key={`ellipsis-${idx}`} className="px-1 text-slate-400 font-bold text-xs select-none">...</span>;
+                                                }
+                                                const isActive = currentPage === page;
                                                 return (
                                                     <button
                                                         key={page}
                                                         onClick={() => setCurrentPage(page)}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${currentPage === page
-                                                            ? "bg-primary text-white shadow-sm shadow-primary/20"
-                                                            : "text-slate-500 hover:bg-slate-100"
-                                                            }`}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                                                            isActive
+                                                                ? "bg-primary text-white shadow-primary/20 font-black"
+                                                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                        }`}
                                                     >
                                                         {page}
                                                     </button>
                                                 );
-                                            } else if (
-                                                page === currentPage - 2 ||
-                                                page === currentPage + 2
-                                            ) {
-                                                return <span key={page} className="text-slate-400 font-bold px-1 flex items-center justify-center">...</span>;
-                                            }
-                                            return null;
-                                        })}
+                                            });
+                                        })()}
+
                                         <button
                                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                             disabled={currentPage >= totalPages}
-                                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                            title="Next Page"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
                                         >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                                            </svg>
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentPage(totalPages)}
+                                            disabled={currentPage >= totalPages}
+                                            title="Last Page"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                                        >
+                                            <ChevronsRight className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -956,7 +995,7 @@ const ManagerDocumentsPage = () => {
                     <div>
                         <label className={labelCls}>Project <span className="text-rose-500">*</span></label>
                         <select
-                            value={uploadProjectId ?? ""}
+                            value={uploadProjectId ?? selectedProjectId ?? ""}
                             onChange={e => {
                                 setUploadProjectId(e.target.value ? Number(e.target.value) : null);
                                 setUploadErrors(prev => prev.filter(f => f !== "Project"));
@@ -1083,7 +1122,7 @@ const ManagerDocumentsPage = () => {
                                 uploadErrors.includes("File")
                                     ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200"
                                     : uploadFile
-                                    ? "border-primary/60 bg-blue-50/30"
+                                    ? "border-2 border-primary/50 bg-blue-50/25 ring-2 ring-primary/20"
                                     : "border-slate-300 hover:border-primary/40 hover:bg-primary/5"
                             }`}
                         >

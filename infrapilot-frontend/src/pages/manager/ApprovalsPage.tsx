@@ -21,7 +21,7 @@ const ApprovalsPage = () => {
     const location = useLocation();
     const { selectedProjectId } = useProject();
 
-    const [activeTab, setActiveTab] = useState<"Pending" | "Approved" | "Rejected">("Pending");
+    const [activeTab, setActiveTab] = useState<"All" | "Pending" | "Approved" | "Rejected">("Pending");
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [entityFilter, setEntityFilter] = useState("all");
@@ -190,7 +190,7 @@ const ApprovalsPage = () => {
         const term = searchTerm.toLowerCase();
 
         const result = approvals.filter(a => {
-            const matchesStatus = a.status === activeTab;
+            const matchesStatus = activeTab === "All" || a.status === activeTab;
             const matchesEntity = entityFilter === "all"
                 || (a.entity_type || "").toLowerCase() === entityFilter.toLowerCase();
             const matchesSearch =
@@ -281,7 +281,7 @@ const ApprovalsPage = () => {
 
     return (
         <>
-            <Navbar title="Approval Center" breadcrumb={["Manager", "Approvals", activeTab]} />
+            <Navbar title="Approval Center" breadcrumb={["Manager", "Approvals", activeTab === "All" ? "All Requests" : activeTab]} />
 
             <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -331,20 +331,19 @@ const ApprovalsPage = () => {
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
-                                {(["Pending", "Approved", "Rejected"] as const).map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => { setActiveTab(tab); }}
-                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
-                                            ? "bg-white text-primary shadow-sm"
-                                            : "text-slate-500 hover:text-slate-700"
-                                            }`}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
-                            </div>
+                            <select
+                                value={activeTab}
+                                onChange={e => setActiveTab(e.target.value as "All" | "Pending" | "Approved" | "Rejected")}
+                                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all cursor-pointer ${activeTab !== "All"
+                                    ? "bg-primary/10 border-primary/30 text-primary"
+                                    : "bg-slate-50 border-slate-200 text-slate-600"
+                                    }`}
+                            >
+                                <option value="All">All</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
                             <select
                                 value={entityFilter}
                                 onChange={e => setEntityFilter(e.target.value)}
@@ -448,7 +447,7 @@ const ApprovalsPage = () => {
                                 ) : (
                                     <tr>
                                         <td colSpan={5} className="px-6 py-20 text-center">
-                                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {activeTab} records found</p>
+                                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {activeTab === "All" ? "matching" : activeTab} records found</p>
                                         </td>
                                     </tr>
                                 )}

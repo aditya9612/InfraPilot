@@ -82,6 +82,7 @@ const EquipmentPage = () => {
     const modalEquipmentList = equipmentList.length > 0 ? equipmentList : globalEquipment; // Render all available equipment
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
+    const [usageErrors, setUsageErrors] = useState<{ [key: string]: string }>({});
 
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
 
@@ -113,6 +114,7 @@ const EquipmentPage = () => {
 
     const renderFloatingToast = () => {
         if (!formNotification) return null;
+        if (isUsageModalOpen || isRentalModalOpen || isMaintenanceModalOpen || isEquipmentModalOpen || isAllocateModalOpen || isTransferModalOpen || isCreatePurchaseModalOpen) return null;
         return (
             <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
                 <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
@@ -453,7 +455,16 @@ const EquipmentPage = () => {
                 console.log("[DEBUG] filtered maintenance:", filtered);
                 return filtered;
             case "Rental":
-                return rentalList.filter(r => (r.equipment_code || r.client_name || "").toLowerCase().includes(term));
+                return rentalList.filter(r => {
+                    const eq = equipmentList.find(e => e.id === r.equipment_id) || globalEquipment.find(e => e.id === r.equipment_id);
+                    const eqName = (eq?.equipment_name || equipmentMap[r.equipment_id] || r.equipment_name || "").toLowerCase();
+                    return (
+                        eqName.includes(term) ||
+                        (r.equipment_code || "").toLowerCase().includes(term) ||
+                        (r.client_name || "").toLowerCase().includes(term) ||
+                        (r.notes || "").toLowerCase().includes(term)
+                    );
+                });
             case "Purchases":
                 return purchaseList.filter(p => (p.equipment_code || p.asset_code || p.vendor_name || p.vendor || "").toLowerCase().includes(term));
             case "Reports & Alerts":
@@ -539,22 +550,46 @@ const EquipmentPage = () => {
 
     const handleSaveUsage = async (e: React.FormEvent) => {
         e.preventDefault();
-        const missingFields: string[] = [];
-        if (!formData.equipment_id) missingFields.push("Equipment");
-        if (formData.working_hours === undefined || formData.working_hours === null || formData.working_hours === '') missingFields.push("Working Hours");
-        if (formData.fuel_used === undefined || formData.fuel_used === null || formData.fuel_used === '') missingFields.push("Fuel Used");
-        if (!formData.usage_date) missingFields.push("Usage Date");
+        const errors: { [key: string]: string } = {};
 
-        if (missingFields.length > 0) {
+        if (!formData.equipment_id) {
+            errors.equipment = "Please select an equipment";
+        }
+
+        if (formData.working_hours === undefined || formData.working_hours === null || formData.working_hours === '') {
+            errors.working_hours = "Working hours is required";
+        } else if (isNaN(Number(formData.working_hours)) || Number(formData.working_hours) < 0) {
+            errors.working_hours = "Please enter valid working hours (0 or greater)";
+        }
+
+        if (formData.fuel_used === undefined || formData.fuel_used === null || formData.fuel_used === '') {
+            errors.fuel_used = "Fuel used is required";
+        } else if (isNaN(Number(formData.fuel_used)) || Number(formData.fuel_used) < 0) {
+            errors.fuel_used = "Please enter valid fuel amount (0 or greater)";
+        }
+
+        if (!formData.usage_date) {
+            errors.usage_date = "Usage date is required";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setUsageErrors(errors);
+            const missingNames: string[] = [];
+            if (errors.equipment) missingNames.push("Equipment");
+            if (errors.working_hours) missingNames.push("Working Hours");
+            if (errors.fuel_used) missingNames.push("Fuel Used");
+            if (errors.usage_date) missingNames.push("Usage Date");
+
             setFormNotification({
                 type: 'error',
-                fields: missingFields,
-                message: `Mandatory fields required: ${missingFields.join(', ')}`
+                fields: missingNames,
+                message: `Mandatory fields required: ${missingNames.join(', ')}`
             });
-            toast.error(`Mandatory fields required: ${missingFields.join(', ')}`);
+            // Do not display duplicate toast.error here
             return;
         }
 
+        setUsageErrors({});
         setFormNotification(null);
         try {
             if (formData.usage_id) {
@@ -575,9 +610,19 @@ const EquipmentPage = () => {
             }
             toast.success(formData.usage_id ? "Usage updated successfully!" : "Usage logged successfully!");
             setIsUsageModalOpen(false);
+            setUsageErrors({});
             fetchData();
-            if (activeTab === "Usage & Tracking" && selectedEquipment) {
-                equipmentService.listUsage(selectedEquipment.id).then((res: any) => setSelectedEquipmentLogs((prev: any) => ({ ...prev, usage: res })));
+            const targetEqId = formData.equipment_id || selectedEquipment?.id;
+            if (targetEqId) {
+                try {
+                    const res = await equipmentService.listUsage(targetEqId);
+                    const usageList = Array.isArray(res) ? res : ((res as any)?.items || []);
+                    setSelectedEquipmentLogs((prev: any) => ({ ...prev, usage: usageList }));
+                    const updatedEq = equipmentList.find(e => e.id === targetEqId) || globalEquipment.find(e => e.id === targetEqId);
+                    if (updatedEq) setSelectedEquipment(updatedEq);
+                } catch (err) {
+                    console.error("Failed to refresh usage logs", err);
+                }
             }
         } catch (error: any) {
             const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || (formData.usage_id ? "Failed to update usage" : "Failed to log usage");
@@ -598,6 +643,7 @@ const EquipmentPage = () => {
             notes: log.notes || ''
         });
         setFormNotification(null);
+        setUsageErrors({});
         setIsUsageModalOpen(true);
     };
 
@@ -961,17 +1007,27 @@ const EquipmentPage = () => {
                         <div className="flex-1 overflow-auto p-4 space-y-4 max-h-[500px]">
                             {selectedEquipmentLogs.usage && selectedEquipmentLogs.usage.length > 0 ? selectedEquipmentLogs.usage.map((log: any) => (
                                 <div key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                    <div className="flex items-center justify-between gap-4 mb-3">
-                                        <div>
+                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-slate-800">{log.usage_date}</p>
-                                            <p className="text-xs text-slate-500">{log.notes || 'No notes added'}</p>
+                                            <p className="text-xs text-slate-500 break-words line-clamp-3 mt-0.5" title={log.notes || ''}>{log.notes || 'No notes added'}</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <button type="button" onClick={() => openUsageEditModal(log)} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:text-primary hover:border-primary transition">
-                                                <Edit2 className="w-4 h-4" />
+                                        <div className="flex items-center gap-2 shrink-0 self-start">
+                                            <button
+                                                type="button"
+                                                onClick={() => openUsageEditModal(log)}
+                                                title="Edit usage log"
+                                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:border-amber-400 transition shadow-xs shrink-0 cursor-pointer"
+                                            >
+                                                <Edit2 className="w-4 h-4 shrink-0" />
                                             </button>
-                                            <button type="button" onClick={() => handleUsageDelete(log.id)} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:text-rose-600 hover:border-rose-200 transition">
-                                                <Trash2 className="w-4 h-4" />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUsageDelete(log.id)}
+                                                title="Delete usage log"
+                                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:border-rose-400 transition shadow-xs shrink-0 cursor-pointer"
+                                            >
+                                                <Trash2 className="w-4 h-4 shrink-0" />
                                             </button>
                                         </div>
                                     </div>
@@ -1123,11 +1179,20 @@ const EquipmentPage = () => {
                                 <td className="px-6 py-4 text-slate-500 truncate max-w-[150px]" title={report.notes || ""}>{report.notes || "—"}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        <button onClick={async () => {
-                                            const rentalDetails = await equipmentService.getRental(report.id);
-                                            setRentalToView(rentalDetails);
-                                            setIsRentalViewModalOpen(true);
-                                        }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setRentalToView(report);
+                                                setIsRentalViewModalOpen(true);
+                                                if (report.id) {
+                                                    equipmentService.getRental(report.id)
+                                                        .then(details => { if (details) setRentalToView(details); })
+                                                        .catch(e => console.warn("Failed to fetch additional rental details:", e));
+                                                }
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                                            title="View"
+                                        >
                                             <Eye className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => handleCompleteRental(report.id)} disabled={report.status === 'COMPLETED'} className={`p-1.5 rounded ${report.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Mark as Completed">
@@ -1844,7 +1909,7 @@ const EquipmentPage = () => {
             </Modal>
 
             {/* 5. Log Usage */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => { setFormNotification(null); setIsUsageModalOpen(false); }} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
+            <Modal isOpen={isUsageModalOpen} onClose={() => { setFormNotification(null); setUsageErrors({}); setIsUsageModalOpen(false); }} title={formData.usage_id ? "Edit Equipment Usage" : "Log Equipment Usage"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveUsage} noValidate className="p-6 font-inter space-y-4">
                     {renderFormNotification()}
                     <div>
@@ -1856,6 +1921,7 @@ const EquipmentPage = () => {
                                 const selectedEq = modalEquipmentList.find(e => e.id === eqId);
                                 const pId = selectedEq?.project_id || formData.project_id || null;
                                 setFormData({ ...formData, equipment_id: eqId, project_id: pId, boq_item_id: null });
+                                setUsageErrors(prev => { const n = { ...prev }; delete n.equipment; return n; });
                             }}
                             options={[
                                 { id: '', label: '-- Select Equipment --' },
@@ -1868,9 +1934,13 @@ const EquipmentPage = () => {
                             placeholder="-- Select Equipment --"
                             searchable={modalEquipmentList.length > 5}
                             maxHeight="max-h-48"
-                            error={formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT'))}
+                            error={Boolean(usageErrors.equipment || formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT')))}
                         />
-                        {formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT')) && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                        {(usageErrors.equipment || (formNotification?.fields?.some(f => f.toUpperCase().includes('EQUIPMENT')) && !formData.equipment_id)) && (
+                            <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                                <span>⚠</span> {usageErrors.equipment || "Please select an equipment"}
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -1896,22 +1966,52 @@ const EquipmentPage = () => {
                             <input
                                 type="number"
                                 min="0"
+                                step="0.1"
                                 value={formData.working_hours ?? ''}
-                                onChange={(e) => setFormData({ ...formData, working_hours: e.target.value === '' ? '' : Number(e.target.value) })}
-                                className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase().includes('WORKING')) ? "!border-rose-500 !bg-rose-50" : "border-slate-200"}`}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, working_hours: e.target.value === '' ? '' : Number(e.target.value) });
+                                    setUsageErrors(prev => { const n = { ...prev }; delete n.working_hours; return n; });
+                                }}
+                                placeholder="e.g. 8.5"
+                                className={`w-full px-4 py-2 rounded-xl text-sm outline-none transition-all ${
+                                    usageErrors.working_hours || (formNotification?.fields?.some(f => f.toUpperCase().includes('WORKING')) && (formData.working_hours === '' || formData.working_hours === undefined || formData.working_hours === null))
+                                        ? "!border-2 !border-rose-500 !bg-rose-50 text-rose-900"
+                                        : (formData.working_hours !== '' && formData.working_hours !== undefined && formData.working_hours !== null)
+                                        ? "border-2 border-primary/50 bg-blue-50/25 font-semibold text-slate-800"
+                                        : "border border-slate-200 bg-white text-slate-800 focus:border-primary"
+                                }`}
                             />
-                            {formNotification?.fields?.some(f => f.toUpperCase().includes('WORKING')) && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            {(usageErrors.working_hours || (formNotification?.fields?.some(f => f.toUpperCase().includes('WORKING')) && (formData.working_hours === '' || formData.working_hours === undefined || formData.working_hours === null))) && (
+                                <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                                    <span>⚠</span> {usageErrors.working_hours || "Working hours is required"}
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Fuel Used (L) <span className="text-rose-500">*</span></label>
                             <input
                                 type="number"
                                 min="0"
+                                step="0.1"
                                 value={formData.fuel_used ?? ''}
-                                onChange={(e) => setFormData({ ...formData, fuel_used: e.target.value === '' ? '' : Number(e.target.value) })}
-                                className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase().includes('FUEL')) ? "!border-rose-500 !bg-rose-50" : "border-slate-200"}`}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, fuel_used: e.target.value === '' ? '' : Number(e.target.value) });
+                                    setUsageErrors(prev => { const n = { ...prev }; delete n.fuel_used; return n; });
+                                }}
+                                placeholder="e.g. 50"
+                                className={`w-full px-4 py-2 rounded-xl text-sm outline-none transition-all ${
+                                    usageErrors.fuel_used || (formNotification?.fields?.some(f => f.toUpperCase().includes('FUEL')) && (formData.fuel_used === '' || formData.fuel_used === undefined || formData.fuel_used === null))
+                                        ? "!border-2 !border-rose-500 !bg-rose-50 text-rose-900"
+                                        : (formData.fuel_used !== '' && formData.fuel_used !== undefined && formData.fuel_used !== null)
+                                        ? "border-2 border-primary/50 bg-blue-50/25 font-semibold text-slate-800"
+                                        : "border border-slate-200 bg-white text-slate-800 focus:border-primary"
+                                }`}
                             />
-                            {formNotification?.fields?.some(f => f.toUpperCase().includes('FUEL')) && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            {(usageErrors.fuel_used || (formNotification?.fields?.some(f => f.toUpperCase().includes('FUEL')) && (formData.fuel_used === '' || formData.fuel_used === undefined || formData.fuel_used === null))) && (
+                                <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                                    <span>⚠</span> {usageErrors.fuel_used || "Fuel used is required"}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <div>
@@ -1919,17 +2019,30 @@ const EquipmentPage = () => {
                         <input
                             type="date"
                             value={formData.usage_date || new Date().toISOString().split('T')[0]}
-                            onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })}
-                            className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase().includes('USAGE DATE')) ? "!border-rose-500 !bg-rose-50" : "border-slate-200"}`}
+                            onChange={(e) => {
+                                setFormData({ ...formData, usage_date: e.target.value });
+                                setUsageErrors(prev => { const n = { ...prev }; delete n.usage_date; return n; });
+                            }}
+                            className={`w-full px-4 py-2 rounded-xl text-sm outline-none transition-all ${
+                                usageErrors.usage_date || (formNotification?.fields?.some(f => f.toUpperCase().includes('USAGE DATE')) && !formData.usage_date)
+                                    ? "!border-2 !border-rose-500 !bg-rose-50 text-rose-900"
+                                    : formData.usage_date
+                                    ? "border-2 border-primary/50 bg-blue-50/25 font-semibold text-slate-800"
+                                    : "border border-slate-200 bg-white text-slate-800 focus:border-primary"
+                            }`}
                         />
-                        {formNotification?.fields?.some(f => f.toUpperCase().includes('USAGE DATE')) && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                        {(usageErrors.usage_date || (formNotification?.fields?.some(f => f.toUpperCase().includes('USAGE DATE')) && !formData.usage_date)) && (
+                            <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                                <span>⚠</span> {usageErrors.usage_date || "Usage date is required"}
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => { setFormNotification(null); setIsUsageModalOpen(false); }} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => { setFormNotification(null); setUsageErrors({}); setIsUsageModalOpen(false); }} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95">Save Usage</button>
                     </div>
                 </form>
