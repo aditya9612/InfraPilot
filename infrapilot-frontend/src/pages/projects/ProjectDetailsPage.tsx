@@ -519,6 +519,26 @@ const ProjectDetailsPage = () => {
   };
 
   const handleAssignMember = async (newMembers: any[]) => {
+    const isClientRole = (item: any): boolean => {
+      if (!item) return false;
+      let str = '';
+      if (typeof item === 'string') str = item;
+      else if (typeof item === 'object') str = item.role?.name || item.role_name || item.role || item.user_role || item.user?.role?.name || item.user?.role || '';
+      return typeof str === 'string' && str.toLowerCase().trim() === 'client';
+    };
+
+    const hasExistingClient = Boolean(project?.client_id && Number(project.client_id) > 0) || members.some((m) => isClientRole(m));
+    const incomingClients = newMembers.filter((m) => isClientRole(m));
+
+    if (hasExistingClient && incomingClients.length > 0) {
+      toast.error("A client is already assigned to this project. A project can only have one client.");
+      return;
+    }
+    if (incomingClients.length > 1) {
+      toast.error("Only one Client can be assigned to a project.");
+      return;
+    }
+
     try {
       // API currently takes one member at a time
       await Promise.all(
@@ -1472,6 +1492,8 @@ const ProjectDetailsPage = () => {
         onClose={() => setIsAssignModalOpen(false)}
         onAssign={handleAssignMember}
         existingMemberIds={members.map((m) => m.user_id)}
+        existingMembers={members}
+        project={project}
       />
 
       <ScheduleProjectModal

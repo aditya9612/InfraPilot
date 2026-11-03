@@ -9,6 +9,8 @@ interface AssignMemberModalProps {
   onClose: () => void;
   onAssign: (members: ProjectMember[]) => void;
   existingMemberIds: number[];
+  existingMembers?: ProjectMember[];
+  project?: any;
 }
 
 const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
@@ -16,6 +18,8 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
   onClose,
   onAssign,
   existingMemberIds,
+  existingMembers = [],
+  project,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -57,15 +61,32 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
     (user) =>
       !existingMemberIds.includes(user.user_id) &&
       ((user.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.role || "").toLowerCase().includes(searchTerm.toLowerCase())),
+        String(user.role?.name || user.role_name || user.role || "").toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
+  const hasExistingClient = Boolean(project?.client_id && Number(project.client_id) > 0) || existingMembers.some((m) => isClientRole(m));
+
+  const selectedClientUser = allUsers.find((u) => selectedUserIds.includes(u.user_id) && isClientRole(u));
+
   const toggleUserSelection = (userId: number) => {
-    setSelectedUserIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId],
-    );
+    const userToToggle = allUsers.find((u) => u.user_id === userId);
+    const isClient = isClientRole(userToToggle);
+
+    if (!selectedUserIds.includes(userId)) {
+      if (isClient) {
+        if (hasExistingClient) {
+          toast.error("A client is already assigned to this project. A project can only have one client.");
+          return;
+        }
+        if (selectedClientUser) {
+          toast.error("Only one Client can be assigned to a project.");
+          return;
+        }
+      }
+      setSelectedUserIds((prev) => [...prev, userId]);
+    } else {
+      setSelectedUserIds((prev) => prev.filter((id) => id !== userId));
+    }
   };
 
   const handleAssignClick = () => {
@@ -78,16 +99,37 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
       role: u.role,
     }));
 
+    const clientCount = membersToAssign.filter((m) => isClientRole(m)).length;
+    if (hasExistingClient && clientCount > 0) {
+      toast.error("A client is already assigned to this project. A project can only have one client.");
+      return;
+    }
+    if (clientCount > 1) {
+      toast.error("Only one Client can be assigned to a project.");
+      return;
+    }
+
     onAssign(membersToAssign);
     onClose();
     setSelectedUserIds([]);
   };
 
   const toggleSelectAll = () => {
-    if (selectedUserIds.length === availableUsers.length) {
+    if (selectedUserIds.length > 0) {
       setSelectedUserIds([]);
     } else {
-      setSelectedUserIds(availableUsers.map((u) => u.user_id));
+      let clientIncluded = false;
+      const idsToSelect: number[] = [];
+      for (const u of availableUsers) {
+        const isClient = isClientRole(u);
+        if (isClient) {
+          if (hasExistingClient) continue;
+          if (clientIncluded) continue;
+          clientIncluded = true;
+        }
+        idsToSelect.push(u.user_id);
+      }
+      setSelectedUserIds(idsToSelect);
     }
   };
 
@@ -150,19 +192,28 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
           ) : (
             availableUsers.map((user) => {
               const isSelected = selectedUserIds.includes(user.user_id);
+              const isClient = isClientRole(user);
+              const isClientBlocked = isClient && (hasExistingClient || (Boolean(selectedClientUser) && selectedClientUser?.user_id !== user.user_id));
+
               return (
                 <div
                   key={user.user_id}
-                  onClick={() => toggleUserSelection(user.user_id)}
-                  className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group ${
-                    isSelected
-                      ? "bg-primary/5 border-primary/30"
-                      : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                  onClick={() => {
+                    if (isClientBlocked && !isSelected) {
+                      toast.error(hasExistingClient ? "A client is already assigned to this project. A project can only have one client." : "Only one Client can be assigned to a project.");
+                      return;
+                    }
+                    toggleUserSelection(user.user_id);
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    isClientBlocked && !isSelected
+                      ? "bg-slate-50/50 border-slate-100 opacity-60 cursor-not-allowed"
+                      : "cursor-pointer group " + (isSelected ? "bg-primary/5 border-primary/30" : "bg-slate-50 border-slate-100 hover:border-slate-200")
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                      isSelected ? "bg-primary border-primary" : "bg-white border-slate-200"
+                      isSelected ? "bg-primary border-primary" : isClientBlocked ? "bg-slate-100 border-slate-300" : "bg-white border-slate-200"
                     }`}>
                       {isSelected && (
                         <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,9 +225,21 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
                       <p className="text-sm font-bold text-slate-700 font-inter">
                         {user.full_name}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider font-inter">
-                        {user.role}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider font-inter">
+                          {user.role}
+                        </span>
+                        {isClient && hasExistingClient && (
+                          <span className="text-[9px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                            Client Already Assigned
+                          </span>
+                        )}
+                        {isClient && !hasExistingClient && selectedClientUser && selectedClientUser.user_id !== user.user_id && (
+                          <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            1 Client Limit
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

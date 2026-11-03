@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { userService } from "../../services/userService";
 import { documentService } from "../../services/documentService";
+import { sitePhotoService } from "../../services/sitePhotoService";
 import { financeService } from "../../services/financeService";
 import { quotationService } from "../../services/quotationService";
 import type { Document } from "../../types/document";
@@ -209,21 +210,72 @@ function DocumentsTab({ client }: { client: any }) {
             return;
         }
 
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+        // Validate supported file format per category
+        if (category === "Site Photo") {
+            const allowedPhotoExts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+            if (!allowedPhotoExts.includes(fileExt)) {
+                toast.error("Unsupported file format. Please upload JPG, PNG, WEBP, or PDF.");
+                e.target.value = "";
+                return;
+            }
+        } else {
+            // Other document categories: Backend strictly requires PDF
+            if (fileExt !== 'pdf') {
+                toast.error("Only PDF files allowed.");
+                e.target.value = "";
+                return;
+            }
+        }
+
         const toastId = toast.loading("Uploading...");
         try {
-            await documentService.uploadDocument({
-                project_id: client.project_id || 1,
-                title: file.name,
-                document_type: category,
-                parent_id: folderId,
-                file: file
-            });
-            toast.success("Uploaded successfully", { id: toastId });
-            // Refresh list
-            const docsRes = await documentService.listDocuments({ parent_id: folderId, project_id: client.project_id || 1 });
-            setDocs(docsRes.items);
-        } catch (err) {
-            toast.error("Upload failed", { id: toastId });
+            if (category === "Site Photo" && fileExt !== 'pdf') {
+                // Upload via sitePhotoService
+                const photoData = new FormData();
+                photoData.append("file", file);
+                photoData.append("project_id", String(client.project_id || 1));
+                photoData.append("description", `Client site photo: ${file.name}`);
+                photoData.append("activity_tag", "Site Photo");
+                photoData.append("date", new Date().toISOString().split("T")[0]);
+
+                const uploadedPhoto = await sitePhotoService.uploadPhoto(photoData);
+
+                // Add to document view list
+                const newDocItem: Document = {
+                    id: uploadedPhoto.id || Date.now(),
+                    project_id: client.project_id || 1,
+                    title: file.name,
+                    document_type: "Site Photo",
+                    file_url: uploadedPhoto.url || uploadedPhoto.photo_url || null,
+                    file_size: file.size,
+                    version: "1.0",
+                    status: "APPROVED",
+                    is_folder: false,
+                    parent_id: folderId,
+                    uploaded_by_user_id: client.id,
+                    uploaded_at: new Date().toISOString(),
+                    remarks: "Site Photo"
+                };
+                setDocs(prev => [newDocItem, ...prev]);
+                toast.success("Uploaded successfully", { id: toastId });
+            } else {
+                await documentService.uploadDocument({
+                    project_id: client.project_id || 1,
+                    title: file.name,
+                    document_type: category,
+                    parent_id: folderId,
+                    file: file
+                });
+                toast.success("Uploaded successfully", { id: toastId });
+                // Refresh list
+                const docsRes = await documentService.listDocuments({ parent_id: folderId, project_id: client.project_id || 1 });
+                setDocs(docsRes.items);
+            }
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.detail || err.message || "Upload failed";
+            toast.error(typeof errorMsg === 'string' ? errorMsg : "Only PDF files allowed.", { id: toastId });
         }
         e.target.value = "";
     };
@@ -242,6 +294,12 @@ function DocumentsTab({ client }: { client: any }) {
     const handleDownload = async (doc: Document) => {
         const toastId = toast.loading(`Preparing ${doc.title}...`);
         try {
+            if (doc.file_url && (doc.document_type === "Site Photo" || !doc.id || doc.id > 1000000)) {
+                const resolvedUrl = sitePhotoService.resolveUrl(doc.file_url) || doc.file_url;
+                window.open(resolvedUrl, "_blank");
+                toast.success("Download started", { id: toastId });
+                return;
+            }
             await documentService.downloadDocument(doc.id, doc.title);
             toast.success("Download started", { id: toastId });
         } catch (err: any) {
@@ -263,7 +321,12 @@ function DocumentsTab({ client }: { client: any }) {
                     </select>
                     <label className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold cursor-pointer hover:bg-blue-600 transition-all">
                         <Upload className="w-4 h-4" /> Choose File
-                        <input type="file" className="hidden" onChange={handleFileUpload} />
+                        <input
+                            type="file"
+                            className="hidden"
+                            accept={category === "Site Photo" ? ".jpg,.jpeg,.png,.webp,.pdf,image/*" : ".pdf"}
+                            onChange={handleFileUpload}
+                        />
                     </label>
                 </div>
             </div>

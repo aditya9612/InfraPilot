@@ -182,9 +182,30 @@ const MaterialRequestPage = () => {
                 setRequestData(prev => [{ ...newRecord, requested_by: currentUserId || 36 }, ...prev]);
             }
             setIsFormModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Submission Error:", error);
-            toast.error("Failed to commit requisition. Please try again.", { id: toastId });
+            const data = error.response?.data;
+            let errMsg = "Failed to commit requisition. Please try again.";
+            if (typeof data === "string") {
+                errMsg = data;
+            } else if (data?.detail) {
+                if (typeof data.detail === "string") {
+                    errMsg = data.detail;
+                } else if (Array.isArray(data.detail)) {
+                    errMsg = data.detail.map((d: any) => d.msg || (d.loc ? d.loc.join('.') + ': ' + d.msg : JSON.stringify(d))).join(", ");
+                } else {
+                    errMsg = JSON.stringify(data.detail);
+                }
+            } else if (data?.message) {
+                errMsg = data.message;
+            } else if (data?.error) {
+                errMsg = data.error;
+            } else if (error.message) {
+                errMsg = error.message;
+            }
+
+            setFormNotification({ type: 'error', message: errMsg });
+            toast.error(errMsg, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -446,7 +467,8 @@ const MaterialRequestPage = () => {
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                    <th className="px-6 py-4 font-inter">Resource Requisition</th>
+                                    <th className="px-6 py-4 font-inter min-w-[140px]">Type</th>
+                                    <th className="px-6 py-4 font-inter min-w-[240px]">Description</th>
                                     <th className="px-6 py-4 font-inter">Operational Status</th>
                                     <th className="px-6 py-4 font-inter">Volume / Quantity</th>
                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
@@ -455,7 +477,7 @@ const MaterialRequestPage = () => {
                             <tbody className="divide-y divide-slate-50 font-inter">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-20 text-center font-inter">
+                                        <td colSpan={5} className="px-6 py-20 text-center font-inter">
                                             <div className="flex flex-col items-center gap-3 font-inter">
                                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing requisition intelligence...</p>
@@ -466,12 +488,14 @@ const MaterialRequestPage = () => {
                                     paginatedRequests.map((request) => (
                                         <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter border-b border-slate-50/50">
                                             <td className="px-6 py-4 font-inter">
-                                                <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{request.request_type}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[200px] uppercase tracking-tight">
-                                                        {request.description}
-                                                    </span>
-                                                </div>
+                                                <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">
+                                                    {request.request_type || "—"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-inter">
+                                                <span className="text-xs text-slate-600 font-medium font-inter line-clamp-2 max-w-md">
+                                                    {request.description && String(request.description).toLowerCase() !== "null" ? request.description : "—"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter shadow-sm ${getStatusStyle(request.status)}`}>
@@ -520,7 +544,7 @@ const MaterialRequestPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                             No procurement requisitions discovered in the project vault.
                                         </td>
                                     </tr>

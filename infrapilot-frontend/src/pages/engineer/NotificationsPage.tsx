@@ -11,7 +11,6 @@ const EngineerNotificationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingNotif, setViewingNotif] = useState<Notification | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,33 +49,6 @@ const EngineerNotificationsPage = () => {
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead("SiteEngineer", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setSelectedIds([]);
-  };
-
-  const handleMarkSelectedRead = async () => {
-    if (selectedIds.length === 0) return;
-    await Promise.all(selectedIds.map(id => notificationService.markAsRead(id)));
-    setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, read: true } : n));
-    setSelectedIds([]);
-  };
-
-  const handleToggleSelectAll = () => {
-    const allIds = filteredNotifs.map(n => n.id);
-    const allSelected = allIds.every(id => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds(prev => prev.filter(id => !allIds.includes(id)));
-    } else {
-      setSelectedIds(prev => {
-        const union = new Set([...prev, ...allIds]);
-        return Array.from(union);
-      });
-    }
-  };
-
-  const handleToggleSelect = (id: number | string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
   };
 
   const handleViewDetails = async (notif: Notification) => {
@@ -99,18 +71,9 @@ const EngineerNotificationsPage = () => {
             <p className="text-slate-500 text-sm">View all your alerts, approvals, and system messages.</p>
           </div>
           <div className="flex gap-2">
-            {selectedIds.length > 0 && (
-              <button 
-                onClick={handleMarkSelectedRead}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-              >
-                <CheckCheck className="w-4 h-4" />
-                Mark Selected Read ({selectedIds.length})
-              </button>
-            )}
             <button 
               onClick={handleMarkAllRead}
-              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
             >
               <CheckCheck className="w-4 h-4" />
               Mark All Read
@@ -176,65 +139,71 @@ const EngineerNotificationsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4 w-12 text-center">
-                    <input 
-                      type="checkbox" 
-                      checked={filteredNotifs.length > 0 && filteredNotifs.every(n => selectedIds.includes(n.id))}
-                      onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                    />
-                  </th>
-                  <th className="px-6 py-4 w-48">Type</th>
-                  <th className="px-6 py-4">Title & Description</th>
-                  <th className="px-6 py-4">Date & Time</th>
+                  <th className="px-6 py-4 w-44">Type</th>
+                  <th className="px-6 py-4 min-w-[200px]">Title</th>
+                  <th className="px-6 py-4 min-w-[280px]">Message</th>
+                  <th className="px-6 py-4 w-28">Status</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Date & Time</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {paginatedNotifs.map((notif) => (
-                  <tr key={notif.id} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
-                    <td className="px-6 py-4 text-center">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedIds.includes(notif.id)}
-                        onChange={() => handleToggleSelect(notif.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            notif.type === "Alert" ? "bg-rose-50 text-rose-600" : notif.type === "Approval" ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
-                          }`}>
-                            <Bell className="w-4 h-4" />
-                          </div>
-                          {!notif.read && (
-                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white rounded-full"></span>
-                          )}
-                        </div>
-                        <span className={`font-bold transition-colors group-hover:text-primary ${!notif.read ? "text-slate-900" : "text-slate-500"}`}>{notif.type}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className={`text-sm mb-0.5 group-hover:text-primary transition-colors ${!notif.read ? "text-slate-800 font-bold" : "text-slate-600 font-semibold"}`}>{notif.title}</p>
-                      <p className="text-xs text-slate-500 max-w-lg truncate">{notif.description}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-slate-600">{new Date(notif.timestamp).toLocaleDateString()}</p>
-                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(notif.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleViewDetails(notif)}
-                        className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95"
-                      >
-                        <Eye className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95" />
-                        <span className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">View</span>
-                      </button>
+                {paginatedNotifs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
+                      No notifications found
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedNotifs.map((notif) => (
+                    <tr key={notif.id} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              notif.type === "Alert" ? "bg-rose-50 text-rose-600" : notif.type === "Approval" ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+                            }`}>
+                              <Bell className="w-4 h-4" />
+                            </div>
+                            {!notif.read && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white rounded-full"></span>
+                            )}
+                          </div>
+                          <span className={`font-bold transition-colors group-hover:text-primary ${!notif.read ? "text-slate-900" : "text-slate-500"}`}>{notif.type}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className={`text-sm group-hover:text-primary transition-colors ${!notif.read ? "text-slate-800 font-bold" : "text-slate-600 font-semibold"}`}>{notif.title}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-xs text-slate-500 max-w-lg line-clamp-2">{notif.description || (notif as any).message || "—"}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${notif.read
+                          ? "bg-slate-100 text-slate-500"
+                          : "bg-primary/10 text-primary"
+                          }`}>
+                          {notif.read ? "Read" : "Unread"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                          <p className="text-xs font-bold text-slate-600">{new Date(notif.timestamp).toLocaleDateString()}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(notif.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => handleViewDetails(notif)}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-blue-600 rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          title="View Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -17,7 +17,7 @@ interface CustomSelectProps {
     options: Option[];
     placeholder?: string;
     searchable?: boolean;
-    placement?: 'top' | 'bottom';
+    placement?: 'top' | 'bottom' | 'auto';
     disabled?: boolean;
     error?: string | boolean;
     maxHeight?: string;
@@ -32,13 +32,14 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     options,
     placeholder = "Select...",
     searchable = false,
-    placement = "bottom",
+    placement = "auto",
     disabled = false,
     error,
     maxHeight
 }) => {
     const [open, setOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [computedPlacement, setComputedPlacement] = useState<'top' | 'bottom'>(placement === 'top' ? 'top' : 'bottom');
     const ref = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -51,6 +52,45 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
+
+    useEffect(() => {
+        if (!open || !ref.current) return;
+        if (placement === 'top') {
+            setComputedPlacement('top');
+            return;
+        }
+        const rect = ref.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        let parentSpaceBelow = spaceBelow;
+        let curr = ref.current.parentElement;
+        while (curr && curr !== document.body) {
+            const style = window.getComputedStyle(curr);
+            if (/(auto|scroll)/.test(style.overflow + style.overflowY)) {
+                const parentRect = curr.getBoundingClientRect();
+                parentSpaceBelow = parentRect.bottom - rect.bottom;
+                break;
+            }
+            curr = curr.parentElement;
+        }
+
+        const effectiveBelow = Math.min(spaceBelow, parentSpaceBelow);
+        if (placement === 'bottom') {
+            if (effectiveBelow < 180 && spaceAbove > 220) {
+                setComputedPlacement('top');
+            } else {
+                setComputedPlacement('bottom');
+            }
+        } else {
+            // auto
+            if (effectiveBelow < 220 && spaceAbove > effectiveBelow) {
+                setComputedPlacement('top');
+            } else {
+                setComputedPlacement('bottom');
+            }
+        }
+    }, [open, placement]);
 
     const selectedOption = useMemo(() => {
         if (value === undefined || value === null || value === '') {
@@ -68,7 +108,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const dropdownClasses = `absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-48'} flex flex-col overflow-hidden`;
+    const dropdownClasses = `absolute z-50 left-0 right-0 ${computedPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-48'} flex flex-col overflow-hidden`;
 
     return (
         <div className="relative font-inter" ref={ref}>

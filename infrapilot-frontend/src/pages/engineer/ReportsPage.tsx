@@ -198,6 +198,7 @@ const ReportsPage = () => {
     const [quarterlyExportType, setQuarterlyExportType] = useState<"pdf" | "excel">("pdf");
     const [quarterlyExportFilters, setQuarterlyExportFilters] = useState({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
     const [isQuarterlyExporting, setIsQuarterlyExporting] = useState(false);
+    const [quarterlyErrors, setQuarterlyErrors] = useState<{ quarter?: string; year?: string }>({});
 
     useEffect(() => {
         const isAnyModalOpen = isExportModalOpen || isLabourExportModalOpen || isIssueExportModalOpen || isQuarterlyExportModalOpen;
@@ -276,39 +277,42 @@ const ReportsPage = () => {
                 }
             }
 
-            // 2. Weekly Progress Mapping (Work Progress)
+                        // 2. Weekly Progress Mapping (Work Progress)
             if (activeFilter === "weekly") {
                 try {
                     const summaryRes = await workProgressService.getProjectSummary(projectId);
-                const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-                if (weeklyIdx !== -1) {
-                    if (summaryRes) {
-                        const totalActivities = summaryRes.total_activities || 0;
-                        const completedActivities = summaryRes.completed_activities || 0;
-                        const delayedActivities = summaryRes.delayed_activities || 0;
-                        const overallCompletion = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
-                        
-                        updatedReports[weeklyIdx] = {
-                            ...updatedReports[weeklyIdx],
-                            metrics: [
-                                { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
-                                { label: "Completed Activities", value: completedActivities.toString() },
-                                { label: "Total Activities", value: totalActivities.toString() },
-                                { label: "Delayed Activities", value: delayedActivities.toString(), accent: "text-rose-500" },
-                            ]
-                        };
-                    } else {
-                        updatedReports[weeklyIdx] = {
-                            ...updatedReports[weeklyIdx],
-                            metrics: [
-                                { label: "Overall Completion", value: "0%", accent: "text-emerald-600" },
-                                { label: "Completed Activities", value: "0" },
-                                { label: "Total Activities", value: "0" },
-                                { label: "Delayed Activities", value: "0", accent: "text-rose-500" },
-                            ]
-                        };
+                    const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
+                    if (weeklyIdx !== -1) {
+                        const summary = (summaryRes as any)?.summary || summaryRes;
+                        if (summary) {
+                            const totalActivities = Number(summary.total_activities) || 0;
+                            const completedActivities = Number(summary.completed_activities) || 0;
+                            const delayedActivities = Number(summary.delayed_activities) || 0;
+                            const overallCompletion = summary.overall_progress_percentage !== undefined
+                                ? Math.round(Number(summary.overall_progress_percentage))
+                                : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
+                            
+                            updatedReports[weeklyIdx] = {
+                                ...updatedReports[weeklyIdx],
+                                metrics: [
+                                    { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
+                                    { label: "Completed Activities", value: completedActivities.toString() },
+                                    { label: "Total Activities", value: totalActivities.toString() },
+                                    { label: "Delayed Activities", value: delayedActivities.toString(), accent: "text-rose-500" },
+                                ]
+                            };
+                        } else {
+                            updatedReports[weeklyIdx] = {
+                                ...updatedReports[weeklyIdx],
+                                metrics: [
+                                    { label: "Overall Completion", value: "0%", accent: "text-emerald-600" },
+                                    { label: "Completed Activities", value: "0" },
+                                    { label: "Total Activities", value: "0" },
+                                    { label: "Delayed Activities", value: "0", accent: "text-rose-500" },
+                                ]
+                            };
+                        }
                     }
-                }
                 } catch (err) {
                     console.warn("Failed to fetch weekly report metrics", err);
                 }
@@ -660,7 +664,21 @@ const ReportsPage = () => {
             }
 
             if (report.id === "weekly") {
-                const blob = await reportService.exportWeeklyPDF(projectId || 0);
+                const sDate = startDate || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+                const eDate = endDate || new Date().toISOString().split('T')[0];
+                const dateObj = new Date(eDate);
+                const month = dateObj.getMonth() + 1;
+                const year = dateObj.getFullYear();
+
+                const blob = await reportService.exportWeeklyPDF(projectId || 0, {
+                    project_id: projectId || 0,
+                    type: "weekly",
+                    report_date: eDate,
+                    start_date: sDate,
+                    end_date: eDate,
+                    month,
+                    year
+                });
                 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -838,6 +856,26 @@ const ReportsPage = () => {
     };
 
             const handleQuarterlyExport = async () => {
+        const errors: { quarter?: string; year?: string } = {};
+        if (!quarterlyExportFilters.year || !quarterlyExportFilters.year.toString().trim()) {
+            errors.year = "Year is required.";
+        }
+        if (!quarterlyExportFilters.quarter || !quarterlyExportFilters.quarter.toString().trim()) {
+            errors.quarter = "Quarter is required.";
+        } else {
+            const q = parseInt(quarterlyExportFilters.quarter);
+            if (isNaN(q) || q < 1 || q > 4) {
+                errors.quarter = "Quarter must be between 1 and 4.";
+            }
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setQuarterlyErrors(errors);
+            toast.error("Please enter both Quarter (1-4) and Year for the Quarterly report.");
+            return;
+        }
+        setQuarterlyErrors({});
+
         setIsQuarterlyExporting(true);
         const toastId = toast.loading(`Generating Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"} report...`);
         try {
@@ -858,7 +896,12 @@ const ReportsPage = () => {
 
             if (blob.type === "application/json") {
                 const errorText = await blob.text();
-                throw new Error(errorText);
+                try {
+                    const errObj = JSON.parse(errorText);
+                    throw new Error(errObj.detail || errObj.message || errorText);
+                } catch (e: any) {
+                    throw new Error(e.message || errorText);
+                }
             }
 
             const ext = quarterlyExportType === "pdf" ? "pdf" : "xlsx";
@@ -867,7 +910,7 @@ const ReportsPage = () => {
             const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
             const link = document.createElement("a");
             link.href = url;
-            link.setAttribute("download", `Quarterly_Report_${new Date().toISOString().split("T")[0]}.${ext}`);
+            link.setAttribute("download", `Quarterly_Report_Q${quarterlyExportFilters.quarter}_${quarterlyExportFilters.year}.${ext}`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -876,7 +919,8 @@ const ReportsPage = () => {
             setIsQuarterlyExportModalOpen(false);
         } catch (error: any) {
             console.error(`Failed to generate Quarterly ${quarterlyExportType}`, error);
-            toast.error(`Failed to generate Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`, { id: toastId });
+            const msg = error.message || `Failed to generate Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`;
+            toast.error(msg, { id: toastId });
         } finally {
             setIsQuarterlyExporting(false);
         }
@@ -980,7 +1024,21 @@ const ReportsPage = () => {
             }
 
             if (report.id === "weekly") {
-                const blob = await reportService.exportWeeklyExcel(projectId || 0);
+                const sDate = startDate || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+                const eDate = endDate || new Date().toISOString().split('T')[0];
+                const dateObj = new Date(eDate);
+                const month = dateObj.getMonth() + 1;
+                const year = dateObj.getFullYear();
+
+                const blob = await reportService.exportWeeklyExcel(projectId || 0, {
+                    project_id: projectId || 0,
+                    type: "weekly",
+                    report_date: eDate,
+                    start_date: sDate,
+                    end_date: eDate,
+                    month,
+                    year
+                });
 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -1489,7 +1547,7 @@ const ReportsPage = () => {
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-800">Export Daily to Excel</h2>
-                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (<span className="text-rose-500 font-bold">*</span> indicates required fields)</p>
                             </div>
                             <button
                                 onClick={() => setIsExportModalOpen(false)}
@@ -1736,7 +1794,7 @@ const ReportsPage = () => {
                                 <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
                             </div>
                             <button
-                                onClick={() => setIsQuarterlyExportModalOpen(false)}
+                                onClick={() => { setIsQuarterlyExportModalOpen(false); setQuarterlyErrors({}); }}
                                 className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1795,35 +1853,51 @@ const ReportsPage = () => {
                             </div>
                             {/* Year */}
                             <div className="col-span-2 sm:col-span-1">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Year</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                                    Year <span className="text-rose-500 font-bold">*</span>
+                                </label>
                                 <input
                                     type="number"
                                     placeholder="e.g. 2026"
                                     value={quarterlyExportFilters.year}
-                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, year: e.target.value }))}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                    onChange={e => {
+                                        setQuarterlyExportFilters(f => ({ ...f, year: e.target.value }));
+                                        if (quarterlyErrors.year) setQuarterlyErrors(errs => ({ ...errs, year: undefined }));
+                                    }}
+                                    className={`w-full px-4 py-2.5 bg-slate-50 border ${quarterlyErrors.year ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20' : 'border-slate-200 focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300'} rounded-xl text-sm font-semibold outline-none transition-all`}
                                 />
+                                {quarterlyErrors.year && (
+                                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{quarterlyErrors.year}</p>
+                                )}
                             </div>
                             
                             {/* Quarter */}
                             <div className="col-span-2 sm:col-span-1">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Quarter (1-4)</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                                    Quarter (1-4) <span className="text-rose-500 font-bold">*</span>
+                                </label>
                                 <input
                                     type="number"
                                     min="1"
                                     max="4"
                                     placeholder="e.g. 2"
                                     value={quarterlyExportFilters.quarter}
-                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, quarter: e.target.value }))}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                    onChange={e => {
+                                        setQuarterlyExportFilters(f => ({ ...f, quarter: e.target.value }));
+                                        if (quarterlyErrors.quarter) setQuarterlyErrors(errs => ({ ...errs, quarter: undefined }));
+                                    }}
+                                    className={`w-full px-4 py-2.5 bg-slate-50 border ${quarterlyErrors.quarter ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20' : 'border-slate-200 focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300'} rounded-xl text-sm font-semibold outline-none transition-all`}
                                 />
+                                {quarterlyErrors.quarter && (
+                                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{quarterlyErrors.quarter}</p>
+                                )}
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3 mt-6">
                             <button
                                 onClick={() => {
-                                    setQuarterlyExportFilters({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
+                                    setQuarterlyExportFilters({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" }); setQuarterlyErrors({});
                                 }}
                                 className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
                             >

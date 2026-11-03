@@ -1401,7 +1401,7 @@ const TaskManagementPage = () => {
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {task.audio_data || (task as any).audio_instruction_url ? (
                                                                 <audio controls src={task.audio_data ? getFullUrl(task.audio_data) || '' : getFullUrl(String((task as any).audio_instruction_url)) || ''} className="h-8 w-32" />
-                                                            ) : 'null'}
+                                                            ) : <span className="text-slate-400 font-medium">-</span>}
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
@@ -1411,7 +1411,7 @@ const TaskManagementPage = () => {
                                                                     className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
                                                                     onClick={() => setSelectedImage(String((task as any).instruction_image_url) || '')}
                                                                 />
-                                                            ) : 'null'}
+                                                            ) : <span className="text-slate-400 font-medium">-</span>}
                                                         </td>
 
                                                         <td className="p-4 text-center block md:table-cell">

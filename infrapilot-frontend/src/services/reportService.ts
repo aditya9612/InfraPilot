@@ -169,21 +169,55 @@ export const reportService = {
         });
         return response.data;
     },
-    exportWeeklyPDF: async (projectId: number) => {
-        const url = `/work-progress/reports/pdf`;
-        console.log(`Calling Weekly Report Export: GET ${url} with project_id=${projectId}`);
+    exportWeeklyPDF: async (projectId: number, params?: any) => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const defaultEndDate = now.toISOString().split('T')[0];
+        const defaultStartDate = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+        const queryParams = {
+            project_id: projectId,
+            type: 'weekly',
+            start_date: params?.start_date || defaultStartDate,
+            end_date: params?.end_date || defaultEndDate,
+            report_date: params?.report_date || params?.end_date || defaultEndDate,
+            month: params?.month ?? currentMonth,
+            year: params?.year ?? currentYear,
+            ...(params || {})
+        };
+        const url = `/reports/project/export/pdf`;
+        console.log(`Calling Weekly Report Export: GET ${url} with params=`, queryParams);
         const response = await api.get(url, {
-            params: { project_id: projectId },
-            responseType: 'blob'
+            params: queryParams,
+            responseType: 'blob',
+            headers: { 'Accept': 'application/pdf, application/octet-stream' }
         });
         return response.data;
     },
-    exportWeeklyExcel: async (projectId: number) => {
-        const url = `/work-progress/reports/excel`;
-        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+    exportWeeklyExcel: async (projectId: number, params?: any) => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const defaultEndDate = now.toISOString().split('T')[0];
+        const defaultStartDate = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+        const queryParams = {
+            project_id: projectId,
+            type: 'weekly',
+            start_date: params?.start_date || defaultStartDate,
+            end_date: params?.end_date || defaultEndDate,
+            report_date: params?.report_date || params?.end_date || defaultEndDate,
+            month: params?.month ?? currentMonth,
+            year: params?.year ?? currentYear,
+            ...(params || {})
+        };
+        const url = `/reports/project/export/excel`;
+        console.log(`Calling Weekly Excel Export: GET ${url} with params=`, queryParams);
         const response = await api.get(url, {
-            params: { project_id: projectId },
-            responseType: 'blob'
+            params: queryParams,
+            responseType: 'blob',
+            headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
         });
         return response.data;
     },

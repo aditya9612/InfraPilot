@@ -476,9 +476,10 @@ const LabourNotificationsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4 w-48">TYPE</th>
-                  <th className="px-6 py-4">TITLE & DESCRIPTION</th>
-                  <th className="px-6 py-4">DATE & TIME</th>
+                  <th className="px-6 py-4 w-44">TYPE</th>
+                  <th className="px-6 py-4 min-w-[200px]">TITLE</th>
+                  <th className="px-6 py-4 min-w-[280px]">MESSAGE</th>
+                  <th className="px-6 py-4 whitespace-nowrap">DATE & TIME</th>
                   <th className="px-6 py-4 text-center">READ</th>
                   <th className="px-6 py-4 text-right">ACTION</th>
                 </tr>
@@ -487,14 +488,14 @@ const LabourNotificationsPage = () => {
                 {loading ? (
                   Array(4).fill(0).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-6 py-6 border-b border-slate-50">
+                      <td colSpan={6} className="px-6 py-6 border-b border-slate-50">
                         <div className="h-4 bg-slate-100 rounded w-full" />
                       </td>
                     </tr>
                   ))
                 ) : filteredNotifs.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="p-20 text-center">
                         <Bell className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                         <p className="text-slate-400 font-bold text-lg">No Notifications</p>
@@ -534,7 +535,12 @@ const LabourNotificationsPage = () => {
                           onClick={() => handleNotificationClick(notif as any, navigate, "Labour")}
                         >
                           <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-primary transition-colors">{notif.title}</p>
-                          <p className="text-xs text-slate-500 max-w-lg truncate">{notif.description}</p>
+                        </td>
+                        <td 
+                          className="px-6 py-4 cursor-pointer"
+                          onClick={() => handleNotificationClick(notif as any, navigate, "Labour")}
+                        >
+                          <p className="text-xs text-slate-500 max-w-md line-clamp-2">{notif.description || (notif as any).message || "—"}</p>
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-xs font-bold text-slate-600">{formatTableDate(notif.created_at)}</p>

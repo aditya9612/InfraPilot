@@ -30,6 +30,8 @@
 }
 
 @utility custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
   &::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -38,11 +40,11 @@
     background: transparent;
   }
   &::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: #cbd5e1;
     border-radius: 10px;
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
+    background: #94a3b8;
   }
 }
 
@@ -91,7 +93,7 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #94a3b8;
     border-radius: 10px;
   }
 
@@ -158,6 +160,7 @@ input::-webkit-inner-spin-button {
 }
 
 input[type=number] {
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 /* Global Scroll Lock for Modals */

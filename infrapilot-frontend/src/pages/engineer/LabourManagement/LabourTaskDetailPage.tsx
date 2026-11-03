@@ -604,19 +604,19 @@ const LabourTaskDetailPage = () => {
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800">{task._raw?.delay_days || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800">₹{task._raw?.actual_cost || 0} / ₹{task._raw?.planned_cost || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800">
-                                                            {task._raw?.audio_instruction_url ? (
+                                                            {task._raw?.audio_instruction_url && String(task._raw.audio_instruction_url).toLowerCase() !== 'null' ? (
                                                                 <audio controls src={labourService.resolveUrl(task._raw.audio_instruction_url) || ''} className="h-8 w-32" />
-                                                            ) : 'null'}
+                                                            ) : <span className="text-slate-400 font-medium">-</span>}
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800">
-                                                            {task._raw?.instruction_image_url ? (
+                                                            {task._raw?.instruction_image_url && String(task._raw.instruction_image_url).toLowerCase() !== 'null' ? (
                                                                 <img
                                                                     src={labourService.resolveUrl(task._raw.instruction_image_url) || ''}
                                                                     alt="Instruction"
                                                                     className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
                                                                     onClick={() => setPreviewImage({ url: labourService.resolveUrl(task._raw.instruction_image_url)!, title: "Instruction Image" })}
                                                                 />
-                                                            ) : 'null'}
+                                                            ) : <span className="text-slate-400 font-medium">-</span>}
                                                         </td>
                                                         <td className="p-4">
                                                             <div className="flex items-center justify-center gap-1.5">
@@ -990,7 +990,7 @@ const LabourTaskDetailPage = () => {
                                                 ) : typeof (selectedTask as any)[field.key] === 'boolean' ? (
                                                     <p className="text-sm text-slate-600">{(selectedTask as any)[field.key] ? 'Yes' : 'No'}</p>
                                                 ) : (
-                                                    <p className="text-sm text-slate-600 break-all">{(selectedTask as any)[field.key] !== null && (selectedTask as any)[field.key] !== undefined && (selectedTask as any)[field.key] !== '' ? String((selectedTask as any)[field.key]) : 'null'}</p>
+                                                    <p className="text-sm text-slate-600 break-all">{(selectedTask as any)[field.key] !== null && (selectedTask as any)[field.key] !== undefined && (selectedTask as any)[field.key] !== '' && String((selectedTask as any)[field.key]).toLowerCase() !== 'null' ? String((selectedTask as any)[field.key]) : '-'}</p>
                                                 )}
                                             </div>
                                         </div>

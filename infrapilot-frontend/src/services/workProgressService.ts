@@ -231,7 +231,16 @@ export const workProgressService = {
   async getProjectSummary(projectId: number): Promise<ProjectSummary> {
     try {
       const response = await api.get(`/work-progress/project/${projectId}/summary`);
-      return response.data;
+      const data = response.data;
+      if (data && data.summary) {
+        return {
+          ...data.summary,
+          ...data,
+          summary: data.summary,
+          project: data.project,
+        };
+      }
+      return data;
     } catch (error: any) {
       console.warn("getProjectSummary API error, using virtual success fallback:", error.message);
       const acts = mockActivities.filter(a => a.project_id === projectId);

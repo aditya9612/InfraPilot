@@ -381,6 +381,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
               Activity Type <span className="text-rose-500">*</span>
             </label>
             <CustomSelect
+              placement="top"
               value={formData.activity_type_id}
               onChange={(val) => {
                 const valStr = String(val || '');

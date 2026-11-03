@@ -199,9 +199,10 @@ const ManagerNotificationsPage = () => {
                       className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-4 w-48">Type</th>
-                  <th className="px-6 py-4">Title & Description</th>
-                  <th className="px-6 py-4">Date & Time</th>
+                  <th className="px-6 py-4 w-44">Type</th>
+                  <th className="px-6 py-4 min-w-[200px]">Title</th>
+                  <th className="px-6 py-4 min-w-[280px]">Message</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Date & Time</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -238,12 +239,14 @@ const ManagerNotificationsPage = () => {
                         {notif.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 max-w-md">
+                    <td className="px-6 py-4">
                       <p className={`text-sm ${!notif.read ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
                         {notif.title}
                       </p>
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {notif.description}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs text-slate-400 line-clamp-2">
+                        {notif.description || (notif as any).message || "—"}
                       </p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-medium">
@@ -262,7 +265,7 @@ const ManagerNotificationsPage = () => {
                 ))}
                 {paginatedNotifs.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">
                       <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
                       No notifications found
                     </td>

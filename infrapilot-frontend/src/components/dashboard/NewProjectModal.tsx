@@ -232,7 +232,7 @@ const NewProjectModal = ({
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Project Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -242,7 +242,7 @@ const NewProjectModal = ({
                 value={formData.project_name}
                 onChange={handleChange}
                 placeholder="e.g. SARA CITY"
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.project_name ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.project_name ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all placeholder:font-normal placeholder:text-slate-400`}
               />
               {errors.project_name && (
                 <p className="text-[10px] text-red-500 mt-1">
@@ -251,14 +251,14 @@ const NewProjectModal = ({
               )}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Project Type
               </label>
               <select
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
                 <option value="RESIDENTIAL">Residential</option>
                 <option value="COMMERCIAL">Commercial</option>
@@ -273,14 +273,14 @@ const NewProjectModal = ({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Project Status
               </label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
                 <option value="PLANNED">PLANNED</option>
                 <option value="ONGOING">ONGOING</option>
@@ -289,7 +289,7 @@ const NewProjectModal = ({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Owner Name <span className="text-red-500">*</span>
               </label>
               <select
@@ -297,7 +297,7 @@ const NewProjectModal = ({
                 name="owner_id"
                 value={formData.owner_id}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all`}
               >
                 <option value="">Select Owner</option>
                 {owners.map((owner) => (
@@ -313,7 +313,7 @@ const NewProjectModal = ({
               )}
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Description <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -323,7 +323,7 @@ const NewProjectModal = ({
                 onChange={handleChange}
                 placeholder="Project Details"
                 rows={2}
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.description ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.description ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all placeholder:font-normal placeholder:text-slate-400 resize-none`}
               />
               {errors.description && (
                 <p className="text-[10px] text-red-500 mt-1">
@@ -332,7 +332,7 @@ const NewProjectModal = ({
               )}
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Budget Amount (₹)
               </label>
               <div className="relative">
@@ -345,7 +345,7 @@ const NewProjectModal = ({
                   placeholder="e.g. 5000000"
                   min="0"
                   step="any"
-                  className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
+                  className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:font-normal placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -359,7 +359,7 @@ const NewProjectModal = ({
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Site Address <span className="text-red-500">*</span>
               </label>
               <input
@@ -369,14 +369,14 @@ const NewProjectModal = ({
                 value={formData.site_address}
                 onChange={handleChange}
                 placeholder="Full site address"
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.site_address ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.site_address ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all placeholder:font-normal placeholder:text-slate-400`}
               />
               {errors.site_address && (
                 <p className="text-[10px] text-red-500 mt-1">{errors.site_address}</p>
               )}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 City <span className="text-red-500">*</span>
               </label>
               <input
@@ -386,12 +386,12 @@ const NewProjectModal = ({
                 value={formData.city}
                 onChange={handleChange}
                 placeholder="e.g. Pune"
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.city ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.city ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 outline-none transition-all`}
               />
               {errors.city && <p className="text-[10px] text-red-500 mt-1">{errors.city}</p>}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 State
               </label>
               <input
@@ -400,11 +400,11 @@ const NewProjectModal = ({
                 value={formData.state}
                 onChange={handleChange}
                 placeholder="e.g. Maharashtra"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Pincode <span className="text-red-500">*</span>
               </label>
               <input
@@ -414,19 +414,19 @@ const NewProjectModal = ({
                 value={formData.pincode}
                 onChange={handleChange}
                 placeholder="e.g. 411033"
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.pincode ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.pincode ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 outline-none transition-all`}
               />
               {errors.pincode && <p className="text-[10px] text-red-500 mt-1">{errors.pincode}</p>}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Location Type
               </label>
               <select
                 name="location_type"
                 value={formData.location_type}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
                 <option value="URBAN">Urban</option>
                 <option value="RURAL">Rural</option>
@@ -438,7 +438,7 @@ const NewProjectModal = ({
             </div>
             <div className="md:col-span-2 border-t border-slate-50 pt-4 mt-2">
               <div className="flex justify-between items-center mb-3">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-tight">
                   GPS Coordinates
                 </label>
                 <button
@@ -453,7 +453,7 @@ const NewProjectModal = ({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Latitude
                   </label>
                   <input
@@ -463,11 +463,11 @@ const NewProjectModal = ({
                     onChange={handleChange}
                     placeholder="e.g. 18.5204"
                     step="any"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Longitude
                   </label>
                   <input
@@ -477,7 +477,7 @@ const NewProjectModal = ({
                     onChange={handleChange}
                     placeholder="e.g. 73.8567"
                     step="any"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                   />
                 </div>
               </div>
@@ -492,7 +492,7 @@ const NewProjectModal = ({
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -500,7 +500,7 @@ const NewProjectModal = ({
                 name="start_date"
                 value={formData.start_date}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.start_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all text-slate-700`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.start_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all`}
               />
               {errors.start_date && (
                 <p className="text-[10px] text-red-500 mt-1">
@@ -509,7 +509,7 @@ const NewProjectModal = ({
               )}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 End Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -517,7 +517,7 @@ const NewProjectModal = ({
                 name="end_date"
                 value={formData.end_date}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all text-slate-700`}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm font-normal text-slate-700 outline-none transition-all`}
               />
               {errors.end_date && (
                 <p className="text-[10px] text-red-500 mt-1">
@@ -526,12 +526,12 @@ const NewProjectModal = ({
               )}
             </div>
             <div className="md:col-span-2 border-t border-slate-50 pt-4 mt-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-3">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-tight mb-3">
                 Shift & Attendance Settings
               </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Shift Start Time
                   </label>
                   <input
@@ -539,11 +539,11 @@ const NewProjectModal = ({
                     name="shift_start_time"
                     value={formData.shift_start_time}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Shift End Time
                   </label>
                   <input
@@ -551,11 +551,11 @@ const NewProjectModal = ({
                     name="shift_end_time"
                     value={formData.shift_end_time}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Grace Period (Mins)
                   </label>
                   <input
@@ -565,7 +565,7 @@ const NewProjectModal = ({
                     onChange={handleChange}
                     min="0"
                     placeholder="e.g. 15"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-normal text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                   />
                 </div>
               </div>

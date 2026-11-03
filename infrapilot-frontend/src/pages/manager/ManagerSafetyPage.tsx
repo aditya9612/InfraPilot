@@ -565,6 +565,7 @@ const ManagerSafetyPage = () => {
                   </tbody>
                 </table>
               )}
+            </div>
 
             {/* Pagination */}
             {!isLoading && filteredList.length > 0 && (

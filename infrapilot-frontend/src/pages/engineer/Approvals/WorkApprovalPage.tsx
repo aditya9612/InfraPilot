@@ -328,7 +328,27 @@ const WorkApprovalPage = () => {
             setIsFormModalOpen(false);
         } catch (error: any) {
             console.error("Submit Error:", error);
-            const errMsg = error.response?.data?.message || error.response?.data?.error || "Failed to process request";
+            const data = error.response?.data;
+            let errMsg = "Failed to process request";
+            if (typeof data === "string") {
+                errMsg = data;
+            } else if (data?.detail) {
+                if (typeof data.detail === "string") {
+                    errMsg = data.detail;
+                } else if (Array.isArray(data.detail)) {
+                    errMsg = data.detail.map((d: any) => d.msg || (d.loc ? d.loc.join('.') + ': ' + d.msg : JSON.stringify(d))).join(", ");
+                } else {
+                    errMsg = JSON.stringify(data.detail);
+                }
+            } else if (data?.message) {
+                errMsg = data.message;
+            } else if (data?.error) {
+                errMsg = data.error;
+            } else if (error.message) {
+                errMsg = error.message;
+            }
+
+            setFormNotification({ type: 'error', message: errMsg });
             toast.error(errMsg, { id: toastId });
         } finally {
             setIsSubmitting(false);

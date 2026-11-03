@@ -145,8 +145,9 @@ const LabourRegistryPage = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.labour_name.trim()) newErrors.labour_name = "Labour name is required";
         else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) newErrors.labour_name = "Name must contain only alphabets";
-        if (!formData.mobile_number.trim()) newErrors.mobile_number = "Mobile number is required";
-        else if (!/^[6-9]\d{9}$/.test(formData.mobile_number)) newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+        if (formData.mobile_number && formData.mobile_number.trim()) {
+            if (!/^[6-9]\d{9}$/.test(formData.mobile_number.trim())) newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+        }
         if (!formData.labour_type_id) newErrors.labour_type_id = "Labour type is required";
         const aadhaarDigits = formData.aadhaar_number.replace(/-/g, "");
         if (formData.aadhaar_number.trim()) {
@@ -454,12 +455,15 @@ const LabourRegistryPage = () => {
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
             } else {
+                const cleanedMobile = formData.mobile_number ? formData.mobile_number.trim() : null;
+                const syntheticEmail = formData.email?.trim() || `labour.${Date.now()}.${Math.floor(1000 + Math.random() * 9000)}@infrapilot.in`;
+
                 const payload = {
                     project_id: null,
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
-                    mobile_number: formData.mobile_number,
-                    email: formData.email || null,
+                    mobile_number: cleanedMobile || undefined,
+                    email: syntheticEmail,
                     pan_number: formData.pan_number || null,
                     address: formData.address || null,
                     labour_type_id: Number(formData.labour_type_id),
@@ -1095,7 +1099,7 @@ const LabourRegistryPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelCls}>Aadhaar Number</label><input value={formData.aadhaar_number} onChange={e => setFormData(p => ({ ...p, aadhaar_number: formatAadhaar(e.target.value) }))} className={`${inputCls} ${errors.aadhaar_number ? "border-rose-300" : ""}`} />{errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}</div>
                             <div><label className={labelCls}>Labour Name <span className="text-rose-500">*</span></label><input value={formData.labour_name} onChange={e => setFormData(p => ({ ...p, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, "") }))} placeholder="Ramesh Shinde" className={`${inputCls} ${errors.labour_name ? "border-rose-300" : ""}`} />{errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}</div>
-                            <div><label className={labelCls}>Mobile Number <span className="text-rose-500">*</span></label><input type="tel" value={formData.mobile_number} onChange={e => setFormData(p => ({ ...p, mobile_number: e.target.value.replace(/\D/g, "").slice(0, 10) }))} className={`${inputCls} ${errors.mobile_number ? "border-rose-300" : ""}`} />{errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}</div>
+                            <div><label className={labelCls}>Mobile Number <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span></label><input type="tel" placeholder="e.g. 9876543210 (optional or shared)" value={formData.mobile_number} onChange={e => setFormData(p => ({ ...p, mobile_number: e.target.value.replace(/\D/g, "").slice(0, 10) }))} className={`${inputCls} ${errors.mobile_number ? "border-rose-300" : ""}`} />{errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}</div>
                             <div><label className={labelCls}>Email</label><input type="email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} className={inputCls} /></div>
                             <div><label className={labelCls}>PAN Number</label><input value={formData.pan_number} onChange={e => setFormData(p => ({ ...p, pan_number: e.target.value.toUpperCase().slice(0, 10) }))} className={inputCls} /></div>
                             <div><label className={labelCls}>Address</label><input value={formData.address} onChange={e => setFormData(p => ({ ...p, address: e.target.value }))} placeholder="Pune, Maharashtra" className={inputCls} /></div>

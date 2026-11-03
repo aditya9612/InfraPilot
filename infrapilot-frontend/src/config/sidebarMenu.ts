@@ -299,6 +299,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "Reports", path: "/manager/reports", icon: "bar-chart" },
     { label: "Chat", path: "/chat", icon: "message-circle" },
+    { label: "Notifications", path: "/manager/notifications", icon: "bell" },
     { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [
@@ -374,6 +375,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
     { label: "Chat", path: "/chat", icon: "message-circle" },
+    { label: "Notifications", path: "/engineer/notifications", icon: "bell" },
     { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
   Accountant: [

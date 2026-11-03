@@ -253,12 +253,11 @@ const LaborDetailsPage = () => {
             errorFields.push("Labour Name");
         }
 
-        if (!formData.mobile_number.trim()) {
-            newErrors.mobile_number = "Mobile number is required";
-            errorFields.push("Mobile Number");
-        } else if (!/^[6-9]\d{9}$/.test(formData.mobile_number)) {
-            newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
-            errorFields.push("Mobile Number");
+        if (formData.mobile_number && formData.mobile_number.trim()) {
+            if (!/^[6-9]\d{9}$/.test(formData.mobile_number.trim())) {
+                newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+                errorFields.push("Mobile Number");
+            }
         }
 
         if (formData.pan_number && formData.pan_number.trim()) {
@@ -397,11 +396,14 @@ const LaborDetailsPage = () => {
 
                 toast.success("Profile updated successfully");
             } else {
+                const cleanedMobile = formData.mobile_number ? formData.mobile_number.trim() : null;
+                const syntheticEmail = formData.email?.trim() || `labour.${Date.now()}.${Math.floor(1000 + Math.random() * 9000)}@infrapilot.in`;
+
                 const createPayload = {
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
-                    mobile_number: formData.mobile_number,
-                    email: formData.email || null,
+                    mobile_number: cleanedMobile || undefined,
+                    email: syntheticEmail,
                     pan_number: formData.pan_number || null,
                     address: formData.address || null,
                     labour_type_id: Number(formData.labour_type_id),
@@ -1024,11 +1026,13 @@ const LaborDetailsPage = () => {
                                 )}
                             </div>
 
-                            {/* mobile_number * */}
+                            {/* mobile_number */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Mobile Number <span className="text-rose-500">*</span></label>
-                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses(errors.mobile_number)} />
-                                {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>}
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
+                                    Mobile Number <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                                </label>
+                                <input type="tel" placeholder="e.g. 9876543210 (optional or shared)" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses(errors.mobile_number)} />
+                                {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
                             </div>
 
                             {/* email */}

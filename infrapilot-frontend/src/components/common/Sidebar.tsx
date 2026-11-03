@@ -1263,9 +1263,9 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   };
 
   return (
-    <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
+    <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0 overflow-hidden">
       {/* Logo container */}
-      <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative">
+      <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative shrink-0">
         <Link
           to={rolePaths[user.role] || "/"}
           className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
@@ -1299,7 +1299,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
+      <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto overflow-x-hidden custom-scrollbar [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
         {menu.map((item) => (
           <SidebarItem
             key={item.path}
@@ -1328,7 +1328,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         </div>
       )}
 
-      <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50">
+      <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md shadow-blue-600/20 overflow-hidden">
             {user.profile_image ? (
