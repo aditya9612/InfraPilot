@@ -4,14 +4,15 @@ interface ToggleProps {
     enabled: boolean;
     onChange: () => void;
     className?: string;
+    activeColor?: string;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, className = "" }) => {
+const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, className = "", activeColor = "bg-primary" }) => {
     return (
         <button
             type="button"
             onClick={onChange}
-            className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out focus:outline-none ${enabled ? "bg-slate-900 shadow-inner" : "bg-slate-200"
+            className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out focus:outline-none ${enabled ? `${activeColor} shadow-inner` : "bg-slate-200"
                 } ${className}`}
         >
             <span

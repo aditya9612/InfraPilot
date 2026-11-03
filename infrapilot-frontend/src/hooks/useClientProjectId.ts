@@ -57,30 +57,43 @@ export function useClientProjectId() {
         const uid = Number(currentUser.id || currentUser.user_id);
         const uName = (currentUser.name || currentUser.full_name || "").toLowerCase().trim();
         const uEmail = (currentUser.email || "").toLowerCase().trim();
+        const uMob = (currentUser.mobile || currentUser.mobile_number || "").replace(/\D/g, "").slice(-10);
+        const uCompany = (currentUser.company || currentUser.designation || "").toLowerCase().trim();
+        const uAddress = (currentUser.address || "").toLowerCase().trim();
+
+        // Check if assigned in cached infrapilot_assigned_projects or project members
+        let assignedIds = new Set<number>();
+        try {
+          const cached = JSON.parse(localStorage.getItem('infrapilot_assigned_projects') || '{}');
+          if (cached[uid]?.data) {
+            cached[uid].data.forEach((cp: any) => {
+              const cpid = Number(cp.id || cp.project_id);
+              if (cpid > 0) assignedIds.add(cpid);
+            });
+          }
+        } catch { }
+
+        if (currentUser.project_id && Number(currentUser.project_id) > 0) {
+          assignedIds.add(Number(currentUser.project_id));
+        }
 
         clientAuthorizedProjects = items.filter((p: any) => {
           const pClientId = p.client_id != null && Number(p.client_id) > 0 ? Number(p.client_id) : null;
-          const pClientName = (p.client_name || "").toLowerCase().trim();
-          const pClientEmail = (p.client_email || "").toLowerCase().trim();
+          const pClientSubId = p.client?.id != null && Number(p.client?.id) > 0 ? Number(p.client?.id) : null;
+          const pOwnerId = p.owner_id != null && Number(p.owner_id) > 0 ? Number(p.owner_id) : null;
+          const pClientName = (p.client_name || p.client?.name || "").toLowerCase().trim();
+          const pClientEmail = (p.client_email || p.client?.email || "").toLowerCase().trim();
+          const pClientPhone = (p.client_phone || p.client_mobile || p.client?.mobile || "").replace(/\D/g, "").slice(-10);
+          const pProjectName = (p.project_name || p.name || "").toLowerCase().trim();
           const pId = Number(p.id || p.project_id);
 
-          // 1. If project is explicitly assigned to ANOTHER client ID, reject
-          if (pClientId != null && uid > 0 && pClientId !== uid) {
-            return false;
-          }
-          // 2. If project is explicitly assigned to ANOTHER client name, reject
-          if (pClientName && uName && pClientName !== uName && !pClientName.includes(uName) && !uName.includes(pClientName)) {
-            return false;
-          }
-
-          // 3. Positive match by client_id
-          if (pClientId != null && uid > 0 && pClientId === uid) return true;
-          // 4. Positive match by client_name
-          if (pClientName && uName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
-          // 5. Positive match by client_email
-          if (pClientEmail && uEmail && pClientEmail === uEmail) return true;
-          // 6. Direct user profile project_id
-          if (currentUser.project_id && Number(currentUser.project_id) === pId) return true;
+          if (pId > 0 && assignedIds.has(pId)) return true;
+          if (uid > 0 && (pClientId === uid || pClientSubId === uid || pOwnerId === uid)) return true;
+          if (uEmail && pClientEmail && uEmail === pClientEmail) return true;
+          if (uMob && pClientPhone && uMob === pClientPhone) return true;
+          if (uName && pClientName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
+          if (uCompany && pClientName && (pClientName === uCompany || pClientName.includes(uCompany) || uCompany.includes(pClientName))) return true;
+          if (uAddress && pProjectName && (pProjectName === uAddress || uAddress.includes(pProjectName))) return true;
 
           return false;
         });

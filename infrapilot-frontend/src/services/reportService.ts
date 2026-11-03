@@ -454,17 +454,19 @@ export const reportService = {
         return response.data;
     },
 
-    exportEquipmentPdf: async () => {
+    exportEquipmentPdf: async (projectId?: number) => {
         // GET /api/v1/equipment/reports/pdf — Equipment Full Pdf Report
         const response = await api.get(`/equipment/reports/pdf`, {
+            params: projectId ? { project_id: projectId } : undefined,
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportEquipmentExcel: async () => {
+    exportEquipmentExcel: async (projectId?: number) => {
         // GET /api/v1/equipment/reports/excel — Equipment Excel Report
         const response = await api.get(`/equipment/reports/excel`, {
+            params: projectId ? { project_id: projectId } : undefined,
             responseType: 'blob'
         });
         return response.data;

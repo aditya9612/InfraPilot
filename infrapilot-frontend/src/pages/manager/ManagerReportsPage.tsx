@@ -218,8 +218,8 @@ const ManagerReportsPage = () => {
                     break;
                 case "equipment":
                     blob = format === "PDF"
-                        ? await reportService.exportEquipmentPdf()
-                        : await reportService.exportEquipmentExcel();
+                        ? await reportService.exportEquipmentPdf(pid)
+                        : await reportService.exportEquipmentExcel(pid);
                     break;
                 case "issues":
                     blob = format === "PDF"
@@ -236,7 +236,24 @@ const ManagerReportsPage = () => {
             }
 
             if (blob && !blob.type.includes('json')) {
-                const url = window.URL.createObjectURL(blob);
+                let finalBlob = blob;
+
+                // Handle CSV export for Procurement Efficiency (and any CSV response)
+                const isProcurementCsv = reportId === "procurement" && format === "Excel";
+                const isCsvContent = isProcurementCsv || blob.type.includes("csv");
+
+                if (isCsvContent) {
+                    try {
+                        const text = await blob.text();
+                        // Add UTF-8 BOM if missing so Microsoft Excel opens cleanly with proper encoding
+                        const hasBOM = text.charCodeAt(0) === 0xFEFF;
+                        finalBlob = new Blob([hasBOM ? text : "\uFEFF" + text], { type: "text/csv;charset=utf-8;" });
+                    } catch (e) {
+                        console.warn("Failed to prepend BOM to CSV:", e);
+                    }
+                }
+
+                const url = window.URL.createObjectURL(finalBlob);
                 const link = document.createElement('a');
                 link.href = url;
                 let fileName = getReportFileName(reportId, format, {
@@ -255,8 +272,13 @@ const ManagerReportsPage = () => {
                     fileName = `fixed_asset_depreciation_report.${format === "PDF" ? "pdf" : "xlsx"}`;
                 } else if (reportId === "cost-comparison") {
                     fileName = `executive_financial_summary.${format === "PDF" ? "pdf" : "xlsx"}`;
+                } else if (reportId === "procurement") {
+                    fileName = format === "PDF"
+                        ? `procurement_report_${effectiveEnd}.pdf`
+                        : `procurement_report_${effectiveEnd}.csv`;
                 } else if (reportId !== "daily" && reportId !== "weekly") {
-                    fileName = `${reportId}_report_${effectiveEnd}.${format === "PDF" ? "pdf" : "xlsx"}`;
+                    const ext = isCsvContent ? "csv" : (format === "PDF" ? "pdf" : "xlsx");
+                    fileName = `${reportId}_report_${effectiveEnd}.${ext}`;
                 }
 
                 link.setAttribute('download', fileName);

@@ -20,7 +20,9 @@ const SectionHeader = ({ title, icon }: { title: string; icon: React.ReactNode }
 );
 
 const ManagerSettingsPage: React.FC = () => {
-    const { refreshUser } = useAuth();
+    const { user, refreshUser } = useAuth();
+    const isAdmin = user?.role === "Admin";
+    const initialJoiningDateRef = useRef<string | null>(null);
     const { assignedProjects } = useProject();
     const [activeTab, setActiveTab] = useState<"general" | "personal">("general");
     const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -60,6 +62,9 @@ const ManagerSettingsPage: React.FC = () => {
                 email: profileData.email || (profileData as any).email_address || "",
             };
             setProfile(normalizedProfile);
+            if (initialJoiningDateRef.current === null && profileData?.joining_date) {
+                initialJoiningDateRef.current = profileData.joining_date;
+            }
 
             if (profileData.profile_image) {
                 setProfileImage(settingsService.resolveUrl(profileData.profile_image));
@@ -90,6 +95,7 @@ const ManagerSettingsPage: React.FC = () => {
 
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
+        if (name === "joining_date" && !isAdmin) return;
         setProfile((prev: any) => ({ ...prev, [name]: value }));
     };
 
@@ -138,7 +144,11 @@ const ManagerSettingsPage: React.FC = () => {
                     notifications, ui: preferences
                 }
             };
-            const profileData = { ...profile, profile_image: selectedFile || profile.profile_image };
+            const profileData = {
+                ...profile,
+                profile_image: selectedFile || profile.profile_image,
+                joining_date: !isAdmin && initialJoiningDateRef.current ? initialJoiningDateRef.current : profile.joining_date
+            };
             await Promise.all([
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
@@ -223,13 +233,13 @@ const ManagerSettingsPage: React.FC = () => {
                 <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md p-1.5 rounded-2xl w-fit mb-10 border border-slate-200 shadow-sm transition-all">
                     <button
                         onClick={() => setActiveTab("general")}
-                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "general" ? "bg-slate-900 text-white shadow-xl scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "general" ? "bg-primary text-white shadow-xl shadow-primary/25 scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
                     >
                         ⚙️ General Settings
                     </button>
                     <button
                         onClick={() => setActiveTab("personal")}
-                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "personal" ? "bg-slate-900 text-white shadow-xl scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "personal" ? "bg-primary text-white shadow-xl shadow-primary/25 scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
                     >
                         👤 My Account
                     </button>
@@ -270,7 +280,7 @@ const ManagerSettingsPage: React.FC = () => {
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unit System</label>
                                     <div className="grid grid-cols-2 gap-3">
                                         {unitOptions.system.map(u => (
-                                            <button key={u} onClick={() => setUnitSystem(u)} className={`py-3 rounded-xl text-xs font-bold border transition-all ${unitSystem === u ? "bg-slate-900 text-white border-slate-900" : "bg-slate-50 text-slate-500 border-slate-200"}`}>{u}</button>
+                                            <button key={u} onClick={() => setUnitSystem(u)} className={`py-3 rounded-xl text-xs font-bold border transition-all ${unitSystem === u ? "bg-primary text-white border-primary shadow-sm" : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"}`}>{u}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -444,8 +454,20 @@ const ManagerSettingsPage: React.FC = () => {
                                         <input type="text" value={profile?.role || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Joining Date</label>
-                                        <input type="date" name="joining_date" value={profile?.joining_date ? profile.joining_date.split("T")[0] : ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Joining Date {!isAdmin && <span className="text-[9px] font-medium text-slate-400 lowercase">(Admin only)</span>}
+                                        </label>
+                                        <input
+                                            type="date"
+                                            name="joining_date"
+                                            disabled={!isAdmin}
+                                            readOnly={!isAdmin}
+                                            value={profile?.joining_date ? profile.joining_date.split("T")[0] : ""}
+                                            onChange={isAdmin ? handleProfileChange : undefined}
+                                            className={`px-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold transition-all ${
+                                                !isAdmin ? "bg-slate-100 text-slate-500 cursor-not-allowed opacity-80" : "bg-slate-50 focus:ring-2 focus:ring-primary"
+                                            }`}
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Status</label>

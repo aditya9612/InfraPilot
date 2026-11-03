@@ -766,11 +766,16 @@ export const projectService = {
             try {
               const mems = await projectService.getProjectMembers(p.id);
               const memberList = Array.isArray(mems) ? mems : (mems?.items || mems?.data || []);
-              const isAssigned = memberList.some((m: any) =>
-                String(m?.user_id) === String(userId) ||
-                String(m?.user?.id) === String(userId) ||
-                String(m?.userId) === String(userId)
-              );
+              const isAssigned =
+                (p?.client_id != null && Number(p?.client_id) === Number(userId)) ||
+                (p?.client?.id != null && Number(p?.client?.id) === Number(userId)) ||
+                (p?.owner_id != null && Number(p?.owner_id) === Number(userId)) ||
+                memberList.some((m: any) =>
+                  String(m?.user_id) === String(userId) ||
+                  String(m?.user?.id) === String(userId) ||
+                  String(m?.userId) === String(userId) ||
+                  String(m?.id) === String(userId)
+                );
               return isAssigned ? p : null;
             } catch (err) {
               return null;

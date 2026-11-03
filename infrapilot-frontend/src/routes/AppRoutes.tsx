@@ -82,6 +82,7 @@ import ManagerMaterialStockPage from "../pages/manager/Resources/MaterialManagem
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerReportsPage from "../pages/manager/ManagerReportsPage";
 import ManagerAttendancePage from "../pages/manager/ManagerAttendancePage";
+import ManagerNotificationsPage from "../pages/manager/ManagerNotificationsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -388,6 +389,7 @@ function AppRoutes() {
                 <Route path="settings" element={<ManagerSettingsPage />} />
                 <Route path="reports" element={<ManagerReportsPage />} />
                 <Route path="reports/:tab" element={<ManagerReportsPage />} />
+                <Route path="notifications" element={<ManagerNotificationsPage />} />
               </Route>
 
               {/* Client Specific Routes */}

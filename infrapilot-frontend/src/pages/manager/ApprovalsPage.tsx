@@ -71,39 +71,90 @@ const ApprovalsPage = () => {
 
                 switch (createForm.entity_type) {
                     case "boq": {
+                        let boqsList: any[] = [];
                         if (pid) {
-                            const data = await boqService.getBoqsByProject(pid);
-                            items = (Array.isArray(data) ? data : []).map((b: any) => ({
-                                id: b.id,
-                                label: `${b.item_name} (ID: ${b.id})`,
-                            }));
+                            try {
+                                const data = await boqService.getBoqsByProject(pid);
+                                boqsList = Array.isArray(data) ? data : [];
+                            } catch { }
                         }
+                        if (boqsList.length === 0) {
+                            try {
+                                const res = await boqService.getBoqs({ project_id: pid, limit: 100 });
+                                boqsList = Array.isArray(res) ? res : ((res as any)?.items || (res as any)?.data || []);
+                            } catch { }
+                        }
+                        if (boqsList.length === 0) {
+                            try {
+                                const res = await boqService.getBoqs({ limit: 100 });
+                                boqsList = Array.isArray(res) ? res : ((res as any)?.items || (res as any)?.data || []);
+                            } catch { }
+                        }
+                        items = boqsList.map((b: any) => {
+                            const name = b.item_name || b.item_description || b.work_description || b.description || b.name || b.title || `BOQ Item #${b.id}`;
+                            return {
+                                id: b.id,
+                                label: `${name} (ID: ${b.id})`,
+                            };
+                        });
                         break;
                     }
                     case "drawing": {
-                        if (pid) {
-                            const data = await drawingService.getVersions(pid);
-                            items = (Array.isArray(data) ? data : []).map((d: any) => ({
-                                id: d.id,
-                                label: `${d.drawing_name || d.title || `Drawing #${d.id}`} (ID: ${d.id})`,
-                            }));
+                        let drawingsList: any[] = [];
+                        try {
+                            const data = await drawingService.getList({ project_id: pid });
+                            drawingsList = Array.isArray(data) ? data : ((data as any)?.items || []);
+                        } catch { }
+                        if (drawingsList.length === 0 && pid) {
+                            try {
+                                const data = await drawingService.getDrawings(pid);
+                                drawingsList = Array.isArray(data) ? data : ((data as any)?.items || []);
+                            } catch { }
                         }
+                        if (drawingsList.length === 0) {
+                            try {
+                                const data = await drawingService.getList({});
+                                drawingsList = Array.isArray(data) ? data : ((data as any)?.items || []);
+                            } catch { }
+                        }
+                        if (drawingsList.length === 0) {
+                            try {
+                                const res = await documentService.listDocuments({ project_id: pid, limit: 100 });
+                                const docs = Array.isArray(res) ? res : ((res as any)?.items || []);
+                                drawingsList = docs.filter((d: any) => (d.document_type || d.type || "").toLowerCase().includes("drawing") || d.file_type === "dwg" || d.file_type === "pdf");
+                                if (drawingsList.length === 0) drawingsList = docs;
+                            } catch { }
+                        }
+                        items = drawingsList.map((d: any) => {
+                            const name = d.drawing_name || d.title || d.name || d.document_name || d.file_name || `Drawing #${d.id}`;
+                            return {
+                                id: d.id,
+                                label: `${name} (ID: ${d.id})`,
+                            };
+                        });
                         break;
                     }
                     case "document": {
-                        if (pid) {
+                        let docsList: any[] = [];
+                        try {
                             const res = await documentService.listDocuments({ project_id: pid, limit: 100 });
-                            const docs = Array.isArray(res) ? res : (res as any).items || [];
-                            items = docs.map((d: any) => ({
-                                id: d.id,
-                                label: `${d.title || `Document #${d.id}`} (ID: ${d.id})`,
-                            }));
+                            docsList = Array.isArray(res) ? res : ((res as any)?.items || []);
+                        } catch { }
+                        if (docsList.length === 0) {
+                            try {
+                                const res = await documentService.listDocuments({ limit: 100 });
+                                docsList = Array.isArray(res) ? res : ((res as any)?.items || []);
+                            } catch { }
                         }
+                        items = docsList.map((d: any) => ({
+                            id: d.id,
+                            label: `${d.title || d.name || d.file_name || `Document #${d.id}`} (ID: ${d.id})`,
+                        }));
                         break;
                     }
                     case "equipment": {
                         const res = await equipmentService.listEquipment();
-                        const equips = Array.isArray(res) ? res : (res as any).items || [];
+                        const equips = Array.isArray(res) ? res : ((res as any)?.items || []);
                         items = equips.map((e: any) => ({
                             id: e.id,
                             label: `${e.name || e.equipment_name || `Equipment #${e.id}`} (ID: ${e.id})`,

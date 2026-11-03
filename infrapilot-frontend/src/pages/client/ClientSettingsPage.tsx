@@ -47,6 +47,12 @@ const ClientSettingsPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                let currentUser: any = null;
+                if (userStr) {
+                    try { currentUser = JSON.parse(userStr); } catch { }
+                }
+
                 const [profileData, settingsData, projectsResult] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
@@ -54,48 +60,99 @@ const ClientSettingsPage = () => {
                 ]);
                 const rawProjectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
 
-                // Get current logged-in client credentials
-                const userStr = localStorage.getItem("infrapilot_user");
-                let currentUser: any = null;
-                if (userStr) {
-                    try { currentUser = JSON.parse(userStr); } catch { }
-                }
                 const uid = Number(currentUser?.id || currentUser?.user_id || profileData?.user_id || (profileData as any)?.id);
                 const uName = (currentUser?.name || currentUser?.full_name || profileData?.full_name || "").toLowerCase().trim();
                 const uEmail = (currentUser?.email || profileData?.email || "").toLowerCase().trim();
                 const uMob = (currentUser?.mobile || currentUser?.mobile_number || profileData?.mobile_number || "").replace(/\D/g, "").slice(-10);
+                const uCompany = (currentUser?.company || currentUser?.designation || profileData?.designation || "").toLowerCase().trim();
+                const uAddress = (currentUser?.address || profileData?.address || "").toLowerCase().trim();
 
-                // Filter projects: only projects officially assigned or linked to this logged-in client
-                const authorizedProjects = rawProjectsList.filter((p: any) => {
+                // 1. Fetch projects officially assigned via team membership or client_id in projectService
+                let assignedByMembers: any[] = [];
+                if (uid > 0) {
+                    try {
+                        assignedByMembers = await projectService.getAssignedProjects(uid, true);
+                    } catch (e) {
+                        console.warn("Failed to get assigned projects by membership:", e);
+                    }
+                }
+
+                const assignedProjectIds = new Set<number>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) assignedProjectIds.add(pid);
+                });
+
+                // User profile assigned projects or direct project_id
+                if (currentUser?.project_id && Number(currentUser.project_id) > 0) {
+                    assignedProjectIds.add(Number(currentUser.project_id));
+                }
+                if ((profileData as any)?.project_id && Number((profileData as any).project_id) > 0) {
+                    assignedProjectIds.add(Number((profileData as any).project_id));
+                }
+                if (Array.isArray(currentUser?.assigned_projects)) {
+                    currentUser.assigned_projects.forEach((ap: any) => {
+                        const apId = Number(ap?.id || ap?.project_id || ap);
+                        if (apId > 0) assignedProjectIds.add(apId);
+                    });
+                }
+                if (Array.isArray((profileData as any)?.assigned_projects)) {
+                    (profileData as any).assigned_projects.forEach((ap: any) => {
+                        const apId = Number(ap?.id || ap?.project_id || ap);
+                        if (apId > 0) assignedProjectIds.add(apId);
+                    });
+                }
+
+                // 2. Filter raw projects list: only projects officially assigned or linked to this logged-in client
+                const matchedRawProjects = rawProjectsList.filter((p: any) => {
                     const pClientId = p.client_id != null && Number(p.client_id) > 0 ? Number(p.client_id) : null;
-                    const pClientName = (p.client_name || "").toLowerCase().trim();
-                    const pClientEmail = (p.client_email || "").toLowerCase().trim();
-                    const pClientPhone = (p.client_phone || p.client_mobile || "").replace(/\D/g, "").slice(-10);
+                    const pClientSubId = p.client?.id != null && Number(p.client?.id) > 0 ? Number(p.client?.id) : null;
+                    const pOwnerId = p.owner_id != null && Number(p.owner_id) > 0 ? Number(p.owner_id) : null;
+                    const pClientName = (p.client_name || p.client?.name || "").toLowerCase().trim();
+                    const pClientEmail = (p.client_email || p.client?.email || "").toLowerCase().trim();
+                    const pClientPhone = (p.client_phone || p.client_mobile || p.client?.mobile || "").replace(/\D/g, "").slice(-10);
+                    const pProjectName = (p.project_name || p.name || "").toLowerCase().trim();
                     const pId = Number(p.id || p.project_id);
 
-                    // 1. If project is explicitly assigned to a DIFFERENT client ID, reject
-                    if (pClientId != null && uid > 0 && pClientId !== uid) {
-                        return false;
-                    }
-                    // 2. If project is explicitly assigned to a DIFFERENT client name, reject
-                    if (pClientName && uName && pClientName !== uName && !pClientName.includes(uName) && !uName.includes(pClientName)) {
-                        return false;
-                    }
+                    // Membership or direct assigned ID
+                    if (pId > 0 && assignedProjectIds.has(pId)) return true;
 
-                    // 3. Positive match by client_id
-                    if (pClientId != null && uid > 0 && pClientId === uid) return true;
-                    // 4. Positive match by client_name
-                    if (pClientName && uName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
-                    // 5. Positive match by client_email
-                    if (pClientEmail && uEmail && pClientEmail === uEmail) return true;
-                    // 6. Positive match by client_phone / mobile
-                    if (pClientPhone && uMob && pClientPhone === uMob) return true;
-                    // 7. Direct user profile project_id
-                    if (currentUser?.project_id && Number(currentUser.project_id) === pId) return true;
-                    if ((profileData as any)?.project_id && Number((profileData as any).project_id) === pId) return true;
+                    // Direct client id / owner id match
+                    if (uid > 0 && (pClientId === uid || pClientSubId === uid || pOwnerId === uid)) return true;
+
+                    // Contact match (email or phone)
+                    if (uEmail && pClientEmail && uEmail === pClientEmail) return true;
+                    if (uMob && pClientPhone && uMob === pClientPhone) return true;
+
+                    // Name / Company match
+                    if (uName && pClientName && (pClientName === uName || pClientName.includes(uName) || uName.includes(pClientName))) return true;
+                    if (uCompany && pClientName && (pClientName === uCompany || pClientName.includes(uCompany) || uCompany.includes(pClientName))) return true;
+
+                    // Address mapped to project name
+                    if (uAddress && pProjectName && (pProjectName === uAddress || uAddress.includes(pProjectName))) return true;
 
                     return false;
                 });
+
+                // Merge and deduplicate by project id
+                const projectMap = new Map<number, any>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) projectMap.set(pid, p);
+                });
+                matchedRawProjects.forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0 && !projectMap.has(pid)) projectMap.set(pid, p);
+                });
+
+                let authorizedProjects = Array.from(projectMap.values());
+
+                // Fallback: If user has a project_id/project_name in profile/credentials but list was empty
+                if (authorizedProjects.length === 0 && (currentUser?.project_id || (profileData as any)?.project_id)) {
+                    const fallbackId = Number(currentUser?.project_id || (profileData as any)?.project_id);
+                    const fallbackName = currentUser?.project_name || (profileData as any)?.project_name || `Project #${fallbackId}`;
+                    authorizedProjects = [{ id: fallbackId, project_name: fallbackName, status: 'Active' }];
+                }
 
                 setProjects(authorizedProjects);
 

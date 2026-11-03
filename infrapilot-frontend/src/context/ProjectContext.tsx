@@ -123,6 +123,40 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     offset += limit;
                 }
                 setAssignedProjects(allAdminProjects);
+            } else if (user.role === 'Client' || (user.role as string)?.toLowerCase() === 'client') {
+                try {
+                    const clientProjects = await projectService.getAssignedProjects(Number(user.id), force);
+                    let finalProjects = clientProjects;
+                    if (finalProjects.length === 0 && user.project_id) {
+                        finalProjects = [{
+                            id: user.project_id,
+                            project_name: user.project_name || `Project ${user.project_id}`,
+                            owner_id: 0,
+                            description: "",
+                            type: "RESIDENTIAL",
+                            location_type: "URBAN",
+                            site_address: "",
+                            city: "",
+                            state: "",
+                            country: "",
+                            pincode: "",
+                            latitude: 0,
+                            longitude: 0,
+                            start_date: new Date().toISOString().split('T')[0],
+                            end_date: new Date().toISOString().split('T')[0],
+                            status: "Ongoing",
+                            completion_percentage: 0
+                        } as Project];
+                    }
+                    setAssignedProjects(finalProjects);
+                    if (finalProjects.length > 0 && !selectedProjectId) {
+                        const savedId = localStorage.getItem('client_selected_project_id') || localStorage.getItem('infrapilot_selected_project_id');
+                        const idToSelect = savedId && finalProjects.some(p => p.id === Number(savedId)) ? Number(savedId) : finalProjects[0].id;
+                        setSelectedProjectIdState(idToSelect);
+                    }
+                } catch (e) {
+                    console.warn("ProjectContext: Failed to fetch client assigned projects", e);
+                }
 
                 // Restore saved project for Admin only if one was previously selected
                 const savedId = localStorage.getItem('infrapilot_selected_project_id');
