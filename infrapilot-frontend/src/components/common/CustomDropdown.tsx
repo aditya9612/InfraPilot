@@ -59,6 +59,10 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             setComputedPlacement('top');
             return;
         }
+        if (placement === 'bottom') {
+            setComputedPlacement('bottom');
+            return;
+        }
         const rect = ref.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;

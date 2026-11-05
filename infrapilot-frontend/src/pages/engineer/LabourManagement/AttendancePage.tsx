@@ -111,11 +111,21 @@ const AttendancePage: React.FC = () => {
     };
 
     // ─── Restore today's check-in state on page load / refresh ───────────────
-    const restoreTodayAttendanceState = async () => {
+    const restoreTodayAttendanceState = useCallback(async () => {
         try {
             const userId = user?.id;
+            if (!userId) return;
             const todayData = await labourService.getTodayStatus(userId);
             const att = todayData?.attendance || todayData;
+
+            // If a specific project is selected, only restore if attendance belongs to this project
+            if (selectedProjectId && att && att.project_id && Number(att.project_id) !== Number(selectedProjectId)) {
+                setAttendanceState("NOT_CHECKED_IN");
+                setCurrentAttendanceId(null);
+                setCheckInTime(null);
+                setCheckOutTime(null);
+                return;
+            }
 
             const parseTimeStr = (timeStr: string) => {
                 if (!timeStr || timeStr === "--:--" || timeStr === "null") return null;
@@ -158,15 +168,20 @@ const AttendancePage: React.FC = () => {
             } else {
                 setAttendanceState("NOT_CHECKED_IN");
                 setCurrentAttendanceId(null);
+                setCheckInTime(null);
+                setCheckOutTime(null);
             }
         } catch (err) {
             console.warn("getTodayStatus failed, falling back to NOT_CHECKED_IN:", err);
             setAttendanceState("NOT_CHECKED_IN");
+            setCurrentAttendanceId(null);
+            setCheckInTime(null);
+            setCheckOutTime(null);
         }
-    };
+    }, [user?.id, selectedProjectId]);
     // ─────────────────────────────────────────────────────────────────────────
 
-    const fetchSelfAttendances = async () => {
+    const fetchSelfAttendances = useCallback(async () => {
         try {
             const activeProjectId = selectedProjectId || 0;
             let fromDate: string | null = null;
@@ -207,27 +222,36 @@ const AttendancePage: React.FC = () => {
                     const todayData = await labourService.getTodayStatus(userIdNum);
                     const att = todayData?.attendance || todayData;
                     if (att && att.in_time && att.in_time !== "--:--") {
-                        filteredItems = [att];
+                        if (!activeProjectId || !att.project_id || Number(att.project_id) === Number(activeProjectId)) {
+                            filteredItems = [att];
+                        }
                     }
                 } catch (err) {
                     console.warn("Could not fetch today's status for list fallback", err);
                 }
             }
 
+            // Strictly filter by activeProjectId if one is selected
+            if (activeProjectId) {
+                filteredItems = filteredItems.filter((item: any) =>
+                    Number(item.project_id) === Number(activeProjectId)
+                );
+            }
+
             setSelfAttendances(filteredItems);
         } catch (error) {
             console.error("Failed to fetch self attendances", error);
         }
-    };
+    }, [historyFilter, historyDateInput, selectedProjectId, user?.id]);
 
     // On mount: restore today's state from API (persists across refresh)
     useEffect(() => {
         restoreTodayAttendanceState();
-    }, []);
+    }, [restoreTodayAttendanceState]);
 
     useEffect(() => {
         fetchSelfAttendances();
-    }, [historyFilter, historyDateInput]);
+    }, [fetchSelfAttendances]);
 
     const paginatedHistory = selfAttendances.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
     useEffect(() => {
@@ -449,7 +473,9 @@ const AttendancePage: React.FC = () => {
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
-                                            <LogIn className="w-4 h-4 text-emerald-500" />
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200" title="Check-In (Entry: ->])">
+                                                <LogIn className="w-3.5 h-3.5" />
+                                            </div>
                                             <span className="text-xs font-bold text-slate-800">Check-In Time</span>
                                             <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">Late</span>
                                             <span className="px-2 py-0.5 bg-blue-50 text-blue-500 border border-blue-200 rounded-full text-[10px] font-bold flex items-center gap-1">
@@ -462,7 +488,9 @@ const AttendancePage: React.FC = () => {
 
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
-                                            <LogOut className="w-4 h-4 text-rose-500" />
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-50 text-rose-600 border border-rose-200" title="Check-Out (Exit: [->)">
+                                                <LogOut className="w-3.5 h-3.5" />
+                                            </div>
                                             <span className="text-xs font-bold text-slate-800">Check-out Time</span>
                                             {attendanceState === "CHECKED_OUT" && (
                                                 <span className="px-2 py-0.5 bg-orange-50 text-orange-500 border border-orange-200 rounded-full text-[10px] font-bold">Early</span>
@@ -543,27 +571,27 @@ const AttendancePage: React.FC = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left whitespace-nowrap">
                                 <thead>
-                                    <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold tracking-widest border-b border-slate-100">
-                                        <th className="px-6 py-4">project_name</th>
-                                        <th className="px-6 py-4">attendance_date</th>
-                                        <th className="px-6 py-4">status</th>
-                                        <th className="px-6 py-4">in_time</th>
-                                        <th className="px-6 py-4">out_time</th>
-                                        <th className="px-6 py-4">working_hours</th>
-                                        <th className="px-6 py-4">overtime_hours</th>
-                                        <th className="px-6 py-4">overtime_rate</th>
-                                        <th className="px-6 py-4">check_in_image</th>
-                                        <th className="px-6 py-4">check_out_image</th>
+                                    <tr className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b-2 border-slate-200">
+                                        <th className="px-6 py-4">Project Name</th>
+                                        <th className="px-6 py-4">Attendance Date</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4">In Time</th>
+                                        <th className="px-6 py-4">Out Time</th>
+                                        <th className="px-6 py-4">Working Hours</th>
+                                        <th className="px-6 py-4">Overtime Hours</th>
+                                        <th className="px-6 py-4">Overtime Rate</th>
+                                        <th className="px-6 py-4">Check-In Image</th>
+                                        <th className="px-6 py-4">Check-Out Image</th>
                                         <th className="px-6 py-4">Location</th>
-                                        <th className="px-6 py-4">task_description</th>
-                                        <th className="px-6 py-4">remarks</th>
-                                        <th className="px-6 py-4">is_approved</th>
-                                        <th className="px-6 py-4">is_outside_geofence</th>
-                                        <th className="px-6 py-4">is_late</th>
-                                        <th className="px-6 py-4">late_minutes</th>
-                                        <th className="px-6 py-4">is_early_departure</th>
-                                        <th className="px-6 py-4">early_minutes</th>
-                                        <th className="px-6 py-4">work_location_type</th>
+                                        <th className="px-6 py-4">Task Description</th>
+                                        <th className="px-6 py-4">Remarks</th>
+                                        <th className="px-6 py-4">Approval Status</th>
+                                        <th className="px-6 py-4">Geofence Status</th>
+                                        <th className="px-6 py-4">Punctuality</th>
+                                        <th className="px-6 py-4">Late Minutes</th>
+                                        <th className="px-6 py-4">Departure Status</th>
+                                        <th className="px-6 py-4">Early Minutes</th>
+                                        <th className="px-6 py-4">Work Location Type</th>
                                         <th className="px-6 py-4 text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -578,7 +606,19 @@ const AttendancePage: React.FC = () => {
                                             <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{mappedProjName}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                                        String(rec.status).toLowerCase() === 'present' || String(rec.status).toLowerCase() === 'approved'
+                                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                            : String(rec.status).toLowerCase() === 'late' || String(rec.status).toLowerCase() === 'half-day'
+                                                            ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                                            : String(rec.status).toLowerCase() === 'absent'
+                                                            ? 'bg-rose-50 text-rose-600 border-rose-200'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                    }`}>
+                                                        {rec.status ?? '-'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(new Date(rec.in_time)) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(new Date(rec.out_time)) : '-'}</span></td>
                                                 <td className="px-6 py-4">
@@ -592,7 +632,7 @@ const AttendancePage: React.FC = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ? `₹${rec.overtime_rate}` : '-'}</span></td>
                                                 <td className="px-6 py-4">
                                                     {rec.check_in_image ? (
                                                         <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400">
@@ -620,13 +660,61 @@ const AttendancePage: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_description ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.remarks ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_approved !== undefined ? String(rec.is_approved) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_late !== undefined ? String(rec.is_late) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.late_minutes ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_early_departure !== undefined ? String(rec.is_early_departure) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.early_minutes ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.work_location_type ?? '-'}</span></td>
+                                                <td className="px-6 py-4">
+                                                    {rec.is_approved === true || String(rec.is_approved) === 'true' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">Approved</span>
+                                                    ) : rec.is_approved === false || String(rec.is_approved) === 'false' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">Pending</span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {rec.is_outside_geofence === true || String(rec.is_outside_geofence) === 'true' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">Outside</span>
+                                                    ) : rec.is_outside_geofence === false || String(rec.is_outside_geofence) === 'false' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">Inside</span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {rec.is_late === true || String(rec.is_late) === 'true' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">Late</span>
+                                                    ) : rec.is_late === false || String(rec.is_late) === 'false' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">On Time</span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold text-slate-600">
+                                                        {rec.late_minutes != null && rec.late_minutes !== '' && !isNaN(Number(rec.late_minutes))
+                                                            ? `${Number(rec.late_minutes)} mins`
+                                                            : '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {rec.is_early_departure === true || String(rec.is_early_departure) === 'true' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">Early</span>
+                                                    ) : rec.is_early_departure === false || String(rec.is_early_departure) === 'false' ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">Regular</span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold text-slate-600">
+                                                        {rec.early_minutes != null && rec.early_minutes !== '' && !isNaN(Number(rec.early_minutes))
+                                                            ? `${Number(rec.early_minutes)} mins`
+                                                            : '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold text-slate-600">
+                                                        {rec.work_location_type ? String(rec.work_location_type).replace(/_/g, ' ') : '-'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button
                                                         onClick={async () => {

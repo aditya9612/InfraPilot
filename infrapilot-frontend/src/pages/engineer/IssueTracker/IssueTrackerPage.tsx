@@ -3,11 +3,13 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { CustomSelect } from "../../../components/common/CustomDropdown";
 import {
     Search,
     Eye,
+    Edit2,
     Activity,
     Filter,
     RotateCcw,
@@ -15,7 +17,8 @@ import {
     ChevronLeft,
     ChevronRight,
     FileDown,
-    FileText
+    FileText,
+    Trash2
 } from "lucide-react";
 
 import { issueService } from "../../../services/issueService";
@@ -78,6 +81,10 @@ const IssueTrackerPage = () => {
 
     // Modal State
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [editingIssueId, setEditingIssueId] = useState<number | null>(null);
+    const [issueToDelete, setIssueToDelete] = useState<number | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [selectedIssue, setSelectedIssue] = useState<IssueItem | null>(null);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -208,6 +215,46 @@ const IssueTrackerPage = () => {
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
     };
 
+    const handleDeleteClick = (id: number) => {
+        setIssueToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!issueToDelete) return;
+        setIsDeleting(true);
+        try {
+            await issueService.deleteIssue(issueToDelete);
+            toast.success("Issue deleted successfully");
+            setIsDeleteModalOpen(false);
+            setIssueToDelete(null);
+            fetchIssues();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to delete issue");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleOpenEdit = (issue: IssueItem) => {
+        setEditingIssueId(issue.id);
+        setFormMode("edit");
+        setFormData({
+            project_id: issue.project_id || projectId || 0,
+            title: issue.title || "",
+            category: issue.category || "Material",
+            description: issue.description || "",
+            reported_date: issue.reported_date || new Date().toISOString().split("T")[0],
+            priority: issue.priority || "Medium",
+            assigned_to: (issue as any).assigned_to || "",
+            status: issue.status || "Open",
+            resolution: issue.resolution || "",
+        });
+        setErrors({});
+        setFormNotification(null);
+        setIsFormModalOpen(true);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormNotification(null);
@@ -251,6 +298,22 @@ const IssueTrackerPage = () => {
                 await issueService.createIssue(formData as any);
                 setFormNotification({ type: 'success', message: 'Issue logged successfully!' });
                 toast.success("Issue logged successfully!");
+            } else if (formMode === "edit" && editingIssueId) {
+                const updatePayload: any = {
+                    title: formData.title,
+                    category: formData.category,
+                    description: formData.description,
+                    priority: formData.priority,
+                    status: formData.status,
+                    resolution: formData.resolution || null,
+                    reported_date: formData.reported_date
+                };
+                if (formData.assigned_to) {
+                    updatePayload.assigned_to = Number(formData.assigned_to) || undefined;
+                }
+                await issueService.updateIssue(editingIssueId, updatePayload);
+                setFormNotification({ type: 'success', message: 'Issue updated successfully!' });
+                toast.success("Issue updated successfully!");
             }
             setIsFormModalOpen(false);
             setFormNotification(null);
@@ -345,6 +408,7 @@ const IssueTrackerPage = () => {
                         </button>
                         <button
                             onClick={() => {
+                                setEditingIssueId(null);
                                 setFormMode("create");
                                 setFormData({ ...INITIAL_FORM_DATA, project_id: projectId || 0 });
                                 setErrors({});
@@ -460,11 +524,11 @@ const IssueTrackerPage = () => {
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1200px]">
                                 <thead>
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <tr className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b-2 border-slate-200 font-inter">
                                         <th className="px-6 py-4 font-inter">Issue Identifier</th>
                                         <th className="px-6 py-4 font-inter">Status Profile</th>
                                         <th className="px-6 py-4 font-inter">Priority Level</th>
-                                        <th className="px-6 py-4 font-inter">Timeline Audit</th>
+                                        <th className="px-6 py-4 font-inter">Report Date</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
                                 </thead>
@@ -489,13 +553,24 @@ const IssueTrackerPage = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
-                                                    <div className="flex flex-col font-inter">
-                                                        <span className="text-xs font-bold text-slate-500 font-inter">{issue.reported_date}</span>
-                                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest font-inter">Reported</span>
-                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-700 font-inter">{issue.reported_date}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-inter">
-                                                    <div className="flex items-center justify-end gap-2 font-inter">
+                                                    <div className="flex items-center justify-end gap-1.5 font-inter">
+                                                        <button
+                                                            onClick={() => handleOpenEdit(issue)}
+                                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all font-inter"
+                                                            title="Edit Issue"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteClick(issue.id)}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            title="Delete Issue"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
                                                         <button
                                                             onClick={async () => {
                                                                 const loadToast = toast.loading("Syncing constraint intelligence...");
@@ -800,6 +875,7 @@ const IssueTrackerPage = () => {
                             <div className="z-[63] relative">
                                 <CustomSelect
                                     label="Assigned To"
+                                    placement="bottom"
                                     searchable={false}
                                     value={formData.assigned_to?.toString() || ""}
                                     onChange={(val) => setFormData(prev => ({ ...prev, assigned_to: val ? Number(val) : null }))}
@@ -812,20 +888,57 @@ const IssueTrackerPage = () => {
                                     ]}
                                 />
                             </div>
+                            <div className="z-[62] relative">
+                                <CustomSelect
+                                    label="Status"
+                                    required
+                                    searchable={false}
+                                    value={formData.status}
+                                    onChange={(val) => handleInputChange({ target: { name: 'status', value: val } } as any)}
+                                    options={[
+                                        { id: 'Open', label: 'Open' },
+                                        { id: 'In Progress', label: 'In Progress' },
+                                        { id: 'Closed', label: 'Closed' }
+                                    ]}
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Description</h3>
+                    {/* Description & Resolution */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <div>
+                            <h3 className="text-sm font-bold text-slate-800 mb-2 border-b border-slate-50 pb-2">Description</h3>
                             <label className={labelClasses}>Description</label>
-                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} className={`${inputClasses(errors.description)} resize-none`} />
+                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={`${inputClasses(errors.description)} resize-none`} />
                             {errors.description && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.description}</p>}
                         </div>
+
+                        {formMode === 'edit' && (
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800 mb-2 border-b border-slate-50 pb-2">Resolution</h3>
+                                <label className={labelClasses}>Resolution Details</label>
+                                <textarea name="resolution" rows={3} value={formData.resolution || ""} onChange={handleInputChange} placeholder="Describe the resolution or actions taken..." className={`${inputClasses(errors.resolution)} resize-none`} />
+                            </div>
+                        )}
                     </div>
                 </form>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setIssueToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Issue"
+                message="Are you sure you want to delete this issue? This action will permanently remove the record from the project ledger."
+                confirmText="Delete"
+                cancelText="Cancel"
+                type="danger"
+                isLoading={isDeleting}
+            />
+
             <IssueFilterModal
                 isOpen={isIssueFilterOpen}
                 onClose={() => setIsIssueFilterOpen(false)}

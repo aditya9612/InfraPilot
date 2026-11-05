@@ -81,7 +81,7 @@ export const safetyService = {
 
         let defaultItems = DEFAULT_INCIDENTS;
         if (project_id) {
-            defaultItems = defaultItems.filter(i => i.project_id === project_id);
+            defaultItems = defaultItems.filter(i => Number(i.project_id) === Number(project_id));
         }
 
         try {
@@ -93,7 +93,7 @@ export const safetyService = {
 
             // Client side filter fallback for backend issues
             if (project_id) {
-                items = items.filter((i: IncidentItem) => i.project_id === project_id);
+                items = items.filter((i: IncidentItem) => Number(i.project_id) === Number(project_id));
             }
 
             return {

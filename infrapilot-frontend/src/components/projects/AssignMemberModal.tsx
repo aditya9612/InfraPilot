@@ -4,6 +4,15 @@ import { userService } from "../../services/userService";
 import type { ProjectMember } from "../../types/project";
 import toast from "react-hot-toast";
 
+export const isClientRole = (item: any): boolean => {
+  if (!item) return false;
+  let str = "";
+  if (typeof item === "string") str = item;
+  else if (typeof item === "object") {
+    str = item.role?.name || item.role_name || item.role || item.user_role || item.user?.role?.name || item.user?.role || "";
+  }
+  return typeof str === "string" && str.toLowerCase().trim() === "client";
+};
 interface AssignMemberModalProps {
   isOpen: boolean;
   onClose: () => void;

@@ -248,7 +248,7 @@ const PaymentPage: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-800 text-white shadow-lg scale-105' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-md shadow-primary/25 scale-105' : 'bg-white text-slate-500 border border-slate-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30'}`}
                         >
                             {tab.label}
                         </button>

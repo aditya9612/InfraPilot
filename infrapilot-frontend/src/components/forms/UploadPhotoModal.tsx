@@ -297,6 +297,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             <CustomSelect
                                 label="Project Context"
                                 required
+                                placement="bottom"
                                 value={formData.project_id?.toString() || ""}
                                 onChange={(val) => setFormData(prev => ({ ...prev, project_id: val }))}
                                 options={projects.map((p: any) => ({
@@ -318,6 +319,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         <div className="z-[65] relative">
                             <CustomSelect
                                 label={<span>Task <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                placement="bottom"
                                 value={formData.task_id?.toString() || ""}
                                 onChange={(val) => setFormData(prev => ({ ...prev, task_id: val }))}
                                 options={tasks.map((t: any) => ({
@@ -331,6 +333,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         <div className="z-[64] relative">
                             <CustomSelect
                                 label={<span>DSR <span className="normal-case text-slate-300">(optional)</span></span> as any}
+                                placement="bottom"
                                 value={formData.dsr_id?.toString() || ""}
                                 onChange={(val) => setFormData(prev => ({ ...prev, dsr_id: val }))}
                                 options={dsrs.map((d: any) => ({
@@ -347,6 +350,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         <div className="z-[63] relative">
                             <CustomSelect
                                 label="Activity Tag"
+                                placement="bottom"
                                 value={formData.activity_tag}
                                 onChange={(val) => setFormData(prev => ({ ...prev, activity_tag: val }))}
                                 options={[
@@ -359,6 +363,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         <div className="z-[62] relative">
                             <CustomSelect
                                 label="Location Zone"
+                                placement="bottom"
                                 value={formData.location_tag}
                                 onChange={(val) => setFormData(prev => ({ ...prev, location_tag: val }))}
                                 options={[

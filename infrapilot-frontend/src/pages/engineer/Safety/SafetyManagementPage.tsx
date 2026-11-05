@@ -71,8 +71,9 @@ const SafetyManagementPage = () => {
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
 
-    const { selectedProjectId, setSelectedProjectId } = useProject();
-    const projectId = selectedProjectId || 0;
+    const { selectedProjectId, setSelectedProjectId, assignedProjects } = useProject();
+    const activeProjectId = selectedProjectId || (assignedProjects && assignedProjects.length > 0 ? Number(assignedProjects[0].id) : undefined);
+    const projectId = activeProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
     const [pageTasks, setPageTasks] = useState<any[]>([]);
@@ -159,11 +160,9 @@ const SafetyManagementPage = () => {
                         return;
                     }
                 }
-                setSelectedProjectId(0);
-                setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 0 }));
+                if (selectedProjectId) { setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: Number(selectedProjectId) })); }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setSelectedProjectId(0);
             }
         };
         initializeProject();
@@ -206,10 +205,10 @@ const SafetyManagementPage = () => {
     // ─── DATA FETCHING ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
-        if (!projectId) return;
         setIsLoading(true);
         try {
-            const response = await safetyService.listIncidents(projectId, filterViolationType || undefined);
+            const queryPid = projectId > 0 ? projectId : undefined;
+            const response = await safetyService.listIncidents(queryPid, filterViolationType || undefined);
             const items = response.items || [];
             const sortedItems = items.sort((a: SafetyItem, b: SafetyItem) => Number(b.id) - Number(a.id));
             setIncidentList(sortedItems);

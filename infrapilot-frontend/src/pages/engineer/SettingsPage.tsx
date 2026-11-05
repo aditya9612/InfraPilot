@@ -74,13 +74,24 @@ const SettingsPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const location = useLocation();
 
-    const projectOptions = useMemo(() => [
-        { id: "", label: "Select Project (None)" },
-        ...projects.map(p => ({
-            id: p.id,
-            label: p.project_name || p.name || `Project #${p.id}`
-        }))
-    ], [projects]);
+    const projectOptions = useMemo(() => {
+        if (!isAdmin) {
+            if (projects.length === 0) {
+                return [{ id: "", label: "No Projects Assigned" }];
+            }
+            return projects.map(p => ({
+                id: p.id,
+                label: p.project_name || p.name || `Project #${p.id}`
+            }));
+        }
+        return [
+            { id: "", label: "Select Project (None)" },
+            ...projects.map(p => ({
+                id: p.id,
+                label: p.project_name || p.name || `Project #${p.id}`
+            }))
+        ];
+    }, [projects, isAdmin]);
 
     useEffect(() => {
         if (location.hash === "#profile") {
@@ -133,13 +144,89 @@ const SettingsPage = () => {
             if (initialJoiningDateRef.current === null && profileRes?.joining_date) {
                 initialJoiningDateRef.current = profileRes.joining_date;
             }
-            setProjects(Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || []));
+            const rawProjectsList = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
+            let authorizedProjects = rawProjectsList;
+
+            if (!isAdmin) {
+                const uid = Number(profileRes?.user_id || user?.user_id || user?.id || 0);
+                let assignedByMembers: any[] = [];
+                if (uid > 0) {
+                    try {
+                        assignedByMembers = await projectService.getAssignedProjects(uid, true);
+                    } catch (e) {
+                        console.warn("Failed to get assigned projects by membership:", e);
+                    }
+                }
+
+                const assignedProjectIds = new Set<number>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) assignedProjectIds.add(pid);
+                });
+
+                if (user?.project_id && Number(user.project_id) > 0) assignedProjectIds.add(Number(user.project_id));
+                if ((profileRes as any)?.project_id && Number((profileRes as any).project_id) > 0) assignedProjectIds.add(Number((profileRes as any).project_id));
+                if (Array.isArray(user?.assigned_projects)) {
+                    user.assigned_projects.forEach((ap: any) => {
+                        const apId = Number(ap?.id || ap?.project_id || ap);
+                        if (apId > 0) assignedProjectIds.add(apId);
+                    });
+                }
+                if (Array.isArray((profileRes as any)?.assigned_projects)) {
+                    (profileRes as any).assigned_projects.forEach((ap: any) => {
+                        const apId = Number(ap?.id || ap?.project_id || ap);
+                        if (apId > 0) assignedProjectIds.add(apId);
+                    });
+                }
+
+                // Check profile / user address which stores the project assignment for Site Engineers
+                const userAddr = (profileRes?.address || user?.address || "").toLowerCase().trim();
+                const addrParts = userAddr.split(/[,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+
+                const matchedRawProjects = rawProjectsList.filter((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0 && assignedProjectIds.has(pid)) return true;
+                    const pName = (p.project_name || p.name || "").toLowerCase().trim();
+                    if (addrParts.some(part => part === pName || (part.length >= 3 && pName.includes(part)) || (pName.length >= 3 && part.includes(pName)))) {
+                        return true;
+                    }
+                    return false;
+                });
+
+                const projectMap = new Map<number, any>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) projectMap.set(pid, p);
+                });
+                matchedRawProjects.forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0 && !projectMap.has(pid)) projectMap.set(pid, p);
+                });
+
+                authorizedProjects = Array.from(projectMap.values());
+
+                // Fallback: If no projects matched by membership/address but selectedProjectId exists in rawProjectsList
+                if (authorizedProjects.length === 0 && selectedProjectId) {
+                    const currentSelected = rawProjectsList.find((p: any) => Number(p.id || p.project_id) === Number(selectedProjectId));
+                    if (currentSelected) {
+                        authorizedProjects = [currentSelected];
+                    }
+                }
+            }
+
+            setProjects(authorizedProjects);
 
             // Map Settings
-            if (settingsRes.default_project_id) {
-                setSelectedProject(settingsRes.default_project_id);
-            } else if (selectedProjectId) {
-                setSelectedProject(selectedProjectId);
+            const validProjectIds = authorizedProjects.map((p: any) => Number(p.id || p.project_id));
+            let initialSelected = settingsRes.default_project_id || selectedProjectId;
+            if (validProjectIds.length > 0) {
+                if (!initialSelected || !validProjectIds.includes(Number(initialSelected))) {
+                    initialSelected = validProjectIds[0];
+                }
+                setSelectedProject(Number(initialSelected));
+                setSelectedProjectId(Number(initialSelected));
+            } else {
+                setSelectedProject(initialSelected ? Number(initialSelected) : null);
             }
             setLengthUnit(settingsRes.unit || "Meter");
             setFinancialYear(settingsRes.financial_year || "2025-26");

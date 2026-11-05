@@ -6,6 +6,7 @@ import {
     MapPin,
     Search,
     Download,
+    Upload,
     Calendar,
     Filter,
     Camera,
@@ -28,7 +29,9 @@ import SelfCheckInModal from './components/SelfCheckInModal';
 import BulkCheckInModal from '../../../components/attendance/BulkCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
 import BulkCheckOutModal from '../../../components/attendance/BulkCheckOutModal';
+import BulkImportAttendanceModal from '../../../components/attendance/BulkImportAttendanceModal';
 import { useProject } from '../../../context/ProjectContext';
+import * as XLSX from 'xlsx';
 
 const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
     1: "string",
@@ -100,6 +103,32 @@ export const calculateTotalHours = (inTime: string | null | undefined, outTime: 
     }
 };
 
+export const formatTimestamp = (timeStr?: string | null) => {
+    if (!timeStr || timeStr === "--:--") return "-";
+    try {
+        const trimmed = String(timeStr).trim();
+        // If it's already "08:35 AM" or "08:35:15 PM"
+        if (!trimmed.includes("T") && !trimmed.includes("-") && (trimmed.includes("AM") || trimmed.includes("PM"))) {
+            return trimmed;
+        }
+        // If it's "HH:MM:SS" or "HH:MM" without date
+        if (!trimmed.includes("T") && !trimmed.includes("-") && /^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+            const parts = trimmed.split(":");
+            let hours = parseInt(parts[0], 10);
+            const minutes = parts[1];
+            const ampm = hours >= 12 ? "PM" : "AM";
+            hours = hours % 12 || 12;
+            return String(hours).padStart(2, '0') + ':' + minutes + ' ' + ampm;
+        }
+        // Parse date / ISO string e.g. "2026-11-04T08:35:15+00:00" or "2026-11-04 08:35:15"
+        const d = new Date(trimmed.includes(" ") && !trimmed.includes("T") ? trimmed.replace(" ", "T") : trimmed);
+        if (isNaN(d.getTime())) return trimmed;
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+        return String(timeStr);
+    }
+};
+
 const LabourAttendancePage: React.FC = () => {
     const { selectedProject, selectedProjectId: contextProjectId } = useProject();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
@@ -159,6 +188,7 @@ const LabourAttendancePage: React.FC = () => {
 
     // History Quick Filter & Pagination
     const [isExporting, setIsExporting] = useState(false);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
 
 
@@ -206,9 +236,10 @@ const LabourAttendancePage: React.FC = () => {
             }
 
             // 0. Fetch Dashboard Stats
+            let fetchedStats = { total_labour: 0, present: 0 };
             try {
                 const stats = await labourService.getAttendanceDashboard(activeProjectId, fromDate || undefined, toDate || undefined);
-                if (stats) setDashboardStats({ total_labour: stats.total_labour || 0, present: stats.present || 0 });
+                if (stats) fetchedStats = { total_labour: stats.total_labour || 0, present: stats.present || 0 };
             } catch (err) {
                 console.error("Failed to fetch dashboard stats", err);
             }
@@ -245,6 +276,7 @@ const LabourAttendancePage: React.FC = () => {
             // 2. Fetch Attendances
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
             const attendances = data.items || (data as any).data || [];
+            const metaTotal = (data as any)?.meta?.total ?? (data as any)?.total;
 
             // 3. Map Labourers to Attendances
             const enrichedAttendances = allLabourers.map((lab: any) => {
@@ -310,6 +342,18 @@ const LabourAttendancePage: React.FC = () => {
             });
 
             setLabourAttendances(enrichedAttendances);
+
+            const finalTotalLabour = (metaTotal !== undefined && metaTotal !== null && Number(metaTotal) > 0)
+                ? Number(metaTotal)
+                : (fetchedStats.total_labour || enrichedAttendances.length);
+
+            const finalPresentCount = fetchedStats.present || 
+                enrichedAttendances.filter((a: any) => a.status?.toLowerCase() === 'present' || (a.in_time && a.in_time !== '--:--')).length;
+
+            setDashboardStats({
+                total_labour: finalTotalLabour,
+                present: finalPresentCount
+            });
         } catch (error) {
             console.error("Failed to fetch labour attendances", error);
         }
@@ -328,16 +372,55 @@ const LabourAttendancePage: React.FC = () => {
             const toDate = exportToDate || today;
 
             const toastId = toast.loading("Generating Export...");
-            const blob = await labourService.exportAttendanceExcel(activeProjectId, fromDate, toDate);
 
-            const url = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Attendance_Report_${fromDate}_to_${toDate}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode?.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            // If the exported date range corresponds to current view, use the UI table records directly
+            let exportData: any[] = [];
+            const isCurrentViewDate = (empDurationFilter === 'Today' && fromDate === today && toDate === today) ||
+                (fromDate === today && toDate === today);
+
+            if (isCurrentViewDate && labourAttendances.length > 0) {
+                exportData = filteredLabourAttendances.length > 0 ? filteredLabourAttendances : labourAttendances;
+            } else {
+                // Otherwise fetch attendance list matching the requested date range
+                try {
+                    const data = await labourService.getAttendanceList(activeProjectId, fromDate, toDate);
+                    const fetchedItems = data.items || (data as any).data || [];
+                    if (fetchedItems.length > 0) {
+                        exportData = fetchedItems;
+                    }
+                } catch (e) {
+                    console.warn("Date range fetch fallback:", e);
+                }
+                if (exportData.length === 0) {
+                    exportData = filteredLabourAttendances.length > 0 ? filteredLabourAttendances : labourAttendances;
+                }
+            }
+
+            const rows = exportData.map((lab: any) => ({
+                "Labour ID": lab.labour_id || lab.id || "-",
+                "Name": lab.labour_name || "Unknown",
+                "Date": lab.attendance_date || fromDate,
+                "Check In": lab.in_time && lab.in_time !== "--:--" ? formatTimestamp(lab.in_time) : "-",
+                "Check Out": lab.out_time && lab.out_time !== "--:--" ? formatTimestamp(lab.out_time) : "-",
+                "Working Hours": (() => {
+                    const calc = calculateTotalHours(lab.in_time, lab.out_time);
+                    if (calc) return calc;
+                    if (lab.working_hours) return lab.working_hours;
+                    return 0;
+                })(),
+                "Overtime": lab.overtime_hours || 0,
+                "Task ID": lab.task_id || "-",
+                "Check-In Location": lab.check_in_address || lab.address || lab.location || "-",
+                "Status": (lab.status || (lab.in_time && lab.in_time !== "--:--" ? "present" : "absent")).toUpperCase(),
+                "Contractor": lab.contractor_name || "-",
+                "Department": lab.department || "-"
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Labour Attendance");
+            XLSX.writeFile(wb, `Attendance_Report_${fromDate}_to_${toDate}.xlsx`);
+
             toast.dismiss(toastId);
             toast.success("Attendance report downloaded successfully!");
             setIsExportModalOpen(false);
@@ -517,29 +600,10 @@ const LabourAttendancePage: React.FC = () => {
                             Bulk Checkout {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
                         </button>
                         <button
-                            onClick={() => {
-                                // Pre-fill with current duration filter dates
-                                const today = new Date().toISOString().split('T')[0];
-                                if (empDurationFilter === 'Today') {
-                                    setExportFromDate(today);
-                                    setExportToDate(today);
-                                } else if (empDurationFilter === 'Current Month') {
-                                    const d = new Date();
-                                    setExportFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
-                                    setExportToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
-                                } else if (empDurationFilter === 'Last Month') {
-                                    const d = new Date();
-                                    setExportFromDate(new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().split('T')[0]);
-                                    setExportToDate(new Date(d.getFullYear(), d.getMonth(), 0).toISOString().split('T')[0]);
-                                } else {
-                                    setExportFromDate(today);
-                                    setExportToDate(today);
-                                }
-                                setIsExportModalOpen(true);
-                            }}
-                            className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 font-inter w-fit">
-                            <Download className="w-4 h-4" />
-                            Export Report
+                            onClick={() => setIsBulkImportModalOpen(true)}
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit">
+                            <Upload className="w-4 h-4" />
+                            Bulk Upload / Import Attendance
                         </button>
                     </div>
                 </div>
@@ -737,7 +801,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     ) : (
                                                         <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
                                                     )}
-                                                    <span className={`text-[10px] font-bold ${lab.in_time ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogIn className="w-3 h-3" /> {lab.in_time || "-"}</span>
+                                                    <span className={`text-[10px] font-bold ${lab.in_time ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogIn className="w-3 h-3" /> {formatTimestamp(lab.in_time)}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -752,7 +816,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     ) : (
                                                         <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
                                                     )}
-                                                    <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.out_time || "-"}</span>
+                                                    <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {formatTimestamp(lab.out_time)}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -952,8 +1016,8 @@ const LabourAttendancePage: React.FC = () => {
                             <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">project_name</p><p className="text-xs font-bold text-slate-800">{selectedLabour.project_name || "-"}</p></div>
                             <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">attendance_date</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.attendance_date ?? '-'}</p></div>
                             <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">status</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.status ?? '-'}</p></div>
-                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">in_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.in_time ?? '-'}</p></div>
-                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">out_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.out_time ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">in_time</p><p className="text-xs font-bold text-slate-800">{formatTimestamp(selectedLabour.rawAttendance?.attendance?.in_time ?? selectedLabour.in_time)}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">out_time</p><p className="text-xs font-bold text-slate-800">{formatTimestamp(selectedLabour.rawAttendance?.attendance?.out_time ?? selectedLabour.out_time)}</p></div>
                             <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">working_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.working_hours ?? '-'}</p></div>
                             <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">overtime_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.overtime_hours ?? '-'}</p></div>
                             <div>
@@ -1175,6 +1239,14 @@ const LabourAttendancePage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Bulk Upload / Import Attendance Modal */}
+            <BulkImportAttendanceModal
+                isOpen={isBulkImportModalOpen}
+                onClose={() => setIsBulkImportModalOpen(false)}
+                projectId={getActiveProjectId()}
+                onSuccess={fetchLabourAttendances}
+            />
         </>
     );
 };

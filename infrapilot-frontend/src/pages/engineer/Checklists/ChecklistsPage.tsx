@@ -40,7 +40,7 @@ const ChecklistsPage = () => {
     // Core Data States
     const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
-    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist">("Daily Checklist");
+    const [activeTab, setActiveTab] = useState<"All" | "Daily Checklist" | "Activity Checklist">("All");
     const { selectedProjectId, setSelectedProjectId } = useProject();
     const projectId = selectedProjectId || 0;
 
@@ -71,6 +71,12 @@ const ChecklistsPage = () => {
     const [editChecklistProjectId, setEditChecklistProjectId] = useState("");
     const [editChecklistIsActive, setEditChecklistIsActive] = useState(true);
     const [projects, setProjects] = useState<any[]>([]);
+
+    const getProjectName = useCallback((pId?: number | string) => {
+        if (!pId) return "—";
+        const found = projects.find(p => Number(p.id || p.project_id) === Number(pId));
+        return found ? (found.project_name || found.name) : `Project #${pId}`;
+    }, [projects]);
     const [newChecklistItems, setNewChecklistItems] = useState<string[]>([]);
     const [tempItemText, setTempItemText] = useState("");
     const [addItemText, setAddItemText] = useState("");
@@ -132,7 +138,7 @@ const ChecklistsPage = () => {
             });
 
             // Fallback strict filter to ensure ONLY current project checklists show up
-            const projectSpecificCombined = combined.filter(c => Number(c.project_id) === Number(projectId));
+            const projectSpecificCombined = projectId ? combined.filter(c => !c.project_id || Number(c.project_id) === Number(projectId)) : combined;
 
             const sortedCombined = projectSpecificCombined.sort((a: any, b: any) => Number(b.id) - Number(a.id));
             setChecklists(sortedCombined);
@@ -414,7 +420,7 @@ const ChecklistsPage = () => {
     };
 
     const stats = useMemo(() => {
-        const activeChecklists = checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
+        const activeChecklists = activeTab === "All" ? checklists : checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
         const total = activeChecklists.length;
 
         const latestLogsMap = new Map();
@@ -459,7 +465,7 @@ const ChecklistsPage = () => {
     }, [checklists, logs, activeTab]);
 
     const filteredChecklists = useMemo(() => {
-        let cls = checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
+        let cls = activeTab === "All" ? checklists : checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
 
         return cls.filter(cl => {
             const latestLog = [...logs].sort((a, b) => b.id - a.id).find(l => l.checklist_id === cl.id);
@@ -584,16 +590,19 @@ const ChecklistsPage = () => {
 
                 {/* â”€â”€ Tab Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-wrap gap-2 mb-8 font-inter">
-                    {["Daily Checklist", "Activity Checklist"].map((tab) => (
+                    {["All", "Daily Checklist", "Activity Checklist"].map((tab) => (
                         <button
                             key={tab}
-                            onClick={() => setActiveTab(tab as any)}
+                            onClick={() => {
+                                setActiveTab(tab as any);
+                                setCurrentPage(1);
+                            }}
                             className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === tab
                                 ? "bg-slate-800 text-white shadow-lg scale-105"
                                 : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
                                 }`}
                         >
-                            {tab}
+                            {tab === "All" ? `All Checklists (${checklists.length})` : tab}
                         </button>
                     ))}
                 </div>
@@ -603,7 +612,7 @@ const ChecklistsPage = () => {
                     {/* â”€â”€ Protocols Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="mb-12 font-inter">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
-                            {checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase()).map((cl) => (
+                            {checklists.filter(c => activeTab === "All" || c.type?.toLowerCase() === activeTab.toLowerCase()).map((cl) => (
                                 <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
 
@@ -655,10 +664,10 @@ const ChecklistsPage = () => {
                                     </div>
                                 </div>
                             ))}
-                            {checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase()).length === 0 && (
+                            {checklists.filter(c => activeTab === "All" || c.type?.toLowerCase() === activeTab.toLowerCase()).length === 0 && (
                                 <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
                                     <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered{activeTab === "All" ? "" : ` in the ${activeTab} domain`}.</p>
                                 </div>
                             )}
                         </div>
@@ -702,6 +711,7 @@ const ChecklistsPage = () => {
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Protocol Identity</th>
+                                        <th className="px-6 py-4 font-inter">Project Name</th>
                                         <th className="px-6 py-4 font-inter">Compliance Profile</th>
                                         <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
                                         <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
@@ -721,6 +731,11 @@ const ChecklistsPage = () => {
                                                                 {cl.name}
                                                             </span>
                                                         </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter whitespace-nowrap">
+                                                        <span className="text-xs font-bold text-slate-700 font-inter">
+                                                            {getProjectName(cl.project_id)}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
                                                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${isDone ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
@@ -921,6 +936,7 @@ const ChecklistsPage = () => {
                                     }))}
                                     placeholder="Select Project"
                                     error={!!errors.project_id}
+                                    placement="bottom"
                                 />
                                 {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
                             </div>
@@ -946,6 +962,7 @@ const ChecklistsPage = () => {
                                     ]}
                                     placeholder="Select Category"
                                     error={!!errors.type}
+                                    placement="bottom"
                                 />
                                 {errors.type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.type}</p>}
                             </div>
@@ -969,7 +986,7 @@ const ChecklistsPage = () => {
                             <button
                                 type="button"
                                 onClick={addTempItem}
-                                className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
+                                className="px-6 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 shadow-sm transition-all active:scale-95 font-inter"
                             >
                                 ADD ITEM
                             </button>
@@ -1119,7 +1136,7 @@ const ChecklistsPage = () => {
                         <button
                             onClick={handleAddItem}
                             disabled={isSubmitting || !addItemText.trim()}
-                            className="px-6 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap"
+                            className="px-6 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600 shadow-sm transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap"
                         >
                             {isSubmitting && addItemText.trim() ? "Adding..." : "Add Point"}
                         </button>
@@ -1283,9 +1300,9 @@ const ChecklistsPage = () => {
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Discard Technical Protocol"
-                message="Are you sure you want to discard this technical protocol from the project vault? This operation will permanently archive all verification history."
-                confirmText="Discard Protocol"
+                title="Delete"
+                message="Are you sure you want to delete this checklist protocol? This operation will permanently delete all verification history."
+                confirmText="Delete"
                 type="danger"
             />
         </>

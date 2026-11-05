@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "../../../context/AuthContext";
+import { settingsService } from "../../../services/settingsService";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
@@ -96,6 +98,10 @@ const LaborDetailsPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const { user } = useAuth();
+    const isSiteEngineer = user?.role === "SiteEngineer" || user?.role === "Engineer";
+    const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+    const [projectMembersMap, setProjectMembersMap] = useState<Map<number, { userIds: Set<number>; names: Set<string> }>>(new Map());
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Active" | "Skilled">("All");
     const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -152,6 +158,10 @@ const LaborDetailsPage = () => {
     };
 
     const handleExportDistribution = async (format: 'excel' | 'pdf') => {
+        if (filteredLaborers.length === 0) {
+            toast.error("No data available to export");
+            return;
+        }
         setIsExporting(true);
         const toastId = toast.loading(`Generating Distribution ${format.toUpperCase()}...`);
         try {
@@ -185,6 +195,10 @@ const LaborDetailsPage = () => {
 
     // GET /api/v1/labour/report/export
     const handleExportLabourReport = async () => {
+        if (filteredLaborers.length === 0) {
+            toast.error("No data available to export");
+            return;
+        }
         const toastId = toast.loading("Exporting Labour Report Excel...");
         try {
             const blob = await labourService.exportLabourReport({ project_id: projectId || undefined });
@@ -205,11 +219,100 @@ const LaborDetailsPage = () => {
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const res = await projectService.getProjects(100, 0);
+                const [res, profileRes] = await Promise.all([
+                    projectService.getProjects(100, 0),
+                    settingsService.getProfile().catch(() => null)
+                ]);
                 const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
                 setProjects(projectsList);
+
+                // Determine assigned projects for Site Engineer
+                const uid = Number(profileRes?.user_id || user?.user_id || user?.id || 0);
+                let assignedByMembers: any[] = [];
+                if (uid > 0) {
+                    try {
+                        assignedByMembers = await projectService.getAssignedProjects(uid, true);
+                    } catch (e) {
+                        console.warn("Failed to get assigned projects by membership:", e);
+                    }
+                }
+
+                const assignedIds = new Set<number>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) assignedIds.add(pid);
+                });
+
+                if (user?.project_id && Number(user.project_id) > 0) assignedIds.add(Number(user.project_id));
+                if ((profileRes as any)?.project_id && Number((profileRes as any).project_id) > 0) assignedIds.add(Number((profileRes as any).project_id));
+                if (Array.isArray(user?.assigned_projects)) {
+                    user.assigned_projects.forEach((ap: any) => {
+                        const apId = Number(ap?.id || ap?.project_id || ap);
+                        if (apId > 0) assignedIds.add(apId);
+                    });
+                }
+
+                const userAddr = (profileRes?.address || user?.address || "").toLowerCase().trim();
+                const addrParts = userAddr.split(/[,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+
+                const matchedProjects = projectsList.filter((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0 && assignedIds.has(pid)) return true;
+                    const pName = (p.project_name || p.name || "").toLowerCase().trim();
+                    if (addrParts.some(part => part === pName || (part.length >= 3 && pName.includes(part)) || (pName.length >= 3 && part.includes(pName)))) {
+                        return true;
+                    }
+                    return false;
+                });
+
+                const projectMap = new Map<number, any>();
+                (Array.isArray(assignedByMembers) ? assignedByMembers : []).forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0) projectMap.set(pid, p);
+                });
+                matchedProjects.forEach((p: any) => {
+                    const pid = Number(p.id || p.project_id);
+                    if (pid > 0 && !projectMap.has(pid)) projectMap.set(pid, p);
+                });
+
+                let resolvedAssigned = Array.from(projectMap.values());
+                if (resolvedAssigned.length === 0 && selectedProjectId) {
+                    const sel = projectsList.find((p: any) => Number(p.id || p.project_id) === Number(selectedProjectId));
+                    if (sel) resolvedAssigned = [sel];
+                }
+
+                setAssignedProjects(resolvedAssigned);
+
+                // Pre-fetch project members for assigned projects and list
+                const targetProjectsToFetchMembers = (isSiteEngineer && resolvedAssigned.length > 0)
+                    ? resolvedAssigned
+                    : projectsList.slice(0, 20);
+
+                const membersMap = new Map<number, { userIds: Set<number>; names: Set<string> }>();
+                await Promise.all(
+                    targetProjectsToFetchMembers.map(async (p: any) => {
+                        const pid = Number(p.id || p.project_id);
+                        if (!pid) return;
+                        try {
+                            const mems = await projectService.getProjectMembers(pid);
+                            const raw = Array.isArray(mems) ? mems : (mems?.items || mems?.data || []);
+                            const uids = new Set<number>();
+                            const nms = new Set<string>();
+                            raw.forEach((m: any) => {
+                                const uid = Number(m.user_id || m.user?.id || m.user?.user_id || m.id);
+                                if (uid > 0) uids.add(uid);
+                                const n = (m.full_name || m.user?.full_name || m.user?.name || m.name || "").toLowerCase().trim();
+                                if (n) nms.add(n);
+                            });
+                            membersMap.set(pid, { userIds: uids, names: nms });
+                        } catch (e) {
+                            console.warn(`Failed to fetch members for project ${pid}:`, e);
+                        }
+                    })
+                );
+                setProjectMembersMap(membersMap);
             } catch (err) {
-                console.error("Failed to fetch projects", err);
+                console.error("Failed to fetch projects and memberships", err);
             }
         };
         const fetchLabourTypes = async () => {
@@ -232,7 +335,29 @@ const LaborDetailsPage = () => {
         fetchProjects();
         fetchLabourTypes();
         fetchSkillSummary();
-    }, [projectId]);
+    }, [projectId, user, isSiteEngineer]);
+
+    useEffect(() => {
+        const filterPid = Number(projectAssignmentFilter);
+        if (!isNaN(filterPid) && filterPid > 0 && !projectMembersMap.has(filterPid)) {
+            projectService.getProjectMembers(filterPid).then((mems) => {
+                const raw = Array.isArray(mems) ? mems : (mems?.items || mems?.data || []);
+                const uids = new Set<number>();
+                const nms = new Set<string>();
+                raw.forEach((m: any) => {
+                    const uid = Number(m.user_id || m.user?.id || m.user?.user_id || m.id);
+                    if (uid > 0) uids.add(uid);
+                    const n = (m.full_name || m.user?.full_name || m.user?.name || m.name || "").toLowerCase().trim();
+                    if (n) nms.add(n);
+                });
+                setProjectMembersMap(prev => {
+                    const next = new Map(prev);
+                    next.set(filterPid, { userIds: uids, names: nms });
+                    return next;
+                });
+            }).catch(e => console.warn("Failed to load project members for filter:", e));
+        }
+    }, [projectAssignmentFilter, projectMembersMap]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -245,19 +370,20 @@ const LaborDetailsPage = () => {
             else if (aadhaarDigits.startsWith("0") || aadhaarDigits.startsWith("1")) newErrors.aadhaar_number = "Aadhaar cannot start with 0 or 1";
         }
 
-        if (!formData.labour_name.trim()) {
-            newErrors.labour_name = "Labour name is required";
+        if (!formData.labour_name || !formData.labour_name.trim()) {
+            newErrors.labour_name = "Labour Name is required";
             errorFields.push("Labour Name");
         } else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) {
-            newErrors.labour_name = "Name must contain only alphabets";
+            newErrors.labour_name = "Labour Name must contain only alphabets";
             errorFields.push("Labour Name");
         }
 
-        if (formData.mobile_number && formData.mobile_number.trim()) {
-            if (!/^[6-9]\d{9}$/.test(formData.mobile_number.trim())) {
-                newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
-                errorFields.push("Mobile Number");
-            }
+        if (!formData.mobile_number || !formData.mobile_number.trim()) {
+            newErrors.mobile_number = "Mobile Number is required";
+            errorFields.push("Mobile Number");
+        } else if (!/^[6-9]\d{9}$/.test(formData.mobile_number.trim())) {
+            newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+            errorFields.push("Mobile Number");
         }
 
         if (formData.pan_number && formData.pan_number.trim()) {
@@ -267,13 +393,8 @@ const LaborDetailsPage = () => {
         }
 
         if (!formData.labour_type_id) {
-            newErrors.labour_type_id = "Labour type is required";
+            newErrors.labour_type_id = "Labour Type is required";
             errorFields.push("Labour Type");
-        }
-
-        if (Object.keys(newErrors).length > 0) {
-            setFormNotification({ type: 'error', message: 'Please fill in all mandatory details correctly.', fields: errorFields });
-            setTimeout(() => setFormNotification(null), 5000);
         }
 
         setErrors(newErrors);
@@ -446,8 +567,23 @@ const LaborDetailsPage = () => {
             } else if (typeof detail === 'object' && detail !== null) {
                 errorMsg = JSON.stringify(detail);
             }
-            setApiError(errorMsg);
-            toast.error(errorMsg);
+            let hasFieldSpecificError = false;
+            if (errorMsg.toLowerCase().includes("mobile_number")) {
+                setErrors(prev => ({ ...prev, mobile_number: "Mobile Number is required" }));
+                hasFieldSpecificError = true;
+            }
+            if (errorMsg.toLowerCase().includes("labour_name")) {
+                setErrors(prev => ({ ...prev, labour_name: "Labour Name is required" }));
+                hasFieldSpecificError = true;
+            }
+            if (errorMsg.toLowerCase().includes("labour_type")) {
+                setErrors(prev => ({ ...prev, labour_type_id: "Labour Type is required" }));
+                hasFieldSpecificError = true;
+            }
+            if (!hasFieldSpecificError) {
+                setApiError(errorMsg);
+                toast.error(errorMsg);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -476,19 +612,53 @@ const LaborDetailsPage = () => {
         }
     };
 
-    const getAssignedProjectName = (l: any) => {
+    const isLabourInProject = useCallback((l: LabourItem, targetPid: number) => {
+        const pidNum = Number(targetPid);
+        if (l.project_id != null && Number(l.project_id) === pidNum) return true;
+        if (Array.isArray((l as any).projects) && (l as any).projects.some((p: any) => Number(p.id || p.project_id) === pidNum)) return true;
+        
+        const pMembers = projectMembersMap.get(pidNum);
+        if (pMembers) {
+            if (l.user_id != null && Number(l.user_id) > 0 && pMembers.userIds.has(Number(l.user_id))) return true;
+            const name = (l.labour_name || "").toLowerCase().trim();
+            if (name && pMembers.names.has(name)) return true;
+        }
+        return false;
+    }, [projectMembersMap]);
+
+    const getAssignedProjectName = useCallback((l: any) => {
         if (l.projects && l.projects.length > 0) {
             return l.projects.map((p: any) => p.project_name || p.name).join(', ');
         }
         if (l.project_id && Number(l.project_id) !== 0) {
-            const p = projects.find(proj => proj.id === Number(l.project_id));
-            return p ? (p.project_name || p.name) : "Assigned";
+            const p = projects.find(proj => Number(proj.id) === Number(l.project_id));
+            if (p) return p.project_name || p.name;
+        }
+        for (const [pId, pMembers] of projectMembersMap.entries()) {
+            if (l.user_id != null && Number(l.user_id) > 0 && pMembers.userIds.has(Number(l.user_id))) {
+                const p = projects.find(proj => Number(proj.id) === Number(pId));
+                if (p) return p.project_name || p.name;
+            }
+            const name = (l.labour_name || "").toLowerCase().trim();
+            if (name && pMembers.names.has(name)) {
+                const p = projects.find(proj => Number(proj.id) === Number(pId));
+                if (p) return p.project_name || p.name;
+            }
         }
         if (l.project_name && l.project_name !== "Unassigned") return l.project_name;
         return "Unassigned";
-    };
+    }, [projects, projectMembersMap]);
 
-    const baseFilteredLaborers = laborers.filter(l => {
+    // Scoped list of laborers: For Site Engineer, only show personnel belonging to their assigned project(s)
+    const scopedLaborers = useMemo(() => {
+        if (!isSiteEngineer || assignedProjects.length === 0) {
+            return laborers;
+        }
+        const assignedIds = assignedProjects.map(p => Number(p.id || p.project_id));
+        return laborers.filter(l => assignedIds.some(pid => isLabourInProject(l, pid)));
+    }, [laborers, isSiteEngineer, assignedProjects, isLabourInProject]);
+
+    const baseFilteredLaborers = scopedLaborers.filter(l => {
 
         // Apply Status Filter
         if (statusFilter !== "All" && l.status !== statusFilter) return false;
@@ -501,19 +671,20 @@ const LaborDetailsPage = () => {
             if (assignedName !== "Unassigned") return false;
         } else if (projectAssignmentFilter !== "All") {
             const filterProjectId = Number(projectAssignmentFilter);
-            const isAssignedToThisProject = l.project_id === filterProjectId || (l.projects && l.projects.some((p: any) => p.id === filterProjectId));
-            if (!isAssignedToThisProject) return false;
+            if (!isNaN(filterProjectId) && filterProjectId > 0) {
+                if (!isLabourInProject(l, filterProjectId)) return false;
+            }
         }
 
         // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
         const search = searchTerm.toLowerCase().trim();
         if (search) {
             return (
-                l.labour_name.toLowerCase().includes(search) ||
-                l.worker_code.toLowerCase().includes(search) ||
-                l.id.toString().includes(search) ||
-                l.aadhaar_number.includes(search) ||
-                l.aadhaar_number.replace(/-/g, "").includes(search)
+                (l.labour_name || "").toLowerCase().includes(search) ||
+                (l.worker_code || "").toLowerCase().includes(search) ||
+                (l.id || "").toString().includes(search) ||
+                (l.aadhaar_number || "").includes(search) ||
+                (l.aadhaar_number || "").replace(/-/g, "").includes(search)
             );
         }
 
@@ -529,15 +700,16 @@ const LaborDetailsPage = () => {
     });
 
     const stats = {
-        total: laborers.length,
-        active: laborers.filter(l => l.status === "Active").length,
-        skilled: skillSummary.find((s: any) => (s.skill_category || s.skill_type || s.skill || "").toLowerCase() === "skilled")?.count || 0,
+        total: scopedLaborers.length,
+        active: scopedLaborers.filter(l => l.status === "Active").length,
+        skilled: scopedLaborers.filter(l => (l.skill_type || (l as any).skill_category || "").toLowerCase() === "skilled").length ||
+                 (skillSummary.find((s: any) => (s.skill_category || s.skill_type || s.skill || "").toLowerCase() === "skilled")?.count || 0),
     };
 
     const filteredLaborers = sortedLaborers.filter(l => {
         // Apply Stat Cards filter
         if (activeStatFilter === "Active" && l.status !== "Active") return false;
-        if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
+        if (activeStatFilter === "Skilled" && (l.skill_type || (l as any).skill_category || "").toLowerCase() !== "skilled") return false;
         return true;
     });
 
@@ -642,10 +814,15 @@ const LaborDetailsPage = () => {
                         </div>
                         <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
                             <Building2 className="w-4 h-4 text-slate-400" />
-                            <select value={projectAssignmentFilter} onChange={(e) => setProjectAssignmentFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest max-w-[200px] truncate">
+                            <select value={projectAssignmentFilter} onChange={(e) => setProjectAssignmentFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest max-w-[220px] truncate">
                                 <option value="All">All Projects</option>
                                 <option value="Assigned">Assigned to Project</option>
                                 <option value="Unassigned">Unassigned</option>
+                                {(isSiteEngineer && assignedProjects.length > 0 ? assignedProjects : projects).map((p: any) => (
+                                    <option key={p.id || p.project_id} value={String(p.id || p.project_id)}>
+                                        {p.project_name || p.name || `Project #${p.id}`}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
@@ -685,7 +862,24 @@ const LaborDetailsPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {paginatedLaborers.map((labor) => (
+                                    {paginatedLaborers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={15} className="py-20 text-center text-slate-400 font-inter">
+                                                <div className="flex flex-col items-center justify-center gap-3">
+                                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300">
+                                                        <Search className="w-6 h-6 stroke-[1.5]" />
+                                                    </div>
+                                                    <p className="text-sm font-bold text-slate-700">No records found</p>
+                                                    <p className="text-xs text-slate-400 max-w-sm">
+                                                        {searchTerm
+                                                            ? `No personnel records matching "${searchTerm}". Please verify the Labour Name or Aadhaar Number.`
+                                                            : "No personnel records found for the selected filter criteria."}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        paginatedLaborers.map((labor) => (
                                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             {/* role */}
                                             <td className="px-4 py-4">
@@ -794,7 +988,7 @@ const LaborDetailsPage = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    )))}
                                 </tbody>
                             </table>
                         )}
@@ -945,46 +1139,8 @@ const LaborDetailsPage = () => {
                     </div>
                 }
             >
-                {/* Form Notification Toast */}
-                {formNotification && (
-                    <div className={`fixed top-4 right-4 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${formNotification.type === 'error' ? 'bg-white border-rose-200 text-rose-700' : 'bg-white border-emerald-200 text-emerald-700'}`} style={{ animation: 'slideDownIn 0.3s ease-out' }}>
-                        <div className={`p-2 rounded-lg ${formNotification.type === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                            {formNotification.type === 'error' ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                            )}
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm">{formNotification.message}</p>
-                            {formNotification.fields && formNotification.fields.length > 0 && (
-                                <p className="text-xs opacity-80 mt-0.5">Missing: {formNotification.fields.join(', ')}</p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6 relative">
-                    {formNotification?.type === 'error' && (
-                        <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
-                            <div className="p-2 bg-rose-100 rounded-lg shrink-0">
-                                <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-rose-800">Validation Error</h3>
-                                <p className="text-xs font-semibold text-rose-600 mt-0.5">Please provide all required information to continue.</p>
-                                {formNotification.fields && formNotification.fields.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {formNotification.fields.map(field => (
-                                            <span key={field} className="px-2 py-1 bg-white border border-rose-100 text-rose-600 text-[10px] uppercase tracking-wider font-bold rounded-md">
-                                                {field}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    
 
                     {apiError && (
                         <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm mb-4">
@@ -1018,9 +1174,19 @@ const LaborDetailsPage = () => {
                             {/* labour_name * */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses(errors.labour_name)} />
+                                <input
+                                    type="text"
+                                    value={formData.labour_name}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') });
+                                        if (errors.labour_name) {
+                                            setErrors(prev => ({ ...prev, labour_name: '' }));
+                                        }
+                                    }}
+                                    className={inputClasses(errors.labour_name)}
+                                />
                                 {errors.labour_name ? (
-                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>
+                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>
                                 ) : (
                                     <p className="text-[10px] text-slate-400 font-bold mt-1 ml-1">Full legal name of the labourer</p>
                                 )}
@@ -1029,9 +1195,21 @@ const LaborDetailsPage = () => {
                             {/* mobile_number */}
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">
-                                    Mobile Number <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                                    Mobile Number <span className="text-rose-500 font-bold">*</span>
                                 </label>
-                                <input type="tel" placeholder="e.g. 9876543210 (optional or shared)" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses(errors.mobile_number)} />
+                                <input
+                                    type="tel"
+                                    placeholder="e.g. 9876543210"
+                                    value={formData.mobile_number}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                        setFormData({ ...formData, mobile_number: val });
+                                        if (errors.mobile_number) {
+                                            setErrors(prev => ({ ...prev, mobile_number: '' }));
+                                        }
+                                    }}
+                                    className={inputClasses(errors.mobile_number)}
+                                />
                                 {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
                             </div>
 
@@ -1054,7 +1232,12 @@ const LaborDetailsPage = () => {
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter">Labour Type <span className="text-rose-500">*</span></label>
                                 <select
                                     value={formData.labour_type_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, labour_type_id: Number(e.target.value) });
+                                        if (errors.labour_type_id) {
+                                            setErrors(prev => ({ ...prev, labour_type_id: '' }));
+                                        }
+                                    }}
                                     className={inputClasses(errors.labour_type_id)}
                                 >
                                     <option value="" disabled>Select Labour Type</option>
@@ -1062,7 +1245,7 @@ const LaborDetailsPage = () => {
                                         <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
                                     ))}
                                 </select>
-                                {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1 uppercase tracking-wider">REQUIRED</p>}
+                                {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
                             </div>
 
                             {/* custom_daily_wage_rate */}
@@ -1262,8 +1445,8 @@ const LaborDetailsPage = () => {
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
                         >
                             <option value="">-- Select Project --</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                            {(isSiteEngineer && assignedProjects.length > 0 ? assignedProjects : projects).map(p => (
+                                <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
                             ))}
                         </select>
                     </div>

@@ -164,6 +164,13 @@ const DrawingsDocumentsPage = () => {
         fetchUsers();
     }, [projectId]);
 
+    const getProjectName = useCallback((pId?: string | number, fallbackName?: string) => {
+        if (fallbackName && fallbackName !== "General" && fallbackName !== "") return fallbackName;
+        if (!pId) return fallbackName || "—";
+        const found = projects.find(p => String(p.id || p.project_id) === String(pId));
+        return found ? (found.project_name || found.name) : (fallbackName || `Project #${pId}`);
+    }, [projects]);
+
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -979,16 +986,16 @@ const DrawingsDocumentsPage = () => {
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             {typeFilter === "Documents" ? (
                                 <>
-                                    <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter whitespace-nowrap">
-                                            <th className="px-4 py-4">project_name</th>
-                                            <th className="px-4 py-4">title</th>
-                                            <th className="px-4 py-4">document_type</th>
-                                            <th className="px-4 py-4">version</th>
-                                            <th className="px-4 py-4">status</th>
-                                            <th className="px-4 py-4">uploaded_at</th>
-                                            <th className="px-4 py-4">remarks</th>
-                                            <th className="px-4 py-4 text-right">Actions</th>
+                                    <thead className="bg-slate-100 border-b border-slate-200">
+                                        <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider font-inter whitespace-nowrap">
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Project Name</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Title</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Document Type</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Version</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Status</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Uploaded At</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Remarks</th>
+                                            <th className="px-4 py-4 text-right text-slate-700 font-inter">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 font-inter whitespace-nowrap">
@@ -1063,20 +1070,21 @@ const DrawingsDocumentsPage = () => {
                                 </>
                             ) : (
                                 <>
-                                    <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                            <th className="px-6 py-4 font-inter">Asset</th>
-                                            <th className="px-6 py-4 font-inter">Engineering Asset</th>
-                                            <th className="px-6 py-4 font-inter">Version Profile</th>
-                                            <th className="px-4 py-4 font-inter">Approval Status</th>
-                                            <th className="px-6 py-4 font-inter">Vault Date</th>
-                                            <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                    <thead className="bg-slate-100 border-b border-slate-200">
+                                        <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider font-inter">
+                                            <th className="px-6 py-4 font-inter text-slate-700">Asset</th>
+                                            <th className="px-6 py-4 font-inter text-slate-700">Engineering Asset</th>
+                                            <th className="px-6 py-4 font-inter text-slate-700">Project Name</th>
+                                            <th className="px-6 py-4 font-inter text-slate-700">Version Profile</th>
+                                            <th className="px-4 py-4 font-inter text-slate-700">Approval Status</th>
+                                            <th className="px-6 py-4 font-inter text-slate-700">Vault Date</th>
+                                            <th className="px-6 py-4 text-right font-inter text-slate-700">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 font-inter">
                                         {isLoading ? (
                                             <tr>
-                                                <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                                                <td colSpan={7} className="px-6 py-20 text-center font-inter">
                                                     <div className="flex flex-col items-center gap-3 font-inter">
                                                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
@@ -1157,6 +1165,11 @@ const DrawingsDocumentsPage = () => {
                                                             )}
                                                         </div>
                                                     </td>
+                                                    <td className="px-6 py-4 font-inter whitespace-nowrap">
+                                                        <span className="text-xs font-bold text-slate-700 font-inter">
+                                                            {getProjectName(drawing.project_id, drawing.project_name)}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-6 py-4 font-inter">
                                                         <span className="px-2.5 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded-lg uppercase tracking-widest border border-slate-200 font-inter">
                                                             {drawing.version}
@@ -1213,7 +1226,7 @@ const DrawingsDocumentsPage = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                     No technical blueprints found in the project vault.
                                                 </td>
                                             </tr>

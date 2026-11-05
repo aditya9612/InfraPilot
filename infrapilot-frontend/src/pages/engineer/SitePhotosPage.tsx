@@ -288,7 +288,7 @@ const SitePhotosPage = () => {
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by description or audit ID..."
+                                placeholder="Search by description..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
@@ -399,8 +399,7 @@ const SitePhotosPage = () => {
                                             </div>
 
                                             <div className="p-6 flex flex-col flex-1 font-inter">
-                                                <div className="flex items-center justify-between mb-4 font-inter">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                <div className="flex items-center justify-end mb-4 font-inter">
                                                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">Live Progress</span>
                                                 </div>
 
@@ -432,9 +431,9 @@ const SitePhotosPage = () => {
                                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                                     <th className="px-6 py-4 font-inter">Evidence</th>
                                                     <th className="px-6 py-4 font-inter">Project</th>
-                                                    <th className="px-6 py-4 font-inter">Audit Details</th>
+                                                    <th className="px-6 py-4 font-inter">Description</th>
                                                     <th className="px-6 py-4 font-inter">Category & Domain</th>
-                                                    <th className="px-6 py-4 font-inter">Technical Auditor</th>
+                                                    <th className="px-6 py-4 font-inter">Uploaded By</th>
                                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
                                                 </tr>
                                             </thead>
@@ -459,7 +458,6 @@ const SitePhotosPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 font-inter">
                                                             <div className="flex flex-col font-inter">
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
                                                                 <span className="text-sm font-bold text-slate-800 line-clamp-1 font-inter uppercase tracking-tight">{photo.description}</span>
                                                             </div>
                                                         </td>
