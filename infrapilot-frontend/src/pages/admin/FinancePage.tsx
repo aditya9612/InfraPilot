@@ -816,7 +816,18 @@ const FinancePage = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className={`w-full text-left ${subPage === "expenses" ? "table-fixed" : ""}`}>
+              {subPage === "expenses" && (
+                <colgroup>
+                  <col className="w-[24%]" />
+                  <col className="w-[26%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[4%]" />
+                </colgroup>
+              )}
               <thead>
                 <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-6 py-4">{subPage === "profit" ? "Project" : subPage === "expenses" ? "Project" : "Invoice #"}</th>
@@ -940,30 +951,30 @@ const FinancePage = () => {
                       key={`expense-${exp.id}-${index}`}
                       className="hover:bg-slate-50/50 transition-colors group"
                     >
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-slate-700 uppercase">
+                      <td className="px-6 py-4 truncate">
+                        <p className="text-xs font-bold text-slate-700 uppercase truncate" title={projects.find((p) => p.id === exp.project_id)?.project_name}>
                           {projects.find((p) => p.id === exp.project_id)
                             ?.project_name || "Unknown Project"}
                         </p>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-[10px] text-slate-500 font-medium line-clamp-1">
-                          {exp.description}
+                      <td className="px-6 py-4 truncate">
+                        <p className="text-xs text-slate-600 font-medium truncate" title={exp.description}>
+                          {exp.description || "-"}
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-md text-[10px] font-bold uppercase tracking-wider inline-block">
                           {formatExpenseCategory(exp.category)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700 whitespace-nowrap">
                         ₹{(exp.amount || 0).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">
-                        {exp.payment_mode}
+                      <td className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
+                        {exp.payment_mode || "-"}
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500">
-                        {exp.expense_date?.split("T")[0]}
+                      <td className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
+                        {exp.expense_date?.split("T")[0] || "-"}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1 transition-opacity">

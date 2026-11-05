@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { CustomSelect } from "../../../components/common/CustomDropdown";
 import {
     Search,
     Eye,
     Edit2,
+    Trash2,
     RotateCcw,
     ChevronLeft,
     ChevronRight,
@@ -64,6 +66,8 @@ const SafetyManagementPage = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
 
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
@@ -370,6 +374,19 @@ const SafetyManagementPage = () => {
     }, [activeTab]);
 
     // ─── HANDLERS ───────────────────────────────────────────────────────
+    const handleDeleteRecord = async () => {
+        if (!recordToDelete) return;
+        try {
+            await safetyService.deleteIncident(recordToDelete);
+            toast.success("Safety record deleted successfully");
+            setIsDeleteModalOpen(false);
+            setRecordToDelete(null);
+            fetchData();
+        } catch (err: any) {
+            console.error("Failed to delete safety record", err);
+            toast.error("Failed to delete safety record");
+        }
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -632,26 +649,28 @@ const SafetyManagementPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setFormData({
-                                    project_id: projectId || 0,
-                                    date: new Date().toISOString().split("T")[0],
-                                    violation_type: "No Helmet",
-                                    description: "",
-                                    injury_details: "",
-                                    action_taken: "",
-                                    responsible_person: "",
-                                    safety_checklist_status: "pending",
-                                    ppe_compliance: activeTab === "Incident Report" ? true : false
-                                });
-                                setIsNewModalOpen(true);
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                        >
-                            {activeTab === "Safety Checklist" ? "Log Audit Entry" : "Log Incident Report"}
-                        </button>
+                        {activeTab === "Safety Checklist" && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFormData({
+                                        project_id: projectId || 0,
+                                        date: new Date().toISOString().split("T")[0],
+                                        violation_type: "No Helmet",
+                                        description: "",
+                                        injury_details: "",
+                                        action_taken: "",
+                                        responsible_person: "",
+                                        safety_checklist_status: "pending",
+                                        ppe_compliance: false
+                                    });
+                                    setIsNewModalOpen(true);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                            >
+                                Log Audit Entry
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -743,14 +762,15 @@ const SafetyManagementPage = () => {
                             ) : (
                                 <table className="w-full text-left font-inter min-w-[1000px]">
                                     <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <tr className="bg-slate-50/80 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200 font-inter">
                                             <th className="px-6 py-4 font-inter">Incident Details</th>
                                             <th className="px-6 py-4 font-inter">Project Name</th>
                                             <th className="px-6 py-4 font-inter">Task</th>
                                             <th className="px-6 py-4 font-inter">Incident Summary</th>
                                             <th className="px-6 py-4 font-inter">Violation Type</th>
                                             <th className="px-6 py-4 font-inter">Status</th>
-                                            <th className="px-6 py-4 font-inter">Resources</th>
+                                            <th className="px-6 py-4 font-inter">Responsible Person</th>
+                                            <th className="px-6 py-4 font-inter">Action Token</th>
                                             <th className="px-6 py-4 text-right font-inter">Actions</th>
                                         </tr>
                                     </thead>
@@ -797,10 +817,14 @@ const SafetyManagementPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="flex flex-col font-inter">
-                                                            <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{item.responsible_person}</p>
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter truncate max-w-[150px]">ACTION: {item.action_taken}</p>
-                                                        </div>
+                                                        <span className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">
+                                                            {item.responsible_person || "Unassigned"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 font-mono border border-slate-200 inline-block">
+                                                            {item.action_taken || "-"}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right font-inter">
                                                         <div className="flex items-center justify-end gap-2 font-inter">
@@ -818,13 +842,23 @@ const SafetyManagementPage = () => {
                                                             >
                                                                 <Edit2 className="w-4 h-4" />
                                                             </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setRecordToDelete(item.id);
+                                                                    setIsDeleteModalOpen(true);
+                                                                }}
+                                                                className="p-2 text-slate-400 rounded-xl transition-all font-inter hover:text-rose-600 hover:bg-rose-50"
+                                                                title="Delete Record"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                     No matching records found in the project vault.
                                                 </td>
                                             </tr>
@@ -1281,7 +1315,7 @@ const SafetyManagementPage = () => {
                                     )}
                                     {selectedIncident.action_taken && (
                                         <div className="font-inter">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Corrective Measures</p>
+                                            <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 font-inter">Active Taken</p>
                                             <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
                                                 "{selectedIncident.action_taken}"
                                             </div>

@@ -7,6 +7,7 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 import { CustomSelect } from "../../../components/common/CustomDropdown";
 import toast from "react-hot-toast";
 import {
+    FileText,
     Search,
     Eye,
     Edit2,
@@ -28,6 +29,35 @@ import { useProject } from "../../../context/ProjectContext";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
 const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Compression Test"];
+
+
+const getReportFiles = (qc: any): { url: string; name: string; isPdf: boolean; isImage: boolean }[] => {
+    const raw = qc?.report_file_url || qc?.report_file || qc?.file_url || qc?.['report file'];
+    if (!raw) return [];
+    let urls: string[] = [];
+    if (typeof raw === 'string') {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) urls = parsed;
+            else urls = [raw];
+        } catch {
+            urls = raw.split(',').map((s: string) => s.trim().replace(/^['"\[\]]+|['"\[\]]+$/g, '')).filter(Boolean);
+        }
+    } else if (Array.isArray(raw)) {
+        urls = raw.filter(Boolean);
+    }
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+        : 'http://127.0.0.1:8000';
+
+    return urls.map((u, i) => {
+        const finalUrl = u.startsWith('http') ? u : `${baseUrl}/${u.replace(/^\//, '')}`;
+        const isPdf = /\.(pdf)$/i.test(finalUrl);
+        const isImage = /\.(jpeg|jpg|gif|png|webp|bmp)$/i.test(finalUrl);
+        const fileName = u.split('/').pop()?.split('?')[0] || `Document ${i + 1}`;
+        return { url: finalUrl, name: fileName, isPdf, isImage };
+    });
+};
 
 const QCInspectionPage = () => {
     const navigate = useNavigate();
@@ -738,6 +768,33 @@ const QCInspectionPage = () => {
                                                             <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
                                                         </div>
                                                     </td>
+                                                    <td className="px-6 py-4">
+                                                        {(() => {
+                                                            const files = getReportFiles(qc);
+                                                            if (files.length === 0) {
+                                                                return <span className="text-xs font-semibold text-slate-400 font-inter">—</span>;
+                                                            }
+                                                            return (
+                                                                <div className="flex flex-col gap-1.5 font-inter">
+                                                                    {files.map((file, idx) => (
+                                                                        <a
+                                                                            key={idx}
+                                                                            href={file.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors w-fit font-inter"
+                                                                            title={file.name}
+                                                                        >
+                                                                            <FileText className="w-3.5 h-3.5 shrink-0" />
+                                                                            <span className="truncate max-w-[140px] font-inter">
+                                                                                {file.isPdf ? (files.length > 1 ? `PDF (${idx + 1})` : "View PDF") : (files.length > 1 ? `Doc (${idx + 1})` : "View Document")}
+                                                                            </span>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-2 font-inter">
                                                             <button
@@ -770,7 +827,7 @@ const QCInspectionPage = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
+                                                <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
                                                     No quality audits found in the project vault.
                                                 </td>
                                             </tr>

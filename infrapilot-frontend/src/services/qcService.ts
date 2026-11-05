@@ -13,6 +13,10 @@ export interface QcItem {
     engineer_name: string;
     remarks: string | null;
     report_file?: string | null;
+    report_file_url?: string | null;
+    report_files?: string[] | null;
+    report_file_urls?: string[] | null;
+    file_url?: string | null;
 }
 
 export interface CreateQcRequest {

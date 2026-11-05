@@ -47,21 +47,92 @@ const formatDateTimeObj = (dateObj: any) => {
 const DailyProgressEntryPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
-  const { selectedProjectId, setSelectedProjectId } = useProject();
+  const { selectedProjectId, setSelectedProjectId, assignedProjects } = useProject();
   const projectId = selectedProjectId || 0;
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch projects for the dropdown
-    projectService.getProjects(100, 0).then((data: any) => {
-      const list = Array.isArray(data) ? data : (data.items || data.data || []);
-      setProjectsList(list);
-      if (list.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(list[0].id || list[0].project_id);
+    const fetchAssignedProjects = async () => {
+      try {
+        const uid = user?.id ? Number(user.id) : 0;
+        let assignedList: any[] = [];
+
+        if (assignedProjects && assignedProjects.length > 0) {
+          assignedList = assignedProjects;
+        }
+
+        if (assignedList.length === 0 && uid > 0) {
+          try {
+            assignedList = await projectService.getAssignedProjects(uid, true);
+          } catch (e) {
+            console.warn("Failed to get assigned projects by membership:", e);
+          }
+        }
+
+        const userStr = localStorage.getItem("infrapilot_user");
+        let parsedUser: any = null;
+        if (userStr) {
+          try {
+            parsedUser = JSON.parse(userStr);
+            if (Array.isArray(parsedUser?.assigned_projects) && parsedUser.assigned_projects.length > 0) {
+              assignedList = [...assignedList, ...parsedUser.assigned_projects];
+            } else if (parsedUser?.project_id) {
+              assignedList.push({ id: parsedUser.project_id, project_name: parsedUser.project_name || `Project #${parsedUser.project_id}` });
+            }
+          } catch (e) { }
+        }
+
+        const rawRes: any = await projectService.getProjects(100, 0);
+        const rawProjectsList: any[] = Array.isArray(rawRes) ? rawRes : (rawRes.items || rawRes.data || []);
+
+        const assignedProjectIds = new Set<number>();
+        assignedList.forEach((p: any) => {
+          const pid = Number(p.id || p.project_id);
+          if (pid > 0) assignedProjectIds.add(pid);
+        });
+
+        // Match address for Site Engineers
+        const userAddr = (user?.address || parsedUser?.address || parsedUser?.user?.address || "").toLowerCase().trim();
+        const addrParts = userAddr.split(/[,;\n]+/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+
+        let finalAssigned = rawProjectsList.filter((p: any) => {
+          const pid = Number(p.id || p.project_id);
+          if (pid > 0 && assignedProjectIds.has(pid)) return true;
+          const pName = (p.project_name || p.name || "").toLowerCase().trim();
+          if (addrParts.some((part: string) => part === pName || (part.length >= 3 && pName.includes(part)) || (pName.length >= 3 && part.includes(pName)))) {
+            return true;
+          }
+          return false;
+        });
+
+        // If no matches yet and user has selected project in context
+        if (finalAssigned.length === 0 && selectedProjectId) {
+          const matched = rawProjectsList.filter(p => Number(p.id || p.project_id) === Number(selectedProjectId));
+          if (matched.length > 0) finalAssigned = matched;
+        }
+
+        const isSiteEngineer = user?.role === 'SiteEngineer' || (user?.role as string) === 'Engineer';
+        if (finalAssigned.length > 0) {
+          setProjectsList(finalAssigned);
+          if (!selectedProjectId || !finalAssigned.some(p => Number(p.id || p.project_id) === Number(selectedProjectId))) {
+            setSelectedProjectId(Number(finalAssigned[0].id || finalAssigned[0].project_id));
+          }
+        } else if (!isSiteEngineer) {
+          setProjectsList(rawProjectsList);
+        } else {
+          setProjectsList(rawProjectsList.slice(0, 1));
+          if (rawProjectsList.length > 0) {
+            setSelectedProjectId(Number(rawProjectsList[0].id || rawProjectsList[0].project_id));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load projects", err);
       }
-    }).catch(() => { });
-  }, [selectedProjectId, setSelectedProjectId]);
+    };
+
+    fetchAssignedProjects();
+  }, [user?.id, assignedProjects, selectedProjectId, setSelectedProjectId]);
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
@@ -642,7 +713,7 @@ const DailyProgressEntryPage = () => {
                     onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
                     className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter shadow-sm max-w-[150px] truncate"
                   >
-                    <option value="">ALL PROJECTS</option>
+                    {projectsList.length > 1 && <option value="">ALL ASSIGNED PROJECTS</option>}
                     {projectsList.map(p => (
                       <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
                     ))}

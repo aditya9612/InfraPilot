@@ -195,7 +195,7 @@ const ActivityListPage = () => {
   };
 
   // Using global context for project filter
-  const { selectedProjectId, setSelectedProjectId, selectedProject } = useProject();
+  const { selectedProjectId, setSelectedProjectId, selectedProject, assignedProjects } = useProject();
   const projectId = selectedProjectId || 0;
 
   const handleProjectChange = (id: number) => {
@@ -208,17 +208,94 @@ const ActivityListPage = () => {
   const [, setWorkOrderSummary] = useState<any>(null);
 
   useEffect(() => {
-    projectService.getProjects(100, 0).then((data: any) => {
-      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
-    }).catch(() => { });
+    const fetchAssignedProjects = async () => {
+      try {
+        const uid = user?.id ? Number(user.id) : 0;
+        let assignedList: any[] = [];
+
+        // 1. Check assignedProjects from context
+        if (assignedProjects && assignedProjects.length > 0) {
+          assignedList = assignedProjects;
+        }
+
+        // 2. Fallback to API for SiteEngineer
+        if (assignedList.length === 0 && uid > 0) {
+          try {
+            assignedList = await projectService.getAssignedProjects(uid, true);
+          } catch (e) {
+            console.warn("Failed to get assigned projects by membership:", e);
+          }
+        }
+
+        let parsedUser: any = null;
+        try {
+          const userStr = localStorage.getItem("infrapilot_user");
+          if (userStr) parsedUser = JSON.parse(userStr);
+        } catch (e) { }
+
+        if (assignedList.length === 0) {
+          if (Array.isArray(parsedUser?.assigned_projects) && parsedUser.assigned_projects.length > 0) {
+            assignedList = parsedUser.assigned_projects;
+          } else if (parsedUser?.project_id) {
+            assignedList = [{ id: parsedUser.project_id, project_name: parsedUser.project_name || `Project #${parsedUser.project_id}` }];
+          }
+        }
+
+        const rawRes: any = await projectService.getProjects(100, 0);
+        const rawProjectsList: any[] = Array.isArray(rawRes) ? rawRes : (rawRes.items || rawRes.data || []);
+
+        const assignedProjectIds = new Set<number>();
+        assignedList.forEach((p: any) => {
+          const pid = Number(p.id || p.project_id);
+          if (pid > 0) assignedProjectIds.add(pid);
+        });
+
+        const userAddr = (user?.address || parsedUser?.address || parsedUser?.user?.address || "").toLowerCase().trim();
+        const addrParts = userAddr.split(/[,;\n]+/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+
+        let finalAssigned = rawProjectsList.filter((p: any) => {
+          const pid = Number(p.id || p.project_id);
+          if (pid > 0 && assignedProjectIds.has(pid)) return true;
+          const pName = (p.project_name || p.name || "").toLowerCase().trim();
+          if (addrParts.some((part: string) => part === pName || (part.length >= 3 && pName.includes(part)) || (pName.length >= 3 && part.includes(pName)))) {
+            return true;
+          }
+          return false;
+        });
+
+        // If no matches yet and user has selected project in context
+        if (finalAssigned.length === 0 && selectedProjectId) {
+          const matched = rawProjectsList.filter(p => Number(p.id || p.project_id) === Number(selectedProjectId));
+          if (matched.length > 0) finalAssigned = matched;
+        }
+
+        const isSiteEngineer = user?.role === 'SiteEngineer' || (user?.role as string) === 'Engineer';
+        if (finalAssigned.length > 0) {
+          setProjectsList(finalAssigned);
+          if (!selectedProjectId || !finalAssigned.some(p => Number(p.id || p.project_id) === Number(selectedProjectId))) {
+            setSelectedProjectId(Number(finalAssigned[0].id || finalAssigned[0].project_id));
+          }
+        } else if (!isSiteEngineer) {
+          setProjectsList(rawProjectsList);
+        } else {
+          setProjectsList(rawProjectsList.slice(0, 1));
+          if (rawProjectsList.length > 0) {
+            setSelectedProjectId(Number(rawProjectsList[0].id || rawProjectsList[0].project_id));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load projects", err);
+      }
+    };
+
+    fetchAssignedProjects();
 
     api.get("/work-orders").then((res: any) => {
       const items = Array.isArray(res.data) ? res.data : (res.data.items || []);
-      // simple unique filter
       const unique = Array.from(new Map(items.map((i: any) => [i.id, i])).values());
       setWorkOrdersList(unique);
     }).catch(() => { });
-  }, []);
+  }, [user?.id, assignedProjects, selectedProjectId, setSelectedProjectId]);
 
   useEffect(() => {
     if (selectedWorkOrder) {
@@ -280,7 +357,13 @@ const ActivityListPage = () => {
         progressMap[actId] = (progressMap[actId] || 0) + qty;
       });
 
-      const normalizedData = (data || []).map((a: any) => {
+      const assignedIds = new Set(projectsList.map(p => Number(p.id || p.project_id)));
+      let rawList = data || [];
+      if (assignedIds.size > 0 && user?.role === 'SiteEngineer') {
+        rawList = rawList.filter((a: any) => assignedIds.has(Number(a.project_id)));
+      }
+
+      const normalizedData = rawList.map((a: any) => {
         const planned = Number(a.planned_quantity || 0);
         const logged = progressMap[Number(a.id)] || 0;
         const totalCompleted = Math.max(Number(a.total_completed || 0), logged);
@@ -304,7 +387,7 @@ const ActivityListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, projectsList, user?.role]);
 
   useEffect(() => {
     loadActivities();
@@ -547,7 +630,7 @@ const ActivityListPage = () => {
                 onChange={(e) => handleProjectChange(Number(e.target.value))}
                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
               >
-                <option value="">ALL PROJECTS</option>
+                {projectsList.length > 1 && <option value="">ALL ASSIGNED PROJECTS</option>}
                 {projectsList.map(p => (
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
                 ))}
