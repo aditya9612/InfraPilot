@@ -979,7 +979,6 @@ const EquipmentRegistryPage = () => {
                                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-slate-800">{item.equipment_name}</p>
-                                        <p className="text-xs text-slate-500">{item.equipment_code}</p>
                                     </td>
                                     <td className="px-6 py-4">
                                         {item.project_id ? (

@@ -96,9 +96,23 @@ const MasterDataPage = () => {
           system_tag: tagMap[activeTab]
         }));
       } else {
-        // Fetch from generic list
-        const tag = activeTab === "All" ? "" : tagMap[activeTab];
-        data = await masterService.getAllMasterData(searchTerm, tag);
+        // Fetch from specific endpoints to ensure full details including is_active status
+        try {
+          const [materials, labours, activities, units] = await Promise.all([
+            masterService.getEntities("materials", searchTerm).catch(() => []),
+            masterService.getEntities("labour-types", searchTerm).catch(() => []),
+            masterService.getEntities("activity-types", searchTerm).catch(() => []),
+            masterService.getEntities("units", searchTerm).catch(() => []),
+          ]);
+          data = [
+            ...materials.map(m => ({ ...m, system_tag: "MATERIAL" })),
+            ...labours.map(l => ({ ...l, system_tag: "LABOR" })),
+            ...activities.map(a => ({ ...a, system_tag: "ACTIVITY" })),
+            ...units.map(u => ({ ...u, system_tag: "UNIT" })),
+          ];
+        } catch {
+          data = await masterService.getAllMasterData(searchTerm, "");
+        }
       }
 
       // Ignore stale response if another request has started
@@ -148,9 +162,9 @@ const MasterDataPage = () => {
 
     // Active/Inactive filter dropdown
     if (activeFilter === "active") {
-      result = result.filter(item => (item as any).is_active !== false);
+      result = result.filter(item => (item as any).is_active !== false && (item as any).is_active !== "false");
     } else if (activeFilter === "inactive") {
-      result = result.filter(item => (item as any).is_active === false);
+      result = result.filter(item => (item as any).is_active === false || (item as any).is_active === "false");
     }
 
     // Client-side search
@@ -209,8 +223,7 @@ const MasterDataPage = () => {
       if (editingItem) {
         await masterService.updateEntity(entityType, editingItem.id, apiData);
         toast.success("Entity updated successfully!");
-        // If deactivated, switch to "all" so it doesn't "disappear"
-        if (apiData.is_active === false) setActiveFilter("all");
+        // Retain user's current filter selection
       } else {
         await masterService.createEntity(pluralType, apiData);
         toast.success("New entity added to master data!");
@@ -378,7 +391,7 @@ const MasterDataPage = () => {
             {isLoading && items.length > 0 && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-6 py-4">Entity Name</th>
                   <th className="px-6 py-4">Unique Code</th>
                   <th className="px-6 py-4">Category</th>
@@ -398,11 +411,12 @@ const MasterDataPage = () => {
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold ${(item as any).is_active !== false
-                        ? "bg-emerald-50 text-emerald-600"
-                        : "bg-slate-100 text-slate-400"
-                        }`}>
-                        {(item as any).is_active !== false ? "ACTIVE" : "INACTIVE"}
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        (item as any).is_active !== false && (item as any).is_active !== "false"
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                          : "bg-rose-50 text-rose-600 border border-rose-200"
+                      }`}>
+                        {(item as any).is_active !== false && (item as any).is_active !== "false" ? "ACTIVE" : "INACTIVE"}
                       </span>
                     </td>
                     <td className="px-6 py-4">

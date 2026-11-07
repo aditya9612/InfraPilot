@@ -46,8 +46,14 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
     try {
       await onSubmit(entry.id, formData);
       setErrors({});
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message;
+      if (detail && typeof detail === 'string') {
+        if (detail.toLowerCase().includes('progress') || detail.toLowerCase().includes('quantity') || detail.toLowerCase().includes('exceeds')) {
+          setErrors(prev => ({ ...prev, today_progress: detail }));
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }

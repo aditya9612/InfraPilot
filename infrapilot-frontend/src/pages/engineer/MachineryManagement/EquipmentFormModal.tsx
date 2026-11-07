@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "../../../components/common/Modal";
 import { Building2 } from "lucide-react";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import { projectService } from "../../../services/projectService";
 
 interface EquipmentFormModalProps {
@@ -211,16 +212,20 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                                 {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || (formData.project_id ? `Project ${formData.project_id}` : 'Global Asset')}
                             </div>
                         ) : (
-                            <select
+                            <CustomSelect
                                 value={formData.project_id || ''}
-                                onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className={inputClasses}
-                            >
-                                <option value="">-- Global / Unassigned --</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
+                                onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
+                                options={[
+                                    { id: '', label: '-- Global / Unassigned --' },
+                                    ...projects.map(p => ({
+                                        id: p.id,
+                                        label: p.project_name || p.name || `Project ${p.id}`
+                                    }))
+                                ]}
+                                placeholder="-- Global / Unassigned --"
+                                searchable={projects.length > 5}
+                                maxHeight="max-h-48"
+                            />
                         )}
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import type { DsrItem, UpdateDsrRequest } from "../../types/dsr";
 import { dsrService } from "../../services/dsrService";
+import { contractorService } from "../../services/contractorService";
 import toast from "react-hot-toast";
 import { RotateCcw } from "lucide-react";
 
@@ -15,10 +16,19 @@ interface EditDSRModalProps {
 const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) => {
   const [formData, setFormData] = useState<UpdateDsrRequest>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [contractors, setContractors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "capturing" | "captured" | "error"
   >("idle");
+
+  useEffect(() => {
+    if (isOpen && dsr?.project_id) {
+      contractorService.getContractorsByProject(dsr.project_id)
+        .then(cList => setContractors(Array.isArray(cList) ? cList : []))
+        .catch(() => {});
+    }
+  }, [isOpen, dsr?.project_id]);
 
   useEffect(() => {
     if (dsr) {
@@ -167,12 +177,32 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={labelClasses}>Report Date <span className="text-rose-500">*</span></label>
-              <input required type="date" name="report_date" value={formData.report_date || ""} onChange={handleChange} className={inputClasses(errors.report_date)} />
+              <input required type="date" name="report_date" max={new Date().toISOString().split("T")[0]} value={formData.report_date || ""} onChange={handleChange} className={inputClasses(errors.report_date)} />
               {errors.report_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.report_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Contractor ID</label>
-              <input type="number" name="contractor_id" value={formData.contractor_id || ""} onChange={handleChange} className={inputClasses(errors.contractor_id)} />
+              <label className={labelClasses}>Contractor Name</label>
+              {contractors.length > 0 ? (
+                <select
+                  name="contractor_id"
+                  value={formData.contractor_id || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contractor_id: Number(e.target.value) || 1 }))}
+                  className={inputClasses(errors.contractor_id)}
+                >
+                  {contractors.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || `Contractor #${c.id}`}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  readOnly
+                  value={formData.contractor_id ? `Contractor #${formData.contractor_id}` : "Default Contractor"}
+                  className={`${inputClasses()} bg-slate-50 cursor-not-allowed text-slate-600 font-medium`}
+                />
+              )}
               {errors.contractor_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.contractor_id}</p>}
             </div>
             <div>

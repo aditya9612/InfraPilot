@@ -190,6 +190,9 @@ export const workProgressService = {
       const response = await api.put(`/work-progress/daily-entry/${id}`, data);
       return response.data;
     } catch (error: any) {
+      if (error?.response) {
+        throw error;
+      }
       console.warn("updateDailyEntry API error, using virtual success fallback:", error.message);
       const entry = mockDailyEntries.find(e => e.id === id);
       if (entry) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
@@ -54,8 +54,40 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [allBoqs, setAllBoqs] = useState<any[]>([]);
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
-  const [isBoqDropdownOpen, setIsBoqDropdownOpen] = useState(false);
-  const [isWorkOrderDropdownOpen, setIsWorkOrderDropdownOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<'boq' | 'work_order' | null>(null);
+  const boqDropdownRef = useRef<HTMLDivElement>(null);
+  const workOrderDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        openDropdown === 'boq' &&
+        boqDropdownRef.current &&
+        !boqDropdownRef.current.contains(target)
+      ) {
+        setOpenDropdown(null);
+      }
+      if (
+        openDropdown === 'work_order' &&
+        workOrderDropdownRef.current &&
+        !workOrderDropdownRef.current.contains(target)
+      ) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdown]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setOpenDropdown(null);
+      setFormNotification(null);
+      setErrors({});
+    }
+  }, [isOpen]);
   const [existingActivities, setExistingActivities] = useState<any[]>([]);
 
   useEffect(() => {
@@ -152,14 +184,115 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
   }, [isOpen, formData.project_id, projectId, formData.boq_item_id]);
 
-  const isCombinationUsed = (boqId: any, woId: any) => {
+    const isCombinationUsed = (boqId: any, woId: any) => {
     return existingActivities.some(a =>
       (a.boq_item_id == boqId || a.boq_code == boqId) &&
       (a.work_order_id == woId || (!a.work_order_id && !woId))
     );
   };
 
-  const displayedBoqs = formData.project_id ? allBoqs.filter(b => b.project_id == formData.project_id || !b.project_id) : allBoqs;
+  const isBoqCompleted = (boq: any) => {
+    const boqId = Number(boq.id || boq.boq_id);
+    const boqName = (boq.item_name || boq.name || '').trim().toLowerCase();
+
+    // 1. Direct status/completion on BOQ item
+    if (boq.is_completed === true) return true;
+    const bStatus = (boq.status || '').toUpperCase().replace(/\s+/g, '_');
+    if (bStatus === 'COMPLETED' || bStatus === 'INACTIVE') return true;
+
+    const boqQty = Number(boq.quantity);
+    const boqActual = Number(boq.actual_quantity);
+    if (!isNaN(boqQty) && !isNaN(boqActual) && boqQty > 0 && boqActual >= boqQty) {
+      return true;
+    }
+
+    // 2. Check activities associated with this BOQ item
+    const relatedActs = existingActivities.filter(a => {
+      const aBoqId = Number(a.boq_item_id || a.boq_code || a.boq_id);
+      if (boqId > 0 && aBoqId > 0 && aBoqId === boqId) return true;
+      const aName = (a.activity_name || '').trim().toLowerCase();
+      if (boqName && aName && aName === boqName) return true;
+      return false;
+    });
+
+    if (relatedActs.length > 0) {
+      const isAnyCompleted = relatedActs.some(a => {
+        const st = (a.status || '').toUpperCase().replace(/\s+/g, '_');
+        const planned = Number(a.planned_quantity || 0);
+        const completed = Number(a.total_completed || 0);
+        const remaining = a.remaining_quantity !== undefined && a.remaining_quantity !== null
+          ? Number(a.remaining_quantity)
+          : (planned - completed);
+        const pct = Number(a.completion_percentage || 0);
+
+        return (
+          st === 'COMPLETED' ||
+          pct >= 100 ||
+          (planned > 0 && remaining <= 0) ||
+          (planned > 0 && completed >= planned)
+        );
+      });
+      if (isAnyCompleted) return true;
+
+      const totalPlanned = relatedActs.reduce((sum, a) => sum + Number(a.planned_quantity || 0), 0);
+      const totalCompleted = relatedActs.reduce((sum, a) => sum + Number(a.total_completed || 0), 0);
+      if (totalPlanned > 0 && totalCompleted >= totalPlanned) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const isWorkOrderCompleted = (wo: any) => {
+    const woId = Number(wo.id);
+    const woStatus = (wo.status || '').toUpperCase().replace(/\s+/g, '_');
+    const woDesc = (wo.work_description || wo.work_order_number || '').trim().toLowerCase();
+
+    // 1. Direct status or quantity on Work Order
+    if (woStatus === 'COMPLETED' || woStatus === 'CANCELLED' || woStatus === 'INACTIVE') {
+      return true;
+    }
+    const totalQty = Number(wo.total_quantity || 0);
+    const completedQty = Number(wo.completed_quantity || 0);
+    if (totalQty > 0 && completedQty >= totalQty) {
+      return true;
+    }
+
+    // 2. Check activities associated with this Work Order
+    const relatedActs = existingActivities.filter(a => {
+      const aWoId = Number(a.work_order_id);
+      if (woId > 0 && aWoId > 0 && aWoId === woId) return true;
+      const aName = (a.activity_name || '').trim().toLowerCase();
+      if (woDesc && aName && aName.includes(woDesc)) return true;
+      return false;
+    });
+
+    if (relatedActs.length > 0) {
+      const isAnyCompleted = relatedActs.some(a => {
+        const st = (a.status || '').toUpperCase().replace(/\s+/g, '_');
+        const planned = Number(a.planned_quantity || 0);
+        const completed = Number(a.total_completed || 0);
+        const remaining = a.remaining_quantity !== undefined && a.remaining_quantity !== null
+          ? Number(a.remaining_quantity)
+          : (planned - completed);
+        const pct = Number(a.completion_percentage || 0);
+
+        return (
+          st === 'COMPLETED' ||
+          pct >= 100 ||
+          (planned > 0 && remaining <= 0) ||
+          (planned > 0 && completed >= planned)
+        );
+      });
+      if (isAnyCompleted) return true;
+    }
+
+    return false;
+  };
+
+  const displayedBoqs = (formData.project_id ? allBoqs.filter(b => b.project_id == formData.project_id || !b.project_id) : allBoqs)
+    .filter(b => !isBoqCompleted(b));
 
   const displayedWorkOrders = (() => {
     let wos = allWorkOrders;
@@ -169,7 +302,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     if (formData.boq_item_id) {
       wos = wos.filter(w => !isCombinationUsed(formData.boq_item_id, w.id));
     }
-    return wos;
+    return wos.filter(w => !isWorkOrderCompleted(w));
   })();
 
 
@@ -295,11 +428,18 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
   `;
 
+  const handleClose = () => {
+    setOpenDropdown(null);
+    setFormNotification(null);
+    setErrors({});
+    onClose();
+  };
+
   const modalFooter = (
     <>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         disabled={isSubmitting}
         className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
       >
@@ -317,7 +457,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="New Activity Registry" footer={modalFooter} maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="New Activity Registry" footer={modalFooter} maxWidth="max-w-2xl">
       {/* Top-right floating toast */}
       {formNotification && (
         <div
@@ -391,22 +531,22 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               {errors.project_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.project_id}</p>}
             </div>
 
-            <div className="relative font-inter">
+            <div className="relative font-inter" ref={boqDropdownRef}>
               <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsBoqDropdownOpen(!isBoqDropdownOpen)}
-                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.boq_item_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center`}
+                  onClick={() => setOpenDropdown(prev => prev === 'boq' ? null : 'boq')}
+                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.boq_item_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center gap-2 overflow-hidden`}
                 >
-                  <span className={formData.boq_item_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                  <span className={`truncate min-w-0 flex-1 ${formData.boq_item_id ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
                     {formData.boq_item_id
-                      ? (() => { const b = displayedBoqs.find((b: any) => (b.id || b.boq_id) == formData.boq_item_id); return b ? (b.item_name || `BOQ #${b.id || b.boq_id}`) : `BOQ #${formData.boq_item_id}`; })()
+                      ? (() => { const b = allBoqs.find((b: any) => (b.id || b.boq_id) == formData.boq_item_id); return b ? (b.item_name || `BOQ #${b.id || b.boq_id}`) : `BOQ #${formData.boq_item_id}`; })()
                       : '-- Select BOQ Item --'}
                   </span>
                   <svg
-                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                      isBoqDropdownOpen ? 'rotate-180' : ''
+                    className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${
+                      openDropdown === 'boq' ? 'rotate-180' : ''
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -415,14 +555,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                {isBoqDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                {openDropdown === 'boq' && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto overflow-x-hidden">
                     <div className="p-1">
                       <button
                         type="button"
                         onClick={() => {
                           handleChange({ target: { name: 'boq_item_id', value: '' } } as any);
-                          setIsBoqDropdownOpen(false);
+                          setOpenDropdown(null);
                         }}
                         className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
                           !formData.boq_item_id
@@ -433,7 +573,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                         -- Select BOQ Item --
                       </button>
                       {displayedBoqs.length === 0 && (
-                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No BOQ Items available</div>
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center font-medium">No eligible BOQ Items with pending quantities</div>
                       )}
                       {displayedBoqs.map((b: any) => (
                         <button
@@ -441,7 +581,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                           type="button"
                           onClick={() => {
                             handleChange({ target: { name: 'boq_item_id', value: b.id || b.boq_id } } as any);
-                            setIsBoqDropdownOpen(false);
+                            setOpenDropdown(null);
                           }}
                           className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
                             (formData.boq_item_id == (b.id || b.boq_id))
@@ -458,22 +598,22 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               </div>
               {errors.boq_item_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.boq_item_id}</p>}
             </div>
-            <div className="relative font-inter">
+            <div className="relative font-inter" ref={workOrderDropdownRef}>
               <label className={labelClasses}>Work Order</label>
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsWorkOrderDropdownOpen(!isWorkOrderDropdownOpen)}
-                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.work_order_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center`}
+                  onClick={() => setOpenDropdown(prev => prev === 'work_order' ? null : 'work_order')}
+                  className={`w-full text-left appearance-none bg-slate-50 border ${errors.work_order_id ? 'border-rose-500' : 'border-slate-200'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex justify-between items-center gap-2 overflow-hidden`}
                 >
-                  <span className={formData.work_order_id ? 'text-slate-800 font-medium' : 'text-slate-400'}>
+                  <span className={`truncate min-w-0 flex-1 ${formData.work_order_id ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
                     {formData.work_order_id
-                      ? (() => { const w = displayedWorkOrders.find((w: any) => w.id == formData.work_order_id); return w ? (w.work_description || w.work_order_number || `Work Order #${w.id}`) : `Work Order #${formData.work_order_id}`; })()
+                      ? (() => { const w = allWorkOrders.find((w: any) => w.id == formData.work_order_id); return w ? (w.work_description || w.work_order_number || `Work Order #${w.id}`) : `Work Order #${formData.work_order_id}`; })()
                       : '-- Select Work Order --'}
                   </span>
                   <svg
-                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                      isWorkOrderDropdownOpen ? 'rotate-180' : ''
+                    className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${
+                      openDropdown === 'work_order' ? 'rotate-180' : ''
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -482,14 +622,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                {isWorkOrderDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                {openDropdown === 'work_order' && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto overflow-x-hidden">
                     <div className="p-1">
                       <button
                         type="button"
                         onClick={() => {
                           handleChange({ target: { name: 'work_order_id', value: '' } } as any);
-                          setIsWorkOrderDropdownOpen(false);
+                          setOpenDropdown(null);
                         }}
                         className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
                           !formData.work_order_id
@@ -500,7 +640,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                         -- Select Work Order --
                       </button>
                       {displayedWorkOrders.length === 0 && (
-                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No Work Orders available</div>
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center font-medium">No eligible Work Orders with pending quantities</div>
                       )}
                       {displayedWorkOrders.map((w: any) => (
                         <button
@@ -508,7 +648,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                           type="button"
                           onClick={() => {
                             handleChange({ target: { name: 'work_order_id', value: w.id } } as any);
-                            setIsWorkOrderDropdownOpen(false);
+                            setOpenDropdown(null);
                           }}
                           className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
                             (formData.work_order_id == w.id)

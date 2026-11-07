@@ -716,12 +716,13 @@ const QCInspectionPage = () => {
                             ) : (
                                 <table className="w-full text-left font-inter min-w-[1000px]">
                                     <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 font-inter">
                                             <th className="px-6 py-4">Project</th>
                                             <th className="px-6 py-4">Audit Details</th>
                                             <th className="px-6 py-4">Test Description</th>
                                             <th className="px-6 py-4">Status</th>
-                                            <th className="px-6 py-4">Values</th>
+                                            <th className="px-6 py-4">Result</th>
+                                            <th className="px-6 py-4">Standard Value</th>
                                             <th className="px-6 py-4">Auditor</th>
                                             <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
@@ -757,10 +758,10 @@ const QCInspectionPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="flex flex-col font-inter">
-                                                            <p className="text-[10px] font-bold text-slate-800 font-inter">Result: {qc.result}</p>
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Std: {qc.standard_value}</p>
-                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-800 font-inter">{qc.result !== undefined && qc.result !== null ? qc.result : '-'}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-xs font-bold text-slate-700 font-inter">{qc.standard_value !== undefined && qc.standard_value !== null ? qc.standard_value : '-'}</span>
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-2 font-inter">
@@ -929,7 +930,7 @@ const QCInspectionPage = () => {
                             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
                                 <table className="w-full text-left font-inter">
                                     <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                        <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200">
                                             <th className="px-6 py-4">Test Protocol</th>
                                             <th className="px-6 py-4 text-center">Sample Count</th>
                                             <th className="px-6 py-4 text-center">Compliant</th>

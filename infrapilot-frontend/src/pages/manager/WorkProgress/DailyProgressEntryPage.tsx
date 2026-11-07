@@ -32,7 +32,8 @@ const statusBadge: Record<string, string> = {
   "ON_TRACK": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
   "ON TRACK": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
   "Delay": "bg-rose-50 text-rose-600 border-rose-100 shadow-rose-50",
-  "Completed": "bg-blue-50 text-blue-600 border-blue-100 shadow-blue-50",
+  "Completed": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
+  "COMPLETED": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
   "Not Started": "bg-slate-50 text-slate-500 border-slate-100 shadow-slate-50"
 };
 
@@ -421,8 +422,10 @@ const DailyProgressEntryPage = () => {
       loadActivities();
       if (activeTab === 'today') loadTodayProgress();
       else loadAllEntries();
-    } catch (err) {
-      toast.error("Failed to update daily entry");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "Failed to update daily entry";
+      toast.error(detail);
+      throw err;
     }
   };
 
@@ -757,43 +760,49 @@ const DailyProgressEntryPage = () => {
                   />
                 </div>
 
-                <div className="flex items-center gap-3 font-inter">
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0 font-inter">
                   {activeTab === 'delay' && (
-                    <select
-                      value={delayStatusFilter}
-                      onChange={(e) => setDelayStatusFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="DELAY">Delay</option>
-                      <option value="ON TRACK">On Track</option>
-                      <option value="COMPLETED">Completed</option>
-                      <option value="NOT STARTED">Not Started</option>
-                    </select>
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Status:</span>
+                      <select
+                        value={delayStatusFilter}
+                        onChange={(e) => setDelayStatusFilter(e.target.value)}
+                        className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-700 outline-none cursor-pointer font-inter"
+                      >
+                        <option value="all">ALL STATUSES</option>
+                        <option value="DELAY">DELAY</option>
+                        <option value="ON TRACK">ON TRACK</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                        <option value="NOT STARTED">NOT STARTED</option>
+                      </select>
+                    </div>
                   )}
                   {(activeTab === 'all' || activeTab === 'history') && (
-                    <div className="flex items-center gap-3 font-inter">
+                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0 font-inter">
                       {activeTab === 'all' && (
-                        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
-                          <Calendar className="w-4 h-4 text-blue-600" />
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                          <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
                           <input
                             type="date"
                             value={filterDate}
                             onChange={(e) => setFilterDate(e.target.value)}
-                            className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
+                            className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
                           />
                         </div>
                       )}
-                      <select
-                        value={selectedActivityId}
-                        onChange={(e) => setSelectedActivityId(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
-                      >
-                        <option value="all">All Activities</option>
-                        {activitiesList.map(a => (
-                          <option key={a.id} value={a.id}>{a.activity_name}</option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Activity:</span>
+                        <select
+                          value={selectedActivityId}
+                          onChange={(e) => setSelectedActivityId(e.target.value)}
+                          className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-700 outline-none cursor-pointer font-inter max-w-[160px] truncate"
+                        >
+                          <option value="all">ALL ACTIVITIES</option>
+                          {activitiesList.map(a => (
+                            <option key={a.id} value={a.id}>{a.activity_name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   )}
                 </div>

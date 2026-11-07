@@ -17,8 +17,8 @@ const statusBadge: Record<string, string> = {
   "ON_TRACK": "bg-emerald-100 text-emerald-600",
   "Delay": "bg-red-100 text-red-600",
   "DELAY": "bg-red-100 text-red-600",
-  "Completed": "bg-blue-100 text-blue-600",
-  "COMPLETED": "bg-blue-100 text-blue-600",
+  "Completed": "bg-emerald-100 text-emerald-700",
+  "COMPLETED": "bg-emerald-100 text-emerald-700",
   "Not Started": "bg-slate-100 text-slate-500",
   "NOT_STARTED": "bg-slate-100 text-slate-500"
 };
@@ -116,15 +116,13 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
       <div className="p-0 overflow-hidden">
         {/* Blue Header Section with responsive layout to prevent text overlaps */}
         <div className="bg-blue-600 p-6 sm:p-8 text-white">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xl sm:text-2xl font-black break-words break-all leading-snug">
-                {activity.activity_name}
-              </h3>
+          <div className="space-y-2 mb-6">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest max-w-full truncate" title={`BOQ: ${boqName}`}>
+              <span className="truncate">BOQ: {boqName}</span>
             </div>
-            <span className="self-start shrink-0 px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest break-all max-w-full">
-              BOQ: {boqName}
-            </span>
+            <h3 className="text-xl sm:text-2xl font-black [overflow-wrap:anywhere] leading-snug">
+              {activity.activity_name}
+            </h3>
           </div>
           <div className="space-y-2 pt-3 border-t border-white/10">
             <div className="flex items-center justify-between gap-4">
@@ -167,12 +165,12 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Activity Name</p>
-              <p className="text-sm font-bold text-slate-700 break-words break-all">{activity.activity_name}</p>
+              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{activity.activity_name}</p>
             </div>
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">BOQ Name / Code</p>
-              <p className="text-sm font-bold text-slate-700 break-words break-all">{boqName}</p>
+              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{boqName}</p>
             </div>
 
             <div>
@@ -206,11 +204,11 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
 
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order</p>
-              <p className="text-sm font-bold text-slate-700 break-words break-all">{workOrderName}</p>
+              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{workOrderName}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Engineer Name</p>
-              <p className="text-sm font-bold text-slate-700 break-words break-all">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
+              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
             </div>
           </div>
         </div>

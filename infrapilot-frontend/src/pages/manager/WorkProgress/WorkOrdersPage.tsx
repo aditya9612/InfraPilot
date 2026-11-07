@@ -27,6 +27,7 @@ const WorkOrdersPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedViewOrder, setSelectedViewOrder] = useState<WorkOrder | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -124,10 +125,41 @@ const WorkOrdersPage = () => {
       ...prev,
       [name]: ["project_id", "contractor_id", "total_quantity", "completed_quantity", "rate"].includes(name) ? (value === "" ? "" : Number(value)) : value
     }));
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
+  };
+
+  const validateWorkOrder = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.project_id) {
+      errors.project_id = "Project is required";
+    }
+    if (!formData.work_description || !String(formData.work_description).trim()) {
+      errors.work_description = "Work Description is required";
+    }
+    const totalQty = Number(formData.total_quantity);
+    if (formData.total_quantity === "" || formData.total_quantity === null || formData.total_quantity === undefined || isNaN(totalQty) || totalQty <= 0) {
+      errors.total_quantity = "Total Qty: Must be greater than 0.";
+    }
+    const rateVal = Number(formData.rate);
+    if (formData.rate === "" || formData.rate === null || formData.rate === undefined || isNaN(rateVal) || rateVal <= 0) {
+      errors.rate = "Rate (₹): Must be greater than 0.";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateWorkOrder()) {
+      toast.error("Please enter valid quantities and rates greater than 0");
+      return;
+    }
     try {
       const payload = { ...formData };
       if (!payload.contractor_id) payload.contractor_id = null;
@@ -135,13 +167,33 @@ const WorkOrdersPage = () => {
       toast.success("Work order created successfully");
       setIsCreateModalOpen(false);
       loadWorkOrders();
-    } catch (error) {
-      toast.error("Failed to create work order");
+    } catch (error: any) {
+      if (error?.response?.data?.detail && Array.isArray(error.response.data.detail)) {
+        const backendErrors: Record<string, string> = {};
+        error.response.data.detail.forEach((err: any) => {
+          const field = err.loc?.[err.loc.length - 1];
+          if (field) {
+            if (field === 'total_quantity') backendErrors.total_quantity = "Total Qty: Must be greater than 0.";
+            else if (field === 'rate') backendErrors.rate = "Rate (₹): Must be greater than 0.";
+            else backendErrors[field] = err.msg || "Invalid value";
+          }
+        });
+        if (Object.keys(backendErrors).length > 0) {
+          setFormErrors(backendErrors);
+          toast.error("Please resolve the validation errors");
+          return;
+        }
+      }
+      toast.error(error?.response?.data?.message || "Failed to create work order");
     }
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateWorkOrder()) {
+      toast.error("Please enter valid quantities and rates greater than 0");
+      return;
+    }
     try {
       if (!selectedOrder) return;
       const payload = { ...formData };
@@ -150,8 +202,24 @@ const WorkOrdersPage = () => {
       toast.success("Work order updated successfully");
       setIsEditModalOpen(false);
       loadWorkOrders();
-    } catch (error) {
-      toast.error("Failed to update work order");
+    } catch (error: any) {
+      if (error?.response?.data?.detail && Array.isArray(error.response.data.detail)) {
+        const backendErrors: Record<string, string> = {};
+        error.response.data.detail.forEach((err: any) => {
+          const field = err.loc?.[err.loc.length - 1];
+          if (field) {
+            if (field === 'total_quantity') backendErrors.total_quantity = "Total Qty: Must be greater than 0.";
+            else if (field === 'rate') backendErrors.rate = "Rate (₹): Must be greater than 0.";
+            else backendErrors[field] = err.msg || "Invalid value";
+          }
+        });
+        if (Object.keys(backendErrors).length > 0) {
+          setFormErrors(backendErrors);
+          toast.error("Please resolve the validation errors");
+          return;
+        }
+      }
+      toast.error(error?.response?.data?.message || "Failed to update work order");
     }
   };
 
@@ -169,6 +237,7 @@ const WorkOrdersPage = () => {
 
   const openEdit = (order: WorkOrder) => {
     setSelectedOrder(order);
+    setFormErrors({});
     setFormData({
       project_id: order.project_id,
       contractor_id: order.contractor_id,
@@ -200,13 +269,14 @@ const WorkOrdersPage = () => {
             </div>
             <button
               onClick={() => {
+                setFormErrors({});
                 setFormData({
                   project_id: projectId || (projects.length > 0 ? projects[0].id : 0),
                   contractor_id: contractors.length > 0 ? contractors[0].id : 0,
                   work_description: "",
-                  total_quantity: 0,
+                  total_quantity: "",
                   completed_quantity: 0,
-                  rate: 0,
+                  rate: "",
                   status: "Pending"
                 });
                 setIsCreateModalOpen(true);
@@ -400,11 +470,37 @@ const WorkOrdersPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty <span className="text-rose-500">*</span></label>
-                  <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  <input
+                    type="number"
+                    name="total_quantity"
+                    min="0.01"
+                    step="any"
+                    required
+                    value={formData.total_quantity}
+                    onChange={handleInputChange}
+                    className={`w-full bg-slate-50 border ${formErrors.total_quantity ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
+                    placeholder="e.g. 100"
+                  />
+                  {formErrors.total_quantity && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.total_quantity}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹) <span className="text-rose-500">*</span></label>
-                  <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  <input
+                    type="number"
+                    name="rate"
+                    min="0.01"
+                    step="any"
+                    required
+                    value={formData.rate}
+                    onChange={handleInputChange}
+                    className={`w-full bg-slate-50 border ${formErrors.rate ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
+                    placeholder="e.g. 500"
+                  />
+                  {formErrors.rate && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.rate}</p>
+                  )}
                 </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
@@ -426,33 +522,57 @@ const WorkOrdersPage = () => {
             </div>
             <form onSubmit={handleEdit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">contractor</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                   <option value="">Unassigned (Optional)</option>
                   {modalContractors.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">work_description <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Work Description <span className="text-rose-500">*</span></label>
                 <textarea name="work_description" required value={formData.work_description} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">total_quantity <span className="text-rose-500">*</span></label>
-                  <input type="number" name="total_quantity" required value={formData.total_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Qty <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    name="total_quantity"
+                    min="0.01"
+                    step="any"
+                    required
+                    value={formData.total_quantity}
+                    onChange={handleInputChange}
+                    className={`w-full bg-slate-50 border ${formErrors.total_quantity ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
+                  />
+                  {formErrors.total_quantity && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.total_quantity}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">completed_quantity <span className="text-rose-500">*</span></label>
-                  <input type="number" name="completed_quantity" required value={formData.completed_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Completed Qty</label>
+                  <input type="number" name="completed_quantity" min="0" step="any" value={formData.completed_quantity} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">rate <span className="text-rose-500">*</span></label>
-                  <input type="number" name="rate" required value={formData.rate} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rate (₹) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    name="rate"
+                    min="0.01"
+                    step="any"
+                    required
+                    value={formData.rate}
+                    onChange={handleInputChange}
+                    className={`w-full bg-slate-50 border ${formErrors.rate ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
+                  />
+                  {formErrors.rate && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.rate}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">status</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Status</label>
                   <select name="status" value={formData.status} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
                     <option value="Pending">Pending</option>
                     <option value="In Progress">In Progress</option>

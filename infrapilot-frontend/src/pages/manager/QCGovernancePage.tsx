@@ -113,7 +113,7 @@ const QCGovernancePage = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                    <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200">
                                         <th className="px-6 py-4">Inspection Type</th>
                                         <th className="px-6 py-4">Project / Site</th>
                                         <th className="px-6 py-4">Engineer</th>

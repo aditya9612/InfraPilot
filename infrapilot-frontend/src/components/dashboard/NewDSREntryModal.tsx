@@ -3,6 +3,7 @@ import Modal from "../common/Modal";
 import type { CreateDsrRequest } from "../../types/dsr";
 import { dsrService } from "../../services/dsrService";
 import { projectService } from "../../services/projectService";
+import { contractorService } from "../../services/contractorService";
 import toast from "react-hot-toast";
 import { X as XIcon, Upload, RotateCcw } from "lucide-react";
 
@@ -62,6 +63,7 @@ const NewDSREntryModal = ({
 
   const [projects, setProjects] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [contractors, setContractors] = useState<any[]>([]);
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, project_id: projectId }));
@@ -72,8 +74,19 @@ const NewDSREntryModal = ({
       projectService.getTasks(formData.project_id)
         .then(tData => setTasks(Array.isArray(tData) ? tData : (tData?.items || [])))
         .catch(e => console.error("Failed to load tasks", e));
+
+      contractorService.getContractorsByProject(formData.project_id)
+        .then(cList => {
+          const list = Array.isArray(cList) ? cList : [];
+          setContractors(list);
+          if (list.length > 0 && (!formData.contractor_id || !list.find((c: any) => c.id === formData.contractor_id))) {
+            setFormData(prev => ({ ...prev, contractor_id: list[0].id }));
+          }
+        })
+        .catch(e => console.error("Failed to load contractors for DSR", e));
     } else {
       setTasks([]);
+      setContractors([]);
     }
   }, [isOpen, formData.project_id]);
 
@@ -165,9 +178,13 @@ const NewDSREntryModal = ({
   const validate = () => {
     const errs: Record<string, string> = {};
     const missingFields: string[] = [];
+    const todayDate = new Date().toISOString().split("T")[0];
     if (!formData.report_date) {
       errs.report_date = "Required";
       missingFields.push("Report Date");
+    } else if (formData.report_date > todayDate) {
+      errs.report_date = "Future dates not allowed";
+      missingFields.push("Report Date (future dates not allowed)");
     }
     if (!formData.work_done || !formData.work_done.trim()) {
       errs.work_done = "Required";
@@ -380,12 +397,32 @@ const NewDSREntryModal = ({
             </div>
             <div>
               <label className={labelClasses}>Report Date <span className="text-rose-500">*</span></label>
-              <input type="date" name="report_date" value={formData.report_date} onChange={handleChange} className={inputClasses(errors.report_date)} />
+              <input type="date" name="report_date" max={new Date().toISOString().split("T")[0]} value={formData.report_date} onChange={handleChange} className={inputClasses(errors.report_date)} />
               {errors.report_date && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
             </div>
             <div>
-              <label className={labelClasses}>Contractor ID</label>
-              <input type="number" name="contractor_id" value={formData.contractor_id} onChange={handleChange} className={inputClasses(errors.contractor_id)} />
+              <label className={labelClasses}>Contractor Name</label>
+              {contractors.length > 0 ? (
+                <select
+                  name="contractor_id"
+                  value={formData.contractor_id || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contractor_id: Number(e.target.value) || 1 }))}
+                  className={inputClasses(errors.contractor_id)}
+                >
+                  {contractors.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || `Contractor #${c.id}`}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  readOnly
+                  value={formData.contractor_id ? `Contractor #${formData.contractor_id}` : "Default Contractor"}
+                  className={`${inputClasses()} bg-slate-50 cursor-not-allowed text-slate-600 font-medium`}
+                />
+              )}
               {errors.contractor_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.contractor_id}</p>}
             </div>
             <div>

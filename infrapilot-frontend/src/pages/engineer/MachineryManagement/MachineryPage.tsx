@@ -799,8 +799,10 @@ const MachineryPage = () => {
         e.preventDefault();
 
         const form = e.target as HTMLFormElement;
-        if (!form.checkValidity()) {
-            const missingFields = getMissingFields(form);
+        const missing: string[] = [];
+        if (!formData.project_id && !selectedProjectId) missing.push('TARGET PROJECT');
+        if (!form.checkValidity() || missing.length > 0) {
+            const missingFields = [...getMissingFields(form), ...missing];
             setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
@@ -866,8 +868,11 @@ const MachineryPage = () => {
         e.preventDefault();
 
         const form = e.target as HTMLFormElement;
-        if (!form.checkValidity()) {
-            const missingFields = getMissingFields(form);
+        const missing: string[] = [];
+        if (!formData.equipment_id) missing.push('SELECT EQUIPMENT');
+        if (!formData.project_id) missing.push('TARGET PROJECT');
+        if (!form.checkValidity() || missing.length > 0) {
+            const missingFields = [...getMissingFields(form), ...missing];
             setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
@@ -1436,7 +1441,7 @@ const MachineryPage = () => {
                         <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
                                 <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Project</th>
+                                <th className="px-6 py-4 border-b border-slate-200 min-w-[170px]">Project Name</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Ownership</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Operator</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Usage</th>
@@ -1450,29 +1455,33 @@ const MachineryPage = () => {
                                 <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-6 py-3">
                                         <p className="font-bold text-sm text-slate-800 truncate max-w-[260px]" title={item.equipment_name}>{item.equipment_name}</p>
-                                        <p className="text-xs text-slate-500">{item.equipment_code}</p>
                                     </td>
-                                    <td className="px-6 py-3">
-                                        {item.project_id ? (
-                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-blue-100 text-blue-700">
-                                                {projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `PRJ-${item.project_id}`}
-                                            </span>
-                                        ) : (
-                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600">
-                                                Not Allocated
-                                            </span>
-                                        )}
+                                    <td className="px-6 py-3 min-w-[170px] whitespace-nowrap">
+                                        {(() => {
+                                            const pName = (item as any).project_name || (item as any).project?.project_name || (item as any).project?.name || (item.project_id ? (projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `PRJ-${item.project_id}`) : null);
+                                            return pName ? (
+                                                <span className="inline-block px-2.5 py-1 text-[10px] font-bold rounded-lg bg-blue-100 text-blue-700 whitespace-nowrap" title={pName}>
+                                                    {pName}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-block px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600 whitespace-nowrap">
+                                                    Not Allocated
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
-                                    <td className="px-6 py-3">
-                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase ${item.condition === 'RENTED' ? 'bg-purple-100 text-purple-700' :
-                                            item.condition === 'OWNED' ? 'bg-blue-100 text-blue-700' :
-                                                item.condition === 'IN_PROJECT' ? 'bg-blue-100 text-blue-700' :
-                                                    item.condition === 'MAINTENANCE' ? 'bg-amber-100 text-amber-700' :
-                                                        item.condition === 'AVAILABLE' ? 'bg-slate-100 text-slate-600' :
-                                                            'bg-slate-100 text-slate-600'
-                                            }`}>
-                                            {item.condition || 'N/A'}
-                                        </span>
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                        {(() => {
+                                            const rawOwnership = (item as any).ownership || (item as any).ownership_type || (item.rental_cost && Number(item.rental_cost) > 0 ? 'RENTED' : 'OWNED');
+                                            const isRented = String(rawOwnership).toUpperCase().includes('RENT');
+                                            return (
+                                                <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border ${
+                                                    isRented ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                                                }`}>
+                                                    {isRented ? 'RENTED' : 'OWNED'}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-3 text-sm text-slate-900">{item.operator_name}</td>
                                     <td className="px-6 py-3 text-sm text-slate-900">
@@ -2417,18 +2426,42 @@ const MachineryPage = () => {
                         </p>
                     </div>
                     {activeTab !== "Reports" && (
-                        <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
-                            <select
-                                value={selectedProjectId || ""}
-                                onChange={handleProjectChange}
-                                className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
-                            >
-                                <option value="">All Projects</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
+                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-200 rounded-xl shadow-sm relative z-30">
+                            <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Active Project:</span>
+                            <div className="w-56">
+                                <CustomSelect
+                                    value={selectedProjectId || ""}
+                                    onChange={(val) => {
+                                        const newProjectId = val ? Number(val) : null;
+                                        setSelectedProjectId(newProjectId);
+                                        if (newProjectId) {
+                                            try {
+                                                const userStr = localStorage.getItem("infrapilot_user");
+                                                if (userStr) {
+                                                    const parsed = JSON.parse(userStr);
+                                                    const selectedProjObj = projects.find(p => Number(p.id) === newProjectId);
+                                                    parsed.project_id = newProjectId;
+                                                    parsed.project_name = selectedProjObj ? (selectedProjObj.project_name || selectedProjObj.name) : `Project #${newProjectId}`;
+                                                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                                                }
+                                            } catch (e) {
+                                                console.error("Error updating local storage project", e);
+                                            }
+                                        }
+                                        setRefreshTrigger(prev => prev + 1);
+                                    }}
+                                    options={[
+                                        { id: "", label: "All Projects" },
+                                        ...projects.map(p => ({
+                                            id: p.id,
+                                            label: p.project_name || p.name || `Project ${p.id}`
+                                        }))
+                                    ]}
+                                    placeholder="All Projects"
+                                    searchable={projects.length > 5}
+                                    maxHeight="max-h-48"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
@@ -2523,9 +2556,8 @@ const MachineryPage = () => {
                             {allocationStatus.allocated ? <Link2 className="w-5 h-5 text-blue-500" /> : <ShieldCheck className="w-5 h-5 text-emerald-500" />}
                         </div>
 
-                        <div className="flex gap-3">
-                            <button onClick={() => setIsViewModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest">Close</button>
-                            <button onClick={() => { setIsViewModalOpen(false); setFormData(selectedEquipment); setIsEquipmentModalOpen(true); }} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest">Edit Details</button>
+                        <div>
+                            <button onClick={() => setIsViewModalOpen(false)} className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Close</button>
                         </div>
                     </div>
                 )}
@@ -2540,19 +2572,20 @@ const MachineryPage = () => {
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT NAME <span className="text-red-600">*</span></label>
                             <input type="text" readOnly value={selectedEquipment?.equipment_name || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-medium cursor-not-allowed" />
                         </div>
-                        <div>
+                        <div className="relative z-20">
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
-                            <select
-                                required
-                                value={formData.project_id || ''}
-                                onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}
-                            >
-                                <option value="">-- Select project to allocate --</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
+                            <CustomSelect
+                                value={formData.project_id ? String(formData.project_id) : ""}
+                                onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
+                                options={projects.map(p => ({
+                                    id: String(p.id),
+                                    label: p.project_name || p.name || `Project #${p.id}`
+                                }))}
+                                placeholder="-- Select project to allocate --"
+                                maxHeight="max-h-48"
+                                searchable={projects.length > 5}
+                                error={formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT')}
+                            />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div className="flex justify-end gap-3 mt-8">
@@ -2679,12 +2712,20 @@ const MachineryPage = () => {
             <Modal isOpen={isRentalModalOpen} onClose={() => { setFormNotification(null); setIsRentalModalOpen(false); }} title={formData.id ? "Edit Rental" : "Add Rental Record"} maxWidth="max-w-md">
                 <form onSubmit={handleSaveRental} noValidate className="p-6 font-inter space-y-4">
                     {renderFormNotification()}
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ''} onChange={(e) => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
-                            <option value="">-- Choose equipment --</option>
-                            {equipmentList.filter(eq => (!eq.project_id && (eq as any).status?.toUpperCase() !== 'MAINTENANCE') || eq.id === formData.equipment_id).map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
-                        </select>
+                    <div className="relative z-30">
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">EQUIPMENT <span className="text-red-600">*</span></label>
+                        <CustomSelect
+                            value={formData.equipment_id ? String(formData.equipment_id) : ""}
+                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : undefined })}
+                            options={equipmentList.filter(eq => (!eq.project_id && (eq as any).status?.toUpperCase() !== 'MAINTENANCE') || eq.id === formData.equipment_id).map(eq => ({
+                                id: String(eq.id),
+                                label: `${eq.equipment_name} (${eq.equipment_code})`
+                            }))}
+                            placeholder="-- Choose equipment --"
+                            maxHeight="max-h-48"
+                            searchable={equipmentList.length > 5}
+                            error={formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT')}
+                        />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -2708,12 +2749,19 @@ const MachineryPage = () => {
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">CLIENT NAME</label>
                         <input type="text" value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">PROJECT (OPTIONAL)</label>
-                        <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
-                            <option value="">-- Select Project --</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.project_name || p.name}</option>)}
-                        </select>
+                    <div className="relative z-20">
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">PROJECT (OPTIONAL)</label>
+                        <CustomSelect
+                            value={formData.project_id ? String(formData.project_id) : ""}
+                            onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
+                            options={projects.map(p => ({
+                                id: String(p.id),
+                                label: p.project_name || p.name || `Project #${p.id}`
+                            }))}
+                            placeholder="-- Select Project --"
+                            maxHeight="max-h-48"
+                            searchable={projects.length > 5}
+                        />
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ ITEM (OPTIONAL)</label>
@@ -2989,24 +3037,36 @@ const MachineryPage = () => {
             <Modal isOpen={isTransferModalOpen} onClose={() => { setFormNotification(null); setIsTransferModalOpen(false); }} title="Transfer Equipment" maxWidth="max-w-md">
                 <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5">
                     {renderFormNotification()}
-                    <div>
+                    <div className="relative z-30">
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
-                        <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className={`w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
-                            <option value="" disabled>-- Choose equipment --</option>
-                            {equipmentList.filter(eq => eq.project_id).map(eq => (
-                                <option key={eq.id} value={eq.id}>{eq.equipment_name} - {eq.equipment_code}</option>
-                            ))}
-                        </select>
+                        <CustomSelect
+                            value={formData.equipment_id ? String(formData.equipment_id) : ""}
+                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : undefined })}
+                            options={equipmentList.filter(eq => eq.project_id).map(eq => ({
+                                id: String(eq.id),
+                                label: `${eq.equipment_name} - ${eq.equipment_code}`
+                            }))}
+                            placeholder="-- Choose equipment --"
+                            maxHeight="max-h-48"
+                            searchable={equipmentList.length > 5}
+                            error={formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT')}
+                        />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
-                    <div>
+                    <div className="relative z-20">
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
-                        <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className={`w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') ? "!border-rose-500 !bg-rose-50" : ""}`}>
-                            <option value="" disabled>-- Select target project --</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                            ))}
-                        </select>
+                        <CustomSelect
+                            value={formData.project_id ? String(formData.project_id) : ""}
+                            onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
+                            options={projects.map(p => ({
+                                id: String(p.id),
+                                label: p.project_name || p.name || `Project #${p.id}`
+                            }))}
+                            placeholder="-- Select target project --"
+                            maxHeight="max-h-48"
+                            searchable={projects.length > 5}
+                            error={formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT')}
+                        />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         <p className="text-[10px] text-slate-400 mt-2 ml-1">Equipment will be moved to the selected project.</p>
                     </div>

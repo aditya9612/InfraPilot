@@ -380,8 +380,9 @@ const DailyProgressEntryPage = () => {
       if (activeTab === 'today') loadTodayProgress();
       else loadAllEntries();
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || "Failed to update daily entry";
+      const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "Failed to update daily entry";
       toast.error(detail);
+      throw err;
     }
   };
 
@@ -676,10 +677,10 @@ const DailyProgressEntryPage = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
             {activeTab !== 'summary' && (
-              <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white font-inter w-full">
+              <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white font-inter w-full">
 
                 {/* 1. Search Box */}
-                <div className="relative flex-1 min-w-[200px] max-w-md font-inter shrink-0">
+                <div className="relative flex-1 min-w-[220px] max-w-md font-inter">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                     <Search className="w-4 h-4" />
                   </span>
@@ -692,65 +693,70 @@ const DailyProgressEntryPage = () => {
                   />
                 </div>
 
-                {/* 2. Date Filter */}
-                {activeTab === 'all' && (
+                {/* Filter Dropdowns Grouped Consistently */}
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
+                  {/* 2. Date Filter */}
+                  {activeTab === 'all' && (
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                      <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                      <input
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
+                      />
+                    </div>
+                  )}
+
+                  {/* 3. Project Filter */}
                   <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
-                    <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
-                    />
-                  </div>
-                )}
-
-                {/* 3. Project Filter */}
-                <div className="flex items-center gap-2 font-inter shrink-0">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden xl:inline-block">Project:</span>
-                  <select
-                    value={projectId || ""}
-                    onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter shadow-sm max-w-[150px] truncate"
-                  >
-                    {projectsList.length > 1 && <option value="">ALL ASSIGNED PROJECTS</option>}
-                    {projectsList.map(p => (
-                      <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 4. All Activity Filter */}
-                {(activeTab === 'all' || activeTab === 'history') && (
-                  <div className="flex items-center gap-2 font-inter shrink-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Project:</span>
                     <select
-                      value={selectedActivityId}
-                      onChange={(e) => setSelectedActivityId(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
+                      value={projectId || ""}
+                      onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
+                      className="bg-transparent text-[10px] font-bold text-slate-700 outline-none cursor-pointer uppercase tracking-widest font-inter max-w-[160px] truncate"
                     >
-                      <option value="all">ALL ACTIVITIES</option>
-                      {activitiesList.map(a => (
-                        <option key={a.id} value={a.id}>{a.activity_name}</option>
+                      {projectsList.length > 1 && <option value="">ALL ASSIGNED PROJECTS</option>}
+                      {projectsList.map(p => (
+                        <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
                       ))}
                     </select>
                   </div>
-                )}
 
-                {/* 5. Status Filter */}
-                {activeTab === 'all' && (
-                  <div className="flex items-center gap-2 font-inter shrink-0">
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
-                    >
-                      <option value="all">ALL STATUS</option>
-                      <option value="ON_TRACK">ON TRACK</option>
-                      <option value="DELAY">DELAY</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                    </select>
-                  </div>
-                )}
+                  {/* 4. All Activity Filter */}
+                  {(activeTab === 'all' || activeTab === 'history') && (
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Activity:</span>
+                      <select
+                        value={selectedActivityId}
+                        onChange={(e) => setSelectedActivityId(e.target.value)}
+                        className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-700 outline-none cursor-pointer font-inter max-w-[160px] truncate"
+                      >
+                        <option value="all">ALL ACTIVITIES</option>
+                        {activitiesList.map(a => (
+                          <option key={a.id} value={a.id}>{a.activity_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* 5. Status Filter */}
+                  {activeTab === 'all' && (
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Status:</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-700 outline-none cursor-pointer font-inter max-w-[130px] truncate"
+                      >
+                        <option value="all">ALL STATUS</option>
+                        <option value="ON_TRACK">ON TRACK</option>
+                        <option value="DELAY">DELAY</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
 
               </div>
             )}
