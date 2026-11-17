@@ -65,7 +65,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
             default_daily_wage: initialData.default_daily_wage ?? "",
             default_working_hours: initialData.default_working_hours ?? "",
             default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? "",
-            skill_category: initialData.skill_category ?? "",
+            skill_category: initialData.skill_category ? initialData.skill_category.replace(/\s+/g, "") : "",
             is_active: initialData.is_active ?? true,
             type: "Labour"
         };
@@ -130,7 +130,8 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
         }
 
         setErrors({});
-        onSubmit(formData);
+        const payload = { ...formData, skill_category: formData.skill_category ? formData.skill_category.replace(/\s+/g, "") : formData.skill_category };
+        onSubmit(payload);
     };
 
     const modalFooter = (
@@ -266,7 +267,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                             >
                                 <option value="" disabled>Select Category</option>
                                 <option value="Unskilled">Unskilled</option>
-                                <option value="Semi Skilled">Semi Skilled</option>
+                                <option value="SemiSkilled">Semi Skilled</option>
                                 <option value="Skilled">Skilled</option>
                             </select>
                             {errors.skill_category && <p className="text-[10px] text-rose-500 font-bold ml-1 mt-1 uppercase tracking-wider font-inter">REQUIRED</p>}

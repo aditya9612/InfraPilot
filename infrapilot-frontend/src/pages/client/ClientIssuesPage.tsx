@@ -4,7 +4,7 @@ import Modal from "../../components/common/Modal";
 import { issueService } from "../../services/issueService";
 import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, FileSpreadsheet, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ClientIssuesPage = () => {
@@ -16,6 +16,8 @@ const ClientIssuesPage = () => {
   const [fetchingDetail, setFetchingDetail] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -353,7 +355,7 @@ const ClientIssuesPage = () => {
 
             {/* Create Issue Button */}
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => { setFormErrors({}); setApiError(null); setIsCreateModalOpen(true); }}
               className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 font-inter"
             >
               <Plus className="w-5 h-5 font-inter" />
@@ -743,25 +745,42 @@ const ClientIssuesPage = () => {
       </Modal>
 
 
-      <Modal
+            <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title="Create Issue"
         maxWidth="max-w-2xl"
       >
         <div className="pt-2">
-          <form onSubmit={handleCreateIssue} className="space-y-6">
+          {apiError && (
+            <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm mb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-rose-100 rounded-lg text-rose-600">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-rose-800 uppercase tracking-wider font-inter">Validation Error</h4>
+                  <p className="text-xs font-bold text-rose-600 mt-0.5 font-inter">{apiError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleCreateIssue} noValidate className="space-y-6">
             {/* Project Section */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Project</h4>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h4 className="text-sm font-black text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 font-inter">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full inline-block"></span>
+                Project
+              </h4>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                  PROJECT <span className="text-red-500">*</span>
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
+                  PROJECT <span className="text-red-500 font-bold">*</span>
                 </label>
                 <div className="relative group">
                   <select
                     disabled
-                    className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-not-allowed font-inter"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-not-allowed font-inter"
                   >
                     <option>{projectName}</option>
                   </select>
@@ -771,33 +790,54 @@ const ClientIssuesPage = () => {
             </div>
 
             {/* Issue Details Section */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Issue Details</h4>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h4 className="text-sm font-black text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 font-inter">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full inline-block"></span>
+                Issue Details
+              </h4>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                    TITLE <span className="text-red-500">*</span>
+                  <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1 font-inter">
+                    TITLE <span className="text-red-500 font-bold">*</span>
                   </label>
                   <input
-                    required
                     type="text"
                     value={newIssue.title}
-                    onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
+                    onChange={(e) => {
+                      setNewIssue({ ...newIssue, title: e.target.value });
+                      if (formErrors.title) setFormErrors(prev => ({ ...prev, title: "" }));
+                      if (apiError) setApiError(null);
+                    }}
                     placeholder="e.g. Sand delivery delay"
-                    className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all font-inter"
+                    className={`w-full bg-slate-50/50 border ${
+                      formErrors.title
+                        ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-1 focus:ring-rose-200"
+                        : "border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                    } rounded-xl py-3 px-5 text-sm font-bold text-slate-900 outline-none transition-all font-inter placeholder:font-normal placeholder:text-slate-400`}
                   />
+                  {formErrors.title && (
+                    <p className="text-xs font-bold text-rose-500 mt-1 flex items-center gap-1 font-inter">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                      {formErrors.title}
+                    </p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                      CATEGORY <span className="text-red-500">*</span>
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
+                      CATEGORY <span className="text-red-500 font-bold">*</span>
                     </label>
                     <div className="relative">
                       <select
                         value={newIssue.category}
-                        onChange={(e) => setNewIssue({ ...newIssue, category: e.target.value })}
-                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                        onChange={(e) => {
+                          setNewIssue({ ...newIssue, category: e.target.value });
+                          if (formErrors.category) setFormErrors(prev => ({ ...prev, category: "" }));
+                        }}
+                        className={`w-full bg-slate-50/50 border ${
+                          formErrors.category ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
+                        } rounded-xl py-3 px-5 text-sm font-bold text-slate-800 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter`}
                       >
                         <option value="Material">Material</option>
                         <option value="Safety">Safety</option>
@@ -805,16 +845,27 @@ const ClientIssuesPage = () => {
                       </select>
                       <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
+                    {formErrors.category && (
+                      <p className="text-xs font-bold text-rose-500 mt-1 flex items-center gap-1 font-inter">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                        {formErrors.category}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                      PRIORITY <span className="text-red-500">*</span>
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
+                      PRIORITY <span className="text-red-500 font-bold">*</span>
                     </label>
                     <div className="relative">
                       <select
                         value={newIssue.priority}
-                        onChange={(e) => setNewIssue({ ...newIssue, priority: e.target.value })}
-                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                        onChange={(e) => {
+                          setNewIssue({ ...newIssue, priority: e.target.value });
+                          if (formErrors.priority) setFormErrors(prev => ({ ...prev, priority: "" }));
+                        }}
+                        className={`w-full bg-slate-50/50 border ${
+                          formErrors.priority ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
+                        } rounded-xl py-3 px-5 text-sm font-bold text-slate-800 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter`}
                       >
                         <option value="Low">Low</option>
                         <option value="Medium">Medium</option>
@@ -823,32 +874,48 @@ const ClientIssuesPage = () => {
                       </select>
                       <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
+                    {formErrors.priority && (
+                      <p className="text-xs font-bold text-rose-500 mt-1 flex items-center gap-1 font-inter">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                        {formErrors.priority}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
-                      REPORTED DATE <span className="text-red-500">*</span>
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
+                      REPORTED DATE <span className="text-red-500 font-bold">*</span>
                     </label>
                     <input
-                      required
                       type="date"
                       value={newIssue.reported_date}
                       max={new Date().toISOString().split('T')[0]}
-                      onChange={(e) => setNewIssue({ ...newIssue, reported_date: e.target.value })}
-                      className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none hover:bg-white transition-all font-inter"
+                      onChange={(e) => {
+                        setNewIssue({ ...newIssue, reported_date: e.target.value });
+                        if (formErrors.reported_date) setFormErrors(prev => ({ ...prev, reported_date: "" }));
+                      }}
+                      className={`w-full bg-slate-50/50 border ${
+                        formErrors.reported_date ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
+                      } rounded-xl py-3 px-5 text-sm font-bold text-slate-800 outline-none hover:bg-white transition-all font-inter`}
                     />
+                    {formErrors.reported_date && (
+                      <p className="text-xs font-bold text-rose-500 mt-1 flex items-center gap-1 font-inter">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                        {formErrors.reported_date}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
                       ASSIGNED TO
                     </label>
                     <div className="relative">
                       <select
                         value={newIssue.assigned_to}
                         onChange={(e) => setNewIssue({ ...newIssue, assigned_to: e.target.value })}
-                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                        className="w-full bg-slate-50/50 border border-slate-200 rounded-xl py-3 px-5 text-sm font-bold text-slate-800 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
                       >
                         <option value="">Unassigned</option>
                         {projectMembers.map((member) => (
@@ -865,10 +932,13 @@ const ClientIssuesPage = () => {
             </div>
 
             {/* Description Section */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Description</h4>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h4 className="text-sm font-black text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 font-inter">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full inline-block"></span>
+                Description
+              </h4>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
                   DESCRIPTION
                 </label>
                 <textarea
@@ -876,16 +946,19 @@ const ClientIssuesPage = () => {
                   value={newIssue.description}
                   onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
                   placeholder="Describe the issue in detail..."
-                  className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter"
+                  className="w-full bg-slate-50/50 border border-slate-200 rounded-xl py-4 px-5 text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter placeholder:font-normal placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             {/* Resolution Section */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Resolution</h4>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h4 className="text-sm font-black text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 font-inter">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full inline-block"></span>
+                Resolution
+              </h4>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1 font-inter">
                   RESOLUTION
                 </label>
                 <textarea
@@ -893,7 +966,7 @@ const ClientIssuesPage = () => {
                   value={newIssue.resolution}
                   onChange={(e) => setNewIssue({ ...newIssue, resolution: e.target.value })}
                   placeholder="Details of how the issue will be or was resolved (optional)..."
-                  className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter"
+                  className="w-full bg-slate-50/50 border border-slate-200 rounded-xl py-4 px-5 text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter placeholder:font-normal placeholder:text-slate-400"
                 />
               </div>
             </div>

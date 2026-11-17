@@ -58,13 +58,11 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
     return member ? member.full_name : `User ${id}`;
   };
 
-  const priorityBadges: Record<any, string> = {
-    HIGH: "bg-rose-500 text-white",
-    MEDIUM: "bg-amber-500 text-white",
-    LOW: "bg-blue-500 text-white",
-    1: "bg-rose-500 text-white",
-    2: "bg-amber-500 text-white",
-    3: "bg-blue-500 text-white",
+  const getPriorityBadgeClass = (priority: any): string => {
+    const p = String(priority || '').trim().toUpperCase();
+    if (p === 'HIGH' || p === '1' || p === 'CRITICAL' || p === '4') return 'bg-rose-500 text-white';
+    if (p === 'MEDIUM' || p === '2') return 'bg-blue-500 text-white';
+    return 'bg-emerald-500 text-white'; // Low = Green
   };
 
   return (
@@ -95,7 +93,7 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
                   {task.description && task.description !== "null" ? task.description : "-"}
                 </td>
                 <td className="p-4 text-center block md:table-cell">
-                  <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority] || 'bg-slate-500 text-white'}`}>
+                  <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${getPriorityBadgeClass(task.priority)}`}>
                     {typeof task.priority === 'number' ? (task.priority === 1 ? 'HIGH' : task.priority === 2 ? 'MEDIUM' : 'LOW') : (task.priority || 'LOW')}
                   </span>
                 </td>

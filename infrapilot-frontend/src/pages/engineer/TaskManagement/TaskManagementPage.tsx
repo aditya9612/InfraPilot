@@ -225,7 +225,13 @@ const TaskManagementPage = () => {
     useEffect(() => {
         if (selectedEditTask) {
              setEditFormState({
-                 priority: selectedEditTask.priority === "CRITICAL" ? 4 : selectedEditTask.priority === "HIGH" ? 1 : selectedEditTask.priority === "MEDIUM" ? 2 : 3,
+                 priority: (() => {
+                     const p = String(selectedEditTask.priority || '').toUpperCase();
+                     if (p === 'CRITICAL' || p === '4') return 'Critical';
+                     if (p === 'HIGH' || p === '1') return 'High';
+                     if (p === 'MEDIUM' || p === '2') return 'Medium';
+                     return 'Low';
+                 })(),
                  status: selectedEditTask.status || '',
                  assigned_user_ids: selectedEditTask.assigned_user_id?.toString() || '',
                  activity_type_id: selectedEditTask.activity_type_id?.toString() || '',
@@ -616,7 +622,10 @@ const TaskManagementPage = () => {
         const descStr = formData.get('description') as string;
         if (descStr) payload.append('description', descStr);
 
-        payload.append('priority', String(parseInt(formData.get('priority') as string) || 1));
+        const rawPriority = (formData.get('priority') as string) || (editFormState.priority as string) || 'Medium';
+        const pUp = String(rawPriority).trim().toUpperCase();
+        const finalPriority = (pUp === 'HIGH' || pUp === '1') ? 'High' : (pUp === 'LOW' || pUp === '3') ? 'Low' : (pUp === 'CRITICAL' || pUp === '4') ? 'Critical' : 'Medium';
+        payload.append('priority', finalPriority);
 
         const startDateStr = formData.get('start_date') as string;
         if (startDateStr) payload.append('start_date', startDateStr);
@@ -2675,7 +2684,7 @@ const TaskManagementPage = () => {
 
                             <div>
                                 <CustomSelect
-                                    label="Activity Type ID"
+                                    label="Activity Type"
                                     icon={ActivityIcon}
                                     value={editFormState.activity_type_id}
                                     onChange={(val: any) => handleSelectChange('activity_type_id', val)}
@@ -2695,7 +2704,7 @@ const TaskManagementPage = () => {
 
                             <div>
                                 <CustomSelect
-                                    label="Milestone ID"
+                                    label="Milestone"
                                     icon={CheckCircle}
                                     value={editFormState.milestone_id}
                                     onChange={(val: any) => handleSelectChange('milestone_id', val)}
@@ -2715,7 +2724,7 @@ const TaskManagementPage = () => {
 
                             <div>
                                 <CustomSelect
-                                    label="BOQ ID"
+                                    label="BOQ Item"
                                     icon={ListTodo}
                                     value={editFormState.boq_id}
                                     onChange={(val: any) => handleSelectChange('boq_id', val)}

@@ -383,7 +383,35 @@ const LabourDashboard: React.FC = () => {
                         progress: Math.round(progVal)
                     };
                 });
-                setTasks(mappedTasks);
+                // Sort tasks: newest assigned/updated first
+                const sortedTasks = [...mappedTasks].sort((a: any, b: any) => {
+                    const timeA = new Date(a.updated_at || a.created_at || a.startDate || 0).getTime();
+                    const timeB = new Date(b.updated_at || b.created_at || b.startDate || 0).getTime();
+                    if (timeA !== timeB) return timeB - timeA;
+                    const idA = Number(String(a.id).replace(/\D/g, '')) || 0;
+                    const idB = Number(String(b.id).replace(/\D/g, '')) || 0;
+                    return idB - idA;
+                });
+                setTasks(sortedTasks);
+
+                // Synthesize recent activities with newly assigned tasks displayed at top
+                const rawActivities = d.recent_activity || d.recent_activities || [];
+                const apiActivities = rawActivities.map((a: any) => ({
+                    title: a.title || a.type || a.activity_type || 'Activity',
+                    description: a.description || a.message || a.details || '',
+                    time: a.time || a.created_at || a.timestamp || '',
+                    rawTime: new Date(a.time || a.created_at || a.timestamp || 0).getTime()
+                }));
+
+                const taskActivities = sortedTasks.map((t: any) => ({
+                    title: `Task Assigned: ${t.name}`,
+                    description: `Assigned by ${t.assignedFrom || 'Site Engineer'} • ${t.project} • ${t.status}`,
+                    time: t.updated_at || t.created_at || t.startDate || new Date().toISOString(),
+                    rawTime: new Date(t.updated_at || t.created_at || t.startDate || Date.now()).getTime()
+                }));
+
+                const combinedActivities = [...taskActivities, ...apiActivities].sort((a, b) => (b.rawTime || 0) - (a.rawTime || 0));
+                setRecentActivities(combinedActivities);
 
                 // ── Project fallback if needed ──
                 if (!resolvedProjectName && selectedPid) {

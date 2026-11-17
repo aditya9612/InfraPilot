@@ -219,6 +219,9 @@ const MasterDataPage = () => {
 
       // Clean data for API - remove frontend-only fields and read-only metadata
       const { type, system_tag, id, unique_code, unit_name, created_at, updated_at, ...apiData } = data;
+      if (apiData.skill_category) {
+        apiData.skill_category = String(apiData.skill_category).replace(/\s+/g, '');
+      }
 
       if (editingItem) {
         await masterService.updateEntity(entityType, editingItem.id, apiData);

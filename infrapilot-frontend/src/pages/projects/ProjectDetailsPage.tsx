@@ -244,6 +244,21 @@ const ProjectDetailsPage = () => {
     fetchProjectData();
   }, [fetchProjectData]);
 
+  // Re-fetch task requests on-demand when Task Requests tab is activated
+  useEffect(() => {
+    if (activeTab === "Task Requests" && projectId) {
+      setIsLoadingTaskRequests(true);
+      projectService.getTaskRequests({ project_id: projectId, limit: 100, page_size: 100 })
+        .then((trData: any) => {
+          setTaskRequests(Array.isArray(trData) ? trData : (trData?.items || trData?.data || []));
+        })
+        .catch(err => {
+          console.warn("Task Requests Load Failure:", err);
+        })
+        .finally(() => setIsLoadingTaskRequests(false));
+    }
+  }, [activeTab, projectId]);
+
   // Re-fetch logs on-demand when Logs tab is activated
   useEffect(() => {
     if (activeTab === "Logs" && projectId) {

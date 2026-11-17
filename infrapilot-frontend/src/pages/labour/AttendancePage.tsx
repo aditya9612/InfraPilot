@@ -993,9 +993,15 @@ const AttendancePage: React.FC = () => {
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                                    {filteredRecords.length > 0 ? `Page ${currentPage} of ${totalPages} • Sorted by Date (Latest First)` : 'Sorted by Date (Latest First)'}
-                                </p>
+                                {filteredRecords.length > 1 ? (
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                                        Page {currentPage} of {totalPages} • Sorted by Date (Latest First)
+                                    </p>
+                                ) : filteredRecords.length === 1 ? (
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                                        Page {currentPage} of {totalPages}
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
                     </div>

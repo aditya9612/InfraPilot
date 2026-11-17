@@ -15,6 +15,7 @@ import {
     RotateCcw
 } from "lucide-react";
 import Modal from "../../../components/common/Modal";
+import { CustomSelect } from "../../../components/common/CustomDropdown";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 
 const conditionDisplay: Record<string, string> = {
@@ -102,12 +103,20 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             {isViewOnly ? (
                                 <input type="text" readOnly value={projects.find(p => p.id === formData.project_id)?.project_name || projects.find(p => p.id === formData.project_id)?.name || "No Project (Unassigned)"} className={inputClasses} />
                             ) : (
-                                <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null })} className={inputClasses}>
-                                    <option value="">No Project (Unassigned)</option>
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.project_name || p.name || `Project ${p.id}`}</option>
-                                    ))}
-                                </select>
+                                <CustomSelect
+                                    value={formData.project_id || ''}
+                                    onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : null })}
+                                    options={[
+                                        { id: '', label: 'No Project (Unassigned)' },
+                                        ...projects.map(p => ({
+                                            id: p.id,
+                                            label: p.project_name || p.name || `Project ${p.id}`
+                                        }))
+                                    ]}
+                                    placeholder="No Project (Unassigned)"
+                                    searchable={projects.length > 5}
+                                    maxHeight="max-h-48"
+                                />
                             )}
                         </div>
                         <div>

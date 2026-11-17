@@ -718,16 +718,13 @@ const ClientDocumentsPage = () => {
                               {drawing.is_folder ? (
                                 <button
                                   onClick={() => handleFolderClick(drawing)}
-                                  className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
+                                  className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left font-inter w-fit"
                                 >
                                   {drawing.drawing_name}
                                 </button>
                               ) : (
-                                <span onClick={() => handleView(drawing)} className="text-sm font-bold text-slate-800 font-inter hover:text-blue-600 hover:underline cursor-pointer">{drawing.drawing_name}</span>
+                                <span onClick={() => handleView(drawing)} className="text-sm font-bold text-slate-800 font-inter hover:text-blue-600 cursor-pointer">{drawing.drawing_name}</span>
                               )}
-                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                {drawing.file_url || (drawing.is_folder ? "Directory" : "Cloud Sync")}
-                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 font-inter">

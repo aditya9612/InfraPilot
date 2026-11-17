@@ -151,13 +151,17 @@ const WorkOrdersPage = () => {
       errors.rate = "Rate (₹): Must be greater than 0.";
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { isValid: Object.keys(errors).length === 0, errors };
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateWorkOrder()) {
-      toast.error("Please enter valid quantities and rates greater than 0");
+    const { isValid, errors } = validateWorkOrder();
+    if (!isValid) {
+      const messages: string[] = [];
+      if (errors.total_quantity) messages.push(errors.total_quantity);
+      if (errors.rate) messages.push(errors.rate);
+      toast.error(messages.length > 0 ? messages.join(" | ") : "Please resolve the validation errors");
       return;
     }
     try {
@@ -180,7 +184,10 @@ const WorkOrdersPage = () => {
         });
         if (Object.keys(backendErrors).length > 0) {
           setFormErrors(backendErrors);
-          toast.error("Please resolve the validation errors");
+          const messages: string[] = [];
+          if (backendErrors.total_quantity) messages.push(backendErrors.total_quantity);
+          if (backendErrors.rate) messages.push(backendErrors.rate);
+          toast.error(messages.length > 0 ? messages.join(" | ") : (Object.values(backendErrors).join(" | ") || "Please resolve the validation errors"));
           return;
         }
       }
@@ -190,8 +197,12 @@ const WorkOrdersPage = () => {
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateWorkOrder()) {
-      toast.error("Please enter valid quantities and rates greater than 0");
+    const { isValid, errors } = validateWorkOrder();
+    if (!isValid) {
+      const messages: string[] = [];
+      if (errors.total_quantity) messages.push(errors.total_quantity);
+      if (errors.rate) messages.push(errors.rate);
+      toast.error(messages.length > 0 ? messages.join(" | ") : "Please resolve the validation errors");
       return;
     }
     try {
@@ -215,7 +226,10 @@ const WorkOrdersPage = () => {
         });
         if (Object.keys(backendErrors).length > 0) {
           setFormErrors(backendErrors);
-          toast.error("Please resolve the validation errors");
+          const messages: string[] = [];
+          if (backendErrors.total_quantity) messages.push(backendErrors.total_quantity);
+          if (backendErrors.rate) messages.push(backendErrors.rate);
+          toast.error(messages.length > 0 ? messages.join(" | ") : (Object.values(backendErrors).join(" | ") || "Please resolve the validation errors"));
           return;
         }
       }
@@ -449,7 +463,7 @@ const WorkOrdersPage = () => {
               <h3 className="text-lg font-bold text-slate-900 font-outfit">Create Work Order</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleCreate} noValidate className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project <span className="text-rose-500">*</span></label>
                 <select name="project_id" required value={formData.project_id} onChange={(e) => handleInputChange(e)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
@@ -482,7 +496,7 @@ const WorkOrdersPage = () => {
                     placeholder="e.g. 100"
                   />
                   {formErrors.total_quantity && (
-                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.total_quantity}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{formErrors.total_quantity}</p>
                   )}
                 </div>
                 <div>
@@ -499,7 +513,7 @@ const WorkOrdersPage = () => {
                     placeholder="e.g. 500"
                   />
                   {formErrors.rate && (
-                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.rate}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{formErrors.rate}</p>
                   )}
                 </div>
               </div>
@@ -520,7 +534,7 @@ const WorkOrdersPage = () => {
               <h3 className="text-lg font-bold text-slate-900 font-outfit">Update Work Order</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleEdit} className="p-6 space-y-4">
+            <form onSubmit={handleEdit} noValidate className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contractor</label>
                 <select name="contractor_id" value={formData.contractor_id} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors">
@@ -546,7 +560,7 @@ const WorkOrdersPage = () => {
                     className={`w-full bg-slate-50 border ${formErrors.total_quantity ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
                   />
                   {formErrors.total_quantity && (
-                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.total_quantity}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{formErrors.total_quantity}</p>
                   )}
                 </div>
                 <div>
@@ -568,7 +582,7 @@ const WorkOrdersPage = () => {
                     className={`w-full bg-slate-50 border ${formErrors.rate ? 'border-rose-500 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors`}
                   />
                   {formErrors.rate && (
-                    <p className="mt-1 text-[11px] font-bold text-rose-500 uppercase tracking-wider">{formErrors.rate}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-rose-500">{formErrors.rate}</p>
                   )}
                 </div>
                 <div>

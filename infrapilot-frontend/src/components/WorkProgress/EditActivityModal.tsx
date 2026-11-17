@@ -183,7 +183,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             Activity Mapping
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
               <select
                 required
@@ -200,7 +200,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClasses}>Work Order</label>
               <select
                 name="work_order_id"

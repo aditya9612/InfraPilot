@@ -92,7 +92,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(prev => ({ ...prev, project_id: "" }));
+      setFormData(prev => ({ ...prev, project_id: projectId ? String(projectId) : "" }));
 
       const fetchAllData = async () => {
         try {
@@ -192,16 +192,16 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   };
 
   const isBoqCompleted = (boq: any) => {
-    const boqId = Number(boq.id || boq.boq_id);
-    const boqName = (boq.item_name || boq.name || '').trim().toLowerCase();
+    const boqId = Number(boq.id || boq.boq_id || boq.item_id);
+    const boqName = (boq.item_name || boq.name || boq.title || boq.description || boq.item_description || '').trim().toLowerCase();
 
     // 1. Direct status/completion on BOQ item
     if (boq.is_completed === true) return true;
     const bStatus = (boq.status || '').toUpperCase().replace(/\s+/g, '_');
-    if (bStatus === 'COMPLETED' || bStatus === 'INACTIVE') return true;
+    if (bStatus === 'COMPLETED' || bStatus.includes('COMPLET') || bStatus === 'INACTIVE') return true;
 
-    const boqQty = Number(boq.quantity);
-    const boqActual = Number(boq.actual_quantity);
+    const boqQty = Number(boq.quantity || boq.total_quantity || 0);
+    const boqActual = Number(boq.actual_quantity || boq.completed_quantity || 0);
     if (!isNaN(boqQty) && !isNaN(boqActual) && boqQty > 0 && boqActual >= boqQty) {
       return true;
     }
@@ -210,8 +210,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     const relatedActs = existingActivities.filter(a => {
       const aBoqId = Number(a.boq_item_id || a.boq_code || a.boq_id);
       if (boqId > 0 && aBoqId > 0 && aBoqId === boqId) return true;
-      const aName = (a.activity_name || '').trim().toLowerCase();
-      if (boqName && aName && aName === boqName) return true;
+      const aName = (a.activity_name || a.title || a.name || '').trim().toLowerCase();
+      if (boqName && aName && (aName === boqName || aName.includes(boqName) || boqName.includes(aName))) return true;
       return false;
     });
 
@@ -227,6 +227,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
         return (
           st === 'COMPLETED' ||
+          st.includes('COMPLET') ||
           pct >= 100 ||
           (planned > 0 && remaining <= 0) ||
           (planned > 0 && completed >= planned)
@@ -245,12 +246,12 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   };
 
   const isWorkOrderCompleted = (wo: any) => {
-    const woId = Number(wo.id);
+    const woId = Number(wo.id || wo.work_order_id);
     const woStatus = (wo.status || '').toUpperCase().replace(/\s+/g, '_');
-    const woDesc = (wo.work_description || wo.work_order_number || '').trim().toLowerCase();
+    const woDesc = (wo.work_description || wo.work_order_number || wo.name || wo.title || '').trim().toLowerCase();
 
     // 1. Direct status or quantity on Work Order
-    if (woStatus === 'COMPLETED' || woStatus === 'CANCELLED' || woStatus === 'INACTIVE') {
+    if (woStatus === 'COMPLETED' || woStatus.includes('COMPLET') || woStatus === 'CANCELLED' || woStatus === 'INACTIVE') {
       return true;
     }
     const totalQty = Number(wo.total_quantity || 0);
@@ -263,8 +264,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     const relatedActs = existingActivities.filter(a => {
       const aWoId = Number(a.work_order_id);
       if (woId > 0 && aWoId > 0 && aWoId === woId) return true;
-      const aName = (a.activity_name || '').trim().toLowerCase();
-      if (woDesc && aName && aName.includes(woDesc)) return true;
+      const aName = (a.activity_name || a.title || a.name || '').trim().toLowerCase();
+      if (woDesc && aName && (aName.includes(woDesc) || woDesc.includes(aName))) return true;
       return false;
     });
 
@@ -280,6 +281,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
         return (
           st === 'COMPLETED' ||
+          st.includes('COMPLET') ||
           pct >= 100 ||
           (planned > 0 && remaining <= 0) ||
           (planned > 0 && completed >= planned)
@@ -531,7 +533,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               {errors.project_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.project_id}</p>}
             </div>
 
-            <div className="relative font-inter" ref={boqDropdownRef}>
+            <div className="relative font-inter min-w-0" ref={boqDropdownRef}>
               <label className={labelClasses}>BOQ Item <span className="text-rose-500">*</span></label>
               <div className="relative">
                 <button
@@ -575,30 +577,35 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                       {displayedBoqs.length === 0 && (
                         <div className="px-4 py-3 text-xs text-slate-400 text-center font-medium">No eligible BOQ Items with pending quantities</div>
                       )}
-                      {displayedBoqs.map((b: any) => (
-                        <button
-                          key={b.id || b.boq_id}
-                          type="button"
-                          onClick={() => {
-                            handleChange({ target: { name: 'boq_item_id', value: b.id || b.boq_id } } as any);
-                            setOpenDropdown(null);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
-                            (formData.boq_item_id == (b.id || b.boq_id))
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          {b.item_name || `BOQ #${b.id || b.boq_id}`}
-                        </button>
-                      ))}
+                      {displayedBoqs.map((b: any) => {
+                        const boqLabel = b.item_name || `BOQ #${b.id || b.boq_id}`;
+                        return (
+                          <button
+                            key={b.id || b.boq_id}
+                            type="button"
+                            title={boqLabel}
+                            onClick={() => {
+                              handleChange({ target: { name: 'boq_item_id', value: b.id || b.boq_id } } as any);
+                              setOpenDropdown(null);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate block ${
+                              (formData.boq_item_id == (b.id || b.boq_id))
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            {boqLabel}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </div>
               {errors.boq_item_id && <p className="mt-1 text-[10px] text-red-500 font-bold ml-1 uppercase tracking-wider font-inter">{errors.boq_item_id}</p>}
             </div>
-            <div className="relative font-inter" ref={workOrderDropdownRef}>
+
+            <div className="relative font-inter min-w-0" ref={workOrderDropdownRef}>
               <label className={labelClasses}>Work Order</label>
               <div className="relative">
                 <button
@@ -642,23 +649,27 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                       {displayedWorkOrders.length === 0 && (
                         <div className="px-4 py-3 text-xs text-slate-400 text-center font-medium">No eligible Work Orders with pending quantities</div>
                       )}
-                      {displayedWorkOrders.map((w: any) => (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => {
-                            handleChange({ target: { name: 'work_order_id', value: w.id } } as any);
-                            setOpenDropdown(null);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
-                            (formData.work_order_id == w.id)
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          {w.work_description || w.work_order_number || `Work Order #${w.id}`}
-                        </button>
-                      ))}
+                      {displayedWorkOrders.map((w: any) => {
+                        const woLabel = w.work_description || w.work_order_number || `Work Order #${w.id}`;
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            title={woLabel}
+                            onClick={() => {
+                              handleChange({ target: { name: 'work_order_id', value: w.id } } as any);
+                              setOpenDropdown(null);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate block ${
+                              (formData.work_order_id == w.id)
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            {woLabel}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

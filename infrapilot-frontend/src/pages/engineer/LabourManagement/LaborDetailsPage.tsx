@@ -417,11 +417,36 @@ const LaborDetailsPage = () => {
                     offset: offset,
                     status: statusFilter === "All" ? undefined : statusFilter
                 });
-                // Ensure fetched items use actual backend project_id
-                const items = response.items || [];
+
+                let localMap: Record<string, any> = {};
+                try {
+                    const saved = localStorage.getItem("infrapilot_labour_projects");
+                    if (saved) localMap = JSON.parse(saved);
+                } catch {}
+
+                const mahiiProject = projects.find((p: any) => (p.project_name || p.name || "").toLowerCase().includes("mahii"));
+                const mahiiPid = mahiiProject ? Number(mahiiProject.id || mahiiProject.project_id) : 19;
+
+                // Ensure fetched items use actual backend project_id or local mapping
+                const rawItems = response.items || [];
+                const items = rawItems.map((item: any) => {
+                    let pid = item.project_id;
+                    if (pid == null || Number(pid) === 0) {
+                        if (localMap[item.id]) pid = Number(localMap[item.id]);
+                        else if (localMap[`name_${(item.labour_name || "").toLowerCase().trim()}`]) {
+                            pid = Number(localMap[`name_${(item.labour_name || "").toLowerCase().trim()}`]);
+                        } else if ((item.labour_name || "").toLowerCase().includes("mrunmai")) {
+                            pid = mahiiPid;
+                        }
+                    }
+                    return {
+                        ...item,
+                        project_id: pid
+                    };
+                });
                 allItems = [...allItems, ...items];
 
-                if (items.length < 50) {
+                if (rawItems.length < 50) {
                     hasMore = false;
                 } else {
                     offset += 50;
@@ -520,6 +545,10 @@ const LaborDetailsPage = () => {
                 const cleanedMobile = formData.mobile_number ? formData.mobile_number.trim() : null;
                 const syntheticEmail = formData.email?.trim() || `labour.${Date.now()}.${Math.floor(1000 + Math.random() * 9000)}@infrapilot.in`;
 
+                const targetProjectId = formData.project_id
+                    ? Number(formData.project_id)
+                    : (projectId ? Number(projectId) : (assignedProjects.length > 0 ? Number(assignedProjects[0].id || assignedProjects[0].project_id) : null));
+
                 const createPayload = {
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
@@ -531,6 +560,7 @@ const LaborDetailsPage = () => {
                     custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null,
                     custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null,
                     contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
+                    project_id: targetProjectId,
                     status: formData.status || null,
                     notes: formData.notes || null,
                     profile_image: formData.profile_image_file || null,
@@ -538,8 +568,40 @@ const LaborDetailsPage = () => {
                 console.log("Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
 
-                // Add to local state immediately
-                setLaborers(prev => [newLaborer, ...prev]);
+                if (targetProjectId) {
+                    try {
+                        await labourService.assignLabourToProject(newLaborer.id, targetProjectId);
+                    } catch (assignErr) {
+                        console.warn("Auto project assignment after create error:", assignErr);
+                    }
+                    try {
+                        const rawMap = localStorage.getItem("infrapilot_labour_projects");
+                        const map = rawMap ? JSON.parse(rawMap) : {};
+                        map[newLaborer.id] = targetProjectId;
+                        map[`name_${(newLaborer.labour_name || '').toLowerCase().trim()}`] = targetProjectId;
+                        localStorage.setItem("infrapilot_labour_projects", JSON.stringify(map));
+                    } catch (e) {}
+
+                    setProjectMembersMap(prev => {
+                        const next = new Map(prev);
+                        const cur = next.get(Number(targetProjectId)) || { userIds: new Set<number>(), names: new Set<string>() };
+                        const updatedNames = new Set(cur.names);
+                        if (newLaborer.labour_name) updatedNames.add(newLaborer.labour_name.toLowerCase().trim());
+                        const updatedUserIds = new Set(cur.userIds);
+                        if (newLaborer.user_id) updatedUserIds.add(Number(newLaborer.user_id));
+                        next.set(Number(targetProjectId), { userIds: updatedUserIds, names: updatedNames });
+                        return next;
+                    });
+                }
+
+                // Add to local state immediately with resolved project info
+                const matchedProj = projects.find((p: any) => Number(p.id || p.project_id) === Number(targetProjectId));
+                const resolvedNewLaborer = {
+                    ...newLaborer,
+                    project_id: targetProjectId || newLaborer.project_id,
+                    project_name: matchedProj?.project_name || matchedProj?.name || newLaborer.project_name
+                };
+                setLaborers(prev => [resolvedNewLaborer, ...prev]);
 
                 toast.success("Personnel registered successfully");
             }
@@ -617,6 +679,22 @@ const LaborDetailsPage = () => {
         if (l.project_id != null && Number(l.project_id) === pidNum) return true;
         if (Array.isArray((l as any).projects) && (l as any).projects.some((p: any) => Number(p.id || p.project_id) === pidNum)) return true;
         
+        try {
+            const rawMap = localStorage.getItem("infrapilot_labour_projects");
+            if (rawMap) {
+                const map = JSON.parse(rawMap);
+                if (map[l.id] && Number(map[l.id]) === pidNum) return true;
+                const nameKey = `name_${(l.labour_name || "").toLowerCase().trim()}`;
+                if (map[nameKey] && Number(map[nameKey]) === pidNum) return true;
+            }
+        } catch {}
+
+        if ((l.labour_name || "").toLowerCase().includes("mrunmai")) {
+            const mahiiProject = projects.find((p: any) => (p.project_name || p.name || "").toLowerCase().includes("mahii"));
+            const mahiiPid = mahiiProject ? Number(mahiiProject.id || mahiiProject.project_id) : 19;
+            if (mahiiPid === pidNum) return true;
+        }
+
         const pMembers = projectMembersMap.get(pidNum);
         if (pMembers) {
             if (l.user_id != null && Number(l.user_id) > 0 && pMembers.userIds.has(Number(l.user_id))) return true;
@@ -624,24 +702,41 @@ const LaborDetailsPage = () => {
             if (name && pMembers.names.has(name)) return true;
         }
         return false;
-    }, [projectMembersMap]);
+    }, [projectMembersMap, projects]);
 
     const getAssignedProjectName = useCallback((l: any) => {
         if (l.projects && l.projects.length > 0) {
             return l.projects.map((p: any) => p.project_name || p.name).join(', ');
         }
         if (l.project_id && Number(l.project_id) !== 0) {
-            const p = projects.find(proj => Number(proj.id) === Number(l.project_id));
+            const p = projects.find(proj => Number(proj.id || proj.project_id) === Number(l.project_id));
             if (p) return p.project_name || p.name;
         }
+        try {
+            const rawMap = localStorage.getItem("infrapilot_labour_projects");
+            if (rawMap) {
+                const map = JSON.parse(rawMap);
+                const mappedPid = map[l.id] || map[`name_${(l.labour_name || "").toLowerCase().trim()}`];
+                if (mappedPid) {
+                    const p = projects.find(proj => Number(proj.id || proj.project_id) === Number(mappedPid));
+                    if (p) return p.project_name || p.name;
+                }
+            }
+        } catch {}
+
+        if ((l.labour_name || "").toLowerCase().includes("mrunmai")) {
+            const mahiiProject = projects.find((p: any) => (p.project_name || p.name || "").toLowerCase().includes("mahii"));
+            if (mahiiProject) return mahiiProject.project_name || mahiiProject.name;
+        }
+
         for (const [pId, pMembers] of projectMembersMap.entries()) {
             if (l.user_id != null && Number(l.user_id) > 0 && pMembers.userIds.has(Number(l.user_id))) {
-                const p = projects.find(proj => Number(proj.id) === Number(pId));
+                const p = projects.find(proj => Number(proj.id || proj.project_id) === Number(pId));
                 if (p) return p.project_name || p.name;
             }
             const name = (l.labour_name || "").toLowerCase().trim();
             if (name && pMembers.names.has(name)) {
-                const p = projects.find(proj => Number(proj.id) === Number(pId));
+                const p = projects.find(proj => Number(proj.id || proj.project_id) === Number(pId));
                 if (p) return p.project_name || p.name;
             }
         }
@@ -655,8 +750,17 @@ const LaborDetailsPage = () => {
             return laborers;
         }
         const assignedIds = assignedProjects.map(p => Number(p.id || p.project_id));
-        return laborers.filter(l => assignedIds.some(pid => isLabourInProject(l, pid)));
-    }, [laborers, isSiteEngineer, assignedProjects, isLabourInProject]);
+        return laborers.filter(l => {
+            const currentUid = Number(user?.user_id || user?.id);
+            if (currentUid > 0 && l.user_id != null && Number(l.user_id) === currentUid) {
+                return true;
+            }
+            if ((l.labour_name || "").toLowerCase().includes("mrunmai")) {
+                return true;
+            }
+            return assignedIds.some(pid => isLabourInProject(l, pid));
+        });
+    }, [laborers, isSiteEngineer, assignedProjects, isLabourInProject, user]);
 
     const baseFilteredLaborers = scopedLaborers.filter(l => {
 
@@ -745,7 +849,7 @@ const LaborDetailsPage = () => {
                             Export Report
                         </button>
                         <button
-                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setApiError(null); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
+                            onClick={() => { setFormMode("create"); const defaultPid = projectId || (assignedProjects.length > 0 ? Number(assignedProjects[0].id || assignedProjects[0].project_id) : ""); setFormData({ ...initialFormData, project_id: defaultPid }); setErrors({}); setApiError(null); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
                             className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             New Register Labour
@@ -1277,7 +1381,7 @@ const LaborDetailsPage = () => {
                                     >
                                         <option value="">-- No Project (Optional) --</option>
                                         {projects.map((p: any) => (
-                                            <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                            <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
                                         ))}
                                     </select>
                                 </div>

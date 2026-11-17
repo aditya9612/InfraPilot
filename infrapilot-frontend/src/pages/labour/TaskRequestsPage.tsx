@@ -705,22 +705,23 @@ const TaskRequestsPage: React.FC = () => {
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Photo Attachment
                                     </label>
-                                    <div className="relative h-[96px]">
+                                    <div className="relative h-11">
                                         {attachmentPreview ? (
-                                            <div className="relative w-full h-full rounded-xl border border-indigo-300 overflow-hidden bg-slate-50">
-                                                <img src={attachmentPreview} alt="preview" className="w-full h-full object-cover" />
+                                            <div className="relative w-full h-full rounded-xl border border-indigo-300 overflow-hidden bg-slate-50 flex items-center px-3">
+                                                <img src={attachmentPreview} alt="preview" className="w-7 h-7 rounded-lg object-cover mr-2 shrink-0" />
+                                                <span className="text-xs font-bold text-slate-600 truncate flex-1">{attachmentFileName || "Photo selected"}</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => { setAttachmentPreview(null); setAttachmentUrl(''); setAttachmentFile(null); setAttachmentFileName(''); }}
-                                                    className="absolute top-1.5 right-1.5 w-6 h-6 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 cursor-pointer"
+                                                    className="w-5 h-5 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 cursor-pointer ml-1 shrink-0"
                                                 >
-                                                    <X className="w-3.5 h-3.5" />
+                                                    <X className="w-3 h-3" />
                                                 </button>
                                             </div>
                                         ) : (
-                                            <label className="flex flex-col items-center justify-center gap-1 w-full h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 transition-all group">
-                                                <ImagePlus className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-600">Upload Photo</span>
+                                            <label className="flex items-center justify-center gap-2 w-full h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 transition-all group px-4">
+                                                <ImagePlus className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                                <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-600">Upload Photo</span>
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -756,20 +757,20 @@ const TaskRequestsPage: React.FC = () => {
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Assigned To
                                     </label>
-                                    <div className="h-[96px] flex items-center px-4 bg-slate-50 border border-slate-200 rounded-xl focus-within:border-indigo-500 focus-within:bg-white transition-all relative">
+                                    <div className="relative h-11">
                                         <select
                                             value={assignedTo ? String(assignedTo) : ''}
                                             onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : 0)}
-                                            className="w-full h-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer pr-8 z-10"
+                                            className="w-full h-full px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white appearance-none cursor-pointer pr-10 transition-all"
                                         >
-                                            <option value="">{loadingUsers ? "Loading assignable members..." : "Select Person / Engineer (Optional)"}</option>
+                                            <option value="">{loadingUsers ? "Loading assignees..." : "Select Assignee (Optional)"}</option>
                                             {usersList.map((u) => (
                                                 <option key={u.id} value={String(u.id)}>
                                                     {u.name} {u.role ? `(${u.role})` : ''}
                                                 </option>
                                             ))}
                                         </select>
-                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-0" />
+                                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>

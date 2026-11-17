@@ -120,7 +120,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest max-w-full truncate" title={`BOQ: ${boqName}`}>
               <span className="truncate">BOQ: {boqName}</span>
             </div>
-            <h3 className="text-xl sm:text-2xl font-black [overflow-wrap:anywhere] leading-snug">
+            <h3 className="text-xl sm:text-2xl font-black break-words leading-snug">
               {activity.activity_name}
             </h3>
           </div>
@@ -145,70 +145,70 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         {/* Info Grid with break-all and consistent date formatting */}
         <div className="p-6 sm:p-8 space-y-6 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created At</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Created At</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.created_at ? formatDateTimeToIST(activity.created_at) : "-"}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Completed</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Total Completed</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.total_completed} {activity.unit}</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Updated At</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Updated At</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.updated_at ? formatDateTimeToIST(activity.updated_at) : "-"}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Remaining Quantity</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Remaining Quantity</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.remaining_quantity} {activity.unit}</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Activity Name</p>
-              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{activity.activity_name}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Activity Name</p>
+              <p className="text-sm font-bold text-slate-700 break-words" title={activity.activity_name}>{activity.activity_name}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">BOQ Name / Code</p>
-              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{boqName}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">BOQ Name / Code</p>
+              <p className="text-sm font-bold text-slate-700 break-words" title={boqName}>{boqName}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Completion Percentage</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Completion Percentage</p>
               <p className="text-sm font-bold text-slate-700 break-words">{Number(activity.completion_percentage || 0).toFixed(1)}%</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Planned Quantity</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Planned Quantity</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.planned_quantity} {activity.unit}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Unit</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Unit</p>
               <p className="text-sm font-bold text-slate-700 break-words">{activity.unit}</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Status</p>
               <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-lg ${statusBadge[activity.status] || "bg-slate-100 text-slate-500"}`}>
                 {activity.status}
               </span>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Start Date</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Start Date</p>
               <p className="text-sm font-bold text-slate-700 break-words">{formatDateBySettings(activity.start_date)}</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">End Date</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">End Date</p>
               <p className="text-sm font-bold text-slate-700 break-words">{formatDateBySettings(activity.end_date)}</p>
             </div>
 
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order</p>
-              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{workOrderName}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Work Order</p>
+              <p className="text-sm font-bold text-slate-700 break-words" title={workOrderName}>{workOrderName}</p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Engineer Name</p>
-              <p className="text-sm font-bold text-slate-700 [overflow-wrap:anywhere]">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Engineer Name</p>
+              <p className="text-sm font-bold text-slate-700 break-words" title={engineerName}>{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
             </div>
           </div>
         </div>

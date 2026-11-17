@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import { ArrowRight } from "lucide-react";
+import { CustomSelect } from "../common/CustomDropdown";
 
 const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSubmit }: any) => {
     const [formData, setFormData] = useState({
@@ -35,21 +36,20 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="md:col-span-2">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Equipment <span className="text-rose-500">*</span></label>
-                        <select
+                        <CustomSelect
                             value={formData.equipment_id}
-                            onChange={e => {
-                                const eqId = e.target.value;
-                                const eq = equipmentList.find((x: any) => x.id === Number(eqId));
-                                setFormData(prev => ({ ...prev, equipment_id: eqId, source_project_id: eq?.project_id || "" }));
+                            onChange={(val: any) => {
+                                const eq = equipmentList.find((x: any) => String(x.id) === String(val));
+                                setFormData(prev => ({ ...prev, equipment_id: val ? String(val) : "", source_project_id: eq?.project_id ? String(eq.project_id) : "" }));
                             }}
-                            required
-                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                        >
-                            <option value="">-- Choose Equipment --</option>
-                            {equipmentList.map((eq: any) => (
-                                <option key={eq.id} value={eq.id}>{eq.equipment_name} (Code: {eq.equipment_code})</option>
-                            ))}
-                        </select>
+                            options={equipmentList.map((eq: any) => ({
+                                id: String(eq.id),
+                                label: `${eq.equipment_name} (Code: ${eq.equipment_code})`
+                            }))}
+                            placeholder="-- Choose Equipment --"
+                            maxHeight="max-h-48"
+                            searchable={equipmentList.length > 5}
+                        />
                     </div>
                 </div>
 
@@ -70,18 +70,20 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
 
                         <div className="flex-1 w-full">
                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Target Project <span className="text-rose-500">*</span></label>
-                            <select
+                            <CustomSelect
                                 value={formData.target_project_id}
-                                onChange={e => setFormData({ ...formData, target_project_id: e.target.value })}
-                                required
-                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                            >
-                                <option value="">-- Choose Target Project --</option>
-                                <option value="0">Global / Unassigned</option>
-                                {projects.filter((p: any) => p.id !== Number(formData.source_project_id)).map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.project_name}</option>
-                                ))}
-                            </select>
+                                onChange={(val: any) => setFormData({ ...formData, target_project_id: val ? String(val) : "" })}
+                                options={[
+                                    { id: "0", label: "Global / Unassigned" },
+                                    ...projects.filter((p: any) => p.id !== Number(formData.source_project_id)).map((p: any) => ({
+                                        id: String(p.id),
+                                        label: p.project_name || p.name || `Project #${p.id}`
+                                    }))
+                                ]}
+                                placeholder="-- Choose Target Project --"
+                                maxHeight="max-h-48"
+                                searchable={projects.length > 5}
+                            />
                         </div>
                     </div>
                 </div>

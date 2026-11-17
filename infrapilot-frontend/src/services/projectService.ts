@@ -470,7 +470,7 @@ export const projectService = {
   async getTaskRequests(params?: number | { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number; page?: number; page_size?: number }) {
     try {
       const inputParams = typeof params === 'number' ? { project_id: params } : (params || {});
-      const queryParams = { page: 1, page_size: 100, ...inputParams };
+      const queryParams = { page: 1, page_size: 100, limit: 100, skip: 0, ...inputParams };
       const response = await api.get('projects/task-requests', { params: queryParams });
       const data = response.data;
       return Array.isArray(data) ? data : (data?.items || data?.data || []);

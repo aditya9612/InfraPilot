@@ -1226,7 +1226,7 @@ const LabourTaskDetailPage = () => {
                                 </select>
                             </div>
 
-                            {/* Activity Type ID */}
+                            {/* Activity Type */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
@@ -1244,7 +1244,7 @@ const LabourTaskDetailPage = () => {
                                 </select>
                             </div>
 
-                            {/* Milestone ID */}
+                            {/* Milestone */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
@@ -1262,7 +1262,7 @@ const LabourTaskDetailPage = () => {
                                 </select>
                             </div>
 
-                            {/* BOQ ID */}
+                            {/* BOQ Item */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>

@@ -50,13 +50,11 @@ const MilestoneDetailsModal = ({
         return member.full_name;
     };
 
-    const priorityBadges: Record<any, string> = {
-        HIGH: "bg-rose-500 text-white",
-        MEDIUM: "bg-amber-500 text-white",
-        LOW: "bg-blue-500 text-white",
-        1: "bg-rose-500 text-white",
-        2: "bg-amber-500 text-white",
-        3: "bg-blue-500 text-white"
+    const getPriorityBadgeClass = (priority: any): string => {
+        const p = String(priority || '').trim().toUpperCase();
+        if (p === 'HIGH' || p === '1' || p === 'CRITICAL' || p === '4') return 'bg-rose-500 text-white';
+        if (p === 'MEDIUM' || p === '2') return 'bg-blue-500 text-white';
+        return 'bg-emerald-500 text-white';
     };
 
     return (
